@@ -14,8 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { initialCompliancePlanData } from "@/data/compliancePlan";
 import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from "@/types/compliance";
+import { usePlanData } from "@/contexts/PlanDataContext";
 import { ListTodo, PlusCircle, Edit2, Trash2, MoreVertical, ChevronDown, CheckSquare } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -47,7 +47,7 @@ const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => {
   if (iconName && iconMap[iconName]) {
     return iconMap[iconName];
   }
-  return LucideIcons.ListTodo; // Default icon
+  return LucideIcons.ListTodo; 
 };
 
 const categorySchema = z.object({
@@ -65,14 +65,30 @@ type SubCategoryFormValues = z.infer<typeof subCategorySchema>;
 const taskSchema = z.object({
   name: z.string().min(1, "Le nom de la tâche est requis."),
   description: z.string().optional(),
-  // completed: z.boolean().default(false) // No longer needed here as it's handled in data
 });
 type TaskFormValues = z.infer<typeof taskSchema>;
 
 export default function PlanPage() {
-  const [planData, setPlanData] = React.useState<ComplianceCategory[]>(initialCompliancePlanData);
+  const { 
+    planData, 
+    updateTaskCompletion,
+    addCategory: addCategoryContext,
+    editCategory: editCategoryContext,
+    removeCategory: removeCategoryContext,
+    addSubCategory: addSubCategoryContext,
+    editSubCategory: editSubCategoryContext,
+    removeSubCategory: removeSubCategoryContext,
+    addTask: addTaskContext,
+    editTask: editTaskContext,
+    removeTask: removeTaskContext,
+   } = usePlanData();
   const [activeAccordionItems, setActiveAccordionItems] = React.useState<string[]>(planData.map(cat => cat.id));
   const { toast } = useToast();
+
+  React.useEffect(() => {
+    setActiveAccordionItems(planData.map(cat => cat.id));
+  }, [planData]);
+
 
   const [dialogState, setDialogState] = React.useState<{
     type: "category" | "subCategory" | "task" | null;
@@ -91,7 +107,7 @@ export default function PlanPage() {
     if (mode === "edit") {
       if (type === "category") categoryForm.reset(data);
       else if (type === "subCategory") subCategoryForm.reset(data);
-      else if (type === "task") taskForm.reset({name: data.name, description: data.description}); // Exclude 'completed' from form
+      else if (type === "task") taskForm.reset({name: data.name, description: data.description});
     } else {
       if (type === "category") categoryForm.reset({ name: "", icon: availableIcons[0] });
       else if (type === "subCategory") subCategoryForm.reset({ name: "", icon: availableIcons[0] });
@@ -100,93 +116,65 @@ export default function PlanPage() {
   };
   const closeDialog = () => setDialogState({ type: null, mode: null });
 
-  // Category CRUD
   const handleAddCategory = (values: CategoryFormValues) => {
-    setPlanData([...planData, { ...values, id: Date.now().toString(), subCategories: [] }]);
+    addCategoryContext(values);
     toast({ title: "Catégorie ajoutée", description: `La catégorie "${values.name}" a été ajoutée.` });
     closeDialog();
   };
   const handleEditCategory = (values: CategoryFormValues) => {
-    setPlanData(planData.map(cat => cat.id === dialogState.data?.id ? { ...cat, ...values } : cat));
-    toast({ title: "Catégorie modifiée", description: `La catégorie "${values.name}" a été modifiée.` });
+    if(dialogState.data?.id) {
+      editCategoryContext(dialogState.data.id, values);
+      toast({ title: "Catégorie modifiée", description: `La catégorie "${values.name}" a été modifiée.` });
+    }
     closeDialog();
   };
   const handleRemoveCategory = (categoryId: string) => {
-    setPlanData(planData.filter(cat => cat.id !== categoryId));
+    removeCategoryContext(categoryId);
     toast({ title: "Catégorie supprimée", description: `La catégorie a été supprimée.` });
   };
 
-  // SubCategory CRUD
   const handleAddSubCategory = (values: SubCategoryFormValues) => {
-    setPlanData(planData.map(cat => cat.id === dialogState.parentId ? { ...cat, subCategories: [...cat.subCategories, { ...values, id: Date.now().toString(), tasks: [] }] } : cat));
-    toast({ title: "Sous-catégorie ajoutée", description: `La sous-catégorie "${values.name}" a été ajoutée.` });
+    if(dialogState.parentId) {
+      addSubCategoryContext(dialogState.parentId, values);
+      toast({ title: "Sous-catégorie ajoutée", description: `La sous-catégorie "${values.name}" a été ajoutée.` });
+    }
     closeDialog();
   };
   const handleEditSubCategory = (values: SubCategoryFormValues) => {
-    setPlanData(planData.map(cat => cat.id === dialogState.grandParentId ? {
-      ...cat,
-      subCategories: cat.subCategories.map(sub => sub.id === dialogState.data?.id ? { ...sub, ...values } : sub)
-    } : cat));
-    toast({ title: "Sous-catégorie modifiée", description: `La sous-catégorie "${values.name}" a été modifiée.` });
+    if(dialogState.grandParentId && dialogState.data?.id) {
+      editSubCategoryContext(dialogState.grandParentId, dialogState.data.id, values);
+      toast({ title: "Sous-catégorie modifiée", description: `La sous-catégorie "${values.name}" a été modifiée.` });
+    }
     closeDialog();
   };
   const handleRemoveSubCategory = (categoryId: string, subCategoryId: string) => {
-    setPlanData(planData.map(cat => cat.id === categoryId ? { ...cat, subCategories: cat.subCategories.filter(sub => sub.id !== subCategoryId) } : cat));
+    removeSubCategoryContext(categoryId, subCategoryId);
     toast({ title: "Sous-catégorie supprimée", description: `La sous-catégorie a été supprimée.` });
   };
 
-  // Task CRUD
   const handleAddTask = (values: TaskFormValues) => {
-    setPlanData(planData.map(cat => cat.id === dialogState.grandParentId ? {
-      ...cat,
-      subCategories: cat.subCategories.map(sub => sub.id === dialogState.parentId ? { ...sub, tasks: [...sub.tasks, { ...values, id: Date.now().toString(), completed: false }] } : sub)
-    } : cat));
-    toast({ title: "Tâche ajoutée", description: `La tâche "${values.name}" a été ajoutée.` });
+    if(dialogState.grandParentId && dialogState.parentId) {
+      addTaskContext(dialogState.grandParentId, dialogState.parentId, values);
+      toast({ title: "Tâche ajoutée", description: `La tâche "${values.name}" a été ajoutée.` });
+    }
     closeDialog();
   };
   const handleEditTask = (values: TaskFormValues) => {
-    setPlanData(planData.map(cat => cat.id === dialogState.grandParentId ? {
-      ...cat,
-      subCategories: cat.subCategories.map(sub => sub.id === dialogState.parentId ? {
-        ...sub,
-        tasks: sub.tasks.map(task => task.id === dialogState.data?.id ? { ...task, ...values } : task) // completed status is preserved
-      } : sub)
-    } : cat));
-    toast({ title: "Tâche modifiée", description: `La tâche "${values.name}" a été modifiée.` });
+     if(dialogState.grandParentId && dialogState.parentId && dialogState.data?.id) {
+      editTaskContext(dialogState.grandParentId, dialogState.parentId, dialogState.data.id, values);
+      toast({ title: "Tâche modifiée", description: `La tâche "${values.name}" a été modifiée.` });
+    }
     closeDialog();
   };
   const handleRemoveTask = (categoryId: string, subCategoryId: string, taskId: string) => {
-    setPlanData(planData.map(cat => cat.id === categoryId ? {
-      ...cat,
-      subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: sub.tasks.filter(task => task.id !== taskId) } : sub)
-    } : cat));
+    removeTaskContext(categoryId, subCategoryId, taskId);
     toast({ title: "Tâche supprimée", description: `La tâche a été supprimée.` });
   };
 
   const handleToggleTaskCompletion = (categoryId: string, subCategoryId: string, taskId: string) => {
-    setPlanData(prevPlanData =>
-      prevPlanData.map(cat =>
-        cat.id === categoryId
-          ? {
-              ...cat,
-              subCategories: cat.subCategories.map(sub =>
-                sub.id === subCategoryId
-                  ? {
-                      ...sub,
-                      tasks: sub.tasks.map(task =>
-                        task.id === taskId
-                          ? { ...task, completed: !task.completed }
-                          : task
-                      ),
-                    }
-                  : sub
-              ),
-            }
-          : cat
-      )
-    );
     const task = planData.find(c => c.id === categoryId)?.subCategories.find(sc => sc.id === subCategoryId)?.tasks.find(t => t.id === taskId);
     if (task) {
+        updateTaskCompletion(categoryId, subCategoryId, taskId, !task.completed);
         toast({
             title: "Statut de la tâche modifié",
             description: `La tâche "${task.name}" est maintenant ${!task.completed ? "complétée" : "non complétée"}.`,
@@ -198,10 +186,12 @@ export default function PlanPage() {
     const Icon = getIconComponent(iconName);
     return <Icon className="h-6 w-6 text-primary" />;
   };
+  
   const SubCategoryIconComponent = ({ iconName }: { iconName?: string }) => {
     const Icon = getIconComponent(iconName);
     return <Icon className="h-5 w-5 mr-2 text-accent" />;
   };
+
 
   return (
     <div className="space-y-6">
@@ -239,7 +229,7 @@ export default function PlanPage() {
                     <span className="text-xl font-headline font-medium">{category.name}</span>
                   </div>
                 </ShadcnAccordionTrigger>
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity pl-3" onClick={(e) => e.stopPropagation()}>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity pl-3">
                   <AlertDialog>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

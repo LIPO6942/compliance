@@ -1,5 +1,7 @@
+
 "use client";
 
+import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -7,39 +9,85 @@ import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Li
 import Image from "next/image";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
+import { usePlanData } from "@/contexts/PlanDataContext";
+import { useDocuments } from "@/contexts/DocumentsContext";
+import type { ComplianceCategory, ComplianceTask } from "@/types/compliance";
+import type { Document } from "@/types/compliance";
 
-const complianceStatusData = [
-  { status: "Conforme", value: 85, fill: "hsl(var(--chart-1))" },
-  { status: "En Cours", value: 10, fill: "hsl(var(--chart-4))" },
-  { status: "Non Conforme", value: 5, fill: "hsl(var(--destructive))" },
-];
 
-const chartConfig = {
+const complianceStatusBaseColors = {
+  conforme: "hsl(var(--chart-1))",
+  enCours: "hsl(var(--chart-4))",
+  nonConforme: "hsl(var(--destructive))",
+};
+
+const initialChartConfig: ChartConfig = {
   value: {
     label: "Pourcentage",
   },
   conforme: {
     label: "Conforme",
-    color: "hsl(var(--chart-1))",
+    color: complianceStatusBaseColors.conforme,
   },
   enCours: {
     label: "En Cours",
-    color: "hsl(var(--chart-4))",
+    color: complianceStatusBaseColors.enCours,
   },
   nonConforme: {
     label: "Non Conforme",
-    color: "hsl(var(--destructive))",
+    color: complianceStatusBaseColors.nonConforme,
   },
 } satisfies ChartConfig
 
-const taskProgressData = [
-  { name: 'LAB-FT', completed: 30, pending: 10, overdue: 2 },
-  { name: 'Veille Reg.', completed: 45, pending: 5, overdue: 1 },
-  { name: 'Contrôles', completed: 20, pending: 15, overdue: 3 },
-  { name: 'Formation', completed: 50, pending: 2, overdue: 0 },
-];
 
 export default function DashboardPage() {
+  const { planData } = usePlanData();
+  const { documents } = useDocuments();
+
+  // Calculate Active Tasks
+  const allTasks = planData.flatMap(category => category.subCategories.flatMap(subCategory => subCategory.tasks));
+  const activeTasksCount = allTasks.filter(task => !task.completed).length;
+  const overdueTasksCount = 0; // Placeholder as we don't have due dates
+
+  // Calculate Overall Compliance Level
+  const validatedDocuments = documents.filter(doc => doc.status === "Validé").length;
+  const totalDocuments = documents.length;
+  const overallCompliancePercentage = totalDocuments > 0 ? Math.round((validatedDocuments / totalDocuments) * 100) : 0;
+
+  // Prepare Compliance Status Chart Data
+  const conformeCount = documents.filter(d => d.status === "Validé").length;
+  const enCoursCount = documents.filter(d => d.status === "En Révision").length;
+  const nonConformeCount = documents.filter(d => d.status === "Obsolète").length;
+  const totalRelevantDocsForPie = conformeCount + enCoursCount + nonConformeCount;
+
+  const complianceStatusData = totalRelevantDocsForPie > 0 ? [
+    { status: "Conforme", value: Math.round((conformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.conforme },
+    { status: "En Cours", value: Math.round((enCoursCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.enCours },
+    { status: "Non Conforme", value: Math.round((nonConformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.nonConforme },
+  ].filter(item => item.value > 0) : [ // Ensure we don't pass 0-value items if not needed or adjust pie display
+    { status: "Conforme", value: 100, fill: complianceStatusBaseColors.conforme } 
+  ];
+   if (totalRelevantDocsForPie === 0) {
+    complianceStatusData.push(
+        { status: "Aucune Donnée", value: 100, fill: "hsl(var(--muted))" }
+    );
+   }
+
+
+  // Prepare Task Progress Chart Data
+  const taskProgressData = planData.map(category => {
+    const categoryTasks = category.subCategories.flatMap(sub => sub.tasks);
+    const completed = categoryTasks.filter(task => task.completed).length;
+    const pending = categoryTasks.filter(task => !task.completed).length;
+    return {
+      name: category.name.length > 15 ? category.name.substring(0, 12) + "..." : category.name, // Shorten name if too long
+      completed,
+      pending,
+      overdue: 0, // Placeholder
+    };
+  });
+
+
   return (
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -49,8 +97,10 @@ export default function DashboardPage() {
             <Activity className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-headline">12</div>
-            <p className="text-xs text-muted-foreground pt-1">Dont 3 en retard</p>
+            <div className="text-3xl font-bold font-headline">{activeTasksCount}</div>
+            <p className="text-xs text-muted-foreground pt-1">
+              {overdueTasksCount > 0 ? `Dont ${overdueTasksCount} en retard` : "Toutes les tâches suivies"}
+            </p>
           </CardContent>
         </Card>
 
@@ -71,8 +121,10 @@ export default function DashboardPage() {
             <Target className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-headline text-green-600">92%</div>
-            <p className="text-xs text-muted-foreground pt-1">Basé sur les derniers contrôles</p>
+            <div className={`text-3xl font-bold font-headline ${overallCompliancePercentage >= 80 ? 'text-green-600' : overallCompliancePercentage >=50 ? 'text-yellow-500' : 'text-red-600'}`}>
+                {overallCompliancePercentage}%
+            </div>
+            <p className="text-xs text-muted-foreground pt-1">Basé sur les documents validés</p>
           </CardContent>
         </Card>
       </div>
@@ -80,16 +132,16 @@ export default function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="font-headline">Statut de Conformité</CardTitle>
-            <CardDescription>Répartition des éléments de conformité par statut.</CardDescription>
+            <CardTitle className="font-headline">Statut de Conformité Documentaire</CardTitle>
+            <CardDescription>Répartition des documents par statut (Validé, En Révision, Obsolète).</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[300px]">
+            <ChartContainer config={initialChartConfig} className="mx-auto aspect-square max-h-[300px]">
               <PieChart>
                 <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="status" />} />
                 <Pie data={complianceStatusData} dataKey="value" nameKey="status" innerRadius={60} outerRadius={80} cy="50%">
-                   {complianceStatusData.map((entry) => (
-                    <Cell key={`cell-${entry.status}`} fill={entry.fill} />
+                   {complianceStatusData.map((entry, index) => (
+                    <Cell key={`cell-${index}-${entry.status}`} fill={entry.fill} />
                   ))}
                 </Pie>
                 <ChartLegend content={<ChartLegendContent nameKey="status" />} className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center" />
@@ -101,14 +153,14 @@ export default function DashboardPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline">Progression des Tâches par Domaine</CardTitle>
-            <CardDescription>Suivi des tâches complétées, en attente et en retard.</CardDescription>
+            <CardDescription>Suivi des tâches complétées et en attente par catégorie du plan d'organisation.</CardDescription>
           </CardHeader>
           <CardContent className="h-[340px]">
              <ResponsiveContainer width="100%" height="100%">
               <BarChart data={taskProgressData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-                <XAxis dataKey="name" tick={{fontSize: 12}}/>
-                <YAxis tick={{fontSize: 12}} />
+                <XAxis dataKey="name" tick={{fontSize: 12}} angle={-15} textAnchor="end" height={50} />
+                <YAxis tick={{fontSize: 12}} allowDecimals={false} />
                 <Tooltip contentStyle={{backgroundColor: 'hsl(var(--background))', borderRadius: 'var(--radius)', borderColor: 'hsl(var(--border))'}} labelStyle={{color: 'hsl(var(--foreground))', fontWeight: 'bold'}}/>
                 <Legend wrapperStyle={{fontSize: 12}}/>
                 <Bar dataKey="completed" stackId="a" fill="hsl(var(--chart-1))" name="Complétées" radius={[4, 4, 0, 0]} />
@@ -170,7 +222,7 @@ export default function DashboardPage() {
           icon={Users}
           title="Formations et Sensibilisation"
           description="Suivez les programmes de formation et les actions de sensibilisation."
-          href="/plan" // Assuming formation is part of plan page for now
+          href="/plan" 
           actionText="Voir les Formations"
         />
       </div>

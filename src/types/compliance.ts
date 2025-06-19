@@ -5,7 +5,7 @@ export interface ComplianceTask {
   id: string;
   name: string;
   description?: string;
-  completed: boolean; // Ajout du champ completed
+  completed: boolean;
 }
 
 export interface ComplianceSubCategory {
@@ -20,4 +20,18 @@ export interface ComplianceCategory {
   name: string;
   icon: string;
   subCategories: ComplianceSubCategory[];
+}
+
+// Document Types
+export type DocumentStatus = "Validé" | "En Révision" | "Archivé" | "Obsolète";
+export type DocumentType = "Politique" | "Procédure" | "Rapport" | "Support de Formation" | "Veille";
+
+export interface Document {
+  id: string;
+  name: string;
+  type: DocumentType;
+  version: string;
+  status: DocumentStatus;
+  lastUpdated: string;
+  owner: string;
 }
