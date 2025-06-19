@@ -1,64 +1,457 @@
+
 "use client";
 
+import * as React from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { compliancePlanData } from "@/data/compliancePlan";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { initialCompliancePlanData } from "@/data/compliancePlan";
 import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from "@/types/compliance";
-import { CheckSquare, ListTodo } from "lucide-react";
+import { CheckSquare, ListTodo, PlusCircle, Edit2, Trash2, MoreVertical, GripVertical } from "lucide-react";
+import * as LucideIcons from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useToast } from "@/hooks/use-toast";
+
+const iconMap: Record<string, LucideIcons.LucideIcon> = {
+  Gavel: LucideIcons.Gavel, ShieldAlert: LucideIcons.ShieldAlert, SearchCheck: LucideIcons.SearchCheck, ClipboardCheck: LucideIcons.ClipboardCheck,
+  Users: LucideIcons.Users, MessageSquareWarning: LucideIcons.MessageSquareWarning, FolderKanban: LucideIcons.FolderKanban, ListTodo: LucideIcons.ListTodo,
+  CheckSquare: LucideIcons.CheckSquare, Activity: LucideIcons.Activity, Archive: LucideIcons.Archive, Award: LucideIcons.Award, BarChart3: LucideIcons.BarChart3,
+  Bell: LucideIcons.Bell, BookOpen: LucideIcons.BookOpen, Briefcase: LucideIcons.Briefcase, Building: LucideIcons.Building, CalendarDays: LucideIcons.CalendarDays,
+  Edit3: LucideIcons.Edit3, FileDigit: LucideIcons.FileDigit, Filter: LucideIcons.Filter, Flag: LucideIcons.Flag, FolderOpen: LucideIcons.FolderOpen,
+  Globe2: LucideIcons.Globe2, Grid: LucideIcons.Grid, HardDrive: LucideIcons.HardDrive, HelpCircle: LucideIcons.HelpCircle, Home: LucideIcons.Home,
+  Info: LucideIcons.Info, KeyRound: LucideIcons.KeyRound, Layers2: LucideIcons.Layers2, LayoutGrid: LucideIcons.LayoutGrid, LifeBuoy: LucideIcons.LifeBuoy,
+  Link2: LucideIcons.Link2, ListChecks: LucideIcons.ListChecks, Lock: LucideIcons.Lock, Mail: LucideIcons.Mail, Map: LucideIcons.Map, Menu: LucideIcons.Menu,
+  MessageCircleQuestion: LucideIcons.MessageCircleQuestion, PenLine: LucideIcons.PenLine, PieChart: LucideIcons.PieChart, PlayCircle: LucideIcons.PlayCircle,
+  PlusCircle: LucideIcons.PlusCircle, Printer: LucideIcons.Printer, RadioTower: LucideIcons.RadioTower, Save: LucideIcons.Save, Search: LucideIcons.Search,
+  Settings2: LucideIcons.Settings2, Share2: LucideIcons.Share2, Sheet: LucideIcons.Sheet, SlidersHorizontal: LucideIcons.SlidersHorizontal, Star: LucideIcons.Star,
+  Table: LucideIcons.Table, Tag: LucideIcons.Tag, Target: LucideIcons.Target, TerminalSquare: LucideIcons.TerminalSquare, ThumbsUp: LucideIcons.ThumbsUp,
+  Trash: LucideIcons.Trash, UserCog: LucideIcons.UserCog, Video: LucideIcons.Video, WalletCards: LucideIcons.WalletCards, Zap: LucideIcons.Zap,
+  Eye: LucideIcons.Eye, FileSearch: LucideIcons.FileSearch, PackageCheck: LucideIcons.PackageCheck, Megaphone: LucideIcons.Megaphone, MailWarning: LucideIcons.MailWarning,
+  Siren: LucideIcons.Siren, Projector: LucideIcons.Projector, Wrench: LucideIcons.Wrench, MoreVertical: LucideIcons.MoreVertical
+};
+
+const availableIcons = Object.keys(iconMap);
+
+const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => {
+  if (iconName && iconMap[iconName]) {
+    return iconMap[iconName];
+  }
+  return LucideIcons.ListTodo; // Default icon
+};
+
+const categorySchema = z.object({
+  name: z.string().min(1, "Le nom de la catégorie est requis."),
+  icon: z.string().min(1, "L'icône de la catégorie est requise."),
+});
+type CategoryFormValues = z.infer<typeof categorySchema>;
+
+const subCategorySchema = z.object({
+  name: z.string().min(1, "Le nom de la sous-catégorie est requis."),
+  icon: z.string().optional(),
+});
+type SubCategoryFormValues = z.infer<typeof subCategorySchema>;
+
+const taskSchema = z.object({
+  name: z.string().min(1, "Le nom de la tâche est requis."),
+  description: z.string().optional(),
+});
+type TaskFormValues = z.infer<typeof taskSchema>;
 
 export default function PlanPage() {
+  const [planData, setPlanData] = React.useState<ComplianceCategory[]>(initialCompliancePlanData);
+  const [activeAccordionItems, setActiveAccordionItems] = React.useState<string[]>(planData.map(cat => cat.id));
+  const { toast } = useToast();
+
+  const [dialogState, setDialogState] = React.useState<{
+    type: "category" | "subCategory" | "task" | null;
+    mode: "add" | "edit" | null;
+    data?: any;
+    parentId?: string;
+    grandParentId?: string;
+  }>({ type: null, mode: null });
+
+  const categoryForm = useForm<CategoryFormValues>({ resolver: zodResolver(categorySchema) });
+  const subCategoryForm = useForm<SubCategoryFormValues>({ resolver: zodResolver(subCategorySchema) });
+  const taskForm = useForm<TaskFormValues>({ resolver: zodResolver(taskSchema) });
+
+  const openDialog = (type: "category" | "subCategory" | "task", mode: "add" | "edit", data?: any, parentId?: string, grandParentId?: string) => {
+    setDialogState({ type, mode, data, parentId, grandParentId });
+    if (mode === "edit") {
+      if (type === "category") categoryForm.reset(data);
+      else if (type === "subCategory") subCategoryForm.reset(data);
+      else if (type === "task") taskForm.reset(data);
+    } else {
+      if (type === "category") categoryForm.reset({ name: "", icon: availableIcons[0] });
+      else if (type === "subCategory") subCategoryForm.reset({ name: "", icon: availableIcons[0] });
+      else if (type === "task") taskForm.reset({ name: "", description: "" });
+    }
+  };
+  const closeDialog = () => setDialogState({ type: null, mode: null });
+
+  // Category CRUD
+  const handleAddCategory = (values: CategoryFormValues) => {
+    setPlanData([...planData, { ...values, id: Date.now().toString(), subCategories: [] }]);
+    toast({ title: "Catégorie ajoutée", description: `La catégorie "${values.name}" a été ajoutée.` });
+    closeDialog();
+  };
+  const handleEditCategory = (values: CategoryFormValues) => {
+    setPlanData(planData.map(cat => cat.id === dialogState.data?.id ? { ...cat, ...values } : cat));
+    toast({ title: "Catégorie modifiée", description: `La catégorie "${values.name}" a été modifiée.` });
+    closeDialog();
+  };
+  const handleRemoveCategory = (categoryId: string) => {
+    setPlanData(planData.filter(cat => cat.id !== categoryId));
+    toast({ title: "Catégorie supprimée", description: `La catégorie a été supprimée.` });
+  };
+
+  // SubCategory CRUD
+  const handleAddSubCategory = (values: SubCategoryFormValues) => {
+    setPlanData(planData.map(cat => cat.id === dialogState.parentId ? { ...cat, subCategories: [...cat.subCategories, { ...values, id: Date.now().toString(), tasks: [] }] } : cat));
+    toast({ title: "Sous-catégorie ajoutée", description: `La sous-catégorie "${values.name}" a été ajoutée.` });
+    closeDialog();
+  };
+  const handleEditSubCategory = (values: SubCategoryFormValues) => {
+    setPlanData(planData.map(cat => cat.id === dialogState.grandParentId ? {
+      ...cat,
+      subCategories: cat.subCategories.map(sub => sub.id === dialogState.data?.id ? { ...sub, ...values } : sub)
+    } : cat));
+    toast({ title: "Sous-catégorie modifiée", description: `La sous-catégorie "${values.name}" a été modifiée.` });
+    closeDialog();
+  };
+  const handleRemoveSubCategory = (categoryId: string, subCategoryId: string) => {
+    setPlanData(planData.map(cat => cat.id === categoryId ? { ...cat, subCategories: cat.subCategories.filter(sub => sub.id !== subCategoryId) } : cat));
+    toast({ title: "Sous-catégorie supprimée", description: `La sous-catégorie a été supprimée.` });
+  };
+
+  // Task CRUD
+  const handleAddTask = (values: TaskFormValues) => {
+    setPlanData(planData.map(cat => cat.id === dialogState.grandParentId ? {
+      ...cat,
+      subCategories: cat.subCategories.map(sub => sub.id === dialogState.parentId ? { ...sub, tasks: [...sub.tasks, { ...values, id: Date.now().toString() }] } : sub)
+    } : cat));
+    toast({ title: "Tâche ajoutée", description: `La tâche "${values.name}" a été ajoutée.` });
+    closeDialog();
+  };
+  const handleEditTask = (values: TaskFormValues) => {
+    setPlanData(planData.map(cat => cat.id === dialogState.grandParentId ? {
+      ...cat,
+      subCategories: cat.subCategories.map(sub => sub.id === dialogState.parentId ? {
+        ...sub,
+        tasks: sub.tasks.map(task => task.id === dialogState.data?.id ? { ...task, ...values } : task)
+      } : sub)
+    } : cat));
+    toast({ title: "Tâche modifiée", description: `La tâche "${values.name}" a été modifiée.` });
+    closeDialog();
+  };
+  const handleRemoveTask = (categoryId: string, subCategoryId: string, taskId: string) => {
+    setPlanData(planData.map(cat => cat.id === categoryId ? {
+      ...cat,
+      subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: sub.tasks.filter(task => task.id !== taskId) } : sub)
+    } : cat));
+    toast({ title: "Tâche supprimée", description: `La tâche a été supprimée.` });
+  };
+  
+  const CategoryIcon = ({ iconName }: { iconName: string }) => {
+    const Icon = getIconComponent(iconName);
+    return <Icon className="h-6 w-6 text-primary" />;
+  };
+  const SubCategoryIcon = ({ iconName }: { iconName?: string }) => {
+    const Icon = getIconComponent(iconName);
+    return <Icon className="h-5 w-5 mr-2 text-accent" />;
+  };
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline text-3xl">Plan d'Organisation de la Conformité</CardTitle>
-          <CardDescription className="text-lg">
-            Structure détaillée des tâches du département conformité, organisée par catégories fonctionnelles et sous-catégories.
-          </CardDescription>
+        <CardHeader className="flex flex-row justify-between items-center">
+          <div>
+            <CardTitle className="font-headline text-3xl">Plan d'Organisation de la Conformité</CardTitle>
+            <CardDescription className="text-lg">
+              Structure détaillée des tâches du département conformité, organisée par catégories fonctionnelles et sous-catégories.
+            </CardDescription>
+          </div>
+          <Button onClick={() => openDialog("category", "add")} size="lg">
+            <PlusCircle className="mr-2 h-5 w-5" /> Nouvelle Catégorie
+          </Button>
         </CardHeader>
         <CardContent>
           <p className="mb-6 text-muted-foreground">
-            Ce plan sert de référence pour l'organisation des activités de conformité et peut être utilisé pour élaborer un tableau de bord de suivi. Chaque section détaille les responsabilités et les actions concrètes à mener.
+            Ce plan sert de référence pour l'organisation des activités de conformité. Vous pouvez ajouter, modifier ou supprimer des éléments.
           </p>
         </CardContent>
       </Card>
 
-      <Accordion type="multiple" className="w-full space-y-4">
-        {compliancePlanData.map((category: ComplianceCategory) => (
-          <AccordionItem key={category.id} value={category.id} className="bg-card border border-border rounded-lg shadow-md overflow-hidden">
-            <AccordionTrigger className="px-6 py-4 hover:bg-muted/50 transition-colors">
-              <div className="flex items-center space-x-3">
-                <category.icon className="h-6 w-6 text-primary" />
-                <span className="text-xl font-headline font-medium">{category.name}</span>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-6 pt-0 pb-6">
-              <div className="space-y-4 mt-4">
-                {category.subCategories.map((subCategory: ComplianceSubCategory) => (
-                  <Card key={subCategory.id} className="bg-background/50 shadow-sm">
-                    <CardHeader className="pb-3 pt-4 px-4">
-                      <CardTitle className="text-lg font-medium font-headline flex items-center">
-                        {subCategory.icon ? <subCategory.icon className="h-5 w-5 mr-2 text-accent" /> : <ListTodo className="h-5 w-5 mr-2 text-accent" />}
-                        {subCategory.name}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-4 pb-4">
-                      <ul className="space-y-2 list-inside">
-                        {subCategory.tasks.map((task: ComplianceTask) => (
-                          <li key={task.id} className="flex items-start text-sm text-muted-foreground">
-                            <CheckSquare className="h-4 w-4 mr-2 mt-0.5 text-primary flex-shrink-0" />
-                            <span>{task.name} {task.description && `- ${task.description}`}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        ))}
+      <Accordion 
+        type="multiple" 
+        className="w-full space-y-4" 
+        value={activeAccordionItems}
+        onValueChange={setActiveAccordionItems}
+      >
+        {planData.map((category: ComplianceCategory) => {
+          const CategoryIconComponent = getIconComponent(category.icon);
+          return (
+            <AccordionItem key={category.id} value={category.id} className="bg-card border border-border rounded-lg shadow-md overflow-hidden">
+              <AccordionTrigger className="px-6 py-4 hover:bg-muted/50 transition-colors group">
+                <div className="flex items-center space-x-3 flex-grow">
+                  <CategoryIconComponent />
+                  <span className="text-xl font-headline font-medium">{category.name}</span>
+                </div>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDialog("category", "edit", category); }}>
+                        <Edit2 className="mr-2 h-4 w-4" /> Modifier
+                      </DropdownMenuItem>
+                      <AlertDialogTrigger asChild>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                            <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                        </DropdownMenuItem>
+                      </AlertDialogTrigger>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <AlertDialog>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette catégorie ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Cette action est irréversible et supprimera "{category.name}" et toutes ses sous-catégories et tâches.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleRemoveCategory(category.id); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                          Supprimer
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pt-0 pb-6">
+                <div className="space-y-4 mt-4">
+                  {category.subCategories.map((subCategory: ComplianceSubCategory) => {
+                    const SubCategoryIconComponent = getIconComponent(subCategory.icon);
+                    return (
+                    <Card key={subCategory.id} className="bg-background/50 shadow-sm group">
+                      <CardHeader className="pb-3 pt-4 px-4 flex flex-row justify-between items-center">
+                        <div className="flex items-center">
+                          <SubCategoryIconComponent />
+                          <CardTitle className="text-lg font-medium font-headline">{subCategory.name}</CardTitle>
+                        </div>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                           <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openDialog("subCategory", "edit", subCategory, category.id, category.id)}>
+                                <Edit2 className="mr-2 h-4 w-4" /> Modifier
+                              </DropdownMenuItem>
+                               <AlertDialogTrigger asChild>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                  <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <AlertDialog>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette sous-catégorie ?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Cette action est irréversible et supprimera "{subCategory.name}" et toutes ses tâches.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleRemoveSubCategory(category.id, subCategory.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                  Supprimer
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="px-4 pb-4">
+                        <ul className="space-y-2 list-inside">
+                          {subCategory.tasks.map((task: ComplianceTask) => (
+                            <li key={task.id} className="flex items-start text-sm text-muted-foreground group/task relative pr-10">
+                              <CheckSquare className="h-4 w-4 mr-2 mt-0.5 text-primary flex-shrink-0" />
+                              <span>{task.name} {task.description && `- ${task.description}`}</span>
+                               <div className="absolute right-0 top-0 opacity-0 group-hover/task:opacity-100 transition-opacity">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                                      <MoreVertical className="h-3 w-3" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" side="left">
+                                    <DropdownMenuItem onClick={() => openDialog("task", "edit", task, subCategory.id, category.id)}>
+                                      <Edit2 className="mr-2 h-4 w-4" /> Modifier
+                                    </DropdownMenuItem>
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                          <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                                      </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                                <AlertDialog>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette tâche ?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Cette action est irréversible et supprimera la tâche "{task.name}".
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleRemoveTask(category.id, subCategory.id, task.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                        Supprimer
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        <Button variant="outline" size="sm" className="mt-3" onClick={() => openDialog("task", "add", undefined, subCategory.id, category.id)}>
+                          <PlusCircle className="mr-2 h-4 w-4" /> Ajouter une tâche
+                        </Button>
+                      </CardContent>
+                    </Card>
+                    );
+                  })}
+                  <Button variant="default" className="mt-4" onClick={() => openDialog("subCategory", "add", undefined, category.id, category.id)}>
+                    <PlusCircle className="mr-2 h-5 w-5" /> Ajouter une sous-catégorie
+                  </Button>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
       </Accordion>
+
+      <Dialog open={!!dialogState.type} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {dialogState.mode === "add" ? "Ajouter" : "Modifier"} {dialogState.type === "category" ? "une catégorie" : dialogState.type === "subCategory" ? "une sous-catégorie" : "une tâche"}
+            </DialogTitle>
+            <DialogDescription>
+              Remplissez les informations ci-dessous.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {dialogState.type === "category" && (
+            <Form {...categoryForm}>
+              <form onSubmit={categoryForm.handleSubmit(dialogState.mode === "add" ? handleAddCategory : handleEditCategory)} className="space-y-4">
+                <FormField control={categoryForm.control} name="name" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nom de la catégorie</FormLabel>
+                    <FormControl><Input {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={categoryForm.control} name="icon" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Icône</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Choisir une icône" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {availableIcons.map(iconKey => {
+                           const IconComponent = getIconComponent(iconKey);
+                           return <SelectItem key={iconKey} value={iconKey}><div className="flex items-center"><IconComponent className="mr-2 h-4 w-4"/> {iconKey}</div></SelectItem>
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <DialogFooter>
+                  <DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose>
+                  <Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          )}
+
+          {dialogState.type === "subCategory" && (
+            <Form {...subCategoryForm}>
+              <form onSubmit={subCategoryForm.handleSubmit(dialogState.mode === "add" ? handleAddSubCategory : handleEditSubCategory)} className="space-y-4">
+                <FormField control={subCategoryForm.control} name="name" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nom de la sous-catégorie</FormLabel>
+                    <FormControl><Input {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                 <FormField control={subCategoryForm.control} name="icon" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Icône (Optionnel)</FormLabel>
+                     <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Choisir une icône" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {availableIcons.map(iconKey => {
+                           const IconComponent = getIconComponent(iconKey);
+                           return <SelectItem key={iconKey} value={iconKey}><div className="flex items-center"><IconComponent className="mr-2 h-4 w-4"/> {iconKey}</div></SelectItem>
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <DialogFooter>
+                  <DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose>
+                  <Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          )}
+
+          {dialogState.type === "task" && (
+             <Form {...taskForm}>
+              <form onSubmit={taskForm.handleSubmit(dialogState.mode === "add" ? handleAddTask : handleEditTask)} className="space-y-4">
+                <FormField control={taskForm.control} name="name" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nom de la tâche</FormLabel>
+                    <FormControl><Input {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={taskForm.control} name="description" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (Optionnel)</FormLabel>
+                    <FormControl><Textarea {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <DialogFooter>
+                  <DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose>
+                  <Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

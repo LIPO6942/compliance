@@ -3,19 +3,19 @@ import type { LucideIcon } from 'lucide-react';
 export interface ComplianceTask {
   id: string;
   name: string;
-  description?: string;
+  description?: string; // Made description optional
 }
 
 export interface ComplianceSubCategory {
   id: string;
   name: string;
+  icon?: string; // Changed from LucideIcon to string (icon name)
   tasks: ComplianceTask[];
-  icon?: LucideIcon;
 }
 
 export interface ComplianceCategory {
   id: string;
   name: string;
-  icon: LucideIcon;
+  icon: string; // Changed from LucideIcon to string (icon name)
   subCategories: ComplianceSubCategory[];
 }
