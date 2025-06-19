@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -13,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { FileText, PlusCircle, Search, ArrowUpDown, MoreHorizontal, Download, Edit, Trash2 } from "lucide-react";
+import { FileText, PlusCircle, Search, ArrowUpDown, MoreHorizontal, Download, Edit, Trash2, CheckCircle, Edit3, Archive, FileX } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useToast } from "@/hooks/use-toast";
 
 type DocumentStatus = "Validé" | "En Révision" | "Archivé" | "Obsolète";
 type DocumentType = "Politique" | "Procédure" | "Rapport" | "Support de Formation" | "Veille";
@@ -43,14 +45,14 @@ interface Document {
   owner: string;
 }
 
-const mockDocuments: Document[] = [
-  { id: "doc001", name: "Politique LAB-FT", type: "Politique", version: "2.1", status: "Validé", lastUpdated: "2024-07-15", owner: "Alice Dupont" },
-  { id: "doc002", name: "Procédure KYC", type: "Procédure", version: "1.5", status: "En Révision", lastUpdated: "2024-06-20", owner: "Bob Martin" },
-  { id: "doc003", name: "Rapport de Conformité Annuel 2023", type: "Rapport", version: "1.0", status: "Archivé", lastUpdated: "2024-01-30", owner: "Alice Dupont" },
-  { id: "doc004", name: "Support Formation MIFID II", type: "Support de Formation", version: "3.0", status: "Validé", lastUpdated: "2024-05-10", owner: "Charles Petit" },
-  { id: "doc005", name: "Analyse d'impact DORA", type: "Veille", version: "0.8", status: "En Révision", lastUpdated: "2024-07-25", owner: "Diana Moreau" },
-  { id: "doc006", name: "Politique de Protection des Données", type: "Politique", version: "4.2", status: "Validé", lastUpdated: "2023-11-01", owner: "Bob Martin" },
-  { id: "doc007", name: "Procédure de Gestion des Incidents", type: "Procédure", version: "2.0", status: "Obsolète", lastUpdated: "2022-08-15", owner: "Alice Dupont" },
+const initialMockDocuments: Document[] = [
+  { id: "doc001", name: "Politique LAB-FT", type: "Politique", version: "2.1", status: "Validé", lastUpdated: "2024-07-15", owner: "MOSLEM GOUIA" },
+  { id: "doc002", name: "Procédure KYC", type: "Procédure", version: "1.5", status: "En Révision", lastUpdated: "2024-06-20", owner: "MOSLEM GOUIA" },
+  { id: "doc003", name: "Rapport de Conformité Annuel 2023", type: "Rapport", version: "1.0", status: "Archivé", lastUpdated: "2024-01-30", owner: "MOSLEM GOUIA" },
+  { id: "doc004", name: "Support Formation MIFID II", type: "Support de Formation", version: "3.0", status: "Validé", lastUpdated: "2024-05-10", owner: "MOSLEM GOUIA" },
+  { id: "doc005", name: "Analyse d'impact DORA", type: "Veille", version: "0.8", status: "En Révision", lastUpdated: "2024-07-25", owner: "MOSLEM GOUIA" },
+  { id: "doc006", name: "Politique de Protection des Données", type: "Politique", version: "4.2", status: "Validé", lastUpdated: "2023-11-01", owner: "MOSLEM GOUIA" },
+  { id: "doc007", name: "Procédure de Gestion des Incidents", type: "Procédure", version: "2.0", status: "Obsolète", lastUpdated: "2022-08-15", owner: "MOSLEM GOUIA" },
 ];
 
 const statusColors: Record<DocumentStatus, string> = {
@@ -60,13 +62,29 @@ const statusColors: Record<DocumentStatus, string> = {
   "Obsolète": "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-600",
 };
 
+const allPossibleStatuses: DocumentStatus[] = ["Validé", "En Révision", "Archivé", "Obsolète"];
+
 
 export default function DocumentsPage() {
+  const [documents, setDocuments] = React.useState<Document[]>(initialMockDocuments);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [filterType, setFilterType] = React.useState<string>("all");
   const [filterStatus, setFilterStatus] = React.useState<string>("all");
+  const { toast } = useToast();
 
-  const filteredDocuments = mockDocuments.filter(doc => {
+  const handleChangeDocumentStatus = (documentId: string, newStatus: DocumentStatus) => {
+    setDocuments(prevDocuments =>
+      prevDocuments.map(doc =>
+        doc.id === documentId ? { ...doc, status: newStatus, lastUpdated: new Date().toISOString().split('T')[0] } : doc
+      )
+    );
+    toast({
+      title: "Statut modifié",
+      description: `Le statut du document a été changé en "${newStatus}".`,
+    });
+  };
+
+  const filteredDocuments = documents.filter(doc => {
     const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           doc.owner.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === "all" || doc.type === filterType;
@@ -74,8 +92,8 @@ export default function DocumentsPage() {
     return matchesSearch && matchesType && matchesStatus;
   });
   
-  const documentTypes = ["all", ...Array.from(new Set(mockDocuments.map(doc => doc.type)))] as ("all" | DocumentType)[];
-  const documentStatuses = ["all", ...Array.from(new Set(mockDocuments.map(doc => doc.status)))] as ("all" | DocumentStatus)[];
+  const documentTypes = ["all", ...Array.from(new Set(documents.map(doc => doc.type)))] as ("all" | DocumentType)[];
+  const documentStatuses = ["all", ...Array.from(new Set(documents.map(doc => doc.status)))] as ("all" | DocumentStatus)[];
 
 
   return (
@@ -170,9 +188,25 @@ export default function DocumentsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuLabel>Actions Document</DropdownMenuLabel>
                             <DropdownMenuItem><Download className="mr-2 h-4 w-4" /> Télécharger</DropdownMenuItem>
-                            <DropdownMenuItem><Edit className="mr-2 h-4 w-4" /> Modifier</DropdownMenuItem>
+                            <DropdownMenuItem><Edit className="mr-2 h-4 w-4" /> Modifier les détails</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel>Changer le statut</DropdownMenuLabel>
+                            {allPossibleStatuses.map(statusValue => (
+                              doc.status !== statusValue && (
+                                <DropdownMenuItem
+                                  key={statusValue}
+                                  onClick={() => handleChangeDocumentStatus(doc.id, statusValue)}
+                                >
+                                  {statusValue === "Validé" && <CheckCircle className="mr-2 h-4 w-4 text-green-500" />}
+                                  {statusValue === "En Révision" && <Edit3 className="mr-2 h-4 w-4 text-yellow-500" />}
+                                  {statusValue === "Archivé" && <Archive className="mr-2 h-4 w-4 text-blue-500" />}
+                                  {statusValue === "Obsolète" && <FileX className="mr-2 h-4 w-4 text-gray-500" />}
+                                  Marquer comme {statusValue}
+                                </DropdownMenuItem>
+                              )
+                            ))}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
                               <Trash2 className="mr-2 h-4 w-4" /> Supprimer
