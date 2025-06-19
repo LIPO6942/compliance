@@ -15,7 +15,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
-  // useSidebar, // No longer needed at this level
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -43,7 +42,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useIsMobile } from "@/hooks/use-mobile"; // Import useIsMobile
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
@@ -65,7 +64,7 @@ const complianceCategoriesIcons = {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isMobile = useIsMobile(); // Use the independent hook
+  const isMobile = useIsMobile();
 
   const currentPage = navItems.find(item => pathname.startsWith(item.href));
   const pageTitle = currentPage?.title || "Compliance Navigator";
@@ -86,7 +85,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <Link href={item.href} legacyBehavior passHref>
+                  <Link href={item.href}>
                     <SidebarMenuButton
                       isActive={pathname.startsWith(item.href)}
                       tooltip={{ children: item.label, className: "font-body" }}
