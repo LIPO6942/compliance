@@ -106,7 +106,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src="https://placehold.co/100x100.png" alt="User Avatar" data-ai-hint="user avatar" />
-                  <AvatarFallback>CN</AvatarFallback>
+                  <AvatarFallback>M</AvatarFallback>
                 </Avatar>
                 <div className="group-data-[collapsible=icon]:hidden text-left">
                   <p className="text-sm font-medium text-sidebar-foreground">Moslem</p>
