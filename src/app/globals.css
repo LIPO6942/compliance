@@ -10,7 +10,7 @@ body {
   :root {
     --background: 220 29% 95%; /* Light Gray #F0F2F5 */
     --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
+    --card: 0 0% 100%; /* White */
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
@@ -27,21 +27,21 @@ body {
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 231 48% 54%; /* Deep Blue for ring */
-    --chart-1: 231 48% 54%;
-    --chart-2: 180 100% 35%;
-    --chart-3: 210 40% 50%;
-    --chart-4: 250 50% 60%;
-    --chart-5: 30 80% 60%;
+    --chart-1: 231 48% 54%; /* Deep Blue */
+    --chart-2: 180 100% 35%; /* Teal variant */
+    --chart-3: 210 40% 50%; /* Another Blue Shade */
+    --chart-4: 250 50% 60%; /* Purplish Blue */
+    --chart-5: 30 80% 60%; /* Orange variant */
     --radius: 0.5rem;
 
     /* Sidebar specific theme */
     --sidebar-background: 0 0% 100%; /* White */
     --sidebar-foreground: 240 6% 20%; /* Darker Gray for text */
-    --sidebar-primary: 231 48% 54%; /* Deep Blue for active/important elements */
+    --sidebar-primary: 231 48% 54%; /* Deep Blue for elements needing primary color */
     --sidebar-primary-foreground: 0 0% 98%; /* Light text for primary bg */
-    --sidebar-accent: 220 29% 92%; /* Slightly darker than main BG for hover */
-    --sidebar-accent-foreground: 231 48% 45%; /* Darker Deep Blue text on hover */
-    --sidebar-border: 240 5.9% 88%; /* Standard border color, slightly adjusted */
+    --sidebar-accent: 220 29% 92%; /* Very Light Blue/Gray for active/hover bg */
+    --sidebar-accent-foreground: 231 48% 45%; /* Darker Deep Blue for active/hover text */
+    --sidebar-border: 240 5.9% 88%;
     --sidebar-ring: 231 48% 54%; /* Deep Blue for ring on focus */
   }
 
@@ -60,7 +60,7 @@ body {
     --muted-foreground: 240 5% 64.9%;
     --accent: 180 100% 35%; /* Brighter Teal for dark mode */
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 70% 45%; /* Adjusted destructive for dark mode */
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
@@ -76,8 +76,8 @@ body {
     --sidebar-foreground: 0 0% 95%; /* Light Gray text */
     --sidebar-primary: 231 48% 60%; /* Lighter Deep Blue */
     --sidebar-primary-foreground: 0 0% 9%; /* Dark text for primary bg */
-    --sidebar-accent: 240 3.7% 20%; /* Slightly lighter than dark sidebar BG for hover */
-    --sidebar-accent-foreground: 231 48% 70%; /* Lighter Deep Blue text on hover */
+    --sidebar-accent: 240 4% 18%; /* Darker hover for sidebar items */
+    --sidebar-accent-foreground: 231 48% 70%; /* Lighter Deep Blue text on hover/active */
     --sidebar-border: 240 3.7% 20%;
     --sidebar-ring: 231 48% 60%;
   }
