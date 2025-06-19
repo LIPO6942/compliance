@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -197,7 +198,7 @@ export default function ReportsPage() {
               Votre rapport "{reportTemplates.find(rt => rt.id === selectedReport)?.title}" est prêt. Vous pouvez le télécharger ou le partager.
             </p>
             <div className="bg-muted/50 p-6 rounded-lg flex flex-col items-center text-center">
-                <Image src="https://placehold.co/300x200.png" alt="Report Preview" width={300} height={200} className="rounded-md mb-4 shadow-md" data-ai-hint="report document" />
+                <Image src="https://placehold.co/300x200.png" alt="Report Preview" width={300} height={200} className="rounded-md mb-4 shadow-md" data-ai-hint="compliance" />
                 <p className="font-semibold text-lg mb-1">Aperçu du Rapport</p>
                 <p className="text-sm text-muted-foreground mb-4">Simulation d'un aperçu. Le document réel sera généré.</p>
             </div>
