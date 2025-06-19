@@ -1,0 +1,240 @@
+"use client";
+
+import * as React from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { analyzeRegulationAction, type AnalyzeRegulationResult } from "./actions";
+import { useToast } from "@/hooks/use-toast";
+import { AlertCircle, CheckCircle, Loader2, Sparkles, FileText, Tag, ListChecks, Check, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+
+const formSchema = z.object({
+  regulationText: z.string().min(50, { message: "Le texte réglementaire doit contenir au moins 50 caractères." }),
+  keywords: z.string().min(3, { message: "Veuillez entrer au moins un mot-clé." }),
+});
+
+type RegulatoryWatchFormValues = z.infer<typeof formSchema>;
+
+export default function RegulatoryWatchPage() {
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [analysisResult, setAnalysisResult] = React.useState<AnalyzeRegulationResult | null>(null);
+  const { toast } = useToast();
+
+  const form = useForm<RegulatoryWatchFormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      regulationText: "",
+      keywords: "",
+    },
+  });
+
+  const onSubmit = async (data: RegulatoryWatchFormValues) => {
+    setIsLoading(true);
+    setAnalysisResult(null);
+    try {
+      const result = await analyzeRegulationAction(data.regulationText, data.keywords);
+      if (result.error) {
+        toast({
+          variant: "destructive",
+          title: "Erreur d'Analyse IA",
+          description: result.error,
+        });
+      } else {
+        setAnalysisResult(result);
+         toast({
+          title: "Analyse Terminée",
+          description: "L'analyse de la réglementation par l'IA est terminée.",
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+      toast({
+        variant: "destructive",
+        title: "Erreur Inattendue",
+        description: errorMessage,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-headline text-3xl flex items-center">
+            <Sparkles className="mr-2 h-7 w-7 text-primary" />
+            Veille Réglementaire Assistée par IA
+          </CardTitle>
+          <CardDescription className="text-lg">
+            Utilisez l'intelligence artificielle pour analyser rapidement les nouvelles réglementations, déterminer leur pertinence et proposer une catégorisation.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <Card className="shadow-md">
+            <CardHeader>
+              <CardTitle className="font-headline text-xl flex items-center">
+                <FileText className="mr-2 h-5 w-5 text-muted-foreground" />
+                Soumettre une Réglementation pour Analyse
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="regulationText"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="regulationText" className="text-base">Texte de la Réglementation</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        id="regulationText"
+                        placeholder="Collez ici l'intégralité du texte réglementaire..."
+                        className="min-h-[200px] text-sm"
+                        {...field}
+                        aria-describedby="regulationText-description"
+                      />
+                    </FormControl>
+                    <FormDescription id="regulationText-description">
+                      Fournissez le contenu complet de la nouvelle réglementation à analyser.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="keywords"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="keywords" className="text-base">Mots-Clés Prédéfinis</FormLabel>
+                    <FormControl>
+                      <Input
+                        id="keywords"
+                        placeholder="Ex: protection des données, LAB, finance durable, ..."
+                        className="text-sm"
+                        {...field}
+                        aria-describedby="keywords-description"
+                      />
+                    </FormControl>
+                     <FormDescription id="keywords-description">
+                      Séparez les mots-clés par des virgules. L'IA utilisera ces mots pour évaluer la pertinence.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+            <CardFooter>
+              <Button type="submit" disabled={isLoading} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Analyse en cours...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    Analyser avec l'IA
+                  </>
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        </form>
+      </Form>
+
+      {analysisResult && (
+        <Card className="shadow-lg mt-8 animate-fadeIn">
+          <CardHeader>
+            <CardTitle className="font-headline text-2xl flex items-center">
+              <ListChecks className="mr-2 h-6 w-6 text-primary" />
+              Résultats de l'Analyse IA
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {analysisResult.inclusion && (
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-medium font-headline flex items-center">
+                    {analysisResult.inclusion.include ? (
+                      <CheckCircle className="mr-2 h-5 w-5 text-green-600" />
+                    ) : (
+                      <AlertCircle className="mr-2 h-5 w-5 text-orange-500" />
+                    )}
+                    Décision d'Inclusion
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className={`text-lg font-semibold ${analysisResult.inclusion.include ? 'text-green-700' : 'text-orange-600'}`}>
+                    {analysisResult.inclusion.include ? "Inclure la réglementation" : "Ne pas inclure la réglementation (ou à réviser)"}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    <span className="font-medium">Raison:</span> {analysisResult.inclusion.reason}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {analysisResult.categorization && (
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-medium font-headline flex items-center">
+                    <Tag className="mr-2 h-5 w-5 text-muted-foreground" />
+                    Suggestions de Catégorisation
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <h4 className="font-semibold text-md mb-1">Catégories Suggérées:</h4>
+                    {analysisResult.categorization.suggestedCategories.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {analysisResult.categorization.suggestedCategories.map((cat, index) => (
+                          <Badge key={`cat-${index}`} variant="secondary" className="text-sm px-3 py-1">{cat}</Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Aucune catégorie principale suggérée.</p>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-md mb-1">Sous-Catégories Suggérées:</h4>
+                     {analysisResult.categorization.suggestedSubCategories.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {analysisResult.categorization.suggestedSubCategories.map((subcat, index) => (
+                          <Badge key={`subcat-${index}`} variant="outline" className="text-sm px-3 py-1">{subcat}</Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Aucune sous-catégorie suggérée.</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {analysisResult.inclusion && analysisResult.inclusion.include && (
+                <CardFooter className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
+                    <Button size="lg" variant="outline" className="w-full sm:w-auto border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive">
+                        <X className="mr-2 h-5 w-5" /> Rejeter les Suggestions
+                    </Button>
+                    <Button size="lg" className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white">
+                        <Check className="mr-2 h-5 w-5" /> Confirmer et Intégrer
+                    </Button>
+                </CardFooter>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
