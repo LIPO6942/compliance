@@ -109,8 +109,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <AvatarFallback>CN</AvatarFallback>
                 </Avatar>
                 <div className="group-data-[collapsible=icon]:hidden text-left">
-                  <p className="text-sm font-medium text-sidebar-foreground">Utilisateur</p>
-                  <p className="text-xs text-muted-foreground">user@example.com</p>
+                  <p className="text-sm font-medium text-sidebar-foreground">Moslem</p>
+                  <p className="text-xs text-muted-foreground">Conformité MAE</p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
