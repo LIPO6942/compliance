@@ -5,7 +5,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
@@ -19,6 +19,7 @@ const complianceStatusBaseColors = {
   conforme: "hsl(var(--chart-1))",
   enCours: "hsl(var(--chart-4))",
   nonConforme: "hsl(var(--destructive))",
+  aucuneDonnee: "hsl(var(--muted))",
 };
 
 const initialChartConfig: ChartConfig = {
@@ -37,56 +38,86 @@ const initialChartConfig: ChartConfig = {
     label: "Non Conforme",
     color: complianceStatusBaseColors.nonConforme,
   },
+  aucuneDonnee: {
+    label: "Aucune Donnée",
+    color: complianceStatusBaseColors.aucuneDonnee,
+  }
 } satisfies ChartConfig
 
 
 export default function DashboardPage() {
   const { planData } = usePlanData();
   const { documents } = useDocuments();
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  // Calculate Active Tasks
-  const allTasks = planData.flatMap(category => category.subCategories.flatMap(subCategory => subCategory.tasks));
-  const activeTasksCount = allTasks.filter(task => !task.completed).length;
-  const overdueTasksCount = 0; // Placeholder as we don't have due dates
+  const [activeTasksCount, setActiveTasksCount] = React.useState(0);
+  const [overdueTasksCount, setOverdueTasksCount] = React.useState(0); // Remains 0 as per current logic
+  const [overallCompliancePercentage, setOverallCompliancePercentage] = React.useState(0);
+  const [complianceStatusData, setComplianceStatusData] = React.useState<Array<{status: string; value: number; fill: string}>>([]);
+  const [taskProgressData, setTaskProgressData] = React.useState<Array<{name: string; completed: number; pending: number; overdue: number}>>([]);
 
-  // Calculate Overall Compliance Level
-  const validatedDocuments = documents.filter(doc => doc.status === "Validé").length;
-  const totalDocuments = documents.length;
-  const overallCompliancePercentage = totalDocuments > 0 ? Math.round((validatedDocuments / totalDocuments) * 100) : 0;
 
-  // Prepare Compliance Status Chart Data
-  const conformeCount = documents.filter(d => d.status === "Validé").length;
-  const enCoursCount = documents.filter(d => d.status === "En Révision").length;
-  const nonConformeCount = documents.filter(d => d.status === "Obsolète").length;
-  const totalRelevantDocsForPie = conformeCount + enCoursCount + nonConformeCount;
+  React.useEffect(() => {
+    if (planData && documents) {
+      // Calculate Active Tasks
+      const allTasks = planData.flatMap(category => category.subCategories.flatMap(subCategory => subCategory.tasks));
+      setActiveTasksCount(allTasks.filter(task => !task.completed).length);
+      // setOverdueTasksCount remains 0
 
-  const complianceStatusData = totalRelevantDocsForPie > 0 ? [
-    { status: "Conforme", value: Math.round((conformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.conforme },
-    { status: "En Cours", value: Math.round((enCoursCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.enCours },
-    { status: "Non Conforme", value: Math.round((nonConformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.nonConforme },
-  ].filter(item => item.value > 0) : [ // Ensure we don't pass 0-value items if not needed or adjust pie display
-    { status: "Conforme", value: 100, fill: complianceStatusBaseColors.conforme } 
-  ];
-   if (totalRelevantDocsForPie === 0) {
-    complianceStatusData.push(
-        { status: "Aucune Donnée", value: 100, fill: "hsl(var(--muted))" }
+      // Calculate Overall Compliance Level
+      const validatedDocuments = documents.filter(doc => doc.status === "Validé").length;
+      const totalDocuments = documents.length;
+      setOverallCompliancePercentage(totalDocuments > 0 ? Math.round((validatedDocuments / totalDocuments) * 100) : 0);
+
+      // Prepare Compliance Status Chart Data
+      const conformeCount = documents.filter(d => d.status === "Validé").length;
+      const enCoursCount = documents.filter(d => d.status === "En Révision").length;
+      const nonConformeCount = documents.filter(d => d.status === "Obsolète").length;
+      const totalRelevantDocsForPie = conformeCount + enCoursCount + nonConformeCount;
+
+      let newComplianceStatusData = [];
+      if (totalRelevantDocsForPie > 0) {
+        newComplianceStatusData = [
+          { status: "Conforme", value: Math.round((conformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.conforme },
+          { status: "En Cours", value: Math.round((enCoursCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.enCours },
+          { status: "Non Conforme", value: Math.round((nonConformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.nonConforme },
+        ].filter(item => item.value > 0);
+      }
+      
+      if (newComplianceStatusData.length === 0) {
+        newComplianceStatusData.push(
+            { status: "Aucune Donnée", value: 100, fill: complianceStatusBaseColors.aucuneDonnee }
+        );
+      }
+      setComplianceStatusData(newComplianceStatusData);
+
+
+      // Prepare Task Progress Chart Data
+      const newTaskProgressData = planData.map(category => {
+        const categoryTasks = category.subCategories.flatMap(sub => sub.tasks);
+        const completed = categoryTasks.filter(task => task.completed).length;
+        const pending = categoryTasks.filter(task => !task.completed).length;
+        return {
+          name: category.name.length > 15 ? category.name.substring(0, 12) + "..." : category.name,
+          completed,
+          pending,
+          overdue: 0, // Placeholder
+        };
+      });
+      setTaskProgressData(newTaskProgressData);
+
+      setIsLoading(false);
+    }
+  }, [planData, documents]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-[calc(100vh-10rem)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-4 text-lg text-muted-foreground">Chargement du tableau de bord...</p>
+      </div>
     );
-   }
-
-
-  // Prepare Task Progress Chart Data
-  const taskProgressData = planData.map(category => {
-    const categoryTasks = category.subCategories.flatMap(sub => sub.tasks);
-    const completed = categoryTasks.filter(task => task.completed).length;
-    const pending = categoryTasks.filter(task => !task.completed).length;
-    return {
-      name: category.name.length > 15 ? category.name.substring(0, 12) + "..." : category.name, // Shorten name if too long
-      completed,
-      pending,
-      overdue: 0, // Placeholder
-    };
-  });
-
+  }
 
   return (
     <div className="space-y-6">
