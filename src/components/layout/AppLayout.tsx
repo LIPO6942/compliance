@@ -104,7 +104,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
-                <Avatar className="h-8 w-8">
+                <Avatar key="user-profile-avatar" className="h-8 w-8">
                   <AvatarImage src="https://images.unsplash.com/photo-1672268931062-e659b36c6dd4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxNfGVufDB8fHx8MTc1MDM2Njk5MHww&ixlib=rb-4.1.0&q=80&w=1080" alt="User Avatar" data-ai-hint="C letter" />
                   <AvatarFallback>M</AvatarFallback>
                 </Avatar>
