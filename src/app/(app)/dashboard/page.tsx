@@ -223,7 +223,7 @@ export default function DashboardPage() {
           </div>
           <div className="md:w-1/2 bg-muted/40">
              <Image
-                src="https://placehold.co/600x400.png"
+                src="https://images.unsplash.com/photo-1544654262-e295983be0f4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyMHx8b3JnYW5pc2F0aW9ufGVufDB8fHx8MTc1MDM2NzQ1NXww&ixlib=rb-4.1.0&q=80&w=1080"
                 alt="Organizational Plan Illustration"
                 width={600}
                 height={400}
