@@ -1,6 +1,6 @@
 
 'use client';
-import type { ComplianceCategory } from '@/types/compliance';
+import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '@/types/compliance';
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
@@ -14,8 +14,8 @@ interface PlanDataContextType {
   addSubCategory: (categoryId: string, subCategory: Omit<ComplianceSubCategory, 'id' | 'tasks'>) => void;
   editSubCategory: (categoryId: string, subCategoryId: string, subCategoryUpdate: Partial<Omit<ComplianceSubCategory, 'id' | 'tasks'>>) => void;
   removeSubCategory: (categoryId: string, subCategoryId: string) => void;
-  addTask: (categoryId: string, subCategoryId: string, task: Omit<ComplianceCategory, 'id' | 'completed'>) => void;
-  editTask: (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceCategory, 'id' | 'completed'>>) => void;
+  addTask: (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => void;
+  editTask: (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed'>>) => void;
   removeTask: (categoryId: string, subCategoryId: string, taskId: string) => void;
 }
 
@@ -87,14 +87,14 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     setPlanData(prev => prev.map(cat => cat.id === categoryId ? { ...cat, subCategories: cat.subCategories.filter(sub => sub.id !== subCategoryId) } : cat));
   };
 
-  const addTask = (categoryId: string, subCategoryId: string, task: Omit<ComplianceCategory, 'id' | 'completed'>) => {
+  const addTask = (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => {
     setPlanData(prev => prev.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: [...sub.tasks, { ...task, id: Date.now().toString(), completed: false }] } : sub)
     } : cat));
   };
 
-  const editTask = (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceCategory, 'id' | 'completed'>>) => {
+  const editTask = (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed'>>) => {
      setPlanData(prev => prev.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
@@ -139,3 +139,4 @@ export const usePlanData = () => {
   }
   return context;
 };
+
