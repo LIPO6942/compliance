@@ -228,7 +228,7 @@ export default function DashboardPage() {
                 width={600}
                 height={400}
                 className="object-cover w-full h-full max-h-[300px] md:max-h-none"
-                data-ai-hint="compliance organization"
+                data-ai-hint="compliance plan"
               />
           </div>
         </div>
