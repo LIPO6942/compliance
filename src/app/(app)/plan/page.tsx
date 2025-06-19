@@ -249,7 +249,6 @@ export default function PlanPage() {
               <AccordionContent className="px-6 pt-0 pb-6">
                 <div className="space-y-4 mt-4">
                   {category.subCategories.map((subCategory: ComplianceSubCategory) => {
-                    const SubCategoryIconComponent = getIconComponent(subCategory.icon);
                     return (
                     <Card key={subCategory.id} className="bg-background/50 shadow-sm group">
                       <CardHeader className="pb-3 pt-4 px-4 flex flex-row justify-between items-center">
