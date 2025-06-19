@@ -51,7 +51,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = React.useState(true);
 
   const [activeTasksCount, setActiveTasksCount] = React.useState(0);
-  const [overdueTasksCount, setOverdueTasksCount] = React.useState(0); // Remains 0 as per current logic
+  const [overdueTasksCount, setOverdueTasksCount] = React.useState(0); 
   const [overallCompliancePercentage, setOverallCompliancePercentage] = React.useState(0);
   const [complianceStatusData, setComplianceStatusData] = React.useState<Array<{status: string; value: number; fill: string}>>([]);
   const [taskProgressData, setTaskProgressData] = React.useState<Array<{name: string; completed: number; pending: number; overdue: number}>>([]);
@@ -135,16 +135,18 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Alertes Récentes</CardTitle>
-            <Bell className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold font-headline">5</div>
-            <p className="text-xs text-muted-foreground pt-1">Nouvelles réglementations identifiées</p>
-          </CardContent>
-        </Card>
+        <Link href="/alerts" className="block">
+          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 hover:ring-2 hover:ring-primary cursor-pointer h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Alertes Récentes</CardTitle>
+              <Bell className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold font-headline">5</div>
+              <p className="text-xs text-muted-foreground pt-1">Nouvelles réglementations identifiées</p>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -323,4 +325,3 @@ function QuickAccessCard({ icon: Icon, title, description, href, actionText }: Q
     </Card>
   );
 }
-

@@ -32,6 +32,7 @@ import {
   FilePieChart,
   Settings,
   LogOut,
+  BellRing,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -48,6 +49,7 @@ const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
   { href: "/plan", icon: Gavel, label: "Plan d'Organisation", title: "Plan d'Organisation" },
   { href: "/regulatory-watch", icon: SearchCheck, label: "Veille Réglementaire", title: "Veille Réglementaire IA" },
+  { href: "/alerts", icon: BellRing, label: "Alertes", title: "Centre d'Alertes" },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },
   { href: "/reports", icon: FilePieChart, label: "Reporting Automatisé", title: "Reporting Automatisé" },
 ];
