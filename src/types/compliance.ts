@@ -1,21 +1,23 @@
+
 import type { LucideIcon } from 'lucide-react';
 
 export interface ComplianceTask {
   id: string;
   name: string;
-  description?: string; // Made description optional
+  description?: string;
+  completed: boolean; // Ajout du champ completed
 }
 
 export interface ComplianceSubCategory {
   id: string;
   name: string;
-  icon?: string; // Changed from LucideIcon to string (icon name)
+  icon?: string;
   tasks: ComplianceTask[];
 }
 
 export interface ComplianceCategory {
   id: string;
   name: string;
-  icon: string; // Changed from LucideIcon to string (icon name)
+  icon: string;
   subCategories: ComplianceSubCategory[];
 }

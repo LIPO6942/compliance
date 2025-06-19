@@ -13,9 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { initialCompliancePlanData } from "@/data/compliancePlan";
 import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from "@/types/compliance";
-import { CheckSquare, ListTodo, PlusCircle, Edit2, Trash2, MoreVertical, GripVertical, ChevronDown } from "lucide-react";
+import { ListTodo, PlusCircle, Edit2, Trash2, MoreVertical, ChevronDown, CheckSquare } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -64,6 +65,7 @@ type SubCategoryFormValues = z.infer<typeof subCategorySchema>;
 const taskSchema = z.object({
   name: z.string().min(1, "Le nom de la tâche est requis."),
   description: z.string().optional(),
+  // completed: z.boolean().default(false) // No longer needed here as it's handled in data
 });
 type TaskFormValues = z.infer<typeof taskSchema>;
 
@@ -89,7 +91,7 @@ export default function PlanPage() {
     if (mode === "edit") {
       if (type === "category") categoryForm.reset(data);
       else if (type === "subCategory") subCategoryForm.reset(data);
-      else if (type === "task") taskForm.reset(data);
+      else if (type === "task") taskForm.reset({name: data.name, description: data.description}); // Exclude 'completed' from form
     } else {
       if (type === "category") categoryForm.reset({ name: "", icon: availableIcons[0] });
       else if (type === "subCategory") subCategoryForm.reset({ name: "", icon: availableIcons[0] });
@@ -137,7 +139,7 @@ export default function PlanPage() {
   const handleAddTask = (values: TaskFormValues) => {
     setPlanData(planData.map(cat => cat.id === dialogState.grandParentId ? {
       ...cat,
-      subCategories: cat.subCategories.map(sub => sub.id === dialogState.parentId ? { ...sub, tasks: [...sub.tasks, { ...values, id: Date.now().toString() }] } : sub)
+      subCategories: cat.subCategories.map(sub => sub.id === dialogState.parentId ? { ...sub, tasks: [...sub.tasks, { ...values, id: Date.now().toString(), completed: false }] } : sub)
     } : cat));
     toast({ title: "Tâche ajoutée", description: `La tâche "${values.name}" a été ajoutée.` });
     closeDialog();
@@ -147,7 +149,7 @@ export default function PlanPage() {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === dialogState.parentId ? {
         ...sub,
-        tasks: sub.tasks.map(task => task.id === dialogState.data?.id ? { ...task, ...values } : task)
+        tasks: sub.tasks.map(task => task.id === dialogState.data?.id ? { ...task, ...values } : task) // completed status is preserved
       } : sub)
     } : cat));
     toast({ title: "Tâche modifiée", description: `La tâche "${values.name}" a été modifiée.` });
@@ -159,6 +161,37 @@ export default function PlanPage() {
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: sub.tasks.filter(task => task.id !== taskId) } : sub)
     } : cat));
     toast({ title: "Tâche supprimée", description: `La tâche a été supprimée.` });
+  };
+
+  const handleToggleTaskCompletion = (categoryId: string, subCategoryId: string, taskId: string) => {
+    setPlanData(prevPlanData =>
+      prevPlanData.map(cat =>
+        cat.id === categoryId
+          ? {
+              ...cat,
+              subCategories: cat.subCategories.map(sub =>
+                sub.id === subCategoryId
+                  ? {
+                      ...sub,
+                      tasks: sub.tasks.map(task =>
+                        task.id === taskId
+                          ? { ...task, completed: !task.completed }
+                          : task
+                      ),
+                    }
+                  : sub
+              ),
+            }
+          : cat
+      )
+    );
+    const task = planData.find(c => c.id === categoryId)?.subCategories.find(sc => sc.id === subCategoryId)?.tasks.find(t => t.id === taskId);
+    if (task) {
+        toast({
+            title: "Statut de la tâche modifié",
+            description: `La tâche "${task.name}" est maintenant ${!task.completed ? "complétée" : "non complétée"}.`,
+        });
+    }
   };
   
   const CategoryIconComponent = ({ iconName }: { iconName: string }) => {
@@ -199,7 +232,7 @@ export default function PlanPage() {
       >
         {planData.map((category: ComplianceCategory) => (
             <AccordionItem key={category.id} value={category.id} className="bg-card border border-border rounded-lg shadow-md overflow-hidden">
-              <AccordionPrimitive.Header className="flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors group">
+               <AccordionPrimitive.Header className="flex items-center px-6 py-4 hover:bg-muted/50 transition-colors group">
                 <ShadcnAccordionTrigger className="p-0 hover:no-underline flex-1 [&>svg]:ml-auto">
                   <div className="flex items-center space-x-3">
                     <CategoryIconComponent iconName={category.icon} />
@@ -207,43 +240,42 @@ export default function PlanPage() {
                   </div>
                 </ShadcnAccordionTrigger>
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity pl-3" onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="h-5 w-5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDialog("category", "edit", category); }}>
-                        <Edit2 className="mr-2 h-4 w-4" /> Modifier
-                      </DropdownMenuItem>
-                      <AlertDialog>
+                  <AlertDialog>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDialog("category", "edit", category); }}>
+                          <Edit2 className="mr-2 h-4 w-4" /> Modifier
+                        </DropdownMenuItem>
                         <AlertDialogTrigger asChild>
-                          <DropdownMenuItem 
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation();}}
+                           <DropdownMenuItem 
                             onSelect={(e) => e.preventDefault()} 
                             className="text-destructive focus:text-destructive focus:bg-destructive/10"
                           >
                             <Trash2 className="mr-2 h-4 w-4" /> Supprimer
                           </DropdownMenuItem>
                         </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette catégorie ?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Cette action est irréversible et supprimera "{category.name}" et toutes ses sous-catégories et tâches.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
-                            <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleRemoveCategory(category.id); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                              Supprimer
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette catégorie ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Cette action est irréversible et supprimera "{category.name}" et toutes ses sous-catégories et tâches.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleRemoveCategory(category.id); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                          Supprimer
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </AccordionPrimitive.Header>
               <AccordionContent className="px-6 pt-0 pb-6">
@@ -253,10 +285,11 @@ export default function PlanPage() {
                     <Card key={subCategory.id} className="bg-background/50 shadow-sm group">
                       <CardHeader className="pb-3 pt-4 px-4 flex flex-row justify-between items-center">
                         <div className="flex items-center">
-                          <SubCategoryIconComponent iconName={subCategory.icon} />
+                           <SubCategoryIconComponent iconName={subCategory.icon} />
                           <CardTitle className="text-lg font-medium font-headline">{subCategory.name}</CardTitle>
                         </div>
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <AlertDialog>
                            <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -267,79 +300,84 @@ export default function PlanPage() {
                               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDialog("subCategory", "edit", subCategory, category.id, category.id);}}>
                                 <Edit2 className="mr-2 h-4 w-4" /> Modifier
                               </DropdownMenuItem>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <DropdownMenuItem 
-                                    onClick={(e) => { e.preventDefault(); e.stopPropagation();}}
-                                    onSelect={(e) => e.preventDefault()} 
-                                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-                                  </DropdownMenuItem>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette sous-catégorie ?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Cette action est irréversible et supprimera "{subCategory.name}" et toutes ses tâches.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
-                                    <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleRemoveSubCategory(category.id, subCategory.id);}} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                      Supprimer
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                               <AlertDialogTrigger asChild>
+                                <DropdownMenuItem 
+                                  onSelect={(e) => e.preventDefault()}
+                                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
                             </DropdownMenuContent>
                           </DropdownMenu>
+                           <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette sous-catégorie ?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Cette action est irréversible et supprimera "{subCategory.name}" et toutes ses tâches.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
+                              <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleRemoveSubCategory(category.id, subCategory.id);}} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Supprimer
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                         </div>
                       </CardHeader>
                       <CardContent className="px-4 pb-4">
                         <ul className="space-y-2 list-inside">
                           {subCategory.tasks.map((task: ComplianceTask) => (
                             <li key={task.id} className="flex items-start text-sm text-muted-foreground group/task relative pr-10">
-                              <CheckSquare className="h-4 w-4 mr-2 mt-0.5 text-primary flex-shrink-0" />
-                              <span>{task.name} {task.description && `- ${task.description}`}</span>
+                               <Checkbox
+                                id={`task-${task.id}`}
+                                checked={task.completed}
+                                onCheckedChange={() => handleToggleTaskCompletion(category.id, subCategory.id, task.id)}
+                                className="mr-2 mt-0.5 flex-shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                aria-labelledby={`task-label-${task.id}`}
+                              />
+                              <label htmlFor={`task-${task.id}`} id={`task-label-${task.id}`} className="cursor-pointer">
+                                {task.name} {task.description && `- ${task.description}`}
+                              </label>
                                <div className="absolute right-0 top-0 opacity-0 group-hover/task:opacity-100 transition-opacity">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6">
-                                      <MoreVertical className="h-3 w-3" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" side="left">
-                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDialog("task", "edit", task, subCategory.id, category.id);}}>
-                                      <Edit2 className="mr-2 h-4 w-4" /> Modifier
-                                    </DropdownMenuItem>
-                                    <AlertDialog>
+                                 <AlertDialog>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                                        <MoreVertical className="h-3 w-3" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" side="left">
+                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDialog("task", "edit", task, subCategory.id, category.id);}}>
+                                        <Edit2 className="mr-2 h-4 w-4" /> Modifier
+                                      </DropdownMenuItem>
                                       <AlertDialogTrigger asChild>
                                         <DropdownMenuItem 
-                                          onClick={(e) => { e.preventDefault(); e.stopPropagation();}}
                                           onSelect={(e) => e.preventDefault()} 
                                           className="text-destructive focus:text-destructive focus:bg-destructive/10"
                                         >
                                           <Trash2 className="mr-2 h-4 w-4" /> Supprimer
                                         </DropdownMenuItem>
                                       </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette tâche ?</AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            Cette action est irréversible et supprimera la tâche "{task.name}".
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
-                                          <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleRemoveTask(category.id, subCategory.id, task.id);}} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                            Supprimer
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette tâche ?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Cette action est irréversible et supprimera la tâche "{task.name}".
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
+                                      <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleRemoveTask(category.id, subCategory.id, task.id);}} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                        Supprimer
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </div>
                             </li>
                           ))}
@@ -466,4 +504,3 @@ export default function PlanPage() {
     </div>
   );
 }
-
