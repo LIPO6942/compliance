@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -12,8 +13,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { analyzeRegulationAction, type AnalyzeRegulationResult } from "./actions";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, CheckCircle, Loader2, Sparkles, FileText, Tag, ListChecks, Check, X } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, Sparkles, FileText, Tag, ListChecks, Check, X, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 
 const formSchema = z.object({
   regulationText: z.string().min(50, { message: "Le texte réglementaire doit contenir au moins 50 caractères." }),
@@ -25,7 +27,10 @@ type RegulatoryWatchFormValues = z.infer<typeof formSchema>;
 export default function RegulatoryWatchPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [analysisResult, setAnalysisResult] = React.useState<AnalyzeRegulationResult | null>(null);
+  const [currentRegulationText, setCurrentRegulationText] = React.useState("");
+  const [currentKeywords, setCurrentKeywords] = React.useState("");
   const { toast } = useToast();
+  const { addIdentifiedRegulation } = useIdentifiedRegulations();
 
   const form = useForm<RegulatoryWatchFormValues>({
     resolver: zodResolver(formSchema),
@@ -38,6 +43,8 @@ export default function RegulatoryWatchPage() {
   const onSubmit = async (data: RegulatoryWatchFormValues) => {
     setIsLoading(true);
     setAnalysisResult(null);
+    setCurrentRegulationText(data.regulationText);
+    setCurrentKeywords(data.keywords);
     try {
       const result = await analyzeRegulationAction(data.regulationText, data.keywords);
       if (result.error) {
@@ -64,6 +71,29 @@ export default function RegulatoryWatchPage() {
       setIsLoading(false);
     }
   };
+
+  const handleConfirmAndIntegrate = () => {
+    if (analysisResult && currentRegulationText && analysisResult.inclusion?.include) {
+      addIdentifiedRegulation(currentRegulationText, currentKeywords, analysisResult);
+      toast({
+        title: "Réglementation Ajoutée aux Alertes",
+        description: "La nouvelle réglementation a été enregistrée et est visible dans le Centre d'Alertes.",
+      });
+      setAnalysisResult(null); // Clear the result from the page
+      form.reset(); // Optionally reset the form
+    }
+  };
+
+  const handleRejectSuggestions = () => {
+    setAnalysisResult(null);
+    toast({
+      title: "Suggestions Rejetées",
+      description: "L'analyse IA a été effacée.",
+      variant: "default",
+    });
+     form.reset();
+  };
+
 
   return (
     <div className="space-y-8">
@@ -185,7 +215,7 @@ export default function RegulatoryWatchPage() {
               </Card>
             )}
 
-            {analysisResult.categorization && (
+            {analysisResult.categorization && analysisResult.inclusion?.include && (
               <Card className="shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg font-medium font-headline flex items-center">
@@ -222,14 +252,25 @@ export default function RegulatoryWatchPage() {
               </Card>
             )}
             
-            {analysisResult.inclusion && analysisResult.inclusion.include && (
+            {analysisResult.inclusion && (
                 <CardFooter className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
-                    <Button size="lg" variant="outline" className="w-full sm:w-auto border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive">
+                    <Button 
+                        size="lg" 
+                        variant="outline" 
+                        className="w-full sm:w-auto border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={handleRejectSuggestions}
+                    >
                         <X className="mr-2 h-5 w-5" /> Rejeter les Suggestions
                     </Button>
-                    <Button size="lg" className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white">
-                        <Check className="mr-2 h-5 w-5" /> Confirmer et Intégrer
-                    </Button>
+                    {analysisResult.inclusion.include && (
+                        <Button 
+                            size="lg" 
+                            className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
+                            onClick={handleConfirmAndIntegrate}
+                        >
+                            <Check className="mr-2 h-5 w-5" /> Confirmer et Intégrer aux Alertes
+                        </Button>
+                    )}
                 </CardFooter>
             )}
           </CardContent>

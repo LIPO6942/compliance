@@ -11,6 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
+import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 import type { ComplianceCategory, ComplianceTask } from "@/types/compliance";
 import type { Document } from "@/types/compliance";
 
@@ -48,6 +49,7 @@ const initialChartConfig: ChartConfig = {
 export default function DashboardPage() {
   const { planData } = usePlanData();
   const { documents } = useDocuments();
+  const { identifiedRegulations } = useIdentifiedRegulations();
   const [isLoading, setIsLoading] = React.useState(true);
 
   const [activeTasksCount, setActiveTasksCount] = React.useState(0);
@@ -55,10 +57,11 @@ export default function DashboardPage() {
   const [overallCompliancePercentage, setOverallCompliancePercentage] = React.useState(0);
   const [complianceStatusData, setComplianceStatusData] = React.useState<Array<{status: string; value: number; fill: string}>>([]);
   const [taskProgressData, setTaskProgressData] = React.useState<Array<{name: string; completed: number; pending: number; overdue: number}>>([]);
+  const [newAlertsCount, setNewAlertsCount] = React.useState(0);
 
 
   React.useEffect(() => {
-    if (planData && documents) {
+    if (planData && documents && identifiedRegulations) {
       // Calculate Active Tasks
       const allTasks = planData.flatMap(category => category.subCategories.flatMap(subCategory => subCategory.tasks));
       setActiveTasksCount(allTasks.filter(task => !task.completed).length);
@@ -106,9 +109,12 @@ export default function DashboardPage() {
       });
       setTaskProgressData(newTaskProgressData);
 
+      // Calculate New Alerts Count
+      setNewAlertsCount(identifiedRegulations.filter(reg => reg.status === 'Nouvelle').length);
+
       setIsLoading(false);
     }
-  }, [planData, documents]);
+  }, [planData, documents, identifiedRegulations]);
 
   if (isLoading) {
     return (
@@ -142,8 +148,8 @@ export default function DashboardPage() {
               <Bell className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold font-headline">5</div>
-              <p className="text-xs text-muted-foreground pt-1">Nouvelles réglementations identifiées</p>
+              <div className="text-3xl font-bold font-headline">{newAlertsCount}</div>
+              <p className="text-xs text-muted-foreground pt-1">Nouvelle{newAlertsCount === 1 ? "" : "s"} réglementation{newAlertsCount === 1 ? "" : "s"} identifiée{newAlertsCount === 1 ? "" : "s"}</p>
             </CardContent>
           </Card>
         </Link>
