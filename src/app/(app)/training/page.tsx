@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -22,10 +22,26 @@ import {
     ShieldAlert,
     FileText,
     Gavel,
-    ShieldCheck,
+    // ShieldCheck, // No longer used from here, specificSensitizationData updated
     KeyRound,
-    PlusCircle
+    PlusCircle,
+    Edit2,
+    Trash2,
+    MoreHorizontal
 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useToast } from "@/hooks/use-toast";
+import { useTrainingData } from "@/contexts/TrainingDataContext";
+import type { TrainingRegistryItem } from "@/types/compliance";
+
 
 const kpiData = [
   { title: "Taux de couverture (obligatoire)", value: 85, target: 95, unit: "%", icon: Percent },
@@ -34,11 +50,11 @@ const kpiData = [
   { title: "Taux de réussite aux évaluations", value: 92, unit: "%", icon: CheckCircle },
 ];
 
+// Cybersécurité removed from here
 const specificSensitizationData = [
     { name: "LAB-FT", rate: 90, icon: ShieldAlert},
     { name: "RGPD", rate: 88, icon: FileText},
     { name: "Déontologie", rate: 95, icon: Gavel},
-    { name: "Cybersécurité", rate: 82, icon: ShieldCheck}
 ];
 
 const upcomingSessions = [
@@ -47,20 +63,61 @@ const upcomingSessions = [
   { id: "sess003", title: "Sensibilisation à la Déontologie Financière", date: "2024-11-20", type: "Obligatoire", department: "Finance, Vente" },
 ];
 
-const trainingRegistryMock = [
-  { id: "reg001", title: "Principes Fondamentaux de la LAB-FT", objective: "Comprendre les mécanismes de LCB-FT et les obligations réglementaires.", duration: "2h", support: "Présentation PPT, Quiz", lastUpdated: "2024-06-01" },
-  { id: "reg002", title: "Application du RGPD en Entreprise", objective: "Maîtriser les règles de protection des données personnelles.", duration: "3h", support: "Vidéo, Études de cas", lastUpdated: "2024-05-15" },
-  { id: "reg003", title: "Code de Conduite et Éthique Professionnelle", objective: "Adopter les bons comportements et respecter les règles déontologiques.", duration: "1.5h", support: "Manuel, Scénarios", lastUpdated: "2024-07-01" },
-];
-
 const campaignsMock = [
     { id: "camp001", name: "Campagne Phishing - Q3", status: "En cours", launchDate: "2024-07-10", target: "Tous les employés", icon: AlertTriangle },
     { id: "camp002", name: "Rappel bonnes pratiques mots de passe", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés", icon: KeyRound },
     { id: "camp003", name: "Journée de la Protection des Données", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés", icon: CheckCircle }
 ];
 
+const trainingRegistryItemSchema = z.object({
+  title: z.string().min(1, "Le titre est requis."),
+  objective: z.string().min(1, "L'objectif est requis."),
+  duration: z.string().min(1, "La durée est requise."),
+  support: z.string().min(1, "Le support est requis."),
+});
+type TrainingRegistryItemFormValues = z.infer<typeof trainingRegistryItemSchema>;
+
 
 export default function TrainingPage() {
+  const { trainingRegistryItems, addTrainingRegistryItem, editTrainingRegistryItem, removeTrainingRegistryItem } = useTrainingData();
+  const { toast } = useToast();
+  
+  const [dialogState, setDialogState] = React.useState<{
+    mode: "add" | "edit" | null;
+    data?: TrainingRegistryItem;
+  }>({ mode: null });
+
+  const form = useForm<TrainingRegistryItemFormValues>({
+    resolver: zodResolver(trainingRegistryItemSchema),
+    defaultValues: { title: "", objective: "", duration: "", support: "" },
+  });
+
+  const openDialog = (mode: "add" | "edit", data?: TrainingRegistryItem) => {
+    setDialogState({ mode, data });
+    if (mode === "edit" && data) {
+      form.reset(data);
+    } else {
+      form.reset({ title: "", objective: "", duration: "", support: "" });
+    }
+  };
+  const closeDialog = () => setDialogState({ mode: null });
+
+  const handleAddOrEditItem = (values: TrainingRegistryItemFormValues) => {
+    if (dialogState.mode === "add") {
+      addTrainingRegistryItem(values);
+      toast({ title: "Formation ajoutée", description: `La formation "${values.title}" a été ajoutée au registre.` });
+    } else if (dialogState.mode === "edit" && dialogState.data?.id) {
+      editTrainingRegistryItem(dialogState.data.id, values);
+      toast({ title: "Formation modifiée", description: `La formation "${values.title}" a été mise à jour.` });
+    }
+    closeDialog();
+  };
+
+  const handleRemoveItem = (itemId: string, itemName: string) => {
+    removeTrainingRegistryItem(itemId);
+    toast({ title: "Formation supprimée", description: `La formation "${itemName}" a été supprimée du registre.` });
+  };
+
   return (
     <div className="space-y-8">
       <Card className="shadow-lg">
@@ -133,7 +190,7 @@ export default function TrainingPage() {
           <CardContent>
             <div className="mb-4 p-4 border rounded-md bg-blue-50 dark:bg-blue-900/20">
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                    <span className="font-semibold">Fonctionnalité à venir :</span> Un calendrier interactif sera bientôt disponible ici pour une gestion visuelle des sessions.
+                    <span className="font-semibold">Note :</span> Les fonctionnalités de modification pour cette section (planning, campagnes) seront ajoutées ultérieurement.
                 </p>
             </div>
             <h4 className="font-semibold mb-2 text-muted-foreground">Prochaines Sessions :</h4>
@@ -189,7 +246,7 @@ export default function TrainingPage() {
         </Card>
       </div>
 
-      {/* Section 3: Registre des Formations */}
+      {/* Section 3: Registre des Formations - MODIFIABLE */}
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle className="font-headline text-xl flex items-center">
@@ -200,29 +257,80 @@ export default function TrainingPage() {
         </CardHeader>
         <CardContent>
             <div className="mb-4 flex justify-end">
-                <Button><ListChecks className="mr-2 h-4 w-4"/>Gérer le Registre</Button>
+                <Button onClick={() => openDialog("add")}>
+                  <PlusCircle className="mr-2 h-4 w-4"/>Ajouter une Formation
+                </Button>
             </div>
           <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[300px]">Titre de la Formation</TableHead>
+                  <TableHead className="w-[250px]">Titre</TableHead>
                   <TableHead>Objectif</TableHead>
-                  <TableHead className="text-center">Durée</TableHead>
-                  <TableHead>Support</TableHead>
-                  <TableHead className="text-right">Dernière MàJ</TableHead>
+                  <TableHead className="text-center w-[80px]">Durée</TableHead>
+                  <TableHead className="w-[200px]">Support</TableHead>
+                  <TableHead className="text-center w-[120px]">Dernière MàJ</TableHead>
+                  <TableHead className="text-right w-[80px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {trainingRegistryMock.slice(0,3).map((training) => (
-                  <TableRow key={training.id} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-medium">{training.title}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{training.objective}</TableCell>
-                    <TableCell className="text-center text-xs">{training.duration}</TableCell>
-                    <TableCell className="text-xs">{training.support}</TableCell>
-                    <TableCell className="text-right text-xs">{training.lastUpdated}</TableCell>
+                {trainingRegistryItems.length > 0 ? (
+                  trainingRegistryItems.map((training) => (
+                    <TableRow key={training.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-medium py-3">{training.title}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground py-3">{training.objective}</TableCell>
+                      <TableCell className="text-center text-xs py-3">{training.duration}</TableCell>
+                      <TableCell className="text-xs py-3">{training.support}</TableCell>
+                      <TableCell className="text-center text-xs py-3">{training.lastUpdated}</TableCell>
+                      <TableCell className="py-3 text-right">
+                        <AlertDialog>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Ouvrir menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openDialog("edit", training)}>
+                                <Edit2 className="mr-2 h-4 w-4" /> Modifier
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                               <AlertDialogTrigger asChild>
+                                <DropdownMenuItem 
+                                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                  onSelect={(e) => e.preventDefault()} 
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette formation ?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Cette action est irréversible et supprimera la formation "{training.title}" du registre.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annuler</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleRemoveItem(training.id, training.title)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Supprimer
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                   <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                      Aucune formation dans le registre.
+                    </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
@@ -258,6 +366,58 @@ export default function TrainingPage() {
                 </div>
             </div>
       </Card>
+
+      {/* Dialog for Add/Edit Training Registry Item */}
+      <Dialog open={!!dialogState.mode} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {dialogState.mode === "add" ? "Ajouter une formation au registre" : "Modifier la formation"}
+            </DialogTitle>
+            <DialogDescription>
+              Remplissez les détails de la formation ci-dessous.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleAddOrEditItem)} className="space-y-4">
+              <FormField control={form.control} name="title" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Titre de la formation</FormLabel>
+                  <FormControl><Input {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="objective" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Objectif</FormLabel>
+                  <FormControl><Textarea {...field} rows={3} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="duration" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Durée</FormLabel>
+                  <FormControl><Input {...field} placeholder="Ex: 2h, 3 jours" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="support" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Support utilisé</FormLabel>
+                  <FormControl><Input {...field} placeholder="Ex: PPT, Vidéo, Quiz" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <DialogFooter>
+                <DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose>
+                <Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer les modifications"}</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
+

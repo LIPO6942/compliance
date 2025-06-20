@@ -54,3 +54,14 @@ export interface IdentifiedRegulation {
   status: IdentifiedRegulationStatus;
   keywordsUsed: string;
 }
+
+// Training Registry Item
+export interface TrainingRegistryItem {
+  id: string;
+  title: string;
+  objective: string;
+  duration: string;
+  support: string;
+  lastUpdated: string; // ISO date string
+}
+
