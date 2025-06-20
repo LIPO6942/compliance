@@ -4,9 +4,9 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { FilePieChart, Download, Settings2, CalendarDays, BarChart3, Filter, Mail, Share2 } from "lucide-react";
+import { FilePieChart, Download, Settings2, CalendarDays, BarChart3, Filter, Mail, Share2, CheckCircle as CheckCircleIcon } from "lucide-react"; // Renamed to avoid conflict
 import { Label } from "@/components/ui/label";
-import { DatePickerWithRange } from "@/components/ui/date-range-picker"; // Assuming this component exists or will be created
+import { DatePickerWithRange } from "@/components/ui/date-range-picker"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Image from "next/image";
 
@@ -118,8 +118,7 @@ export default function ReportsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <Label htmlFor="report-range" className="text-base font-medium mb-2 block">Période du Rapport</Label>
-              {/* Replace with actual DatePickerWithRange component */}
-              <DatePickerWithRangePlaceholder /> 
+              <DatePickerWithRange /> 
             </div>
             <div>
               <Label htmlFor="report-format" className="text-base font-medium mb-2 block">Format d'Exportation</Label>
@@ -153,7 +152,7 @@ export default function ReportsPage() {
                     <SelectContent>
                         <SelectItem value="lab">LAB-FT</SelectItem>
                         <SelectItem value="fraude">Fraude</SelectItem>
-                        <SelectItem value="cyber">Cyber-sécurité</SelectItem>
+                        {/* <SelectItem value="cyber">Cyber-sécurité</SelectItem> */}
                     </SelectContent>
                 </Select>
             </div>
@@ -189,7 +188,7 @@ export default function ReportsPage() {
         <Card className="shadow-lg animate-fadeIn">
           <CardHeader>
             <CardTitle className="font-headline text-xl flex items-center text-green-600">
-              <CheckCircle className="mr-2 h-6 w-6" />
+              <CheckCircleIcon className="mr-2 h-6 w-6" /> {/* Use renamed CheckCircleIcon */}
               Rapport Généré avec Succès !
             </CardTitle>
           </CardHeader>
@@ -228,5 +227,6 @@ export default function ReportsPage() {
 const ShieldAlert = (props: any) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>;
 const Users = (props: any) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11h-6"/></svg>;
 const MessageSquareWarning = (props: any) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v2"/><path d="M12 13h.01"/></svg>;
-const CheckCircle = (props: any) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
+// const CheckCircle = (props: any) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>; // Removed to avoid conflict with lucide icon
+
 

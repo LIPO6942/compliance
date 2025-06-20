@@ -65,3 +65,24 @@ export interface TrainingRegistryItem {
   lastUpdated: string; // ISO date string
 }
 
+// Upcoming Training Session
+export type UpcomingSessionType = "Obligatoire" | "Recommandée";
+export interface UpcomingSession {
+  id: string;
+  title: string;
+  date: string; // ISO date string or formatted string
+  type: UpcomingSessionType;
+  department: string;
+}
+
+// Sensitization Campaign
+export type SensitizationCampaignStatus = "En cours" | "Planifiée" | "Terminée";
+export interface SensitizationCampaign {
+  id: string;
+  name: string;
+  status: SensitizationCampaignStatus;
+  launchDate: string; // ISO date string or formatted string
+  target: string;
+  iconName: string; // Name of the lucide-react icon
+}
+

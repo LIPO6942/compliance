@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Image from "next/image";
+import * as LucideIcons from "lucide-react"; // Import all icons
 import { 
     Users, 
     BarChart2, 
@@ -22,7 +23,6 @@ import {
     ShieldAlert,
     FileText,
     Gavel,
-    // ShieldCheck, // No longer used from here, specificSensitizationData updated
     KeyRound,
     PlusCircle,
     Edit2,
@@ -31,16 +31,22 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, useFormField } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { useTrainingData } from "@/contexts/TrainingDataContext";
-import type { TrainingRegistryItem } from "@/types/compliance";
+import type { TrainingRegistryItem, UpcomingSession, SensitizationCampaign, UpcomingSessionType, SensitizationCampaignStatus } from "@/types/compliance";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker"; // Assuming this is for single date too or we need a single date picker
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 
 
 const kpiData = [
@@ -50,24 +56,28 @@ const kpiData = [
   { title: "Taux de réussite aux évaluations", value: 92, unit: "%", icon: CheckCircle },
 ];
 
-// Cybersécurité removed from here
 const specificSensitizationData = [
     { name: "LAB-FT", rate: 90, icon: ShieldAlert},
     { name: "RGPD", rate: 88, icon: FileText},
     { name: "Déontologie", rate: 95, icon: Gavel},
 ];
 
-const upcomingSessions = [
-  { id: "sess001", title: "Formation LAB-FT (Recyclage)", date: "2024-09-15", type: "Obligatoire", department: "Tous" },
-  { id: "sess002", title: "Nouveautés RGPD et Impact Opérationnel", date: "2024-10-05", type: "Recommandée", department: "Marketing, IT" },
-  { id: "sess003", title: "Sensibilisation à la Déontologie Financière", date: "2024-11-20", type: "Obligatoire", department: "Finance, Vente" },
-];
+const iconMap: Record<string, LucideIcons.LucideIcon> = Object.entries(LucideIcons)
+  .filter(([key, value]) => typeof value === 'function' && /^[A-Z]/.test(key))
+  .reduce((acc, [key, value]) => {
+    acc[key] = value as LucideIcons.LucideIcon;
+    return acc;
+  }, {} as Record<string, LucideIcons.LucideIcon>);
 
-const campaignsMock = [
-    { id: "camp001", name: "Campagne Phishing - Q3", status: "En cours", launchDate: "2024-07-10", target: "Tous les employés", icon: AlertTriangle },
-    { id: "camp002", name: "Rappel bonnes pratiques mots de passe", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés", icon: KeyRound },
-    { id: "camp003", name: "Journée de la Protection des Données", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés", icon: CheckCircle }
-];
+const availableIcons = Object.keys(iconMap);
+
+const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => {
+  if (iconName && iconMap[iconName]) {
+    return iconMap[iconName];
+  }
+  return LucideIcons.HelpCircle; // Default icon
+};
+
 
 const trainingRegistryItemSchema = z.object({
   title: z.string().min(1, "Le titre est requis."),
@@ -77,46 +87,109 @@ const trainingRegistryItemSchema = z.object({
 });
 type TrainingRegistryItemFormValues = z.infer<typeof trainingRegistryItemSchema>;
 
+const upcomingSessionSchema = z.object({
+    title: z.string().min(1, "Le titre est requis."),
+    date: z.date({ required_error: "La date est requise."}),
+    type: z.enum(["Obligatoire", "Recommandée"], { required_error: "Le type est requis."}),
+    department: z.string().min(1, "Le département est requis."),
+});
+type UpcomingSessionFormValues = z.infer<typeof upcomingSessionSchema>;
+
+const sensitizationCampaignSchema = z.object({
+    name: z.string().min(1, "Le nom est requis."),
+    status: z.enum(["En cours", "Planifiée", "Terminée"], { required_error: "Le statut est requis."}),
+    launchDate: z.date({ required_error: "La date de lancement est requise."}),
+    target: z.string().min(1, "La cible est requise."),
+    iconName: z.string().min(1, "L'icône est requise."),
+});
+type SensitizationCampaignFormValues = z.infer<typeof sensitizationCampaignSchema>;
+
 
 export default function TrainingPage() {
-  const { trainingRegistryItems, addTrainingRegistryItem, editTrainingRegistryItem, removeTrainingRegistryItem } = useTrainingData();
+  const { 
+    trainingRegistryItems, addTrainingRegistryItem, editTrainingRegistryItem, removeTrainingRegistryItem,
+    upcomingSessions, addUpcomingSession, editUpcomingSession, removeUpcomingSession,
+    sensitizationCampaigns, addSensitizationCampaign, editSensitizationCampaign, removeSensitizationCampaign
+  } = useTrainingData();
   const { toast } = useToast();
   
   const [dialogState, setDialogState] = React.useState<{
+    type: "registry" | "session" | "campaign" | null;
     mode: "add" | "edit" | null;
-    data?: TrainingRegistryItem;
-  }>({ mode: null });
+    data?: TrainingRegistryItem | UpcomingSession | SensitizationCampaign;
+  }>({ type: null, mode: null });
 
-  const form = useForm<TrainingRegistryItemFormValues>({
-    resolver: zodResolver(trainingRegistryItemSchema),
-    defaultValues: { title: "", objective: "", duration: "", support: "" },
-  });
+  const registryForm = useForm<TrainingRegistryItemFormValues>({ resolver: zodResolver(trainingRegistryItemSchema), defaultValues: { title: "", objective: "", duration: "", support: "" }});
+  const sessionForm = useForm<UpcomingSessionFormValues>({ resolver: zodResolver(upcomingSessionSchema), defaultValues: { title: "", date: new Date(), type: "Obligatoire", department: "" }});
+  const campaignForm = useForm<SensitizationCampaignFormValues>({ resolver: zodResolver(sensitizationCampaignSchema), defaultValues: { name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone" }});
 
-  const openDialog = (mode: "add" | "edit", data?: TrainingRegistryItem) => {
-    setDialogState({ mode, data });
+
+  const openDialog = (type: "registry" | "session" | "campaign", mode: "add" | "edit", data?: any) => {
+    setDialogState({ type, mode, data });
     if (mode === "edit" && data) {
-      form.reset(data);
+      if (type === "registry") registryForm.reset(data);
+      if (type === "session") sessionForm.reset({...data, date: new Date(data.date)});
+      if (type === "campaign") campaignForm.reset({...data, launchDate: new Date(data.launchDate)});
     } else {
-      form.reset({ title: "", objective: "", duration: "", support: "" });
+      if (type === "registry") registryForm.reset({ title: "", objective: "", duration: "", support: "" });
+      if (type === "session") sessionForm.reset({ title: "", date: new Date(), type: "Obligatoire", department: "" });
+      if (type === "campaign") campaignForm.reset({ name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone" });
     }
   };
-  const closeDialog = () => setDialogState({ mode: null });
+  const closeDialog = () => setDialogState({ type: null, mode: null });
 
-  const handleAddOrEditItem = (values: TrainingRegistryItemFormValues) => {
+  const handleRegistrySubmit = (values: TrainingRegistryItemFormValues) => {
     if (dialogState.mode === "add") {
       addTrainingRegistryItem(values);
-      toast({ title: "Formation ajoutée", description: `La formation "${values.title}" a été ajoutée au registre.` });
+      toast({ title: "Formation ajoutée", description: `La formation "${values.title}" a été ajoutée.` });
     } else if (dialogState.mode === "edit" && dialogState.data?.id) {
       editTrainingRegistryItem(dialogState.data.id, values);
       toast({ title: "Formation modifiée", description: `La formation "${values.title}" a été mise à jour.` });
     }
     closeDialog();
   };
-
-  const handleRemoveItem = (itemId: string, itemName: string) => {
+  const handleRemoveRegistryItem = (itemId: string, itemName: string) => {
     removeTrainingRegistryItem(itemId);
-    toast({ title: "Formation supprimée", description: `La formation "${itemName}" a été supprimée du registre.` });
+    toast({ title: "Formation supprimée", description: `La formation "${itemName}" a été supprimée.` });
   };
+
+  const handleSessionSubmit = (values: UpcomingSessionFormValues) => {
+    const sessionData = { ...values, date: format(values.date, "yyyy-MM-dd") };
+    if (dialogState.mode === "add") {
+      addUpcomingSession(sessionData);
+      toast({ title: "Session ajoutée", description: `La session "${values.title}" a été ajoutée.` });
+    } else if (dialogState.mode === "edit" && dialogState.data?.id) {
+      editUpcomingSession(dialogState.data.id, sessionData);
+      toast({ title: "Session modifiée", description: `La session "${values.title}" a été mise à jour.` });
+    }
+    closeDialog();
+  };
+  const handleRemoveSession = (sessionId: string, sessionName: string) => {
+    removeUpcomingSession(sessionId);
+    toast({ title: "Session supprimée", description: `La session "${sessionName}" a été supprimée.` });
+  };
+
+  const handleCampaignSubmit = (values: SensitizationCampaignFormValues) => {
+    const campaignData = { ...values, launchDate: format(values.launchDate, "yyyy-MM-dd") };
+    if (dialogState.mode === "add") {
+      addSensitizationCampaign(campaignData);
+      toast({ title: "Campagne ajoutée", description: `La campagne "${values.name}" a été ajoutée.` });
+    } else if (dialogState.mode === "edit" && dialogState.data?.id) {
+      editSensitizationCampaign(dialogState.data.id, campaignData);
+      toast({ title: "Campagne modifiée", description: `La campagne "${values.name}" a été mise à jour.` });
+    }
+    closeDialog();
+  };
+  const handleRemoveCampaign = (campaignId: string, campaignName: string) => {
+    removeSensitizationCampaign(campaignId);
+    toast({ title: "Campagne supprimée", description: `La campagne "${campaignName}" a été supprimée.` });
+  };
+  
+  const CampaignIcon = ({ iconName }: { iconName: string }) => {
+    const Icon = getIconComponent(iconName);
+    return <Icon className="h-4 w-4 mr-1.5" />;
+  };
+
 
   return (
     <div className="space-y-8">
@@ -132,7 +205,6 @@ export default function TrainingPage() {
         </CardHeader>
       </Card>
 
-      {/* Section 1: Indicateurs de Suivi */}
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle className="font-headline text-xl flex items-center">
@@ -160,7 +232,7 @@ export default function TrainingPage() {
         </CardContent>
         <CardContent>
             <h3 className="text-md font-semibold mb-3 text-muted-foreground">Taux de sensibilisation par thématique :</h3>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"> {/* Adjusted to lg:grid-cols-3 */}
                 {specificSensitizationData.map(item => (
                     <Card key={item.name} className="bg-muted/30">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -177,90 +249,143 @@ export default function TrainingPage() {
         </CardContent>
       </Card>
 
-      {/* Section 2: Planning et Campagnes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle className="font-headline text-xl flex items-center">
-              <CalendarDays className="mr-2 h-6 w-6 text-primary" />
-              Planning des Formations
-            </CardTitle>
-            <CardDescription>Calendrier des sessions à venir et options de gestion.</CardDescription>
+          <CardHeader className="flex flex-row justify-between items-center">
+            <div>
+                <CardTitle className="font-headline text-xl flex items-center">
+                <CalendarDays className="mr-2 h-6 w-6 text-primary" />
+                Planning des Formations
+                </CardTitle>
+                <CardDescription>Calendrier des sessions à venir et options de gestion.</CardDescription>
+            </div>
+            <Button onClick={() => openDialog("session", "add")}><PlusCircle className="mr-2 h-4 w-4"/>Ajouter</Button>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 p-4 border rounded-md bg-blue-50 dark:bg-blue-900/20">
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                    <span className="font-semibold">Note :</span> Les fonctionnalités de modification pour cette section (planning, campagnes) seront ajoutées ultérieurement.
-                </p>
-            </div>
-            <h4 className="font-semibold mb-2 text-muted-foreground">Prochaines Sessions :</h4>
-            <div className="space-y-3 max-h-60 overflow-y-auto">
-                {upcomingSessions.map(session => (
-                    <div key={session.id} className="p-3 border rounded-md hover:bg-muted/50 transition-colors">
-                        <div className="flex justify-between items-start">
-                            <h5 className="font-medium">{session.title}</h5>
-                            <Badge variant={session.type === "Obligatoire" ? "destructive" : "secondary" } className="text-xs">{session.type}</Badge>
+             {upcomingSessions.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Aucune session planifiée.</p>
+             ) : (
+                <div className="space-y-3 max-h-72 overflow-y-auto">
+                    {upcomingSessions.map(session => (
+                        <div key={session.id} className="p-3 border rounded-md hover:bg-muted/50 transition-colors flex justify-between items-start group">
+                            <div>
+                                <h5 className="font-medium">{session.title}</h5>
+                                <p className="text-xs text-muted-foreground">Date: {format(new Date(session.date), "dd/MM/yyyy", { locale: fr })} | Département(s): {session.department}</p>
+                            </div>
+                            <div className="flex items-center">
+                                <Badge variant={session.type === "Obligatoire" ? "destructive" : "secondary" } className="text-xs mr-2">{session.type}</Badge>
+                                <AlertDialog>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => openDialog("session", "edit", session)}><Edit2 className="mr-2 h-4 w-4" />Modifier</DropdownMenuItem>
+                                            <AlertDialogTrigger asChild>
+                                                <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e)=>e.preventDefault()}><Trash2 className="mr-2 h-4 w-4" />Supprimer</DropdownMenuItem>
+                                            </AlertDialogTrigger>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Supprimer la session ?</AlertDialogTitle>
+                                            <AlertDialogDescription>"{session.title}" sera supprimée définitivement.</AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleRemoveSession(session.id, session.title)} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
                         </div>
-                        <p className="text-xs text-muted-foreground">Date: {session.date} | Département(s): {session.department}</p>
-                    </div>
-                ))}
-            </div>
-            <Button variant="outline" className="mt-4 w-full">Voir tout le planning</Button>
+                    ))}
+                </div>
+             )}
           </CardContent>
         </Card>
 
         <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle className="font-headline text-xl flex items-center">
-              <Megaphone className="mr-2 h-6 w-6 text-primary" />
-              Campagnes de Sensibilisation
-            </CardTitle>
-            <CardDescription>Suivi des campagnes en cours et planifiées.</CardDescription>
+          <CardHeader className="flex flex-row justify-between items-center">
+             <div>
+                <CardTitle className="font-headline text-xl flex items-center">
+                <Megaphone className="mr-2 h-6 w-6 text-primary" />
+                Campagnes de Sensibilisation
+                </CardTitle>
+                <CardDescription>Suivi des campagnes en cours et planifiées.</CardDescription>
+             </div>
+             <Button onClick={() => openDialog("campaign", "add")}><PlusCircle className="mr-2 h-4 w-4"/>Ajouter</Button>
           </CardHeader>
           <CardContent>
-             <div className="space-y-4">
-                {campaignsMock.map(campaign => (
-                    <Card key={campaign.id} className="shadow-sm">
-                        <CardHeader className="p-3 flex flex-row items-start justify-between">
-                             <div>
-                                <h4 className="font-semibold text-sm">{campaign.name}</h4>
-                                <p className="text-xs text-muted-foreground">Lancée le: {campaign.launchDate} | Cible: {campaign.target}</p>
-                             </div>
-                             <Badge variant={campaign.status === "En cours" ? "default" : campaign.status === "Planifiée" ? "outline" : "secondary"} className={`capitalize text-xs ${campaign.status === "En cours" ? "bg-yellow-500 text-white" : ""}`}>
-                                <campaign.icon className="h-3 w-3 mr-1.5"/>
-                                {campaign.status}
-                             </Badge>
-                        </CardHeader>
-                        <CardContent className="p-3 pt-0">
-                             {campaign.status === "En cours" && <Button size="sm" variant="outline" className="w-full"><Send className="h-4 w-4 mr-2"/>Envoyer un rappel</Button>}
-                             {campaign.status === "Planifiée" && <Button size="sm" variant="ghost" className="w-full text-primary">Configurer la campagne</Button>}
-                             {campaign.status === "Terminée" && <Button size="sm" variant="link" className="w-full">Voir les résultats</Button>}
-                        </CardContent>
-                    </Card>
-                ))}
-             </div>
-             <Button className="mt-4 w-full bg-primary hover:bg-primary/90">
-                <PlusCircle className="mr-2 h-5 w-5" /> Lancer une nouvelle campagne
-             </Button>
+             {sensitizationCampaigns.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Aucune campagne planifiée.</p>
+             ) : (
+                 <div className="space-y-4  max-h-72 overflow-y-auto">
+                    {sensitizationCampaigns.map(campaign => {
+                        const IconComponent = getIconComponent(campaign.iconName);
+                        return (
+                        <Card key={campaign.id} className="shadow-sm group">
+                            <CardHeader className="p-3 flex flex-row items-start justify-between">
+                                <div>
+                                    <h4 className="font-semibold text-sm flex items-center"><IconComponent className="h-4 w-4 mr-1.5 text-muted-foreground"/>{campaign.name}</h4>
+                                    <p className="text-xs text-muted-foreground pl-6">Lancée le: {format(new Date(campaign.launchDate), "dd/MM/yyyy", { locale: fr })} | Cible: {campaign.target}</p>
+                                </div>
+                                <div className="flex items-center">
+                                    <Badge variant={campaign.status === "En cours" ? "default" : campaign.status === "Planifiée" ? "outline" : "secondary"} className={`capitalize text-xs mr-2 ${campaign.status === "En cours" ? "bg-yellow-500 text-white hover:bg-yellow-600" : ""}`}>
+                                        {campaign.status}
+                                    </Badge>
+                                     <AlertDialog>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => openDialog("campaign", "edit", campaign)}><Edit2 className="mr-2 h-4 w-4" />Modifier</DropdownMenuItem>
+                                                <AlertDialogTrigger asChild>
+                                                    <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e)=>e.preventDefault()}><Trash2 className="mr-2 h-4 w-4" />Supprimer</DropdownMenuItem>
+                                                </AlertDialogTrigger>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Supprimer la campagne ?</AlertDialogTitle>
+                                                <AlertDialogDescription>"{campaign.name}" sera supprimée définitivement.</AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleRemoveCampaign(campaign.id, campaign.name)} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                            </CardHeader>
+                        </Card>
+                        );
+                    })}
+                 </div>
+             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Section 3: Registre des Formations - MODIFIABLE */}
       <Card className="shadow-md">
-        <CardHeader>
-          <CardTitle className="font-headline text-xl flex items-center">
-            <BookOpen className="mr-2 h-6 w-6 text-primary" />
-            Registre des Formations
-          </CardTitle>
-          <CardDescription>Catalogue des formations disponibles, traçabilité et gestion des contenus.</CardDescription>
+        <CardHeader className="flex flex-row justify-between items-center">
+          <div>
+            <CardTitle className="font-headline text-xl flex items-center">
+                <BookOpen className="mr-2 h-6 w-6 text-primary" />
+                Registre des Formations
+            </CardTitle>
+            <CardDescription>Catalogue des formations disponibles, traçabilité et gestion des contenus.</CardDescription>
+          </div>
+           <Button onClick={() => openDialog("registry", "add")}>
+                <PlusCircle className="mr-2 h-4 w-4"/>Ajouter une Formation
+            </Button>
         </CardHeader>
         <CardContent>
-            <div className="mb-4 flex justify-end">
-                <Button onClick={() => openDialog("add")}>
-                  <PlusCircle className="mr-2 h-4 w-4"/>Ajouter une Formation
-                </Button>
-            </div>
           <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
@@ -292,7 +417,7 @@ export default function TrainingPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openDialog("edit", training)}>
+                              <DropdownMenuItem onClick={() => openDialog("registry", "edit", training)}>
                                 <Edit2 className="mr-2 h-4 w-4" /> Modifier
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
@@ -315,7 +440,7 @@ export default function TrainingPage() {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Annuler</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleRemoveItem(training.id, training.title)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              <AlertDialogAction onClick={() => handleRemoveRegistryItem(training.id, training.title)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                                 Supprimer
                               </AlertDialogAction>
                             </AlertDialogFooter>
@@ -334,7 +459,7 @@ export default function TrainingPage() {
               </TableBody>
             </Table>
           </div>
-           <div className="mt-4 text-sm text-muted-foreground">
+           <div className="mt-4 text-sm text-muted-foreground space-y-1">
                 <p><span className="font-semibold">Traçabilité :</span> Le système assure un suivi complet de qui a suivi quelle formation, quand, et avec quels résultats (consultable dans la section de gestion du registre).</p>
                 <p><span className="font-semibold">Mise à jour des contenus :</span> Les contenus de formation sont revus et mis à jour annuellement ou dès qu'une évolution réglementaire majeure l'exige.</p>
             </div>
@@ -367,53 +492,117 @@ export default function TrainingPage() {
             </div>
       </Card>
 
-      {/* Dialog for Add/Edit Training Registry Item */}
-      <Dialog open={!!dialogState.mode} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
-        <DialogContent>
+      <Dialog open={!!dialogState.type} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {dialogState.mode === "add" ? "Ajouter une formation au registre" : "Modifier la formation"}
+              {dialogState.mode === "add" ? "Ajouter " : "Modifier "} 
+              {dialogState.type === "registry" ? "une formation au registre" : 
+               dialogState.type === "session" ? "une session de formation" : 
+               dialogState.type === "campaign" ? "une campagne de sensibilisation" : ""}
             </DialogTitle>
             <DialogDescription>
-              Remplissez les détails de la formation ci-dessous.
+              Remplissez les détails ci-dessous.
             </DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleAddOrEditItem)} className="space-y-4">
-              <FormField control={form.control} name="title" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Titre de la formation</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="objective" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Objectif</FormLabel>
-                  <FormControl><Textarea {...field} rows={3} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="duration" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Durée</FormLabel>
-                  <FormControl><Input {...field} placeholder="Ex: 2h, 3 jours" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="support" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Support utilisé</FormLabel>
-                  <FormControl><Input {...field} placeholder="Ex: PPT, Vidéo, Quiz" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <DialogFooter>
-                <DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose>
-                <Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer les modifications"}</Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          
+          {dialogState.type === "registry" && (
+            <Form {...registryForm}>
+              <form onSubmit={registryForm.handleSubmit(handleRegistrySubmit)} className="space-y-4">
+                <FormField control={registryForm.control} name="title" render={({ field }) => (
+                  <FormItem><FormLabel>Titre de la formation</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={registryForm.control} name="objective" render={({ field }) => (
+                  <FormItem><FormLabel>Objectif</FormLabel><FormControl><Textarea {...field} rows={3} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={registryForm.control} name="duration" render={({ field }) => (
+                  <FormItem><FormLabel>Durée</FormLabel><FormControl><Input {...field} placeholder="Ex: 2h, 3 jours" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={registryForm.control} name="support" render={({ field }) => (
+                  <FormItem><FormLabel>Support utilisé</FormLabel><FormControl><Input {...field} placeholder="Ex: PPT, Vidéo, Quiz" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
+              </form>
+            </Form>
+          )}
+
+          {dialogState.type === "session" && (
+            <Form {...sessionForm}>
+              <form onSubmit={sessionForm.handleSubmit(handleSessionSubmit)} className="space-y-4">
+                <FormField control={sessionForm.control} name="title" render={({ field }) => (
+                  <FormItem><FormLabel>Titre de la session</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={sessionForm.control} name="date" render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                        <FormLabel>Date</FormLabel>
+                        <Popover>
+                        <PopoverTrigger asChild>
+                            <FormControl>
+                            <Button variant={"outline"} className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}>
+                                {field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}
+                                <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                            </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date("1900-01-01")} initialFocus locale={fr} />
+                        </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={sessionForm.control} name="type" render={({ field }) => (
+                  <FormItem><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir un type" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Obligatoire">Obligatoire</SelectItem><SelectItem value="Recommandée">Recommandée</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                )} />
+                <FormField control={sessionForm.control} name="department" render={({ field }) => (
+                  <FormItem><FormLabel>Département(s) cible(s)</FormLabel><FormControl><Input {...field} placeholder="Ex: Tous, Marketing, Vente" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
+              </form>
+            </Form>
+          )}
+
+          {dialogState.type === "campaign" && (
+             <Form {...campaignForm}>
+              <form onSubmit={campaignForm.handleSubmit(handleCampaignSubmit)} className="space-y-4">
+                <FormField control={campaignForm.control} name="name" render={({ field }) => (
+                  <FormItem><FormLabel>Nom de la campagne</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                 <FormField control={campaignForm.control} name="launchDate" render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                        <FormLabel>Date de lancement</FormLabel>
+                        <Popover>
+                        <PopoverTrigger asChild>
+                            <FormControl>
+                            <Button variant={"outline"} className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}>
+                                {field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}
+                                <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                            </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={fr} />
+                        </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={campaignForm.control} name="status" render={({ field }) => (
+                  <FormItem><FormLabel>Statut</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir un statut" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Planifiée">Planifiée</SelectItem><SelectItem value="En cours">En cours</SelectItem><SelectItem value="Terminée">Terminée</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                )} />
+                <FormField control={campaignForm.control} name="target" render={({ field }) => (
+                  <FormItem><FormLabel>Cible</FormLabel><FormControl><Input {...field} placeholder="Ex: Tous les employés, Managers" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={campaignForm.control} name="iconName" render={({ field }) => (
+                  <FormItem><FormLabel>Icône</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir une icône" /></SelectTrigger></FormControl><SelectContent className="max-h-60">
+                    {availableIcons.map(iconKey => { const IconComponent = getIconComponent(iconKey); return <SelectItem key={iconKey} value={iconKey}><div className="flex items-center"><IconComponent className="mr-2 h-4 w-4"/> {iconKey}</div></SelectItem>})}
+                  </SelectContent></Select><FormMessage /></FormItem>
+                )} />
+                <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
+              </form>
+            </Form>
+          )}
+
         </DialogContent>
       </Dialog>
 
