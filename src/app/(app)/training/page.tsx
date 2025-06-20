@@ -28,7 +28,7 @@ import {
     Edit2,
     Trash2,
     MoreHorizontal,
-    SliderIcon
+    SliderIcon // This is not needed if Slider itself is used.
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -43,7 +43,6 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { useTrainingData } from "@/contexts/TrainingDataContext";
 import type { TrainingRegistryItem, UpcomingSession, SensitizationCampaign, UpcomingSessionType, SensitizationCampaignStatus } from "@/types/compliance";
-// import { DatePickerWithRange } from "@/components/ui/date-range-picker"; // Assuming this is for single date too or we need a single date picker
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -193,14 +192,16 @@ export default function TrainingPage() {
     return <Icon className="h-4 w-4 mr-1.5" />;
   };
 
-  const derivedSpecificSensitizationData = kpiThemes.map(theme => {
-    const matchingCampaign = sensitizationCampaigns.find(campaign => campaign.name === theme.name);
-    return {
-      name: theme.name,
-      rate: matchingCampaign?.progress ?? 0,
-      icon: theme.icon,
-    };
-  });
+  const derivedSpecificSensitizationData = React.useMemo(() => {
+    return kpiThemes.map(theme => {
+        const matchingCampaign = sensitizationCampaigns.find(campaign => campaign.name === theme.name);
+        return {
+            name: theme.name,
+            rate: matchingCampaign?.progress ?? 0,
+            icon: theme.icon,
+        };
+    });
+  }, [sensitizationCampaigns]);
 
 
   return (
