@@ -61,11 +61,12 @@ export default function DashboardPage() {
 
 
   React.useEffect(() => {
-    if (planData && documents && identifiedRegulations) {
+    // Ensure data is loaded from localStorage before calculations
+    if (planData && documents && identifiedRegulations && typeof window !== 'undefined') {
       // Calculate Active Tasks
       const allTasks = planData.flatMap(category => category.subCategories.flatMap(subCategory => subCategory.tasks));
       setActiveTasksCount(allTasks.filter(task => !task.completed).length);
-      // setOverdueTasksCount remains 0
+      // setOverdueTasksCount remains 0 as we don't have due dates yet
 
       // Calculate Overall Compliance Level
       const validatedDocuments = documents.filter(doc => doc.status === "Validé").length;
@@ -84,9 +85,10 @@ export default function DashboardPage() {
           { status: "Conforme", value: Math.round((conformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.conforme },
           { status: "En Cours", value: Math.round((enCoursCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.enCours },
           { status: "Non Conforme", value: Math.round((nonConformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.nonConforme },
-        ].filter(item => item.value > 0);
+        ].filter(item => item.value > 0); // Filter out zero-value items to avoid clutter
       }
-
+      
+      // If no relevant documents, show "Aucune Donnée"
       if (newComplianceStatusData.length === 0) {
         newComplianceStatusData.push(
             { status: "Aucune Donnée", value: 100, fill: complianceStatusBaseColors.aucuneDonnee }
@@ -100,18 +102,19 @@ export default function DashboardPage() {
         const categoryTasks = category.subCategories.flatMap(sub => sub.tasks);
         const completed = categoryTasks.filter(task => task.completed).length;
         const pending = categoryTasks.filter(task => !task.completed).length;
+        // Truncate long category names for better chart display
         return {
           name: category.name.length > 15 ? category.name.substring(0, 12) + "..." : category.name,
           completed,
           pending,
-          overdue: 0, // Placeholder
+          overdue: 0, // Placeholder, as no due dates yet
         };
       });
       setTaskProgressData(newTaskProgressData);
 
       // Calculate New Alerts Count
       setNewAlertsCount(identifiedRegulations.filter(reg => reg.status === 'Nouvelle').length);
-
+      
       setIsLoading(false);
     }
   }, [planData, documents, identifiedRegulations]);
@@ -261,7 +264,7 @@ export default function DashboardPage() {
           icon={Users}
           title="Formations et Sensibilisation"
           description="Organisez, suivez et promouvez les formations et campagnes de sensibilisation essentielles à une culture de conformité robuste."
-          href="/plan"
+          href="/training"
           actionText="Explorer les Programmes"
         />
       </div>
@@ -331,3 +334,4 @@ function QuickAccessCard({ icon: Icon, title, description, href, actionText }: Q
     </Card>
   );
 }
+
