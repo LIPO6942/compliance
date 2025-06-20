@@ -28,7 +28,13 @@ import {
     Edit2,
     Trash2,
     MoreHorizontal,
-    SliderIcon // This is not needed if Slider itself is used.
+    // SliderIcon // This is not needed if Slider itself is used.
+    BookMarked,
+    ClipboardCheck,
+    MailCheck,
+    ThumbsUp,
+    FileQuestion,
+    MessageSquarePlus,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -48,6 +54,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
 
 
 const kpiData = [
@@ -85,6 +92,9 @@ const trainingRegistryItemSchema = z.object({
   objective: z.string().min(1, "L'objectif est requis."),
   duration: z.string().min(1, "La durée est requise."),
   support: z.string().min(1, "Le support est requis."),
+  contentReviewedRecently: z.boolean().optional().default(false),
+  assessmentAvailable: z.boolean().optional().default(false),
+  feedbackMechanismInPlace: z.boolean().optional().default(false),
 });
 type TrainingRegistryItemFormValues = z.infer<typeof trainingRegistryItemSchema>;
 
@@ -93,6 +103,9 @@ const upcomingSessionSchema = z.object({
     date: z.date({ required_error: "La date est requise."}),
     type: z.enum(["Obligatoire", "Recommandée"], { required_error: "Le type est requis."}),
     department: z.string().min(1, "Le département est requis."),
+    logisticsConfirmed: z.boolean().optional().default(false),
+    materialsPrepared: z.boolean().optional().default(false),
+    invitationsSent: z.boolean().optional().default(false),
 });
 type UpcomingSessionFormValues = z.infer<typeof upcomingSessionSchema>;
 
@@ -121,8 +134,8 @@ export default function TrainingPage() {
     data?: TrainingRegistryItem | UpcomingSession | SensitizationCampaign;
   }>({ type: null, mode: null });
 
-  const registryForm = useForm<TrainingRegistryItemFormValues>({ resolver: zodResolver(trainingRegistryItemSchema), defaultValues: { title: "", objective: "", duration: "", support: "" }});
-  const sessionForm = useForm<UpcomingSessionFormValues>({ resolver: zodResolver(upcomingSessionSchema), defaultValues: { title: "", date: new Date(), type: "Obligatoire", department: "" }});
+  const registryForm = useForm<TrainingRegistryItemFormValues>({ resolver: zodResolver(trainingRegistryItemSchema), defaultValues: { title: "", objective: "", duration: "", support: "", contentReviewedRecently: false, assessmentAvailable: false, feedbackMechanismInPlace: false }});
+  const sessionForm = useForm<UpcomingSessionFormValues>({ resolver: zodResolver(upcomingSessionSchema), defaultValues: { title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false }});
   const campaignForm = useForm<SensitizationCampaignFormValues>({ resolver: zodResolver(sensitizationCampaignSchema), defaultValues: { name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone", progress: 0 }});
 
 
@@ -133,8 +146,8 @@ export default function TrainingPage() {
       if (type === "session") sessionForm.reset({...data, date: new Date(data.date)});
       if (type === "campaign") campaignForm.reset({...data, launchDate: new Date(data.launchDate), progress: data.progress || 0});
     } else {
-      if (type === "registry") registryForm.reset({ title: "", objective: "", duration: "", support: "" });
-      if (type === "session") sessionForm.reset({ title: "", date: new Date(), type: "Obligatoire", department: "" });
+      if (type === "registry") registryForm.reset({ title: "", objective: "", duration: "", support: "", contentReviewedRecently: false, assessmentAvailable: false, feedbackMechanismInPlace: false });
+      if (type === "session") sessionForm.reset({ title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false });
       if (type === "campaign") campaignForm.reset({ name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone", progress: 0 });
     }
   };
@@ -278,42 +291,53 @@ export default function TrainingPage() {
              {upcomingSessions.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">Aucune session planifiée.</p>
              ) : (
-                <div className="space-y-3 max-h-72 overflow-y-auto">
+                <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                     {upcomingSessions.map(session => (
-                        <div key={session.id} className="p-3 border rounded-md hover:bg-muted/50 transition-colors flex justify-between items-start group">
-                            <div>
-                                <h5 className="font-medium">{session.title}</h5>
-                                <p className="text-xs text-muted-foreground">Date: {format(new Date(session.date), "dd/MM/yyyy", { locale: fr })} | Département(s): {session.department}</p>
+                        <Card key={session.id} className="p-3 hover:bg-muted/50 transition-colors group">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h5 className="font-medium">{session.title}</h5>
+                                    <p className="text-xs text-muted-foreground">Date: {format(new Date(session.date), "dd/MM/yyyy", { locale: fr })} | Dép: {session.department}</p>
+                                </div>
+                                <div className="flex items-center">
+                                    <Badge variant={session.type === "Obligatoire" ? "destructive" : "secondary" } className="text-xs mr-2">{session.type}</Badge>
+                                    <AlertDialog>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => openDialog("session", "edit", session)}><Edit2 className="mr-2 h-4 w-4" />Modifier</DropdownMenuItem>
+                                                <AlertDialogTrigger asChild>
+                                                    <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e)=>e.preventDefault()}><Trash2 className="mr-2 h-4 w-4" />Supprimer</DropdownMenuItem>
+                                                </AlertDialogTrigger>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Supprimer la session ?</AlertDialogTitle>
+                                                <AlertDialogDescription>"{session.title}" sera supprimée définitivement.</AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleRemoveSession(session.id, session.title)} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
                             </div>
-                            <div className="flex items-center">
-                                <Badge variant={session.type === "Obligatoire" ? "destructive" : "secondary" } className="text-xs mr-2">{session.type}</Badge>
-                                <AlertDialog>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => openDialog("session", "edit", session)}><Edit2 className="mr-2 h-4 w-4" />Modifier</DropdownMenuItem>
-                                            <AlertDialogTrigger asChild>
-                                                <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e)=>e.preventDefault()}><Trash2 className="mr-2 h-4 w-4" />Supprimer</DropdownMenuItem>
-                                            </AlertDialogTrigger>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Supprimer la session ?</AlertDialogTitle>
-                                            <AlertDialogDescription>"{session.title}" sera supprimée définitivement.</AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleRemoveSession(session.id, session.title)} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </div>
-                        </div>
+                            {session.progress !== undefined && (
+                                <div className="mt-2">
+                                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                        <span>Préparation</span>
+                                        <span>{session.progress}%</span>
+                                    </div>
+                                    <Progress value={session.progress} className="h-1.5" />
+                                </div>
+                            )}
+                        </Card>
                     ))}
                 </div>
              )}
@@ -335,12 +359,12 @@ export default function TrainingPage() {
              {sensitizationCampaigns.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">Aucune campagne planifiée.</p>
              ) : (
-                 <div className="space-y-4  max-h-72 overflow-y-auto">
+                 <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                     {sensitizationCampaigns.map(campaign => {
                         const IconComponent = getIconComponent(campaign.iconName);
                         return (
-                        <Card key={campaign.id} className="shadow-sm group">
-                            <CardHeader className="p-3 flex flex-row items-start justify-between">
+                        <Card key={campaign.id} className="shadow-sm group p-3 hover:bg-muted/50 transition-colors">
+                            <div className="flex items-start justify-between">
                                 <div className="flex-grow">
                                     <div className="flex justify-between items-start">
                                         <div>
@@ -380,12 +404,15 @@ export default function TrainingPage() {
                                     </div>
                                     {campaign.progress !== undefined && (
                                         <div className="mt-2 pl-6">
-                                            <Progress value={campaign.progress} className="h-2" />
-                                            <p className="text-xs text-muted-foreground text-right mt-1">{campaign.progress}%</p>
+                                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                                <span>Avancement</span>
+                                                <span>{campaign.progress}%</span>
+                                            </div>
+                                            <Progress value={campaign.progress} className="h-1.5" />
                                         </div>
                                     )}
                                 </div>
-                            </CardHeader>
+                            </div>
                         </Card>
                         );
                     })}
@@ -416,7 +443,8 @@ export default function TrainingPage() {
                   <TableHead className="w-[250px]">Titre</TableHead>
                   <TableHead>Objectif</TableHead>
                   <TableHead className="text-center w-[80px]">Durée</TableHead>
-                  <TableHead className="w-[200px]">Support</TableHead>
+                  <TableHead className="w-[150px]">Support</TableHead>
+                  <TableHead className="w-[150px]">Avancement</TableHead>
                   <TableHead className="text-center w-[120px]">Dernière MàJ</TableHead>
                   <TableHead className="text-right w-[80px]">Actions</TableHead>
                 </TableRow>
@@ -429,6 +457,14 @@ export default function TrainingPage() {
                       <TableCell className="text-xs text-muted-foreground py-3">{training.objective}</TableCell>
                       <TableCell className="text-center text-xs py-3">{training.duration}</TableCell>
                       <TableCell className="text-xs py-3">{training.support}</TableCell>
+                      <TableCell className="py-3">
+                        {training.progress !== undefined && (
+                            <div className="flex items-center gap-2">
+                                <Progress value={training.progress} className="h-1.5 w-20" />
+                                <span className="text-xs text-muted-foreground">{training.progress}%</span>
+                            </div>
+                        )}
+                      </TableCell>
                       <TableCell className="text-center text-xs py-3">{training.lastUpdated}</TableCell>
                       <TableCell className="py-3 text-right">
                         <AlertDialog>
@@ -474,7 +510,7 @@ export default function TrainingPage() {
                   ))
                 ) : (
                    <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                       Aucune formation dans le registre.
                     </TableCell>
                   </TableRow>
@@ -544,6 +580,27 @@ export default function TrainingPage() {
                 <FormField control={registryForm.control} name="support" render={({ field }) => (
                   <FormItem><FormLabel>Support utilisé</FormLabel><FormControl><Input {...field} placeholder="Ex: PPT, Vidéo, Quiz" /></FormControl><FormMessage /></FormItem>
                 )} />
+                <div className="space-y-3 pt-2">
+                    <FormLabel className="text-sm font-medium">Critères de complétude de la formation :</FormLabel>
+                    <FormField control={registryForm.control} name="contentReviewedRecently" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            <FormLabel className="font-normal flex items-center text-sm"><FileQuestion className="w-4 h-4 mr-2 text-muted-foreground"/>Contenu revu récemment</FormLabel>
+                        </FormItem>
+                    )}/>
+                    <FormField control={registryForm.control} name="assessmentAvailable" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            <FormLabel className="font-normal flex items-center text-sm"><ClipboardCheck className="w-4 h-4 mr-2 text-muted-foreground"/>Évaluation post-formation disponible</FormLabel>
+                        </FormItem>
+                    )}/>
+                    <FormField control={registryForm.control} name="feedbackMechanismInPlace" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            <FormLabel className="font-normal flex items-center text-sm"><MessageSquarePlus className="w-4 h-4 mr-2 text-muted-foreground"/>Mécanisme de feedback en place</FormLabel>
+                        </FormItem>
+                    )}/>
+                </div>
                 <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
               </form>
             </Form>
@@ -563,7 +620,7 @@ export default function TrainingPage() {
                             <FormControl>
                             <Button variant={"outline"} className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}>
                                 {field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}
-                                <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
+                                <LucideIcons.CalendarDays className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
                             </FormControl>
                         </PopoverTrigger>
@@ -580,6 +637,27 @@ export default function TrainingPage() {
                 <FormField control={sessionForm.control} name="department" render={({ field }) => (
                   <FormItem><FormLabel>Département(s) cible(s)</FormLabel><FormControl><Input {...field} placeholder="Ex: Tous, Marketing, Vente" /></FormControl><FormMessage /></FormItem>
                 )} />
+                <div className="space-y-3 pt-2">
+                    <FormLabel className="text-sm font-medium">Critères de préparation de la session :</FormLabel>
+                     <FormField control={sessionForm.control} name="logisticsConfirmed" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            <FormLabel className="font-normal flex items-center text-sm"><BookMarked className="w-4 h-4 mr-2 text-muted-foreground"/>Logistique confirmée (salle, matériel)</FormLabel>
+                        </FormItem>
+                    )}/>
+                     <FormField control={sessionForm.control} name="materialsPrepared" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            <FormLabel className="font-normal flex items-center text-sm"><ClipboardCheck className="w-4 h-4 mr-2 text-muted-foreground"/>Supports de formation prêts</FormLabel>
+                        </FormItem>
+                    )}/>
+                     <FormField control={sessionForm.control} name="invitationsSent" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            <FormLabel className="font-normal flex items-center text-sm"><MailCheck className="w-4 h-4 mr-2 text-muted-foreground"/>Invitations envoyées</FormLabel>
+                        </FormItem>
+                    )}/>
+                </div>
                 <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
               </form>
             </Form>
@@ -599,7 +677,7 @@ export default function TrainingPage() {
                             <FormControl>
                             <Button variant={"outline"} className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}>
                                 {field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}
-                                <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
+                                <LucideIcons.CalendarDays className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
                             </FormControl>
                         </PopoverTrigger>

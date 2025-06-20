@@ -63,6 +63,10 @@ export interface TrainingRegistryItem {
   duration: string;
   support: string;
   lastUpdated: string; // ISO date string
+  contentReviewedRecently?: boolean;
+  assessmentAvailable?: boolean;
+  feedbackMechanismInPlace?: boolean;
+  progress?: number;
 }
 
 // Upcoming Training Session
@@ -73,6 +77,10 @@ export interface UpcomingSession {
   date: string; // ISO date string or formatted string
   type: UpcomingSessionType;
   department: string;
+  logisticsConfirmed?: boolean;
+  materialsPrepared?: boolean;
+  invitationsSent?: boolean;
+  progress?: number;
 }
 
 // Sensitization Campaign
