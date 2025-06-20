@@ -28,13 +28,18 @@ import {
     Edit2,
     Trash2,
     MoreHorizontal,
-    // SliderIcon // This is not needed if Slider itself is used.
     BookMarked,
     ClipboardCheck,
     MailCheck,
     ThumbsUp,
     FileQuestion,
     MessageSquarePlus,
+    Settings2,
+    ScanSearch,
+    UserCheck,
+    MapPin,
+    FileSignature,
+    ShieldQuestion,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -116,6 +121,14 @@ const sensitizationCampaignSchema = z.object({
     target: z.string().min(1, "La cible est requise."),
     iconName: z.string().min(1, "L'icône est requise."),
     progress: z.coerce.number().min(0).max(100).optional().default(0),
+    // LAB-FT Criteria
+    kycProceduresUpdated: z.boolean().optional().default(false),
+    transactionMonitoringEnhanced: z.boolean().optional().default(false),
+    staffTrainedOnRedFlags: z.boolean().optional().default(false),
+    // RGPD Criteria
+    dataMappingDone: z.boolean().optional().default(false),
+    consentMechanismsReviewed: z.boolean().optional().default(false),
+    dpiasConducted: z.boolean().optional().default(false),
 });
 type SensitizationCampaignFormValues = z.infer<typeof sensitizationCampaignSchema>;
 
@@ -136,7 +149,14 @@ export default function TrainingPage() {
 
   const registryForm = useForm<TrainingRegistryItemFormValues>({ resolver: zodResolver(trainingRegistryItemSchema), defaultValues: { title: "", objective: "", duration: "", support: "", contentReviewedRecently: false, assessmentAvailable: false, feedbackMechanismInPlace: false }});
   const sessionForm = useForm<UpcomingSessionFormValues>({ resolver: zodResolver(upcomingSessionSchema), defaultValues: { title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false }});
-  const campaignForm = useForm<SensitizationCampaignFormValues>({ resolver: zodResolver(sensitizationCampaignSchema), defaultValues: { name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone", progress: 0 }});
+  const campaignForm = useForm<SensitizationCampaignFormValues>({ 
+    resolver: zodResolver(sensitizationCampaignSchema), 
+    defaultValues: { 
+      name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone", progress: 0,
+      kycProceduresUpdated: false, transactionMonitoringEnhanced: false, staffTrainedOnRedFlags: false,
+      dataMappingDone: false, consentMechanismsReviewed: false, dpiasConducted: false,
+    }
+  });
 
 
   const openDialog = (type: "registry" | "session" | "campaign", mode: "add" | "edit", data?: any) => {
@@ -148,7 +168,11 @@ export default function TrainingPage() {
     } else {
       if (type === "registry") registryForm.reset({ title: "", objective: "", duration: "", support: "", contentReviewedRecently: false, assessmentAvailable: false, feedbackMechanismInPlace: false });
       if (type === "session") sessionForm.reset({ title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false });
-      if (type === "campaign") campaignForm.reset({ name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone", progress: 0 });
+      if (type === "campaign") campaignForm.reset({ 
+        name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone", progress: 0,
+        kycProceduresUpdated: false, transactionMonitoringEnhanced: false, staffTrainedOnRedFlags: false,
+        dataMappingDone: false, consentMechanismsReviewed: false, dpiasConducted: false,
+      });
     }
   };
   const closeDialog = () => setDialogState({ type: null, mode: null });
@@ -185,7 +209,7 @@ export default function TrainingPage() {
   };
 
   const handleCampaignSubmit = (values: SensitizationCampaignFormValues) => {
-    const campaignData = { ...values, launchDate: format(values.launchDate, "yyyy-MM-dd"), progress: values.progress || 0 };
+    const campaignData = { ...values, launchDate: format(values.launchDate, "yyyy-MM-dd") };
     if (dialogState.mode === "add") {
       addSensitizationCampaign(campaignData);
       toast({ title: "Campagne ajoutée", description: `La campagne "${values.name}" a été ajoutée.` });
@@ -699,21 +723,56 @@ export default function TrainingPage() {
                     {availableIcons.map(iconKey => { const IconComponent = getIconComponent(iconKey); return <SelectItem key={iconKey} value={iconKey}><div className="flex items-center"><IconComponent className="mr-2 h-4 w-4"/> {iconKey}</div></SelectItem>})}
                   </SelectContent></Select><FormMessage /></FormItem>
                 )} />
-                <FormField control={campaignForm.control} name="progress" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Progression ({field.value || 0}%)</FormLabel>
-                        <FormControl>
-                            <Slider
-                                defaultValue={[field.value || 0]}
-                                max={100}
-                                step={1}
-                                onValueChange={(value) => field.onChange(value[0])}
-                                className="py-2"
-                            />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )} />
+                
+                {/* Conditional Criteria Checkboxes */}
+                {campaignForm.getValues("name") === "LAB-FT" && (
+                    <div className="space-y-3 pt-2 border-t mt-4">
+                        <FormLabel className="text-sm font-medium pt-2">Critères spécifiques LAB-FT :</FormLabel>
+                        <FormField control={campaignForm.control} name="kycProceduresUpdated" render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><FileSignature className="w-4 h-4 mr-2 text-muted-foreground"/>Procédures KYC/KYB mises à jour</FormLabel></FormItem>
+                        )}/>
+                        <FormField control={campaignForm.control} name="transactionMonitoringEnhanced" render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><ScanSearch className="w-4 h-4 mr-2 text-muted-foreground"/>Surveillance des transactions renforcée</FormLabel></FormItem>
+                        )}/>
+                        <FormField control={campaignForm.control} name="staffTrainedOnRedFlags" render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><UserCheck className="w-4 h-4 mr-2 text-muted-foreground"/>Personnel formé aux signaux d'alerte</FormLabel></FormItem>
+                        )}/>
+                    </div>
+                )}
+
+                {campaignForm.getValues("name") === "RGPD" && (
+                     <div className="space-y-3 pt-2 border-t mt-4">
+                        <FormLabel className="text-sm font-medium pt-2">Critères spécifiques RGPD :</FormLabel>
+                        <FormField control={campaignForm.control} name="dataMappingDone" render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><MapPin className="w-4 h-4 mr-2 text-muted-foreground"/>Cartographie des données personnelles effectuée</FormLabel></FormItem>
+                        )}/>
+                        <FormField control={campaignForm.control} name="consentMechanismsReviewed" render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><ThumbsUp className="w-4 h-4 mr-2 text-muted-foreground"/>Mécanismes de consentement revus</FormLabel></FormItem>
+                        )}/>
+                        <FormField control={campaignForm.control} name="dpiasConducted" render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><ShieldQuestion className="w-4 h-4 mr-2 text-muted-foreground"/>AIPD/DPIA menées pour traitements à risque</FormLabel></FormItem>
+                        )}/>
+                    </div>
+                )}
+
+                {/* Progress Slider for other campaigns */}
+                {campaignForm.getValues("name") !== "LAB-FT" && campaignForm.getValues("name") !== "RGPD" && (
+                    <FormField control={campaignForm.control} name="progress" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Progression ({field.value || 0}%)</FormLabel>
+                            <FormControl>
+                                <Slider
+                                    defaultValue={[field.value || 0]}
+                                    max={100}
+                                    step={1}
+                                    onValueChange={(value) => field.onChange(value[0])}
+                                    className="py-2"
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                )}
                 <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
               </form>
             </Form>

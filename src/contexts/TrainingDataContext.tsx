@@ -24,6 +24,26 @@ const calculateRegistryItemProgress = (item: Partial<Pick<TrainingRegistryItem, 
   return Math.round((completedCriteria / totalCriteria) * 100);
 };
 
+// Helper function to calculate progress for specific SensitizationCampaigns
+const calculateSpecificCampaignProgress = (campaign: Partial<SensitizationCampaign>): number => {
+  let completedCriteria = 0;
+  const totalCriteria = 3; // Assuming 3 criteria for these specific campaigns
+
+  if (campaign.name === "LAB-FT") {
+    if (campaign.kycProceduresUpdated) completedCriteria++;
+    if (campaign.transactionMonitoringEnhanced) completedCriteria++;
+    if (campaign.staffTrainedOnRedFlags) completedCriteria++;
+  } else if (campaign.name === "RGPD") {
+    if (campaign.dataMappingDone) completedCriteria++;
+    if (campaign.consentMechanismsReviewed) completedCriteria++;
+    if (campaign.dpiasConducted) completedCriteria++;
+  } else {
+    // For other campaigns, return their existing progress or 0 if not set
+    return campaign.progress !== undefined ? campaign.progress : 0;
+  }
+  return Math.round((completedCriteria / totalCriteria) * 100);
+};
+
 
 // Initial mock data
 const initialTrainingRegistryMock: TrainingRegistryItem[] = [
@@ -39,11 +59,28 @@ const initialUpcomingSessionsMock: UpcomingSession[] = [
 ];
 
 const initialSensitizationCampaignsMock: SensitizationCampaign[] = [
-    { id: "camp001", name: "LAB-FT", status: "En cours", launchDate: "2024-07-10", target: "Commerciaux, Middle Office", iconName: "ShieldAlert", progress: 75 },
-    { id: "camp002", name: "RGPD", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés", iconName: "FileText", progress: 20 },
-    { id: "camp003", name: "Déontologie", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés", iconName: "Gavel", progress: 100 },
-    { id: "camp004", name: "Rappel bonnes pratiques mots de passe", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés", iconName: "KeyRound", progress: 0 },
-    { id: "camp005", name: "Journée de la Protection des Données", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés", iconName: "CheckCircle", progress: 100 }
+    { 
+      id: "camp001", name: "LAB-FT", status: "En cours", launchDate: "2024-07-10", target: "Commerciaux, Middle Office", iconName: "ShieldAlert", 
+      kycProceduresUpdated: true, transactionMonitoringEnhanced: true, staffTrainedOnRedFlags: false,
+      progress: calculateSpecificCampaignProgress({ name: "LAB-FT", kycProceduresUpdated: true, transactionMonitoringEnhanced: true, staffTrainedOnRedFlags: false })
+    },
+    { 
+      id: "camp002", name: "RGPD", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés", iconName: "FileText",
+      dataMappingDone: false, consentMechanismsReviewed: true, dpiasConducted: false,
+      progress: calculateSpecificCampaignProgress({ name: "RGPD", dataMappingDone: false, consentMechanismsReviewed: true, dpiasConducted: false })
+    },
+    { 
+      id: "camp003", name: "Déontologie", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés", iconName: "Gavel", 
+      progress: 100 // Assuming 100% as it's Terminé and criteria not defined for it
+    },
+    { 
+      id: "camp004", name: "Rappel bonnes pratiques mots de passe", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés", iconName: "KeyRound", 
+      progress: 0 
+    },
+    { 
+      id: "camp005", name: "Journée de la Protection des Données", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés", iconName: "CheckCircle", 
+      progress: 100 
+    }
 ];
 
 
@@ -59,8 +96,8 @@ interface TrainingDataContextType {
   removeUpcomingSession: (sessionId: string) => void;
 
   sensitizationCampaigns: SensitizationCampaign[];
-  addSensitizationCampaign: (campaign: Omit<SensitizationCampaign, 'id'>) => void;
-  editSensitizationCampaign: (campaignId: string, campaignUpdate: Partial<Omit<SensitizationCampaign, 'id'>>) => void;
+  addSensitizationCampaign: (campaign: Omit<SensitizationCampaign, 'id' | 'progress'> & Partial<Pick<SensitizationCampaign, 'kycProceduresUpdated' | 'transactionMonitoringEnhanced' | 'staffTrainedOnRedFlags' | 'dataMappingDone' | 'consentMechanismsReviewed' | 'dpiasConducted' | 'progress'>>) => void;
+  editSensitizationCampaign: (campaignId: string, campaignUpdate: Partial<Omit<SensitizationCampaign, 'id' | 'progress'> & Partial<Pick<SensitizationCampaign, 'kycProceduresUpdated' | 'transactionMonitoringEnhanced' | 'staffTrainedOnRedFlags' | 'dataMappingDone' | 'consentMechanismsReviewed' | 'dpiasConducted' | 'progress'>>>) => void;
   removeSensitizationCampaign: (campaignId: string) => void;
 }
 
@@ -175,13 +212,30 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Sensitization Campaigns CRUD
-  const addSensitizationCampaign = (campaign: Omit<SensitizationCampaign, 'id'>) => {
-    const newCampaign: SensitizationCampaign = { ...campaign, id: Date.now().toString(), progress: campaign.progress || 0 };
+  const addSensitizationCampaign = (campaign: Omit<SensitizationCampaign, 'id' | 'progress'> & Partial<Pick<SensitizationCampaign, 'kycProceduresUpdated' | 'transactionMonitoringEnhanced' | 'staffTrainedOnRedFlags' | 'dataMappingDone' | 'consentMechanismsReviewed' | 'dpiasConducted' | 'progress'>>) => {
+    const progress = calculateSpecificCampaignProgress(campaign);
+    const newCampaign: SensitizationCampaign = { 
+        ...campaign, 
+        id: Date.now().toString(), 
+        progress,
+        kycProceduresUpdated: campaign.kycProceduresUpdated || false,
+        transactionMonitoringEnhanced: campaign.transactionMonitoringEnhanced || false,
+        staffTrainedOnRedFlags: campaign.staffTrainedOnRedFlags || false,
+        dataMappingDone: campaign.dataMappingDone || false,
+        consentMechanismsReviewed: campaign.consentMechanismsReviewed || false,
+        dpiasConducted: campaign.dpiasConducted || false,
+    };
     setSensitizationCampaigns(prev => [newCampaign, ...prev]);
   };
 
-  const editSensitizationCampaign = (campaignId: string, campaignUpdate: Partial<Omit<SensitizationCampaign, 'id'>>) => {
-    setSensitizationCampaigns(prev => prev.map(c => c.id === campaignId ? { ...c, ...campaignUpdate } : c));
+  const editSensitizationCampaign = (campaignId: string, campaignUpdate: Partial<Omit<SensitizationCampaign, 'id' | 'progress'> & Partial<Pick<SensitizationCampaign, 'kycProceduresUpdated' | 'transactionMonitoringEnhanced' | 'staffTrainedOnRedFlags' | 'dataMappingDone' | 'consentMechanismsReviewed' | 'dpiasConducted' | 'progress'>>>) => {
+    setSensitizationCampaigns(prev => prev.map(c => {
+        if (c.id === campaignId) {
+            const updatedFields = { ...c, ...campaignUpdate };
+            return { ...updatedFields, progress: calculateSpecificCampaignProgress(updatedFields) };
+        }
+        return c;
+    }));
   };
 
   const removeSensitizationCampaign = (campaignId: string) => {
@@ -207,3 +261,4 @@ export const useTrainingData = () => {
   }
   return context;
 };
+
