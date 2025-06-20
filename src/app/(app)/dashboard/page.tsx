@@ -53,7 +53,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = React.useState(true);
 
   const [activeTasksCount, setActiveTasksCount] = React.useState(0);
-  const [overdueTasksCount, setOverdueTasksCount] = React.useState(0); 
+  const [overdueTasksCount, setOverdueTasksCount] = React.useState(0);
   const [overallCompliancePercentage, setOverallCompliancePercentage] = React.useState(0);
   const [complianceStatusData, setComplianceStatusData] = React.useState<Array<{status: string; value: number; fill: string}>>([]);
   const [taskProgressData, setTaskProgressData] = React.useState<Array<{name: string; completed: number; pending: number; overdue: number}>>([]);
@@ -86,7 +86,7 @@ export default function DashboardPage() {
           { status: "Non Conforme", value: Math.round((nonConformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.nonConforme },
         ].filter(item => item.value > 0);
       }
-      
+
       if (newComplianceStatusData.length === 0) {
         newComplianceStatusData.push(
             { status: "Aucune Donnée", value: 100, fill: complianceStatusBaseColors.aucuneDonnee }
@@ -260,9 +260,9 @@ export default function DashboardPage() {
         <QuickAccessCard
           icon={Users}
           title="Formations et Sensibilisation"
-          description="Suivez les programmes de formation et les actions de sensibilisation."
-          href="/plan" 
-          actionText="Voir les Formations"
+          description="Organisez, suivez et promouvez les formations et campagnes de sensibilisation essentielles à une culture de conformité robuste."
+          href="/plan"
+          actionText="Explorer les Programmes"
         />
       </div>
 
