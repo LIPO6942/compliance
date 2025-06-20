@@ -12,7 +12,7 @@ import * as LucideIcons from "lucide-react"; // Import all icons
 import { 
     Users, 
     BarChart2, 
-    CalendarDays, 
+    CalendarDays as CalendarDaysIcon, // Renamed to avoid conflict with shadcn Calendar component
     BookOpen, 
     AlertTriangle, 
     CheckCircle, 
@@ -64,7 +64,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 const kpiData = [
   { title: "Taux de couverture (obligatoire)", value: 85, target: 95, unit: "%", icon: Percent },
-  { title: "Nombre de sessions réalisées (Année)", value: 42, unit: "sessions", icon: CalendarDays },
+  { title: "Nombre de sessions réalisées (Année)", value: 42, unit: "sessions", icon: CalendarDaysIcon },
   { title: "Taux de participation moyen", value: 78, unit: "%", icon: Users },
   { title: "Taux de réussite aux évaluations", value: 92, unit: "%", icon: CheckCircle },
 ];
@@ -231,14 +231,17 @@ export default function TrainingPage() {
 
   const derivedSpecificSensitizationData = React.useMemo(() => {
     return kpiThemes.map(theme => {
-        const matchingCampaign = sensitizationCampaigns.find(campaign => campaign.name === theme.name);
+        // Attempt to find an upcoming training session whose title *includes* the theme name
+        const matchingSession = upcomingSessions.find(session =>
+            session.title.toLowerCase().includes(theme.name.toLowerCase())
+        );
         return {
             name: theme.name,
-            rate: matchingCampaign?.progress ?? 0,
+            rate: matchingSession?.progress ?? 0, // Use session's progress
             icon: theme.icon,
         };
     });
-  }, [sensitizationCampaigns]);
+  }, [upcomingSessions]);
 
 
   return (
@@ -304,7 +307,7 @@ export default function TrainingPage() {
           <CardHeader className="flex flex-row justify-between items-center">
             <div>
                 <CardTitle className="font-headline text-xl flex items-center">
-                <CalendarDays className="mr-2 h-6 w-6 text-primary" />
+                <CalendarDaysIcon className="mr-2 h-6 w-6 text-primary" />
                 Planning des Formations
                 </CardTitle>
                 <CardDescription>Calendrier des sessions à venir et options de gestion.</CardDescription>
@@ -725,7 +728,7 @@ export default function TrainingPage() {
                 )} />
                 
                 {/* Conditional Criteria Checkboxes */}
-                {campaignForm.getValues("name") === "LAB-FT" && (
+                {campaignForm.watch("name") === "LAB-FT" && (
                     <div className="space-y-3 pt-2 border-t mt-4">
                         <FormLabel className="text-sm font-medium pt-2">Critères spécifiques LAB-FT :</FormLabel>
                         <FormField control={campaignForm.control} name="kycProceduresUpdated" render={({ field }) => (
@@ -740,7 +743,7 @@ export default function TrainingPage() {
                     </div>
                 )}
 
-                {campaignForm.getValues("name") === "RGPD" && (
+                {campaignForm.watch("name") === "RGPD" && (
                      <div className="space-y-3 pt-2 border-t mt-4">
                         <FormLabel className="text-sm font-medium pt-2">Critères spécifiques RGPD :</FormLabel>
                         <FormField control={campaignForm.control} name="dataMappingDone" render={({ field }) => (
@@ -756,7 +759,7 @@ export default function TrainingPage() {
                 )}
 
                 {/* Progress Slider for other campaigns */}
-                {campaignForm.getValues("name") !== "LAB-FT" && campaignForm.getValues("name") !== "RGPD" && (
+                {campaignForm.watch("name") !== "LAB-FT" && campaignForm.watch("name") !== "RGPD" && (
                     <FormField control={campaignForm.control} name="progress" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Progression ({field.value || 0}%)</FormLabel>
