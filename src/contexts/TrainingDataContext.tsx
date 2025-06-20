@@ -18,8 +18,11 @@ const initialUpcomingSessionsMock: UpcomingSession[] = [
 ];
 
 const initialSensitizationCampaignsMock: SensitizationCampaign[] = [
-    { id: "camp002", name: "Rappel bonnes pratiques mots de passe", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés", iconName: "KeyRound" },
-    { id: "camp003", name: "Journée de la Protection des Données", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés", iconName: "CheckCircle" }
+    { id: "camp001", name: "LAB-FT", status: "En cours", launchDate: "2024-07-10", target: "Commerciaux, Middle Office", iconName: "ShieldAlert", progress: 75 },
+    { id: "camp002", name: "RGPD", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés", iconName: "FileText", progress: 20 },
+    { id: "camp003", name: "Déontologie", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés", iconName: "Gavel", progress: 100 },
+    { id: "camp004", name: "Rappel bonnes pratiques mots de passe", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés", iconName: "KeyRound", progress: 0 },
+    { id: "camp005", name: "Journée de la Protection des Données", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés", iconName: "CheckCircle", progress: 100 }
 ];
 
 
@@ -113,7 +116,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
 
   // Sensitization Campaigns CRUD
   const addSensitizationCampaign = (campaign: Omit<SensitizationCampaign, 'id'>) => {
-    const newCampaign: SensitizationCampaign = { ...campaign, id: Date.now().toString() };
+    const newCampaign: SensitizationCampaign = { ...campaign, id: Date.now().toString(), progress: campaign.progress || 0 };
     setSensitizationCampaigns(prev => [newCampaign, ...prev]);
   };
 

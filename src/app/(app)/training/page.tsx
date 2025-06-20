@@ -27,7 +27,8 @@ import {
     PlusCircle,
     Edit2,
     Trash2,
-    MoreHorizontal
+    MoreHorizontal,
+    SliderIcon
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -42,11 +43,12 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { useTrainingData } from "@/contexts/TrainingDataContext";
 import type { TrainingRegistryItem, UpcomingSession, SensitizationCampaign, UpcomingSessionType, SensitizationCampaignStatus } from "@/types/compliance";
-import { DatePickerWithRange } from "@/components/ui/date-range-picker"; // Assuming this is for single date too or we need a single date picker
+// import { DatePickerWithRange } from "@/components/ui/date-range-picker"; // Assuming this is for single date too or we need a single date picker
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { Slider } from "@/components/ui/slider";
 
 
 const kpiData = [
@@ -56,10 +58,10 @@ const kpiData = [
   { title: "Taux de réussite aux évaluations", value: 92, unit: "%", icon: CheckCircle },
 ];
 
-const specificSensitizationData = [
-    { name: "LAB-FT", rate: 90, icon: ShieldAlert},
-    { name: "RGPD", rate: 88, icon: FileText},
-    { name: "Déontologie", rate: 95, icon: Gavel},
+const kpiThemes = [
+    { name: "LAB-FT", icon: ShieldAlert},
+    { name: "RGPD", icon: FileText},
+    { name: "Déontologie", icon: Gavel},
 ];
 
 const iconMap: Record<string, LucideIcons.LucideIcon> = Object.entries(LucideIcons)
@@ -101,6 +103,7 @@ const sensitizationCampaignSchema = z.object({
     launchDate: z.date({ required_error: "La date de lancement est requise."}),
     target: z.string().min(1, "La cible est requise."),
     iconName: z.string().min(1, "L'icône est requise."),
+    progress: z.coerce.number().min(0).max(100).optional().default(0),
 });
 type SensitizationCampaignFormValues = z.infer<typeof sensitizationCampaignSchema>;
 
@@ -121,7 +124,7 @@ export default function TrainingPage() {
 
   const registryForm = useForm<TrainingRegistryItemFormValues>({ resolver: zodResolver(trainingRegistryItemSchema), defaultValues: { title: "", objective: "", duration: "", support: "" }});
   const sessionForm = useForm<UpcomingSessionFormValues>({ resolver: zodResolver(upcomingSessionSchema), defaultValues: { title: "", date: new Date(), type: "Obligatoire", department: "" }});
-  const campaignForm = useForm<SensitizationCampaignFormValues>({ resolver: zodResolver(sensitizationCampaignSchema), defaultValues: { name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone" }});
+  const campaignForm = useForm<SensitizationCampaignFormValues>({ resolver: zodResolver(sensitizationCampaignSchema), defaultValues: { name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone", progress: 0 }});
 
 
   const openDialog = (type: "registry" | "session" | "campaign", mode: "add" | "edit", data?: any) => {
@@ -129,11 +132,11 @@ export default function TrainingPage() {
     if (mode === "edit" && data) {
       if (type === "registry") registryForm.reset(data);
       if (type === "session") sessionForm.reset({...data, date: new Date(data.date)});
-      if (type === "campaign") campaignForm.reset({...data, launchDate: new Date(data.launchDate)});
+      if (type === "campaign") campaignForm.reset({...data, launchDate: new Date(data.launchDate), progress: data.progress || 0});
     } else {
       if (type === "registry") registryForm.reset({ title: "", objective: "", duration: "", support: "" });
       if (type === "session") sessionForm.reset({ title: "", date: new Date(), type: "Obligatoire", department: "" });
-      if (type === "campaign") campaignForm.reset({ name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone" });
+      if (type === "campaign") campaignForm.reset({ name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone", progress: 0 });
     }
   };
   const closeDialog = () => setDialogState({ type: null, mode: null });
@@ -170,7 +173,7 @@ export default function TrainingPage() {
   };
 
   const handleCampaignSubmit = (values: SensitizationCampaignFormValues) => {
-    const campaignData = { ...values, launchDate: format(values.launchDate, "yyyy-MM-dd") };
+    const campaignData = { ...values, launchDate: format(values.launchDate, "yyyy-MM-dd"), progress: values.progress || 0 };
     if (dialogState.mode === "add") {
       addSensitizationCampaign(campaignData);
       toast({ title: "Campagne ajoutée", description: `La campagne "${values.name}" a été ajoutée.` });
@@ -189,6 +192,15 @@ export default function TrainingPage() {
     const Icon = getIconComponent(iconName);
     return <Icon className="h-4 w-4 mr-1.5" />;
   };
+
+  const derivedSpecificSensitizationData = kpiThemes.map(theme => {
+    const matchingCampaign = sensitizationCampaigns.find(campaign => campaign.name === theme.name);
+    return {
+      name: theme.name,
+      rate: matchingCampaign?.progress ?? 0,
+      icon: theme.icon,
+    };
+  });
 
 
   return (
@@ -232,8 +244,8 @@ export default function TrainingPage() {
         </CardContent>
         <CardContent>
             <h3 className="text-md font-semibold mb-3 text-muted-foreground">Taux de sensibilisation par thématique :</h3>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"> {/* Adjusted to lg:grid-cols-3 */}
-                {specificSensitizationData.map(item => (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {derivedSpecificSensitizationData.map(item => (
                     <Card key={item.name} className="bg-muted/30">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">{item.name}</CardTitle>
@@ -328,39 +340,49 @@ export default function TrainingPage() {
                         return (
                         <Card key={campaign.id} className="shadow-sm group">
                             <CardHeader className="p-3 flex flex-row items-start justify-between">
-                                <div>
-                                    <h4 className="font-semibold text-sm flex items-center"><IconComponent className="h-4 w-4 mr-1.5 text-muted-foreground"/>{campaign.name}</h4>
-                                    <p className="text-xs text-muted-foreground pl-6">Lancée le: {format(new Date(campaign.launchDate), "dd/MM/yyyy", { locale: fr })} | Cible: {campaign.target}</p>
-                                </div>
-                                <div className="flex items-center">
-                                    <Badge variant={campaign.status === "En cours" ? "default" : campaign.status === "Planifiée" ? "outline" : "secondary"} className={`capitalize text-xs mr-2 ${campaign.status === "En cours" ? "bg-yellow-500 text-white hover:bg-yellow-600" : ""}`}>
-                                        {campaign.status}
-                                    </Badge>
-                                     <AlertDialog>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => openDialog("campaign", "edit", campaign)}><Edit2 className="mr-2 h-4 w-4" />Modifier</DropdownMenuItem>
-                                                <AlertDialogTrigger asChild>
-                                                    <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e)=>e.preventDefault()}><Trash2 className="mr-2 h-4 w-4" />Supprimer</DropdownMenuItem>
-                                                </AlertDialogTrigger>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Supprimer la campagne ?</AlertDialogTitle>
-                                                <AlertDialogDescription>"{campaign.name}" sera supprimée définitivement.</AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleRemoveCampaign(campaign.id, campaign.name)} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
+                                <div className="flex-grow">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h4 className="font-semibold text-sm flex items-center"><IconComponent className="h-4 w-4 mr-1.5 text-muted-foreground"/>{campaign.name}</h4>
+                                            <p className="text-xs text-muted-foreground pl-6">Lancée le: {format(new Date(campaign.launchDate), "dd/MM/yyyy", { locale: fr })} | Cible: {campaign.target}</p>
+                                        </div>
+                                        <div className="flex items-center flex-shrink-0">
+                                            <Badge variant={campaign.status === "En cours" ? "default" : campaign.status === "Planifiée" ? "outline" : "secondary"} className={`capitalize text-xs mr-2 ${campaign.status === "En cours" ? "bg-yellow-500 text-white hover:bg-yellow-600" : ""}`}>
+                                                {campaign.status}
+                                            </Badge>
+                                            <AlertDialog>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => openDialog("campaign", "edit", campaign)}><Edit2 className="mr-2 h-4 w-4" />Modifier</DropdownMenuItem>
+                                                        <AlertDialogTrigger asChild>
+                                                            <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e)=>e.preventDefault()}><Trash2 className="mr-2 h-4 w-4" />Supprimer</DropdownMenuItem>
+                                                        </AlertDialogTrigger>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Supprimer la campagne ?</AlertDialogTitle>
+                                                        <AlertDialogDescription>"{campaign.name}" sera supprimée définitivement.</AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleRemoveCampaign(campaign.id, campaign.name)} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </div>
+                                    </div>
+                                    {campaign.progress !== undefined && (
+                                        <div className="mt-2 pl-6">
+                                            <Progress value={campaign.progress} className="h-2" />
+                                            <p className="text-xs text-muted-foreground text-right mt-1">{campaign.progress}%</p>
+                                        </div>
+                                    )}
                                 </div>
                             </CardHeader>
                         </Card>
@@ -597,6 +619,21 @@ export default function TrainingPage() {
                   <FormItem><FormLabel>Icône</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir une icône" /></SelectTrigger></FormControl><SelectContent className="max-h-60">
                     {availableIcons.map(iconKey => { const IconComponent = getIconComponent(iconKey); return <SelectItem key={iconKey} value={iconKey}><div className="flex items-center"><IconComponent className="mr-2 h-4 w-4"/> {iconKey}</div></SelectItem>})}
                   </SelectContent></Select><FormMessage /></FormItem>
+                )} />
+                <FormField control={campaignForm.control} name="progress" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Progression ({field.value || 0}%)</FormLabel>
+                        <FormControl>
+                            <Slider
+                                defaultValue={[field.value || 0]}
+                                max={100}
+                                step={1}
+                                onValueChange={(value) => field.onChange(value[0])}
+                                className="py-2"
+                            />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
                 )} />
                 <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
               </form>
