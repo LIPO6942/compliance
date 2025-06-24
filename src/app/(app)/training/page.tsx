@@ -46,7 +46,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
@@ -81,15 +81,18 @@ const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => {
   return LucideIcons.HelpCircle; // Default icon
 };
 
+const completionCriterionSchema = z.object({
+  id: z.string(),
+  text: z.string().min(1, "Le texte du critère est requis."),
+  isCompleted: z.boolean(),
+});
 
 const trainingRegistryItemSchema = z.object({
   title: z.string().min(1, "Le titre est requis."),
   objective: z.string().min(1, "L'objectif est requis."),
   duration: z.string().min(1, "La durée est requise."),
   support: z.string().min(1, "Le support est requis."),
-  contentReviewedRecently: z.boolean().optional().default(false),
-  assessmentAvailable: z.boolean().optional().default(false),
-  feedbackMechanismInPlace: z.boolean().optional().default(false),
+  completionCriteria: z.array(completionCriterionSchema).optional().default([]),
   successRate: z.coerce.number().min(0).max(100).optional(),
 });
 type TrainingRegistryItemFormValues = z.infer<typeof trainingRegistryItemSchema>;
@@ -141,7 +144,10 @@ export default function TrainingPage() {
     data?: TrainingRegistryItem | UpcomingSession | SensitizationCampaign;
   }>({ type: null, mode: null });
 
-  const registryForm = useForm<TrainingRegistryItemFormValues>({ resolver: zodResolver(trainingRegistryItemSchema), defaultValues: { title: "", objective: "", duration: "", support: "", contentReviewedRecently: false, assessmentAvailable: false, feedbackMechanismInPlace: false, successRate: 0 }});
+  const registryForm = useForm<TrainingRegistryItemFormValues>({ 
+    resolver: zodResolver(trainingRegistryItemSchema), 
+    defaultValues: { title: "", objective: "", duration: "", support: "", completionCriteria: [], successRate: 0 }
+  });
   const sessionForm = useForm<UpcomingSessionFormValues>({ resolver: zodResolver(upcomingSessionSchema), defaultValues: { title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false, isCompleted: false, participants: 0, totalInvitees: 0 }});
   const campaignForm = useForm<SensitizationCampaignFormValues>({ 
     resolver: zodResolver(sensitizationCampaignSchema), 
@@ -151,6 +157,11 @@ export default function TrainingPage() {
       dataMappingDone: false, consentMechanismsReviewed: false, dpiasConducted: false,
     }
   });
+  const { fields: criteriaFields, append: appendCriterion, remove: removeCriterion } = useFieldArray({
+    control: registryForm.control,
+    name: "completionCriteria",
+  });
+
 
   const departmentOptions = ["Juridiques", "Finances", "Comptabilité", "Sinistres matériels", "Sinistre corporel", "Equipements", "RH", "DSI", "Audit", "Organisation", "Qualité Vie", "Commercial", "Recouvrement", "Inspection"];
   const targetOptions = ["Tous les employés", "Nouveaux recrutés", "Réseau de distribution", "Cadres et managers"];
@@ -163,7 +174,7 @@ export default function TrainingPage() {
     if (typeof window !== 'undefined' && upcomingSessions && trainingRegistryItems) {
       const completedSessions = upcomingSessions.filter(s => s.isCompleted);
       const mandatoryCompletedSessions = completedSessions.filter(s => s.type === 'Obligatoire' && s.isCompleted);
-      const assessedItems = trainingRegistryItems.filter(i => i.assessmentAvailable && i.successRate !== undefined);
+      const assessedItems = trainingRegistryItems.filter(i => i.successRate !== undefined);
 
       const totalMandatoryParticipants = mandatoryCompletedSessions.reduce((sum, s) => sum + (s.participants || 0), 0);
       const totalMandatoryInvitees = mandatoryCompletedSessions.reduce((sum, s) => sum + (s.totalInvitees || 0), 0);
@@ -206,11 +217,11 @@ export default function TrainingPage() {
   const openDialog = (type: "registry" | "session" | "campaign", mode: "add" | "edit", data?: any) => {
     setDialogState({ type, mode, data });
     if (mode === "edit" && data) {
-      if (type === "registry") registryForm.reset({...data, successRate: data.successRate ?? 0});
+      if (type === "registry") registryForm.reset({...data, successRate: data.successRate ?? 0, completionCriteria: data.completionCriteria || []});
       if (type === "session") sessionForm.reset({...data, date: new Date(data.date), participants: data.participants ?? 0, totalInvitees: data.totalInvitees ?? 0});
       if (type === "campaign") campaignForm.reset({...data, launchDate: new Date(data.launchDate), progress: data.progress || 0});
     } else {
-      if (type === "registry") registryForm.reset({ title: "", objective: "", duration: "", support: "", contentReviewedRecently: false, assessmentAvailable: false, feedbackMechanismInPlace: false, successRate: 0 });
+      if (type === "registry") registryForm.reset({ title: "", objective: "", duration: "", support: "", completionCriteria: [], successRate: 0 });
       if (type === "session") sessionForm.reset({ title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false, isCompleted: false, participants: 0, totalInvitees: 0 });
       if (type === "campaign") campaignForm.reset({ 
         name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone", progress: 0,
@@ -647,27 +658,65 @@ export default function TrainingPage() {
                     <FormItem><FormLabel>Support</FormLabel><FormControl><Input {...field} placeholder="Ex: PPT" /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
+
                 <div className="space-y-3 pt-2">
-                    <FormLabel className="text-sm font-medium">Critères de complétude</FormLabel>
-                    <FormField control={registryForm.control} name="contentReviewedRecently" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><FileQuestion className="w-4 h-4 mr-2 text-muted-foreground"/>Contenu revu récemment</FormLabel></FormItem>
-                    )}/>
-                    <FormField control={registryForm.control} name="assessmentAvailable" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><ClipboardCheck className="w-4 h-4 mr-2 text-muted-foreground"/>Évaluation post-formation disponible</FormLabel></FormItem>
-                    )}/>
-                     {registryForm.watch("assessmentAvailable") && (
-                        <FormField control={registryForm.control} name="successRate" render={({ field }) => (
-                            <FormItem className="pl-9">
-                                <FormLabel>Taux de réussite moyen (%)</FormLabel>
-                                <FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-8" /></FormControl>
-                                <FormMessage />
+                  <FormLabel>Critères de complétude</FormLabel>
+                  {criteriaFields.map((field, index) => (
+                    <div key={field.id} className="flex items-center gap-2">
+                       <FormField
+                          control={registryForm.control}
+                          name={`completionCriteria.${index}.isCompleted`}
+                          render={({ field: checkboxField }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Checkbox
+                                  checked={checkboxField.value}
+                                  onCheckedChange={checkboxField.onChange}
+                                />
+                              </FormControl>
                             </FormItem>
-                        )}/>
-                     )}
-                    <FormField control={registryForm.control} name="feedbackMechanismInPlace" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><MessageSquarePlus className="w-4 h-4 mr-2 text-muted-foreground"/>Mécanisme de feedback en place</FormLabel></FormItem>
-                    )}/>
+                          )}
+                        />
+                      <FormField
+                        control={registryForm.control}
+                        name={`completionCriteria.${index}.text`}
+                        render={({ field: inputField }) => (
+                          <FormItem className="flex-grow">
+                            <FormControl><Input {...inputField} placeholder="Description du critère..." /></FormControl>
+                             <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() => removeCriterion(index)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => appendCriterion({ id: `new-${Date.now()}`, text: '', isCompleted: false })}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un critère
+                  </Button>
                 </div>
+                
+                <FormField control={registryForm.control} name="successRate" render={({ field }) => (
+                  <FormItem>
+                      <FormLabel>Taux de réussite aux évaluations (%) (Optionnel)</FormLabel>
+                      <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                      <FormMessage />
+                  </FormItem>
+                )}/>
+
                 <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
               </form>
             </Form>
@@ -826,4 +875,3 @@ export default function TrainingPage() {
     </div>
   );
 }
-

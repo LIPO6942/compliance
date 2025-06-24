@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { TrainingRegistryItem, UpcomingSession, SensitizationCampaign } from '@/types/compliance';
+import type { TrainingRegistryItem, UpcomingSession, SensitizationCampaign, CompletionCriterion } from '@/types/compliance';
 
 // Helper function to calculate progress for UpcomingSession
 const calculateSessionProgress = (session: Partial<Pick<UpcomingSession, 'logisticsConfirmed' | 'materialsPrepared' | 'invitationsSent'>>) => {
@@ -15,14 +15,12 @@ const calculateSessionProgress = (session: Partial<Pick<UpcomingSession, 'logist
 };
 
 // Helper function to calculate progress for TrainingRegistryItem
-const calculateRegistryItemProgress = (item: Partial<Pick<TrainingRegistryItem, 'contentReviewedRecently' | 'assessmentAvailable' | 'feedbackMechanismInPlace'>>) => {
-  let completedCriteria = 0;
-  const totalCriteria = 3;
-  if (item.contentReviewedRecently) completedCriteria++;
-  if (item.assessmentAvailable) completedCriteria++;
-  if (item.feedbackMechanismInPlace) completedCriteria++;
-  return Math.round((completedCriteria / totalCriteria) * 100);
+const calculateRegistryItemProgress = (criteria: CompletionCriterion[] = []) => {
+  if (criteria.length === 0) return 0;
+  const completedCount = criteria.filter(c => c.isCompleted).length;
+  return Math.round((completedCount / criteria.length) * 100);
 };
+
 
 // Helper function to calculate progress for specific SensitizationCampaigns
 const calculateSpecificCampaignProgress = (campaign: Partial<SensitizationCampaign>): number => {
@@ -46,9 +44,62 @@ const calculateSpecificCampaignProgress = (campaign: Partial<SensitizationCampai
 
 // Initial mock data
 const initialTrainingRegistryMock: TrainingRegistryItem[] = [
-  { id: "reg001", title: "Principes Fondamentaux de la LAB-FT", objective: "Comprendre les mécanismes de LCB-FT et les obligations réglementaires.", duration: "2h", support: "Présentation PPT, Quiz", lastUpdated: "2024-06-01", contentReviewedRecently: true, assessmentAvailable: true, feedbackMechanismInPlace: false, successRate: 95, progress: calculateRegistryItemProgress({contentReviewedRecently: true, assessmentAvailable: true, feedbackMechanismInPlace: false}) },
-  { id: "reg002", title: "Application du RGPD en Entreprise", objective: "Maîtriser les règles de protection des données personnelles.", duration: "3h", support: "Vidéo, Études de cas", lastUpdated: "2024-05-15", contentReviewedRecently: false, assessmentAvailable: true, feedbackMechanismInPlace: true, successRate: 88, progress: calculateRegistryItemProgress({contentReviewedRecently: false, assessmentAvailable: true, feedbackMechanismInPlace: true}) },
-  { id: "reg003", title: "Code de Conduite et Éthique Professionnelle", objective: "Adopter les bons comportements et respecter les règles déontologiques.", duration: "1.5h", support: "Manuel, Scénarios", lastUpdated: "2024-07-01", contentReviewedRecently: true, assessmentAvailable: false, feedbackMechanismInPlace: false, progress: calculateRegistryItemProgress({ contentReviewedRecently: true, assessmentAvailable: false, feedbackMechanismInPlace: false }) },
+  { 
+    id: "reg001", 
+    title: "Principes Fondamentaux de la LAB-FT", 
+    objective: "Comprendre les mécanismes de LCB-FT et les obligations réglementaires.", 
+    duration: "2h", 
+    support: "Présentation PPT, Quiz", 
+    lastUpdated: "2024-06-01", 
+    completionCriteria: [
+      { id: 'crit-reg001-1', text: 'Contenu revu récemment', isCompleted: true },
+      { id: 'crit-reg001-2', text: 'Évaluation post-formation disponible', isCompleted: true },
+      { id: 'crit-reg001-3', text: 'Mécanisme de feedback en place', isCompleted: false }
+    ],
+    successRate: 95, 
+    progress: calculateRegistryItemProgress([
+      { id: 'crit-reg001-1', text: 'Contenu revu récemment', isCompleted: true },
+      { id: 'crit-reg001-2', text: 'Évaluation post-formation disponible', isCompleted: true },
+      { id: 'crit-reg001-3', text: 'Mécanisme de feedback en place', isCompleted: false }
+    ]) 
+  },
+  { 
+    id: "reg002", 
+    title: "Application du RGPD en Entreprise", 
+    objective: "Maîtriser les règles de protection des données personnelles.", 
+    duration: "3h", 
+    support: "Vidéo, Études de cas", 
+    lastUpdated: "2024-05-15",
+    completionCriteria: [
+      { id: 'crit-reg002-1', text: 'Contenu revu récemment', isCompleted: false },
+      { id: 'crit-reg002-2', text: 'Évaluation post-formation disponible', isCompleted: true },
+      { id: 'crit-reg002-3', text: 'Mécanisme de feedback en place', isCompleted: true }
+    ],
+    successRate: 88, 
+    progress: calculateRegistryItemProgress([
+      { id: 'crit-reg002-1', text: 'Contenu revu récemment', isCompleted: false },
+      { id: 'crit-reg002-2', text: 'Évaluation post-formation disponible', isCompleted: true },
+      { id: 'crit-reg002-3', text: 'Mécanisme de feedback en place', isCompleted: true }
+    ]) 
+  },
+  { 
+    id: "reg003", 
+    title: "Code de Conduite et Éthique Professionnelle", 
+    objective: "Adopter les bons comportements et respecter les règles déontologiques.", 
+    duration: "1.5h", 
+    support: "Manuel, Scénarios", 
+    lastUpdated: "2024-07-01",
+    completionCriteria: [
+      { id: 'crit-reg003-1', text: 'Contenu revu récemment', isCompleted: true },
+      { id: 'crit-reg003-2', text: 'Évaluation post-formation disponible', isCompleted: false },
+      { id: 'crit-reg003-3', text: 'Mécanisme de feedback en place', isCompleted: false }
+    ],
+    progress: calculateRegistryItemProgress([
+      { id: 'crit-reg003-1', text: 'Contenu revu récemment', isCompleted: true },
+      { id: 'crit-reg003-2', text: 'Évaluation post-formation disponible', isCompleted: false },
+      { id: 'crit-reg003-3', text: 'Mécanisme de feedback en place', isCompleted: false }
+    ])
+  },
 ];
 
 const initialUpcomingSessionsMock: UpcomingSession[] = [
@@ -136,17 +187,13 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   }, [trainingRegistryItems, upcomingSessions, sensitizationCampaigns]);
 
   // Training Registry CRUD
-  const addTrainingRegistryItem = (item: Omit<TrainingRegistryItem, 'id' | 'lastUpdated' | 'progress' | 'successRate'> & { successRate?: number }) => {
-    const progress = calculateRegistryItemProgress(item);
+  const addTrainingRegistryItem = (item: Omit<TrainingRegistryItem, 'id' | 'lastUpdated' | 'progress'>) => {
+    const progress = calculateRegistryItemProgress(item.completionCriteria);
     const newItem: TrainingRegistryItem = {
       ...item,
       id: Date.now().toString(),
       lastUpdated: new Date().toISOString().split('T')[0],
-      contentReviewedRecently: item.contentReviewedRecently || false,
-      assessmentAvailable: item.assessmentAvailable || false,
-      feedbackMechanismInPlace: item.feedbackMechanismInPlace || false,
       progress,
-      successRate: item.successRate,
     };
     setTrainingRegistryItems(prevItems => [newItem, ...prevItems]);
   };
@@ -159,7 +206,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
           return {
             ...updatedFields,
             lastUpdated: new Date().toISOString().split('T')[0],
-            progress: calculateRegistryItemProgress(updatedFields),
+            progress: calculateRegistryItemProgress(updatedFields.completionCriteria),
           };
         }
         return item;

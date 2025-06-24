@@ -67,6 +67,11 @@ export interface IdentifiedRegulation {
   aiKeywordsUsed: string;
 }
 
+export interface CompletionCriterion {
+  id: string;
+  text: string;
+  isCompleted: boolean;
+}
 
 // Training Registry Item
 export interface TrainingRegistryItem {
@@ -76,9 +81,7 @@ export interface TrainingRegistryItem {
   duration: string;
   support: string;
   lastUpdated: string; // ISO date string
-  contentReviewedRecently?: boolean;
-  assessmentAvailable?: boolean;
-  feedbackMechanismInPlace?: boolean;
+  completionCriteria: CompletionCriterion[];
   progress?: number;
   successRate?: number;
 }
