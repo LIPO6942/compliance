@@ -74,12 +74,7 @@ const navItems = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
-  const { user } = useUser();
-  const [isClient, setIsClient] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const { user, isLoaded } = useUser();
 
   const activeParent = navItems.find((item) =>
     "subItems" in item && item.subItems?.some((sub) => pathname.startsWith(sub.href))
@@ -165,7 +160,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </ScrollArea>
         </SidebarContent>
         <SidebarFooter className="p-4 border-t border-sidebar-border group-data-[collapsible=icon]:justify-center">
-          {isClient ? (
+          {isLoaded ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">

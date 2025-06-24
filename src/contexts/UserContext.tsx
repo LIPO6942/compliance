@@ -12,6 +12,7 @@ export interface UserProfile {
 interface UserContextType {
   user: UserProfile;
   updateUser: (newProfile: Partial<UserProfile>) => void;
+  isLoaded: boolean;
 }
 
 const defaultUser: UserProfile = {
@@ -23,36 +24,38 @@ const defaultUser: UserProfile = {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<UserProfile>(() => {
-    if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('userProfile');
-      try {
-        if (savedUser) {
-            const parsedUser = JSON.parse(savedUser);
-            // Basic validation to ensure it's a user profile
-            if(parsedUser.name && parsedUser.role) {
-                return parsedUser;
-            }
-        }
-      } catch (e) {
-        console.error("Failed to parse user profile from localStorage", e);
-      }
-    }
-    return defaultUser;
-  });
+  const [user, setUser] = useState<UserProfile>(defaultUser);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    try {
+      const savedUser = localStorage.getItem('userProfile');
+      if (savedUser) {
+        const parsedUser = JSON.parse(savedUser);
+        if(parsedUser.name && parsedUser.role) {
+            setUser(parsedUser);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse user profile from localStorage", e);
+      // Keep default user
+    } finally {
+        setIsLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded) {
       localStorage.setItem('userProfile', JSON.stringify(user));
     }
-  }, [user]);
+  }, [user, isLoaded]);
   
   const updateUser = (newProfile: Partial<UserProfile>) => {
     setUser(prevUser => ({...prevUser, ...newProfile}));
   };
 
   return (
-    <UserContext.Provider value={{ user, updateUser }}>
+    <UserContext.Provider value={{ user, updateUser, isLoaded }}>
       {children}
     </UserContext.Provider>
   );
