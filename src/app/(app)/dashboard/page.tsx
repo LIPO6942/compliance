@@ -60,10 +60,15 @@ export default function DashboardPage() {
   const [complianceStatusData, setComplianceStatusData] = React.useState<Array<{status: string; value: number; fill: string, id: DocumentStatus | "none"}>>([]);
   const [taskProgressData, setTaskProgressData] = React.useState<Array<{id: string; name: string; completed: number; pending: number; overdue: number}>>([]);
   const [newAlertsCount, setNewAlertsCount] = React.useState(0);
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
 
 
   React.useEffect(() => {
-    if (planData && documents && identifiedRegulations && typeof window !== 'undefined') {
+    if (planData && documents && identifiedRegulations) {
       const allTasks = planData.flatMap(category => category.subCategories.flatMap(subCategory => subCategory.tasks));
       const now = new Date();
       
@@ -195,17 +200,23 @@ export default function DashboardPage() {
             <CardDescription>Répartition des documents par statut. Cliquez sur une section pour filtrer.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={initialChartConfig} className="mx-auto aspect-square max-h-[300px]">
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="status" />} />
-                <Pie data={complianceStatusData} dataKey="value" nameKey="status" innerRadius={60} outerRadius={80} cy="50%" onClick={handlePieClick} className="cursor-pointer">
-                   {complianceStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}-${entry.status}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <ChartLegend content={<ChartLegendContent nameKey="status" />} className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center" />
-              </PieChart>
-            </ChartContainer>
+            {isClient ? (
+              <ChartContainer config={initialChartConfig} className="mx-auto aspect-square max-h-[300px]">
+                <PieChart>
+                  <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="status" />} />
+                  <Pie data={complianceStatusData} dataKey="value" nameKey="status" innerRadius={60} outerRadius={80} cy="50%" onClick={handlePieClick} className="cursor-pointer">
+                     {complianceStatusData.map((entry, index) => (
+                      <Cell key={`cell-${index}-${entry.status}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <ChartLegend content={<ChartLegendContent nameKey="status" />} className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center" />
+                </PieChart>
+              </ChartContainer>
+            ) : (
+               <div className="mx-auto flex aspect-square max-h-[300px] items-center justify-center">
+                  <Logo className="h-10 w-10 animate-spin" />
+               </div>
+            )}
           </CardContent>
         </Card>
 
@@ -215,18 +226,24 @@ export default function DashboardPage() {
             <CardDescription>Suivi des tâches complétées, en attente et en retard par catégorie.</CardDescription>
           </CardHeader>
           <CardContent className="h-[340px]">
-             <ResponsiveContainer width="100%" height="100%" className="cursor-pointer">
-              <BarChart data={taskProgressData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }} onClick={handleBarClick}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-                <XAxis dataKey="name" tick={{fontSize: 12}} angle={-15} textAnchor="end" height={50} />
-                <YAxis tick={{fontSize: 12}} allowDecimals={false} />
-                <Tooltip contentStyle={{backgroundColor: 'hsl(var(--background))', borderRadius: 'var(--radius)', borderColor: 'hsl(var(--border))'}} labelStyle={{color: 'hsl(var(--foreground))', fontWeight: 'bold'}}/>
-                <Legend wrapperStyle={{fontSize: 12}}/>
-                <Bar dataKey="completed" stackId="a" fill="hsl(var(--chart-1))" name="Complétées" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="pending" stackId="a" fill="hsl(var(--chart-4))" name="En Attente" />
-                <Bar dataKey="overdue" stackId="a" fill="hsl(var(--destructive))" name="En Retard" />
-              </BarChart>
-            </ResponsiveContainer>
+             {isClient ? (
+                <ResponsiveContainer width="100%" height="100%" className="cursor-pointer">
+                <BarChart data={taskProgressData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }} onClick={handleBarClick}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                  <XAxis dataKey="name" tick={{fontSize: 12}} angle={-15} textAnchor="end" height={50} />
+                  <YAxis tick={{fontSize: 12}} allowDecimals={false} />
+                  <Tooltip contentStyle={{backgroundColor: 'hsl(var(--background))', borderRadius: 'var(--radius)', borderColor: 'hsl(var(--border))'}} labelStyle={{color: 'hsl(var(--foreground))', fontWeight: 'bold'}}/>
+                  <Legend wrapperStyle={{fontSize: 12}}/>
+                  <Bar dataKey="completed" stackId="a" fill="hsl(var(--chart-1))" name="Complétées" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="pending" stackId="a" fill="hsl(var(--chart-4))" name="En Attente" />
+                  <Bar dataKey="overdue" stackId="a" fill="hsl(var(--destructive))" name="En Retard" />
+                </BarChart>
+              </ResponsiveContainer>
+             ) : (
+                <div className="flex h-full items-center justify-center">
+                    <Logo className="h-10 w-10 animate-spin" />
+                </div>
+             )}
           </CardContent>
         </Card>
       </div>
@@ -355,3 +372,4 @@ function QuickAccessCard({ icon: Icon, title, description, href, actionText }: Q
     
 
     
+
