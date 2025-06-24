@@ -15,6 +15,9 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,7 +36,8 @@ import {
   LogOut,
   BellRing,
   Users,
-  Map, // Added Map icon
+  Map,
+  ChevronDown,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -49,33 +53,40 @@ import { useIsMobile } from "@/hooks/use-mobile";
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
   { href: "/plan", icon: Gavel, label: "Plan d'Organisation", title: "Plan d'Organisation" },
-  { href: "/regulatory-watch", icon: SearchCheck, label: "Veille Réglementaire", title: "Veille Réglementaire IA" },
+  {
+    label: "Veille Réglementaire",
+    icon: SearchCheck,
+    title: "Veille Réglementaire",
+    href: "/regulatory-watch", // Main link for the group
+    subItems: [
+      { href: "/regulatory-watch", label: "Analyse IA", title: "Veille Réglementaire IA" },
+      { href: "/risk-mapping", label: "Cartographie des Risques", title: "Cartographie des Risques" },
+    ],
+  },
   { href: "/alerts", icon: BellRing, label: "Centre d'Alertes", title: "Centre d'Alertes" },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },
-  { href: "/risk-mapping", icon: Map, label: "Cartographie des Risques", title: "Cartographie des Risques" },
   { href: "/training", icon: Users, label: "Formations", title: "Formations et Sensibilisation" },
   { href: "/reports", icon: FilePieChart, label: "Reporting Automatisé", title: "Reporting Automatisé" },
 ];
-
-const complianceCategoriesIcons = {
-  "Gouvernance de la conformité": Gavel,
-  "Lutte contre le blanchiment et financement du terrorisme (LAB-FT)": ShieldAlert,
-  "Veille réglementaire et conformité produit": SearchCheck,
-  "Contrôles et reporting": ClipboardCheck,
-  "Formation et sensibilisation": Users,
-  "Réclamations et lanceurs d’alerte": MessageSquareWarning,
-  "Projets et outils": FolderKanban,
-};
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
 
-  const currentPage = navItems.find(item => pathname.startsWith(item.href));
+  const activeParent = navItems.find((item) =>
+    "subItems" in item && item.subItems?.some((sub) => pathname.startsWith(sub.href))
+  );
+
+  const [openSubMenu, setOpenSubMenu] = React.useState<string | null>(activeParent?.label || null);
+
+  const currentPage = navItems
+    .flatMap((item) => ("subItems" in item ? item.subItems : item))
+    .find((item) => item && pathname.startsWith(item.href));
+
   const pageTitle = currentPage?.title || "Compliance Navigator";
 
   return (
-    <SidebarProvider defaultOpen={!isMobile} open={isMobile ? false: undefined}>
+    <SidebarProvider defaultOpen={!isMobile} open={isMobile ? false : undefined}>
       <Sidebar collapsible="icon" side="left" variant="sidebar">
         <SidebarHeader className="p-4 border-b border-sidebar-border">
           <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
@@ -88,25 +99,65 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <SidebarContent className="p-2">
           <ScrollArea className="h-full">
             <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <Link href={item.href}>
+              {navItems.map((item) =>
+                "subItems" in item ? (
+                  <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
-                      isActive={pathname.startsWith(item.href)}
+                      onClick={() => setOpenSubMenu(openSubMenu === item.label ? null : item.label)}
+                      isActive={item.subItems.some((sub) => pathname.startsWith(sub.href))}
                       tooltip={{ children: item.label, className: "font-body" }}
-                      className="font-body"
+                      className="font-body justify-between"
                     >
-                      <item.icon />
-                      <span>{item.label}</span>
+                      <div className="flex items-center gap-2">
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </div>
+                      <ChevronDown
+                        className={`h-4 w-4 shrink-0 transition-transform duration-200 group-data-[collapsible=icon]:hidden ${
+                          openSubMenu === item.label ? "rotate-180" : ""
+                        }`}
+                      />
                     </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              ))}
+                    <div
+                      className={`grid overflow-hidden transition-all duration-300 ease-in-out ${
+                        openSubMenu === item.label ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                      }`}
+                    >
+                      <div className="overflow-hidden">
+                        <SidebarMenuSub>
+                          {item.subItems.map((subItem) => (
+                            <SidebarMenuSubItem key={subItem.href}>
+                              <Link href={subItem.href} passHref legacyBehavior>
+                                <SidebarMenuSubButton isActive={pathname.startsWith(subItem.href)}>
+                                  {subItem.label}
+                                </SidebarMenuSubButton>
+                              </Link>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </div>
+                    </div>
+                  </SidebarMenuItem>
+                ) : (
+                  <SidebarMenuItem key={item.href}>
+                    <Link href={item.href}>
+                      <SidebarMenuButton
+                        isActive={pathname.startsWith(item.href!)}
+                        tooltip={{ children: item.label, className: "font-body" }}
+                        className="font-body"
+                      >
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </Link>
+                  </SidebarMenuItem>
+                )
+              )}
             </SidebarMenu>
           </ScrollArea>
         </SidebarContent>
         <SidebarFooter className="p-4 border-t border-sidebar-border group-data-[collapsible=icon]:justify-center">
-           <DropdownMenu>
+          <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
                 <Avatar key="user-profile-avatar" className="h-8 w-8">
