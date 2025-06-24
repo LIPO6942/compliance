@@ -151,6 +151,9 @@ export default function TrainingPage() {
     }
   });
 
+  const departmentOptions = ["Tous", "Finance", "Opérations", "IT", "Marketing", "Vente", "Conformité"];
+  const targetOptions = ["Tous les employés", "Commerciaux", "Middle Office", "Managers", "Nouveaux Arrivants"];
+
 
   const kpiValues = React.useMemo(() => {
     const completedSessions = upcomingSessions.filter(s => s.isCompleted);
@@ -189,8 +192,8 @@ export default function TrainingPage() {
   const openDialog = (type: "registry" | "session" | "campaign", mode: "add" | "edit", data?: any) => {
     setDialogState({ type, mode, data });
     if (mode === "edit" && data) {
-      if (type === "registry") registryForm.reset(data);
-      if (type === "session") sessionForm.reset({...data, date: new Date(data.date)});
+      if (type === "registry") registryForm.reset({...data, successRate: data.successRate ?? 0});
+      if (type === "session") sessionForm.reset({...data, date: new Date(data.date), participants: data.participants ?? 0, totalInvitees: data.totalInvitees ?? 0});
       if (type === "campaign") campaignForm.reset({...data, launchDate: new Date(data.launchDate), progress: data.progress || 0});
     } else {
       if (type === "registry") registryForm.reset({ title: "", objective: "", duration: "", support: "", contentReviewedRecently: false, assessmentAvailable: false, feedbackMechanismInPlace: false, successRate: 0 });
@@ -267,7 +270,7 @@ export default function TrainingPage() {
             icon: theme.icon,
         };
     });
-  }, [upcomingSessions, kpiThemes]);
+  }, [upcomingSessions]);
 
 
   return (
@@ -678,7 +681,22 @@ export default function TrainingPage() {
                     )} />
                 </div>
                 <FormField control={sessionForm.control} name="department" render={({ field }) => (
-                  <FormItem><FormLabel>Département(s) cible(s)</FormLabel><FormControl><Input {...field} placeholder="Ex: Tous, Marketing" /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                        <FormLabel>Département(s) cible(s)</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Choisir un département" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                {departmentOptions.map(option => (
+                                    <SelectItem key={option} value={option}>{option}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
                 )} />
                 <div className="space-y-3 pt-2">
                     <FormLabel className="text-sm font-medium">Critères de préparation</FormLabel>
@@ -728,7 +746,22 @@ export default function TrainingPage() {
                   <FormItem><FormLabel>Statut</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir un statut" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Planifiée">Planifiée</SelectItem><SelectItem value="En cours">En cours</SelectItem><SelectItem value="Terminée">Terminée</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                 )} />
                 <FormField control={campaignForm.control} name="target" render={({ field }) => (
-                  <FormItem><FormLabel>Cible</FormLabel><FormControl><Input {...field} placeholder="Ex: Tous les employés" /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                        <FormLabel>Cible</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Choisir une cible" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                {targetOptions.map(option => (
+                                    <SelectItem key={option} value={option}>{option}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
                 )} />
                 <FormField control={campaignForm.control} name="iconName" render={({ field }) => (
                   <FormItem><FormLabel>Icône</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir une icône" /></SelectTrigger></FormControl><SelectContent className="max-h-60">
@@ -784,4 +817,3 @@ export default function TrainingPage() {
     </div>
   );
 }
-
