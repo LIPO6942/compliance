@@ -16,10 +16,26 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, CheckCircle, Loader2, Sparkles, FileText, Tag, ListChecks, Check, X, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
+import { Checkbox } from "@/components/ui/checkbox";
+
+const keywordOptions = [
+  { id: "blanchiment", label: "Blanchiment" },
+  { id: "financement terrorisme", label: "Financement terrorisme" },
+  { id: "CTAF", label: "CTAF" },
+  { id: "déclaration de soupçon", label: "Déclaration de soupçon" },
+  { id: "gel des avoirs", label: "Gel des avoirs" },
+  { id: "bénéficiaire effectif", label: "Bénéficiaire effectif" },
+  { id: "diligence renforcée", label: "Diligence renforcée" },
+  { id: "PEP (personne politiquement exposée)", label: "PEP" },
+  { id: "filtrage / sanctions", label: "Filtrage / Sanctions" },
+];
+
 
 const formSchema = z.object({
   regulationText: z.string().min(50, { message: "Le texte réglementaire doit contenir au moins 50 caractères." }),
-  keywords: z.string().min(3, { message: "Veuillez entrer au moins un mot-clé." }),
+  keywords: z.array(z.string()).refine((value) => value.length > 0, {
+    message: "Veuillez sélectionner au moins un mot-clé.",
+  }),
 });
 
 type RegulatoryWatchFormValues = z.infer<typeof formSchema>;
@@ -36,17 +52,18 @@ export default function RegulatoryWatchPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       regulationText: "",
-      keywords: "",
+      keywords: [],
     },
   });
 
   const onSubmit = async (data: RegulatoryWatchFormValues) => {
     setIsLoading(true);
     setAnalysisResult(null);
+    const keywordsString = data.keywords.join(", ");
     setCurrentRegulationText(data.regulationText);
-    setCurrentKeywords(data.keywords);
+    setCurrentKeywords(keywordsString);
     try {
-      const result = await analyzeRegulationAction(data.regulationText, data.keywords);
+      const result = await analyzeRegulationAction(data.regulationText, keywordsString);
       if (result.error) {
         toast({
           variant: "destructive",
@@ -144,22 +161,50 @@ export default function RegulatoryWatchPage() {
               <FormField
                 control={form.control}
                 name="keywords"
-                render={({ field }) => (
+                render={() => (
                   <FormItem>
-                    <FormLabel htmlFor="keywords" className="text-base">Mots-Clés Prédéfinis</FormLabel>
-                    <FormControl>
-                      <Input
-                        id="keywords"
-                        placeholder="Ex: protection des données, LAB, finance durable, ..."
-                        className="text-sm"
-                        {...field}
-                        aria-describedby="keywords-description"
-                      />
-                    </FormControl>
-                     <FormDescription id="keywords-description">
-                      Séparez les mots-clés par des virgules. L'IA utilisera ces mots pour évaluer la pertinence.
-                    </FormDescription>
-                    <FormMessage />
+                    <div className="mb-4">
+                      <FormLabel className="text-base">Mots-Clés Prédéfinis</FormLabel>
+                      <FormDescription>
+                        Sélectionnez les mots-clés pertinents. L'IA utilisera ces mots pour évaluer leur pertinence.
+                      </FormDescription>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {keywordOptions.map((item) => (
+                        <FormField
+                          key={item.id}
+                          control={form.control}
+                          name="keywords"
+                          render={({ field }) => {
+                            return (
+                              <FormItem
+                                key={item.id}
+                                className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm"
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(item.id)}
+                                    onCheckedChange={(checked) => {
+                                      return checked
+                                        ? field.onChange([...(field.value || []), item.id])
+                                        : field.onChange(
+                                            field.value?.filter(
+                                              (value) => value !== item.id
+                                            )
+                                          );
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm font-normal cursor-pointer">
+                                  {item.label}
+                                </FormLabel>
+                              </FormItem>
+                            );
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <FormMessage className="pt-2" />
                   </FormItem>
                 )}
               />
