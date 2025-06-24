@@ -36,6 +36,7 @@ export interface Document {
   status: DocumentStatus;
   lastUpdated: string;
   owner: string;
+  tags?: string[];
 }
 
 // Identified Regulation for Alerts
