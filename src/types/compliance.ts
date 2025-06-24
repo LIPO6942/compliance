@@ -39,22 +39,33 @@ export interface Document {
   tags?: string[];
 }
 
-// Identified Regulation for Alerts
-export type IdentifiedRegulationStatus = 'Nouvelle' | 'Revue' | 'Archivée';
+// Regulatory Alert Types (Previously IdentifiedRegulation)
+export type AlertStatus = "Nouveau" | "En cours d'analyse" | "Traité" | "Archivé" | "Sans impact";
+export type AlertCriticality = "Haute" | "Moyenne" | "Basse";
+export type AlertType = "Nouvelle loi" | "Modification réglementaire" | "Alerte urgente" | "Autre";
 
 export interface IdentifiedRegulation {
   id: string;
-  timestamp: string; // ISO date string when identified
-  regulationTextFull: string; // Store the full text for reference
-  regulationTextSummary: string; // A short summary or the first few lines
-  inclusionDecision: {
+  publicationDate: string; // Renamed from timestamp
+  source: string;
+  type: AlertType;
+  summary: string; // Renamed from regulationTextSummary
+  fullText: string; // Renamed from regulationTextFull
+  status: AlertStatus; // Renamed from status, using new type
+  criticality: AlertCriticality;
+  deadline?: string; // new
+  affectedDepartments?: string[]; // new
+  requiredActions?: string; // new
+  analysisNotes?: string; // new
+  // AI-related fields from previous structure
+  aiInclusionDecision: {
     include: boolean;
     reason: string;
   };
-  categorizationSuggestions?: CategorizeRegulationOutput;
-  status: IdentifiedRegulationStatus;
-  keywordsUsed: string;
+  aiCategorizationSuggestions?: CategorizeRegulationOutput;
+  aiKeywordsUsed: string;
 }
+
 
 // Training Registry Item
 export interface TrainingRegistryItem {

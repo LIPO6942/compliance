@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { IdentifiedRegulation, IdentifiedRegulationStatus, CategorizeRegulationOutput } from '@/types/compliance';
+import type { IdentifiedRegulation, AlertStatus, AlertCriticality, AlertType } from '@/types/compliance';
 import type { AnalyzeRegulationResult } from '@/app/(app)/regulatory-watch/actions';
 
 interface IdentifiedRegulationsContextType {
@@ -12,7 +12,7 @@ interface IdentifiedRegulationsContextType {
     keywords: string,
     analysis: AnalyzeRegulationResult
   ) => void;
-  updateRegulationStatus: (regulationId: string, newStatus: IdentifiedRegulationStatus) => void;
+  updateRegulation: (regulationId: string, updateData: Partial<Omit<IdentifiedRegulation, 'id'>>) => void;
 }
 
 const IdentifiedRegulationsContext = createContext<IdentifiedRegulationsContextType | undefined>(undefined);
@@ -21,7 +21,13 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
   const [identifiedRegulations, setIdentifiedRegulations] = useState<IdentifiedRegulation[]>(() => {
     if (typeof window !== 'undefined') {
       const savedRegulations = localStorage.getItem('identifiedRegulations');
-      return savedRegulations ? JSON.parse(savedRegulations) : [];
+      try {
+        const parsed = savedRegulations ? JSON.parse(savedRegulations) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        console.error("Failed to parse identified regulations from localStorage", error);
+        return [];
+      }
     }
     return [];
   });
@@ -41,30 +47,37 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
 
     const newRegulation: IdentifiedRegulation = {
       id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      regulationTextFull: originalText,
-      regulationTextSummary: originalText.substring(0, 200) + (originalText.length > 200 ? '...' : ''),
-      inclusionDecision: {
+      publicationDate: new Date().toISOString(),
+      source: 'Veille IA',
+      type: 'Nouvelle loi',
+      summary: originalText.substring(0, 150) + (originalText.length > 150 ? '...' : ''),
+      fullText: originalText,
+      status: 'Nouveau',
+      criticality: 'Moyenne',
+      aiInclusionDecision: {
         include: analysis.inclusion.include,
         reason: analysis.inclusion.reason,
       },
-      categorizationSuggestions: analysis.categorization,
-      status: 'Nouvelle',
-      keywordsUsed: keywords,
+      aiCategorizationSuggestions: analysis.categorization,
+      aiKeywordsUsed: keywords,
+      affectedDepartments: [],
+      requiredActions: '',
+      analysisNotes: '',
     };
     setIdentifiedRegulations(prev => [newRegulation, ...prev]);
   };
-
-  const updateRegulationStatus = (regulationId: string, newStatus: IdentifiedRegulationStatus) => {
+  
+  const updateRegulation = (regulationId: string, updateData: Partial<Omit<IdentifiedRegulation, 'id'>>) => {
     setIdentifiedRegulations(prevRegulations =>
       prevRegulations.map(reg =>
-        reg.id === regulationId ? { ...reg, status: newStatus } : reg
+        reg.id === regulationId ? { ...reg, ...updateData } : reg
       )
     );
   };
 
+
   return (
-    <IdentifiedRegulationsContext.Provider value={{ identifiedRegulations, addIdentifiedRegulation, updateRegulationStatus }}>
+    <IdentifiedRegulationsContext.Provider value={{ identifiedRegulations, addIdentifiedRegulation, updateRegulation }}>
       {children}
     </IdentifiedRegulationsContext.Provider>
   );

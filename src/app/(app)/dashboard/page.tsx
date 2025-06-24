@@ -113,7 +113,7 @@ export default function DashboardPage() {
       setTaskProgressData(newTaskProgressData);
 
       // Calculate New Alerts Count
-      setNewAlertsCount(identifiedRegulations.filter(reg => reg.status === 'Nouvelle').length);
+      setNewAlertsCount(identifiedRegulations.filter(reg => reg.status === 'Nouveau').length);
       
       setIsLoading(false);
     }
@@ -152,7 +152,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold font-headline">{newAlertsCount}</div>
-              <p className="text-xs text-muted-foreground pt-1">Nouvelle{newAlertsCount === 1 ? "" : "s"} réglementation{newAlertsCount === 1 ? "" : "s"} identifiée{newAlertsCount === 1 ? "" : "s"}</p>
+              <p className="text-xs text-muted-foreground pt-1">Nouvelle{newAlertsCount === 1 ? "" : "s"} alerte{newAlertsCount === 1 ? "" : "s"} à analyser</p>
             </CardContent>
           </Card>
         </Link>
