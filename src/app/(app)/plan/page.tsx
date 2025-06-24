@@ -94,6 +94,11 @@ export default function PlanPage() {
   const [activeAccordionItems, setActiveAccordionItems] = React.useState<string[]>(planData.map(cat => cat.id));
   const { toast } = useToast();
 
+  const [isClient, setIsClient] = React.useState(false);
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   React.useEffect(() => {
     setActiveAccordionItems(planData.map(cat => cat.id));
   }, [planData]);
@@ -345,13 +350,13 @@ export default function PlanPage() {
                               />
                               <label htmlFor={`task-${task.id}`} id={`task-label-${task.id}`} className="cursor-pointer flex-grow">
                                 <div>
-                                  <span className={`${task.completed ? 'line-through text-muted-foreground/70' : ''} ${isTaskOverdue(task) ? "text-destructive font-medium" : "text-foreground"}`}>
+                                  <span className={`${task.completed ? 'line-through text-muted-foreground/70' : ''} ${isClient && isTaskOverdue(task) ? "text-destructive font-medium" : "text-foreground"}`}>
                                     {task.name}
                                   </span>
                                   {task.description && <span className="text-xs text-muted-foreground italic"> - {task.description}</span>}
                                 </div>
                                 {task.deadline && (
-                                  <div className={`text-xs mt-0.5 flex items-center ${isTaskOverdue(task) ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                  <div className={`text-xs mt-0.5 flex items-center ${isClient && isTaskOverdue(task) ? 'text-destructive' : 'text-muted-foreground'}`}>
                                     <Clock className="h-3 w-3 mr-1" />
                                     <span>Échéance: {format(new Date(task.deadline), 'dd/MM/yyyy', { locale: fr })}</span>
                                   </div>
