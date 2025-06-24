@@ -36,7 +36,8 @@ import {
     ShieldAlert,
     FileText,
     Gavel,
-    KeyRound
+    KeyRound,
+    Loader2
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -154,39 +155,52 @@ export default function TrainingPage() {
   const departmentOptions = ["Juridiques", "Finances", "Comptabilité", "Sinistres matériels", "Sinistre corporel", "Equipements", "RH", "DSI", "Audit", "Organisation", "Qualité Vie", "Commercial", "Recouvrement", "Inspection"];
   const targetOptions = ["Tous les employés", "Nouveaux recrutés", "Réseau de distribution", "Cadres et managers"];
 
+  const [kpiData, setKpiData] = React.useState<any[]>([]);
+  const [sensitizationKpiData, setSensitizationKpiData] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  const kpiValues = React.useMemo(() => {
-    const completedSessions = upcomingSessions.filter(s => s.isCompleted);
-    const mandatoryCompletedSessions = completedSessions.filter(s => s.type === 'Obligatoire' && s.isCompleted);
-    const assessedItems = trainingRegistryItems.filter(i => i.assessmentAvailable && i.successRate !== undefined);
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && upcomingSessions && trainingRegistryItems) {
+      const completedSessions = upcomingSessions.filter(s => s.isCompleted);
+      const mandatoryCompletedSessions = completedSessions.filter(s => s.type === 'Obligatoire' && s.isCompleted);
+      const assessedItems = trainingRegistryItems.filter(i => i.assessmentAvailable && i.successRate !== undefined);
 
-    const totalMandatoryParticipants = mandatoryCompletedSessions.reduce((sum, s) => sum + (s.participants || 0), 0);
-    const totalMandatoryInvitees = mandatoryCompletedSessions.reduce((sum, s) => sum + (s.totalInvitees || 0), 0);
-    const coverageRate = totalMandatoryInvitees > 0 ? Math.round((totalMandatoryParticipants / totalMandatoryInvitees) * 100) : 0;
+      const totalMandatoryParticipants = mandatoryCompletedSessions.reduce((sum, s) => sum + (s.participants || 0), 0);
+      const totalMandatoryInvitees = mandatoryCompletedSessions.reduce((sum, s) => sum + (s.totalInvitees || 0), 0);
+      const coverageRate = totalMandatoryInvitees > 0 ? Math.round((totalMandatoryParticipants / totalMandatoryInvitees) * 100) : 0;
 
-    const completedSessionsCount = completedSessions.length;
+      const completedSessionsCount = completedSessions.length;
 
-    const totalParticipants = completedSessions.reduce((sum, s) => sum + (s.participants || 0), 0);
-    const totalInvitees = completedSessions.reduce((sum, s) => sum + (s.totalInvitees || 0), 0);
-    const avgParticipationRate = totalInvitees > 0 ? Math.round((totalParticipants / totalInvitees) * 100) : 0;
-    
-    const totalSuccessRate = assessedItems.reduce((sum, i) => sum + (i.successRate || 0), 0);
-    const avgSuccessRate = assessedItems.length > 0 ? Math.round(totalSuccessRate / assessedItems.length) : 0;
+      const totalParticipants = completedSessions.reduce((sum, s) => sum + (s.participants || 0), 0);
+      const totalInvitees = completedSessions.reduce((sum, s) => sum + (s.totalInvitees || 0), 0);
+      const avgParticipationRate = totalInvitees > 0 ? Math.round((totalParticipants / totalInvitees) * 100) : 0;
+      
+      const totalSuccessRate = assessedItems.reduce((sum, i) => sum + (i.successRate || 0), 0);
+      const avgSuccessRate = assessedItems.length > 0 ? Math.round(totalSuccessRate / assessedItems.length) : 0;
 
-    return { 
-        coverageRate: { value: coverageRate, target: 95, unit: "%" },
-        completedSessionsCount: { value: completedSessionsCount, unit: "sessions" },
-        avgParticipationRate: { value: avgParticipationRate, unit: "%" },
-        avgSuccessRate: { value: avgSuccessRate, unit: "%" }
-    };
+      const newKpiData = [
+          { title: "Taux de couverture (obligatoire)", value: coverageRate, target: 95, unit: "%", icon: Percent },
+          { title: "Nombre de sessions réalisées (Année)", value: completedSessionsCount, unit: " sessions", icon: CalendarDaysIcon },
+          { title: "Taux de participation moyen", value: avgParticipationRate, unit: "%", icon: Users },
+          { title: "Taux de réussite aux évaluations", value: avgSuccessRate, unit: "%", icon: CheckCircle },
+      ];
+      setKpiData(newKpiData);
+
+      const derivedData = kpiThemes.map(theme => {
+          const matchingSession = upcomingSessions.find(session =>
+              session.title.toLowerCase().includes(theme.name.toLowerCase())
+          );
+          return {
+              name: theme.name,
+              rate: matchingSession?.progress ?? 0,
+              icon: theme.icon,
+          };
+      });
+      setSensitizationKpiData(derivedData);
+
+      setIsLoading(false);
+    }
   }, [upcomingSessions, trainingRegistryItems]);
-
-  const kpiData = [
-    { title: "Taux de couverture (obligatoire)", ...kpiValues.coverageRate, icon: Percent },
-    { title: "Nombre de sessions réalisées (Année)", ...kpiValues.completedSessionsCount, icon: CalendarDaysIcon },
-    { title: "Taux de participation moyen", ...kpiValues.avgParticipationRate, icon: Users },
-    { title: "Taux de réussite aux évaluations", ...kpiValues.avgSuccessRate, icon: CheckCircle },
-  ];
 
 
   const openDialog = (type: "registry" | "session" | "campaign", mode: "add" | "edit", data?: any) => {
@@ -259,19 +273,14 @@ export default function TrainingPage() {
     return <Icon className="h-4 w-4 mr-1.5" />;
   };
 
-  const derivedSpecificSensitizationData = React.useMemo(() => {
-    return kpiThemes.map(theme => {
-        const matchingSession = upcomingSessions.find(session =>
-            session.title.toLowerCase().includes(theme.name.toLowerCase())
-        );
-        return {
-            name: theme.name,
-            rate: matchingSession?.progress ?? 0,
-            icon: theme.icon,
-        };
-    });
-  }, [upcomingSessions]);
-
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-[calc(100vh-10rem)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-4 text-lg text-muted-foreground">Chargement des données de formation...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -315,7 +324,7 @@ export default function TrainingPage() {
         <CardContent>
             <h3 className="text-md font-semibold mb-3 text-muted-foreground">Taux de sensibilisation par thématique :</h3>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {derivedSpecificSensitizationData.map(item => (
+                {sensitizationKpiData.map(item => (
                     <Card key={item.name} className="bg-muted/30">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">{item.name}</CardTitle>
@@ -817,3 +826,4 @@ export default function TrainingPage() {
     </div>
   );
 }
+
