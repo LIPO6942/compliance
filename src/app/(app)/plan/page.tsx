@@ -221,7 +221,7 @@ export default function PlanPage() {
         onValueChange={setActiveAccordionItems}
       >
         {planData.map((category: ComplianceCategory) => (
-            <AccordionItem key={category.id} value={category.id} className="bg-card border border-border rounded-lg shadow-md overflow-hidden">
+            <AccordionItem key={category.id} value={category.id} id={category.id} className="bg-card border border-border rounded-lg shadow-md overflow-hidden">
                <AccordionPrimitive.Header className="flex items-center px-6 py-4 hover:bg-muted/50 transition-colors group">
                 <ShadcnAccordionTrigger className="p-0 hover:no-underline flex-1 [&>svg]:ml-auto">
                   <div className="flex items-center space-x-3">
@@ -494,3 +494,6 @@ export default function PlanPage() {
     </div>
   );
 }
+
+
+    

@@ -57,7 +57,7 @@ export default function DashboardPage() {
   const [overdueTasksCount, setOverdueTasksCount] = React.useState(0);
   const [overallCompliancePercentage, setOverallCompliancePercentage] = React.useState(0);
   const [complianceStatusData, setComplianceStatusData] = React.useState<Array<{status: string; value: number; fill: string, id: DocumentStatus | "none"}>>([]);
-  const [taskProgressData, setTaskProgressData] = React.useState<Array<{name: string; completed: number; pending: number; overdue: number}>>([]);
+  const [taskProgressData, setTaskProgressData] = React.useState<Array<{id: string; name: string; completed: number; pending: number; overdue: number}>>([]);
   const [newAlertsCount, setNewAlertsCount] = React.useState(0);
 
 
@@ -96,6 +96,7 @@ export default function DashboardPage() {
         const completed = categoryTasks.filter(task => task.completed).length;
         const pending = categoryTasks.filter(task => !task.completed).length;
         return {
+          id: category.id,
           name: category.name.length > 15 ? category.name.substring(0, 12) + "..." : category.name,
           completed,
           pending,
@@ -113,6 +114,15 @@ export default function DashboardPage() {
   const handlePieClick = (data: any) => {
     if (data && data.id && data.id !== 'none') {
         router.push(`/documents?status=${data.id}`);
+    }
+  };
+
+  const handleBarClick = (data: any) => {
+    if (data && data.activePayload && data.activePayload.length > 0) {
+      const categoryId = data.activePayload[0].payload.id;
+      if (categoryId) {
+        router.push(`/plan#${categoryId}`);
+      }
     }
   };
 
@@ -199,8 +209,8 @@ export default function DashboardPage() {
             <CardDescription>Suivi des tâches complétées et en attente par catégorie du plan d'organisation.</CardDescription>
           </CardHeader>
           <CardContent className="h-[340px]">
-             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={taskProgressData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }}>
+             <ResponsiveContainer width="100%" height="100%" className="cursor-pointer">
+              <BarChart data={taskProgressData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }} onClick={handleBarClick}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                 <XAxis dataKey="name" tick={{fontSize: 12}} angle={-15} textAnchor="end" height={50} />
                 <YAxis tick={{fontSize: 12}} allowDecimals={false} />
@@ -335,5 +345,7 @@ function QuickAccessCard({ icon: Icon, title, description, href, actionText }: Q
     </Card>
   );
 }
+
+    
 
     
