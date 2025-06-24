@@ -13,10 +13,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { analyzeRegulationAction } from "./actions";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, CheckCircle, Loader2, Sparkles, FileText, Tag, ListChecks, X, ThumbsUp, Trash2, PlusCircle } from "lucide-react";
+import { AlertCircle, CheckCircle, Sparkles, FileText, Tag, ListChecks, X, ThumbsUp, Trash2, PlusCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Logo } from "@/components/icons/Logo";
 
 const initialKeywordOptions = [
   { id: "LAB-FT", label: "LAB-FT" },
@@ -269,7 +270,7 @@ export default function RegulatoryWatchPage() {
               <Button type="submit" disabled={isLoading} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 {isLoading ? (
                   <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    <Logo className="mr-2 h-5 w-5 animate-spin" />
                     Analyse en cours...
                   </>
                 ) : (

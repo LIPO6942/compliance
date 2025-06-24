@@ -36,8 +36,7 @@ import {
     ShieldAlert,
     FileText,
     Gavel,
-    KeyRound,
-    Loader2
+    KeyRound
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -58,6 +57,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Logo } from "@/components/icons/Logo";
 
 const kpiThemes = [
     { name: "LAB-FT", icon: ShieldAlert},
@@ -255,7 +255,7 @@ export default function TrainingPage() {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-10rem)]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <Logo className="h-12 w-12 animate-spin" />
         <p className="ml-4 text-lg text-muted-foreground">Chargement des données de formation...</p>
       </div>
     );

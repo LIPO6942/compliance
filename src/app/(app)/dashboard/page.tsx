@@ -5,7 +5,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Loader2 } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle } from "lucide-react";
 import Image from "next/image";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
@@ -14,6 +14,7 @@ import { useDocuments } from "@/contexts/DocumentsContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 import type { ComplianceCategory, ComplianceTask, Document, DocumentStatus } from "@/types/compliance";
 import { useRouter } from "next/navigation";
+import { Logo } from "@/components/icons/Logo";
 
 
 const complianceStatusBaseColors = {
@@ -134,7 +135,7 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-10rem)]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <Logo className="h-12 w-12 animate-spin" />
         <p className="ml-4 text-lg text-muted-foreground">Chargement du tableau de bord...</p>
       </div>
     );
@@ -171,7 +172,7 @@ export default function DashboardPage() {
           </Card>
         </Link>
 
-        <Link href="/documents" className="block">
+        <Link href="/documents?status=Validé" className="block">
           <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Niveau de Conformité Global</CardTitle>
