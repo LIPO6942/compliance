@@ -14,6 +14,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserProfile } from "@/contexts/UserContext";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const availableRoles = [
     "Responsable Conformité",
@@ -21,12 +22,14 @@ const availableRoles = [
     "Auditeur Interne",
     "Direction Générale",
     "Chef de projet",
+    "Equipe Conformité",
 ];
 
 export default function SettingsPage() {
     const { toast } = useToast();
     const { user, updateUser } = useUser();
     const [profile, setProfile] = useState<UserProfile>(user);
+    const { isDarkMode, toggleDarkMode } = useTheme();
 
     useEffect(() => {
         setProfile(user);
@@ -105,7 +108,12 @@ export default function SettingsPage() {
                                 Activez le mode sombre pour une interface plus reposante.
                             </p>
                         </div>
-                        <Switch id="dark-mode" aria-label="Toggle dark mode" />
+                        <Switch
+                            id="dark-mode"
+                            aria-label="Toggle dark mode"
+                            checked={isDarkMode}
+                            onCheckedChange={toggleDarkMode}
+                        />
                     </div>
                 </CardContent>
             </Card>

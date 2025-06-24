@@ -92,7 +92,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <Sidebar collapsible="icon" side="left" variant="sidebar">
         <SidebarHeader className="p-4 border-b border-sidebar-border">
           <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
-            <Logo className="h-8 w-8 text-primary" />
+            <Logo className="h-8 w-8" />
             <span className="font-headline text-xl font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden">
               ComplianceNav
             </span>
