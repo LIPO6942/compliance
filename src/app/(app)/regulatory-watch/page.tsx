@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { analyzeRegulationAction } from "./actions";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, CheckCircle, Loader2, Sparkles, FileText, Tag, ListChecks, Check, X, Archive, ThumbsUp } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, Sparkles, FileText, Tag, ListChecks, X, ThumbsUp, Trash2, PlusCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 import { Checkbox } from "@/components/ui/checkbox";
 
-const keywordOptions = [
+const initialKeywordOptions = [
   { id: "LAB-FT", label: "LAB-FT" },
   { id: "Gouvernance", label: "Gouvernance" },
   { id: "Protection des données", label: "Protection des données" },
@@ -48,6 +48,9 @@ export default function RegulatoryWatchPage() {
   const [currentKeywords, setCurrentKeywords] = React.useState<string[]>([]);
   const { toast } = useToast();
   const { addIdentifiedRegulation } = useIdentifiedRegulations();
+  
+  const [keywordOptions, setKeywordOptions] = React.useState(initialKeywordOptions);
+  const [newKeyword, setNewKeyword] = React.useState("");
 
   const form = useForm<RegulatoryWatchFormValues>({
     resolver: zodResolver(formSchema),
@@ -56,6 +59,26 @@ export default function RegulatoryWatchPage() {
       keywords: [],
     },
   });
+  
+  const handleAddKeyword = () => {
+    const trimmedKeyword = newKeyword.trim();
+    if (trimmedKeyword && !keywordOptions.some(k => k.label.toLowerCase() === trimmedKeyword.toLowerCase())) {
+        setKeywordOptions(currentOptions => [...currentOptions, { id: trimmedKeyword, label: trimmedKeyword }]);
+        setNewKeyword("");
+    } else if (trimmedKeyword) {
+        toast({
+            variant: "destructive",
+            title: "Mot-clé existant",
+            description: "Ce mot-clé existe déjà dans la liste.",
+        });
+    }
+  };
+
+  const handleRemoveKeyword = (keywordIdToRemove: string) => {
+    setKeywordOptions(currentOptions => currentOptions.filter(option => option.id !== keywordIdToRemove));
+    const currentSelection = form.getValues('keywords') || [];
+    form.setValue('keywords', currentSelection.filter(id => id !== keywordIdToRemove), { shouldValidate: true });
+  };
 
   const onSubmit = async (data: RegulatoryWatchFormValues) => {
     setIsLoading(true);
@@ -161,53 +184,86 @@ export default function RegulatoryWatchPage() {
               <FormField
                 control={form.control}
                 name="keywords"
-                render={() => (
-                  <FormItem>
-                    <div className="mb-4">
-                      <FormLabel className="text-base">Mots-Clés pour l'Analyse</FormLabel>
-                      <FormDescription>
-                        Sélectionnez les angles sous lesquels l'IA doit analyser le texte.
-                      </FormDescription>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {keywordOptions.map((item) => (
-                        <FormField
-                          key={item.id}
-                          control={form.control}
-                          name="keywords"
-                          render={({ field }) => {
-                            return (
-                              <FormItem
-                                key={item.id}
-                                className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm"
-                              >
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value?.includes(item.id)}
-                                    onCheckedChange={(checked) => {
-                                      return checked
-                                        ? field.onChange([...(field.value || []), item.id])
-                                        : field.onChange(
-                                            field.value?.filter(
-                                              (value) => value !== item.id
-                                            )
-                                          );
-                                    }}
-                                  />
-                                </FormControl>
-                                <FormLabel className="text-sm font-normal cursor-pointer">
+                render={({ field }) => {
+                  const allKeywordsSelected = keywordOptions.length > 0 && field.value?.length === keywordOptions.length;
+                  return (
+                    <FormItem>
+                      <div className="mb-4 flex justify-between items-center">
+                        <div>
+                          <FormLabel className="text-base">Mots-Clés pour l'Analyse</FormLabel>
+                          <FormDescription>
+                            Sélectionnez les angles sous lesquels l'IA doit analyser le texte.
+                          </FormDescription>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                              id="select-all"
+                              checked={allKeywordsSelected}
+                              onCheckedChange={(checked) => {
+                                  field.onChange(checked ? keywordOptions.map((item) => item.id) : []);
+                              }}
+                          />
+                          <Label htmlFor="select-all" className="text-sm font-normal cursor-pointer">
+                              Tout cocher
+                          </Label>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {keywordOptions.map((item) => (
+                           <div key={item.id} className="group relative flex items-center space-x-3 rounded-md border p-3 shadow-sm">
+                              <Checkbox
+                                  id={`keyword-${item.id}`}
+                                  checked={field.value?.includes(item.id)}
+                                  onCheckedChange={(checked) => {
+                                      const currentSelection = field.value || [];
+                                      const newSelection = checked
+                                          ? [...currentSelection, item.id]
+                                          : currentSelection.filter((value) => value !== item.id);
+                                      field.onChange(newSelection);
+                                  }}
+                              />
+                              <Label htmlFor={`keyword-${item.id}`} className="text-sm font-normal cursor-pointer flex-1">
                                   {item.label}
-                                </FormLabel>
-                              </FormItem>
-                            );
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <FormMessage className="pt-2" />
-                  </FormItem>
-                )}
+                              </Label>
+                              <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => handleRemoveKeyword(item.id)}
+                              >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                          </div>
+                        ))}
+                      </div>
+                      <FormMessage className="pt-2" />
+                    </FormItem>
+                  );
+                }}
               />
+               <div className="pt-2">
+                  <FormLabel>Ajouter un mot-clé personnalisé</FormLabel>
+                  <div className="flex items-center gap-2 mt-2">
+                      <Input
+                          value={newKeyword}
+                          onChange={(e) => setNewKeyword(e.target.value)}
+                          onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddKeyword();
+                              }
+                          }}
+                          placeholder="Ex: Conformité Fiscale"
+                      />
+                      <Button type="button" onClick={handleAddKeyword}>
+                          <PlusCircle className="mr-2 h-4 w-4" /> Ajouter
+                      </Button>
+                  </div>
+                  <FormDescription className="mt-1">
+                      Ajoutez un nouveau mot-clé s'il ne figure pas dans la liste ci-dessus.
+                  </FormDescription>
+              </div>
             </CardContent>
             <CardFooter>
               <Button type="submit" disabled={isLoading} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
