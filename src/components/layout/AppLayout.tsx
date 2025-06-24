@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/contexts/UserContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
@@ -74,6 +75,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const { user } = useUser();
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const activeParent = navItems.find((item) =>
     "subItems" in item && item.subItems?.some((sub) => pathname.startsWith(sub.href))
@@ -159,34 +165,44 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </ScrollArea>
         </SidebarContent>
         <SidebarFooter className="p-4 border-t border-sidebar-border group-data-[collapsible=icon]:justify-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
-                <Avatar key="user-profile-avatar" className="h-8 w-8">
-                  <AvatarImage src={user.avatarUrl} alt="User Avatar" data-ai-hint="professional portrait" />
-                  <AvatarFallback>{user.name?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
-                </Avatar>
-                <div className="group-data-[collapsible=icon]:hidden text-left">
-                  <p className="text-sm font-medium text-sidebar-foreground">{user.name}</p>
-                  <p className="text-xs text-muted-foreground">{user.role}</p>
+          {isClient ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
+                  <Avatar key="user-profile-avatar" className="h-8 w-8">
+                    <AvatarImage src={user.avatarUrl} alt="User Avatar" data-ai-hint="professional portrait" />
+                    <AvatarFallback>{user.name?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
+                  </Avatar>
+                  <div className="group-data-[collapsible=icon]:hidden text-left">
+                    <p className="text-sm font-medium text-sidebar-foreground">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.role}</p>
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="right" align="start" className="w-56">
+                <DropdownMenuLabel className="font-body">Mon Compte</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="font-body cursor-pointer">
+                  <Link href="/settings">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Paramètres</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="font-body text-red-600 hover:!text-red-600 focus:!text-red-600 focus:!bg-red-50 dark:text-red-500 dark:hover:!text-red-500 dark:focus:!text-red-500 dark:focus:!bg-red-900/50">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Déconnexion</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <div className="group-data-[collapsible=icon]:hidden space-y-1">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-3 w-24" />
                 </div>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="right" align="start" className="w-56">
-              <DropdownMenuLabel className="font-body">Mon Compte</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild className="font-body cursor-pointer">
-                <Link href="/settings">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Paramètres</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="font-body text-red-600 hover:!text-red-600 focus:!text-red-600 focus:!bg-red-50 dark:text-red-500 dark:hover:!text-red-500 dark:focus:!text-red-500 dark:focus:!bg-red-900/50">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Déconnexion</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </div>
+          )}
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="flex flex-col">
