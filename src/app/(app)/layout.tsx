@@ -4,6 +4,7 @@ import { PlanDataProvider } from "@/contexts/PlanDataContext";
 import { DocumentsProvider } from "@/contexts/DocumentsContext";
 import { IdentifiedRegulationsProvider } from "@/contexts/IdentifiedRegulationsContext";
 import { TrainingDataProvider } from "@/contexts/TrainingDataContext";
+import { RiskMappingProvider } from "@/contexts/RiskMappingContext";
 
 export default function ApplicationGroupLayout({
   children,
@@ -15,7 +16,9 @@ export default function ApplicationGroupLayout({
       <DocumentsProvider>
         <IdentifiedRegulationsProvider>
           <TrainingDataProvider>
-            <AppLayout>{children}</AppLayout>
+            <RiskMappingProvider>
+              <AppLayout>{children}</AppLayout>
+            </RiskMappingProvider>
           </TrainingDataProvider>
         </IdentifiedRegulationsProvider>
       </DocumentsProvider>

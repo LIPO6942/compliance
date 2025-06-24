@@ -32,7 +32,8 @@ import {
   Settings,
   LogOut,
   BellRing,
-  Users, // Added Users icon
+  Users,
+  Map, // Added Map icon
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -51,6 +52,7 @@ const navItems = [
   { href: "/regulatory-watch", icon: SearchCheck, label: "Veille Réglementaire", title: "Veille Réglementaire IA" },
   { href: "/alerts", icon: BellRing, label: "Centre d'Alertes", title: "Centre d'Alertes" },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },
+  { href: "/risk-mapping", icon: Map, label: "Cartographie des Risques", title: "Cartographie des Risques" },
   { href: "/training", icon: Users, label: "Formations", title: "Formations et Sensibilisation" },
   { href: "/reports", icon: FilePieChart, label: "Reporting Automatisé", title: "Reporting Automatisé" },
 ];

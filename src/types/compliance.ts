@@ -120,3 +120,22 @@ export interface SensitizationCampaign {
   consentMechanismsReviewed?: boolean;
   dpiasConducted?: boolean;
 }
+
+// Risk Mapping Types
+export type RiskLikelihood = "Faible" | "Moyenne" | "Élevée";
+export type RiskImpact = "Faible" | "Moyen" | "Élevé";
+export type RiskLevel = "Faible" | "Modéré" | "Important" | "Critique";
+
+export interface RiskMappingItem {
+  id: string;
+  department: string;
+  monitoringSubject: string;
+  regulatoryContent: string;
+  riskDescription: string;
+  likelihood: RiskLikelihood;
+  impact: RiskImpact;
+  riskLevel: RiskLevel;
+  expectedAction: string;
+  owner: string;
+  lastUpdated: string;
+}
