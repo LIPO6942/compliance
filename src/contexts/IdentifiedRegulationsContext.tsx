@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { IdentifiedRegulation, RiskMappingItem, RiskLevel, AlertCriticality } from '@/types/compliance';
+import { initialMockRegulations } from '@/data/mockRegulations';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, addDoc, query, orderBy } from "firebase/firestore";
 import { useUser } from './UserContext';
@@ -32,8 +33,9 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
     if (!isLoaded) return;
 
     if (!isFirebaseConfigured || !db) {
+        setIdentifiedRegulations(initialMockRegulations);
         setLoading(false);
-        console.warn("Firebase is not configured. Regulations will not be loaded.");
+        console.warn("Firebase is not configured. Regulations will use mock data.");
         return;
     }
 
@@ -46,7 +48,8 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
       setIdentifiedRegulations(regulationsData);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching regulations: ", error);
+      console.error("Error fetching regulations, falling back to mock data: ", error);
+      setIdentifiedRegulations(initialMockRegulations);
       setLoading(false);
     });
 

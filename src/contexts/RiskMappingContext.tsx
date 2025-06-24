@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { RiskMappingItem } from '@/types/compliance';
+import { initialMockRiskMapping } from '@/data/mockRiskMapping';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 import { useUser } from './UserContext';
@@ -28,8 +29,9 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
     if (!isLoaded) return;
     
     if (!isFirebaseConfigured || !db) {
+        setRisks(initialMockRiskMapping);
         setLoading(false);
-        console.warn("Firebase is not configured. Risk mapping data will not be loaded.");
+        console.warn("Firebase is not configured. Risk mapping data will use mock data.");
         return;
     }
 
@@ -42,7 +44,8 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
       setRisks(risksData);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching risks: ", error);
+      console.error("Error fetching risks, falling back to mock data: ", error);
+      setRisks(initialMockRiskMapping);
       setLoading(false);
     });
 

@@ -28,7 +28,7 @@ interface PlanDataContextType {
 const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined);
 
 export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
-  const [planData, setPlanData] = useState<ComplianceCategory[]>(initialCompliancePlanData);
+  const [planData, setPlanData] = useState<ComplianceCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const { isLoaded } = useUser();
 
@@ -47,7 +47,8 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         }
         setLoading(false);
       }, (error) => {
-        console.error("Error fetching plan data: ", error);
+        console.error("Error fetching plan data, falling back to mock data: ", error);
+        setPlanData(initialCompliancePlanData);
         setLoading(false);
       });
 
