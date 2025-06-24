@@ -49,6 +49,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useUser } from "@/contexts/UserContext";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
@@ -72,6 +73,7 @@ const navItems = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
+  const { user } = useUser();
 
   const activeParent = navItems.find((item) =>
     "subItems" in item && item.subItems?.some((sub) => pathname.startsWith(sub.href))
@@ -161,12 +163,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
                 <Avatar key="user-profile-avatar" className="h-8 w-8">
-                  <AvatarImage src="https://images.unsplash.com/photo-1517112948221-1d57c3e45903?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wzMzczNDV8MHwxfHNlYXJjaHwyfHxDfGVufDB8fHx8MTcxNTg4NjI5N3ww&ixlib=rb-4.0.3&q=80&w=1080" alt="User Avatar" data-ai-hint="C letter" />
-                  <AvatarFallback>C</AvatarFallback>
+                  <AvatarImage src={user.avatarUrl} alt="User Avatar" data-ai-hint="professional portrait" />
+                  <AvatarFallback>{user.name?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
                 </Avatar>
                 <div className="group-data-[collapsible=icon]:hidden text-left">
-                  <p className="text-sm font-medium text-sidebar-foreground">Moslem</p>
-                  <p className="text-xs text-muted-foreground">Conformité MAE</p>
+                  <p className="text-sm font-medium text-sidebar-foreground">{user.name}</p>
+                  <p className="text-xs text-muted-foreground">{user.role}</p>
                 </div>
               </Button>
             </DropdownMenuTrigger>

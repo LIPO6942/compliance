@@ -1,6 +1,7 @@
 
 "use client";
 
+import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,15 +10,43 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Settings as SettingsIcon } from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
+import { useState, useEffect } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { UserProfile } from "@/contexts/UserContext";
+
+const availableRoles = [
+    "Responsable Conformité",
+    "Analyste Conformité",
+    "Auditeur Interne",
+    "Direction Générale",
+    "Chef de projet",
+];
 
 export default function SettingsPage() {
     const { toast } = useToast();
+    const { user, updateUser } = useUser();
+    const [profile, setProfile] = useState<UserProfile>(user);
+
+    useEffect(() => {
+        setProfile(user);
+    }, [user]);
 
     const handleSaveChanges = () => {
+        updateUser(profile);
         toast({
             title: "Paramètres enregistrés",
             description: "Vos modifications ont été enregistrées avec succès.",
         });
+    };
+    
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { id, value } = e.target;
+        setProfile(prev => ({ ...prev, [id]: value }));
+    };
+    
+    const handleRoleChange = (value: string) => {
+        setProfile(prev => ({ ...prev, role: value }));
     };
 
     return (
@@ -34,21 +63,31 @@ export default function SettingsPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Profil</CardTitle>
-                    <CardDescription>Informations publiques de votre compte.</CardDescription>
+                    <CardTitle>Profil Utilisateur</CardTitle>
+                    <CardDescription>Modifiez vos informations de profil. Celles-ci seront mises à jour dans toute l'application.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="name">Nom</Label>
-                        <Input id="name" defaultValue="Moslem" />
+                        <Input id="name" value={profile.name} onChange={handleInputChange} />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="role">Rôle</Label>
+                        <Select value={profile.role} onValueChange={handleRoleChange}>
+                            <SelectTrigger id="role">
+                                <SelectValue placeholder="Choisir un rôle" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableRoles.map(role => (
+                                    <SelectItem key={role} value={role}>{role}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
                         <Input id="email" type="email" defaultValue="conformite@mae.com.tn" readOnly />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="role">Rôle</Label>
-                        <Input id="role" defaultValue="Conformité MAE" readOnly />
+                        <p className="text-xs text-muted-foreground">L'adresse e-mail n'est pas modifiable pour le moment.</p>
                     </div>
                 </CardContent>
             </Card>

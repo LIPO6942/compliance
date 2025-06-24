@@ -5,6 +5,7 @@ import { DocumentsProvider } from "@/contexts/DocumentsContext";
 import { IdentifiedRegulationsProvider } from "@/contexts/IdentifiedRegulationsContext";
 import { TrainingDataProvider } from "@/contexts/TrainingDataContext";
 import { RiskMappingProvider } from "@/contexts/RiskMappingContext";
+import { UserProvider } from "@/contexts/UserContext";
 
 export default function ApplicationGroupLayout({
   children,
@@ -12,16 +13,18 @@ export default function ApplicationGroupLayout({
   children: React.ReactNode;
 }) {
   return (
-    <PlanDataProvider>
-      <DocumentsProvider>
-        <IdentifiedRegulationsProvider>
-          <TrainingDataProvider>
-            <RiskMappingProvider>
-              <AppLayout>{children}</AppLayout>
-            </RiskMappingProvider>
-          </TrainingDataProvider>
-        </IdentifiedRegulationsProvider>
-      </DocumentsProvider>
-    </PlanDataProvider>
+    <UserProvider>
+      <PlanDataProvider>
+        <DocumentsProvider>
+          <IdentifiedRegulationsProvider>
+            <TrainingDataProvider>
+              <RiskMappingProvider>
+                <AppLayout>{children}</AppLayout>
+              </RiskMappingProvider>
+            </TrainingDataProvider>
+          </IdentifiedRegulationsProvider>
+        </DocumentsProvider>
+      </PlanDataProvider>
+    </UserProvider>
   );
 }
