@@ -127,11 +127,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         <SidebarMenuSub>
                           {item.subItems.map((subItem) => (
                             <SidebarMenuSubItem key={subItem.href}>
-                              <Link href={subItem.href} passHref legacyBehavior>
-                                <SidebarMenuSubButton isActive={pathname.startsWith(subItem.href)}>
+                              <SidebarMenuSubButton asChild isActive={pathname.startsWith(subItem.href)}>
+                                <Link href={subItem.href}>
                                   {subItem.label}
-                                </SidebarMenuSubButton>
-                              </Link>
+                                </Link>
+                              </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                           ))}
                         </SidebarMenuSub>
@@ -140,7 +140,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   </SidebarMenuItem>
                 ) : (
                   <SidebarMenuItem key={item.href}>
-                    <Link href={item.href}>
+                    <Link href={item.href!}>
                       <SidebarMenuButton
                         isActive={pathname.startsWith(item.href!)}
                         tooltip={{ children: item.label, className: "font-body" }}
