@@ -65,22 +65,6 @@ const kpiThemes = [
     { name: "Déontologie", icon: Gavel},
 ];
 
-const iconMap: Record<string, LucideIcons.LucideIcon> = Object.entries(LucideIcons)
-  .filter(([key, value]) => typeof value === 'function' && /^[A-Z]/.test(key))
-  .reduce((acc, [key, value]) => {
-    acc[key] = value as LucideIcons.LucideIcon;
-    return acc;
-  }, {} as Record<string, LucideIcons.LucideIcon>);
-
-const availableIcons = Object.keys(iconMap);
-
-const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => {
-  if (iconName && iconMap[iconName]) {
-    return iconMap[iconName];
-  }
-  return LucideIcons.HelpCircle; // Default icon
-};
-
 const completionCriterionSchema = z.object({
   id: z.string(),
   text: z.string().min(1, "Le texte du critère est requis."),
@@ -116,16 +100,7 @@ const sensitizationCampaignSchema = z.object({
     status: z.enum(["En cours", "Planifiée", "Terminée"], { required_error: "Le statut est requis."}),
     launchDate: z.date({ required_error: "La date de lancement est requise."}),
     target: z.string().min(1, "La cible est requise."),
-    iconName: z.string().min(1, "L'icône est requise."),
-    progress: z.coerce.number().min(0).max(100).optional().default(0),
-    // LAB-FT Criteria
-    kycProceduresUpdated: z.boolean().optional().default(false),
-    transactionMonitoringEnhanced: z.boolean().optional().default(false),
-    staffTrainedOnRedFlags: z.boolean().optional().default(false),
-    // RGPD Criteria
-    dataMappingDone: z.boolean().optional().default(false),
-    consentMechanismsReviewed: z.boolean().optional().default(false),
-    dpiasConducted: z.boolean().optional().default(false),
+    completionCriteria: z.array(completionCriterionSchema).optional().default([]),
 });
 type SensitizationCampaignFormValues = z.infer<typeof sensitizationCampaignSchema>;
 
@@ -151,14 +126,16 @@ export default function TrainingPage() {
   const sessionForm = useForm<UpcomingSessionFormValues>({ resolver: zodResolver(upcomingSessionSchema), defaultValues: { title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false, isCompleted: false, participants: 0, totalInvitees: 0 }});
   const campaignForm = useForm<SensitizationCampaignFormValues>({ 
     resolver: zodResolver(sensitizationCampaignSchema), 
-    defaultValues: { 
-      name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone", progress: 0,
-      kycProceduresUpdated: false, transactionMonitoringEnhanced: false, staffTrainedOnRedFlags: false,
-      dataMappingDone: false, consentMechanismsReviewed: false, dpiasConducted: false,
-    }
+    defaultValues: { name: "", status: "Planifiée", launchDate: new Date(), target: "", completionCriteria: [] }
   });
-  const { fields: criteriaFields, append: appendCriterion, remove: removeCriterion } = useFieldArray({
+
+  const { fields: registryCriteriaFields, append: appendRegistryCriterion, remove: removeRegistryCriterion } = useFieldArray({
     control: registryForm.control,
+    name: "completionCriteria",
+  });
+  
+  const { fields: campaignCriteriaFields, append: appendCampaignCriterion, remove: removeCampaignCriterion } = useFieldArray({
+    control: campaignForm.control,
     name: "completionCriteria",
   });
 
@@ -219,15 +196,11 @@ export default function TrainingPage() {
     if (mode === "edit" && data) {
       if (type === "registry") registryForm.reset({...data, successRate: data.successRate ?? 0, completionCriteria: data.completionCriteria || []});
       if (type === "session") sessionForm.reset({...data, date: new Date(data.date), participants: data.participants ?? 0, totalInvitees: data.totalInvitees ?? 0});
-      if (type === "campaign") campaignForm.reset({...data, launchDate: new Date(data.launchDate), progress: data.progress || 0});
+      if (type === "campaign") campaignForm.reset({...data, launchDate: new Date(data.launchDate), completionCriteria: data.completionCriteria || []});
     } else {
       if (type === "registry") registryForm.reset({ title: "", objective: "", duration: "", support: "", completionCriteria: [], successRate: 0 });
       if (type === "session") sessionForm.reset({ title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false, isCompleted: false, participants: 0, totalInvitees: 0 });
-      if (type === "campaign") campaignForm.reset({ 
-        name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone", progress: 0,
-        kycProceduresUpdated: false, transactionMonitoringEnhanced: false, staffTrainedOnRedFlags: false,
-        dataMappingDone: false, consentMechanismsReviewed: false, dpiasConducted: false,
-      });
+      if (type === "campaign") campaignForm.reset({ name: "", status: "Planifiée", launchDate: new Date(), target: "", completionCriteria: [] });
     }
   };
   const closeDialog = () => setDialogState({ type: null, mode: null });
@@ -279,11 +252,6 @@ export default function TrainingPage() {
     toast({ title: "Campagne supprimée", description: `La campagne "${campaignName}" a été supprimée.` });
   };
   
-  const CampaignIcon = ({ iconName }: { iconName: string }) => {
-    const Icon = getIconComponent(iconName);
-    return <Icon className="h-4 w-4 mr-1.5" />;
-  };
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-10rem)]">
@@ -436,16 +404,14 @@ export default function TrainingPage() {
                 <p className="text-sm text-muted-foreground text-center py-4">Aucune campagne planifiée.</p>
              ) : (
                  <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                    {sensitizationCampaigns.map(campaign => {
-                        const IconComponent = getIconComponent(campaign.iconName);
-                        return (
+                    {sensitizationCampaigns.map(campaign => (
                         <Card key={campaign.id} className="shadow-sm group p-3 hover:bg-muted/50 transition-colors">
                             <div className="flex items-start justify-between">
                                 <div className="flex-grow">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <h4 className="font-semibold text-sm flex items-center"><IconComponent className="h-4 w-4 mr-1.5 text-muted-foreground"/>{campaign.name}</h4>
-                                            <p className="text-xs text-muted-foreground pl-6">Lancée le: {format(new Date(campaign.launchDate), "dd/MM/yyyy", { locale: fr })} | Cible: {campaign.target}</p>
+                                            <h4 className="font-semibold text-sm flex items-center">{campaign.name}</h4>
+                                            <p className="text-xs text-muted-foreground">Lancée le: {format(new Date(campaign.launchDate), "dd/MM/yyyy", { locale: fr })} | Cible: {campaign.target}</p>
                                         </div>
                                         <div className="flex items-center flex-shrink-0">
                                             <Badge variant={campaign.status === "En cours" ? "default" : campaign.status === "Planifiée" ? "outline" : "secondary"} className={`capitalize text-xs mr-2 ${campaign.status === "En cours" ? "bg-yellow-500 text-white hover:bg-yellow-600" : ""}`}>
@@ -479,7 +445,7 @@ export default function TrainingPage() {
                                         </div>
                                     </div>
                                     {campaign.progress !== undefined && (
-                                        <div className="mt-2 pl-6">
+                                        <div className="mt-2">
                                             <div className="flex justify-between text-xs text-muted-foreground mb-1">
                                                 <span>Avancement</span>
                                                 <span>{campaign.progress}%</span>
@@ -490,8 +456,7 @@ export default function TrainingPage() {
                                 </div>
                             </div>
                         </Card>
-                        );
-                    })}
+                    ))}
                  </div>
              )}
           </CardContent>
@@ -661,7 +626,7 @@ export default function TrainingPage() {
 
                 <div className="space-y-3 pt-2">
                   <FormLabel>Critères de complétude</FormLabel>
-                  {criteriaFields.map((field, index) => (
+                  {registryCriteriaFields.map((field, index) => (
                     <div key={field.id} className="flex items-center gap-2">
                        <FormField
                           control={registryForm.control}
@@ -692,7 +657,7 @@ export default function TrainingPage() {
                         variant="ghost"
                         size="icon"
                         className="shrink-0"
-                        onClick={() => removeCriterion(index)}
+                        onClick={() => removeRegistryCriterion(index)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -703,7 +668,7 @@ export default function TrainingPage() {
                     variant="outline"
                     size="sm"
                     className="mt-2"
-                    onClick={() => appendCriterion({ id: `new-${Date.now()}`, text: '', isCompleted: false })}
+                    onClick={() => appendRegistryCriterion({ id: `new-${Date.now()}`, text: '', isCompleted: false })}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un critère
                   </Button>
@@ -821,49 +786,57 @@ export default function TrainingPage() {
                         <FormMessage />
                     </FormItem>
                 )} />
-                <FormField control={campaignForm.control} name="iconName" render={({ field }) => (
-                  <FormItem><FormLabel>Icône</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir une icône" /></SelectTrigger></FormControl><SelectContent className="max-h-60">
-                    {availableIcons.map(iconKey => { const IconComponent = getIconComponent(iconKey); return <SelectItem key={iconKey} value={iconKey}><div className="flex items-center"><IconComponent className="mr-2 h-4 w-4"/> {iconKey}</div></SelectItem>})}
-                  </SelectContent></Select><FormMessage /></FormItem>
-                )} />
+
+                <div className="space-y-3 pt-2">
+                  <FormLabel>Critères de complétude</FormLabel>
+                  {campaignCriteriaFields.map((field, index) => (
+                    <div key={field.id} className="flex items-center gap-2">
+                       <FormField
+                          control={campaignForm.control}
+                          name={`completionCriteria.${index}.isCompleted`}
+                          render={({ field: checkboxField }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Checkbox
+                                  checked={checkboxField.value}
+                                  onCheckedChange={checkboxField.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      <FormField
+                        control={campaignForm.control}
+                        name={`completionCriteria.${index}.text`}
+                        render={({ field: inputField }) => (
+                          <FormItem className="flex-grow">
+                            <FormControl><Input {...inputField} placeholder="Description du critère..." /></FormControl>
+                             <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() => removeCampaignCriterion(index)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => appendCampaignCriterion({ id: `new-${Date.now()}`, text: '', isCompleted: false })}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un critère
+                  </Button>
+                </div>
                 
-                {campaignForm.watch("name") === "LAB-FT" && (
-                    <div className="space-y-3 pt-2 border-t mt-4">
-                        <FormLabel className="text-sm font-medium pt-2">Critères spécifiques LAB-FT</FormLabel>
-                        <FormField control={campaignForm.control} name="kycProceduresUpdated" render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><FileSignature className="w-4 h-4 mr-2 text-muted-foreground"/>Procédures KYC/KYB mises à jour</FormLabel></FormItem>
-                        )}/>
-                        <FormField control={campaignForm.control} name="transactionMonitoringEnhanced" render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><ScanSearch className="w-4 h-4 mr-2 text-muted-foreground"/>Surveillance des transactions renforcée</FormLabel></FormItem>
-                        )}/>
-                        <FormField control={campaignForm.control} name="staffTrainedOnRedFlags" render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><UserCheck className="w-4 h-4 mr-2 text-muted-foreground"/>Personnel formé aux signaux d'alerte</FormLabel></FormItem>
-                        )}/>
-                    </div>
-                )}
-
-                {campaignForm.watch("name") === "RGPD" && (
-                     <div className="space-y-3 pt-2 border-t mt-4">
-                        <FormLabel className="text-sm font-medium pt-2">Critères spécifiques RGPD</FormLabel>
-                        <FormField control={campaignForm.control} name="dataMappingDone" render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><MapPin className="w-4 h-4 mr-2 text-muted-foreground"/>Cartographie des données effectuée</FormLabel></FormItem>
-                        )}/>
-                        <FormField control={campaignForm.control} name="consentMechanismsReviewed" render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><ThumbsUp className="w-4 h-4 mr-2 text-muted-foreground"/>Mécanismes de consentement revus</FormLabel></FormItem>
-                        )}/>
-                        <FormField control={campaignForm.control} name="dpiasConducted" render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><ShieldQuestion className="w-4 h-4 mr-2 text-muted-foreground"/>AIPD/DPIA menées</FormLabel></FormItem>
-                        )}/>
-                    </div>
-                )}
-
-                {campaignForm.watch("name") !== "LAB-FT" && campaignForm.watch("name") !== "RGPD" && (
-                    <FormField control={campaignForm.control} name="progress" render={({ field }) => (
-                        <FormItem><FormLabel>Progression ({field.value || 0}%)</FormLabel><FormControl>
-                            <Slider defaultValue={[field.value || 0]} max={100} step={1} onValueChange={(value) => field.onChange(value[0])} className="py-2"/>
-                        </FormControl><FormMessage /></FormItem>
-                    )} />
-                )}
                 <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
               </form>
             </Form>

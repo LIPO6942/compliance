@@ -111,18 +111,8 @@ export interface SensitizationCampaign {
   status: SensitizationCampaignStatus;
   launchDate: string; // ISO date string or formatted string
   target: string;
-  iconName: string; // Name of the lucide-react icon
-  progress?: number; // Optional progress (0-100)
-
-  // Criteria for LAB-FT campaign
-  kycProceduresUpdated?: boolean;
-  transactionMonitoringEnhanced?: boolean;
-  staffTrainedOnRedFlags?: boolean;
-
-  // Criteria for RGPD campaign
-  dataMappingDone?: boolean;
-  consentMechanismsReviewed?: boolean;
-  dpiasConducted?: boolean;
+  completionCriteria: CompletionCriterion[];
+  progress?: number;
 }
 
 // Risk Mapping Types

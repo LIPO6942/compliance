@@ -14,33 +14,12 @@ const calculateSessionProgress = (session: Partial<Pick<UpcomingSession, 'logist
   return Math.round((completedCriteria / totalCriteria) * 100);
 };
 
-// Helper function to calculate progress for TrainingRegistryItem
-const calculateRegistryItemProgress = (criteria: CompletionCriterion[] = []) => {
+// Generic helper function to calculate progress from a list of criteria
+const calculateProgressFromCriteria = (criteria: CompletionCriterion[] = []) => {
   if (criteria.length === 0) return 0;
   const completedCount = criteria.filter(c => c.isCompleted).length;
   return Math.round((completedCount / criteria.length) * 100);
 };
-
-
-// Helper function to calculate progress for specific SensitizationCampaigns
-const calculateSpecificCampaignProgress = (campaign: Partial<SensitizationCampaign>): number => {
-  let completedCriteria = 0;
-  const totalCriteria = 3;
-
-  if (campaign.name === "LAB-FT") {
-    if (campaign.kycProceduresUpdated) completedCriteria++;
-    if (campaign.transactionMonitoringEnhanced) completedCriteria++;
-    if (campaign.staffTrainedOnRedFlags) completedCriteria++;
-  } else if (campaign.name === "RGPD") {
-    if (campaign.dataMappingDone) completedCriteria++;
-    if (campaign.consentMechanismsReviewed) completedCriteria++;
-    if (campaign.dpiasConducted) completedCriteria++;
-  } else {
-    return campaign.progress !== undefined ? campaign.progress : 0;
-  }
-  return Math.round((completedCriteria / totalCriteria) * 100);
-};
-
 
 // Initial mock data
 const initialTrainingRegistryMock: TrainingRegistryItem[] = [
@@ -57,7 +36,7 @@ const initialTrainingRegistryMock: TrainingRegistryItem[] = [
       { id: 'crit-reg001-3', text: 'Mécanisme de feedback en place', isCompleted: false }
     ],
     successRate: 95, 
-    progress: calculateRegistryItemProgress([
+    progress: calculateProgressFromCriteria([
       { id: 'crit-reg001-1', text: 'Contenu revu récemment', isCompleted: true },
       { id: 'crit-reg001-2', text: 'Évaluation post-formation disponible', isCompleted: true },
       { id: 'crit-reg001-3', text: 'Mécanisme de feedback en place', isCompleted: false }
@@ -76,7 +55,7 @@ const initialTrainingRegistryMock: TrainingRegistryItem[] = [
       { id: 'crit-reg002-3', text: 'Mécanisme de feedback en place', isCompleted: true }
     ],
     successRate: 88, 
-    progress: calculateRegistryItemProgress([
+    progress: calculateProgressFromCriteria([
       { id: 'crit-reg002-1', text: 'Contenu revu récemment', isCompleted: false },
       { id: 'crit-reg002-2', text: 'Évaluation post-formation disponible', isCompleted: true },
       { id: 'crit-reg002-3', text: 'Mécanisme de feedback en place', isCompleted: true }
@@ -94,7 +73,7 @@ const initialTrainingRegistryMock: TrainingRegistryItem[] = [
       { id: 'crit-reg003-2', text: 'Évaluation post-formation disponible', isCompleted: false },
       { id: 'crit-reg003-3', text: 'Mécanisme de feedback en place', isCompleted: false }
     ],
-    progress: calculateRegistryItemProgress([
+    progress: calculateProgressFromCriteria([
       { id: 'crit-reg003-1', text: 'Contenu revu récemment', isCompleted: true },
       { id: 'crit-reg003-2', text: 'Évaluation post-formation disponible', isCompleted: false },
       { id: 'crit-reg003-3', text: 'Mécanisme de feedback en place', isCompleted: false }
@@ -110,29 +89,40 @@ const initialUpcomingSessionsMock: UpcomingSession[] = [
 
 const initialSensitizationCampaignsMock: SensitizationCampaign[] = [
     { 
-      id: "camp001", name: "LAB-FT", status: "En cours", launchDate: "2024-07-10", target: "Commerciaux, Middle Office", iconName: "ShieldAlert", 
-      kycProceduresUpdated: true, transactionMonitoringEnhanced: true, staffTrainedOnRedFlags: false,
-      progress: calculateSpecificCampaignProgress({ name: "LAB-FT", kycProceduresUpdated: true, transactionMonitoringEnhanced: true, staffTrainedOnRedFlags: false })
+      id: "camp001", name: "LAB-FT", status: "En cours", launchDate: "2024-07-10", target: "Commerciaux, Middle Office",
+      completionCriteria: [
+        { id: 'camp001-crit1', text: 'Procédures KYC/KYB mises à jour', isCompleted: true },
+        { id: 'camp001-crit2', text: 'Surveillance des transactions renforcée', isCompleted: true },
+        { id: 'camp001-crit3', text: 'Personnel formé aux signaux d\'alerte', isCompleted: false },
+      ],
+      progress: calculateProgressFromCriteria([
+        { id: 'camp001-crit1', text: 'Procédures KYC/KYB mises à jour', isCompleted: true },
+        { id: 'camp001-crit2', text: 'Surveillance des transactions renforcée', isCompleted: true },
+        { id: 'camp001-crit3', text: 'Personnel formé aux signaux d\'alerte', isCompleted: false },
+      ])
     },
     { 
-      id: "camp002", name: "RGPD", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés", iconName: "FileText",
-      dataMappingDone: false, consentMechanismsReviewed: true, dpiasConducted: false,
-      progress: calculateSpecificCampaignProgress({ name: "RGPD", dataMappingDone: false, consentMechanismsReviewed: true, dpiasConducted: false })
+      id: "camp002", name: "RGPD", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés",
+      completionCriteria: [
+        { id: 'camp002-crit1', text: 'Cartographie des données effectuée', isCompleted: false },
+        { id: 'camp002-crit2', text: 'Mécanismes de consentement revus', isCompleted: true },
+        { id: 'camp002-crit3', text: 'AIPD/DPIA menées pour les nouveaux traitements', isCompleted: false },
+      ],
+      progress: calculateProgressFromCriteria([
+        { id: 'camp002-crit1', text: 'Cartographie des données effectuée', isCompleted: false },
+        { id: 'camp002-crit2', text: 'Mécanismes de consentement revus', isCompleted: true },
+        { id: 'camp002-crit3', text: 'AIPD/DPIA menées pour les nouveaux traitements', isCompleted: false },
+      ])
     },
     { 
-      id: "camp003", name: "Déontologie", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés", iconName: "Gavel", 
+      id: "camp003", name: "Déontologie", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés",
+      completionCriteria: [
+        { id: 'camp003-crit1', text: 'Code de conduite mis à jour et diffusé', isCompleted: true },
+        { id: 'camp003-crit2', text: 'Formation e-learning complétée par 95% des employés', isCompleted: true },
+      ],
       progress: 100
     },
-    { 
-      id: "camp004", name: "Rappel bonnes pratiques mots de passe", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés", iconName: "KeyRound", 
-      progress: 0 
-    },
-    { 
-      id: "camp005", name: "Journée de la Protection des Données", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés", iconName: "CheckCircle", 
-      progress: 100 
-    }
 ];
-
 
 interface TrainingDataContextType {
   trainingRegistryItems: TrainingRegistryItem[];
@@ -146,8 +136,8 @@ interface TrainingDataContextType {
   removeUpcomingSession: (sessionId: string) => void;
 
   sensitizationCampaigns: SensitizationCampaign[];
-  addSensitizationCampaign: (campaign: Omit<SensitizationCampaign, 'id' | 'progress'> & Partial<Pick<SensitizationCampaign, 'kycProceduresUpdated' | 'transactionMonitoringEnhanced' | 'staffTrainedOnRedFlags' | 'dataMappingDone' | 'consentMechanismsReviewed' | 'dpiasConducted' | 'progress'>>) => void;
-  editSensitizationCampaign: (campaignId: string, campaignUpdate: Partial<Omit<SensitizationCampaign, 'id' | 'progress'> & Partial<Pick<SensitizationCampaign, 'kycProceduresUpdated' | 'transactionMonitoringEnhanced' | 'staffTrainedOnRedFlags' | 'dataMappingDone' | 'consentMechanismsReviewed' | 'dpiasConducted' | 'progress'>>>) => void;
+  addSensitizationCampaign: (campaign: Omit<SensitizationCampaign, 'id' | 'progress'>) => void;
+  editSensitizationCampaign: (campaignId: string, campaignUpdate: Partial<Omit<SensitizationCampaign, 'id' | 'progress'>>) => void;
   removeSensitizationCampaign: (campaignId: string) => void;
 }
 
@@ -188,7 +178,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
 
   // Training Registry CRUD
   const addTrainingRegistryItem = (item: Omit<TrainingRegistryItem, 'id' | 'lastUpdated' | 'progress'>) => {
-    const progress = calculateRegistryItemProgress(item.completionCriteria);
+    const progress = calculateProgressFromCriteria(item.completionCriteria);
     const newItem: TrainingRegistryItem = {
       ...item,
       id: Date.now().toString(),
@@ -206,7 +196,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
           return {
             ...updatedFields,
             lastUpdated: new Date().toISOString().split('T')[0],
-            progress: calculateRegistryItemProgress(updatedFields.completionCriteria),
+            progress: calculateProgressFromCriteria(updatedFields.completionCriteria),
           };
         }
         return item;
@@ -244,8 +234,8 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Sensitization Campaigns CRUD
-  const addSensitizationCampaign = (campaign: Omit<SensitizationCampaign, 'id' | 'progress'> & Partial<Pick<SensitizationCampaign, 'kycProceduresUpdated' | 'transactionMonitoringEnhanced' | 'staffTrainedOnRedFlags' | 'dataMappingDone' | 'consentMechanismsReviewed' | 'dpiasConducted' | 'progress'>>) => {
-    const progress = calculateSpecificCampaignProgress(campaign);
+  const addSensitizationCampaign = (campaign: Omit<SensitizationCampaign, 'id' | 'progress'>) => {
+    const progress = calculateProgressFromCriteria(campaign.completionCriteria);
     const newCampaign: SensitizationCampaign = { 
         ...campaign, 
         id: Date.now().toString(), 
@@ -254,11 +244,11 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
     setSensitizationCampaigns(prev => [newCampaign, ...prev]);
   };
 
-  const editSensitizationCampaign = (campaignId: string, campaignUpdate: Partial<Omit<SensitizationCampaign, 'id' | 'progress'> & Partial<Pick<SensitizationCampaign, 'kycProceduresUpdated' | 'transactionMonitoringEnhanced' | 'staffTrainedOnRedFlags' | 'dataMappingDone' | 'consentMechanismsReviewed' | 'dpiasConducted' | 'progress'>>>) => {
+  const editSensitizationCampaign = (campaignId: string, campaignUpdate: Partial<Omit<SensitizationCampaign, 'id' | 'progress'>>) => {
     setSensitizationCampaigns(prev => prev.map(c => {
         if (c.id === campaignId) {
             const updatedFields = { ...c, ...campaignUpdate };
-            return { ...updatedFields, progress: calculateSpecificCampaignProgress(updatedFields) };
+            return { ...updatedFields, progress: calculateProgressFromCriteria(updatedFields.completionCriteria) };
         }
         return c;
     }));
