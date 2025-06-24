@@ -3,6 +3,11 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { TrainingRegistryItem, UpcomingSession, SensitizationCampaign, CompletionCriterion } from '@/types/compliance';
+import { 
+  initialMockTrainingRegistry, 
+  initialMockUpcomingSessions, 
+  initialMockSensitizationCampaigns 
+} from '@/data/mockTrainingData';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { useUser } from './UserContext';
@@ -59,39 +64,55 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!isLoaded) return;
 
-    if (!isFirebaseConfigured || !db) {
+    const loadMockData = () => {
+        setTrainingRegistryItems(initialMockTrainingRegistry);
+        setUpcomingSessions(initialMockUpcomingSessions);
+        setSensitizationCampaigns(initialMockSensitizationCampaigns);
         setLoading(false);
-        console.warn("Firebase is not configured. Training data will not be loaded.");
+        console.warn("Firebase is not configured or failed to load. Falling back to mock training data.");
+    };
+
+    if (!isFirebaseConfigured || !db) {
+        loadMockData();
         return;
     }
 
     let loadedCount = 0;
     const totalCollections = 3;
+    let hasError = false;
 
     const onAllLoaded = () => {
         loadedCount++;
-        if (loadedCount === totalCollections) {
+        if (loadedCount === totalCollections && !hasError) {
             setLoading(false);
         }
     }
+
+    const onError = (error: Error) => {
+        if (!hasError) {
+            hasError = true;
+            console.error(error);
+            loadMockData();
+        }
+    };
 
     const qRegistry = query(collection(db, registryCollectionName), orderBy("lastUpdated", "desc"));
     const unsubRegistry = onSnapshot(qRegistry, (snapshot) => {
       setTrainingRegistryItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TrainingRegistryItem)));
       onAllLoaded();
-    }, (error) => { console.error("Error fetching training registry:", error); onAllLoaded(); });
+    }, (error) => onError(error));
 
     const qSessions = query(collection(db, sessionsCollectionName), orderBy("date", "desc"));
     const unsubSessions = onSnapshot(qSessions, (snapshot) => {
       setUpcomingSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UpcomingSession)));
       onAllLoaded();
-    }, (error) => { console.error("Error fetching upcoming sessions:", error); onAllLoaded(); });
+    }, (error) => onError(error));
 
     const qCampaigns = query(collection(db, campaignsCollectionName), orderBy("launchDate", "desc"));
     const unsubCampaigns = onSnapshot(qCampaigns, (snapshot) => {
       setSensitizationCampaigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SensitizationCampaign)));
       onAllLoaded();
-    }, (error) => { console.error("Error fetching sensitization campaigns:", error); onAllLoaded(); });
+    }, (error) => onError(error));
 
     return () => {
       unsubRegistry();

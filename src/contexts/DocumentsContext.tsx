@@ -2,6 +2,7 @@
 'use client';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { Document, DocumentStatus } from '@/types/compliance';
+import { initialMockDocuments } from '@/data/mockDocuments';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 import { useUser } from './UserContext'; // Assuming a user context exists for auth state
@@ -28,9 +29,9 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
     if (!isLoaded) return; // Wait for user to be loaded
 
     if (!isFirebaseConfigured || !db) {
+      setDocuments(initialMockDocuments);
       setLoading(false);
-      // In a real app, you might fall back to mock data or show an error
-      console.warn("Firebase is not configured. Documents will not be loaded.");
+      console.warn("Firebase is not configured. Falling back to mock documents.");
       return;
     }
 
@@ -44,6 +45,7 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     }, (error) => {
       console.error("Error fetching documents: ", error);
+      setDocuments(initialMockDocuments); // Fallback on error
       setLoading(false);
     });
 
