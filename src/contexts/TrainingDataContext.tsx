@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { TrainingRegistryItem, UpcomingSession, SensitizationCampaign, UpcomingSessionType, SensitizationCampaignStatus } from '@/types/compliance';
+import type { TrainingRegistryItem, UpcomingSession, SensitizationCampaign } from '@/types/compliance';
 
 // Helper function to calculate progress for UpcomingSession
 const calculateSessionProgress = (session: Partial<Pick<UpcomingSession, 'logisticsConfirmed' | 'materialsPrepared' | 'invitationsSent'>>) => {
@@ -27,7 +27,7 @@ const calculateRegistryItemProgress = (item: Partial<Pick<TrainingRegistryItem, 
 // Helper function to calculate progress for specific SensitizationCampaigns
 const calculateSpecificCampaignProgress = (campaign: Partial<SensitizationCampaign>): number => {
   let completedCriteria = 0;
-  const totalCriteria = 3; // Assuming 3 criteria for these specific campaigns
+  const totalCriteria = 3;
 
   if (campaign.name === "LAB-FT") {
     if (campaign.kycProceduresUpdated) completedCriteria++;
@@ -38,7 +38,6 @@ const calculateSpecificCampaignProgress = (campaign: Partial<SensitizationCampai
     if (campaign.consentMechanismsReviewed) completedCriteria++;
     if (campaign.dpiasConducted) completedCriteria++;
   } else {
-    // For other campaigns, return their existing progress or 0 if not set
     return campaign.progress !== undefined ? campaign.progress : 0;
   }
   return Math.round((completedCriteria / totalCriteria) * 100);
@@ -47,15 +46,15 @@ const calculateSpecificCampaignProgress = (campaign: Partial<SensitizationCampai
 
 // Initial mock data
 const initialTrainingRegistryMock: TrainingRegistryItem[] = [
-  { id: "reg001", title: "Principes Fondamentaux de la LAB-FT", objective: "Comprendre les mécanismes de LCB-FT et les obligations réglementaires.", duration: "2h", support: "Présentation PPT, Quiz", lastUpdated: "2024-06-01", contentReviewedRecently: true, assessmentAvailable: true, feedbackMechanismInPlace: false, progress: calculateRegistryItemProgress({contentReviewedRecently: true, assessmentAvailable: true, feedbackMechanismInPlace: false}) },
-  { id: "reg002", title: "Application du RGPD en Entreprise", objective: "Maîtriser les règles de protection des données personnelles.", duration: "3h", support: "Vidéo, Études de cas", lastUpdated: "2024-05-15", contentReviewedRecently: false, assessmentAvailable: true, feedbackMechanismInPlace: true, progress: calculateRegistryItemProgress({contentReviewedRecently: false, assessmentAvailable: true, feedbackMechanismInPlace: true}) },
+  { id: "reg001", title: "Principes Fondamentaux de la LAB-FT", objective: "Comprendre les mécanismes de LCB-FT et les obligations réglementaires.", duration: "2h", support: "Présentation PPT, Quiz", lastUpdated: "2024-06-01", contentReviewedRecently: true, assessmentAvailable: true, feedbackMechanismInPlace: false, successRate: 95, progress: calculateRegistryItemProgress({contentReviewedRecently: true, assessmentAvailable: true, feedbackMechanismInPlace: false}) },
+  { id: "reg002", title: "Application du RGPD en Entreprise", objective: "Maîtriser les règles de protection des données personnelles.", duration: "3h", support: "Vidéo, Études de cas", lastUpdated: "2024-05-15", contentReviewedRecently: false, assessmentAvailable: true, feedbackMechanismInPlace: true, successRate: 88, progress: calculateRegistryItemProgress({contentReviewedRecently: false, assessmentAvailable: true, feedbackMechanismInPlace: true}) },
   { id: "reg003", title: "Code de Conduite et Éthique Professionnelle", objective: "Adopter les bons comportements et respecter les règles déontologiques.", duration: "1.5h", support: "Manuel, Scénarios", lastUpdated: "2024-07-01", contentReviewedRecently: true, assessmentAvailable: false, feedbackMechanismInPlace: false, progress: calculateRegistryItemProgress({ contentReviewedRecently: true, assessmentAvailable: false, feedbackMechanismInPlace: false }) },
 ];
 
 const initialUpcomingSessionsMock: UpcomingSession[] = [
-  { id: "sess001", title: "Formation LAB-FT (Recyclage)", date: "2024-09-15", type: "Obligatoire", department: "Tous", logisticsConfirmed: true, materialsPrepared: true, invitationsSent: false, progress: calculateSessionProgress({logisticsConfirmed: true, materialsPrepared: true, invitationsSent: false}) },
-  { id: "sess002", title: "Nouveautés RGPD et Impact Opérationnel", date: "2024-10-05", type: "Recommandée", department: "Marketing, IT", logisticsConfirmed: false, materialsPrepared: true, invitationsSent: true, progress: calculateSessionProgress({logisticsConfirmed: false, materialsPrepared: true, invitationsSent: true}) },
-  { id: "sess003", title: "Sensibilisation à la Déontologie Financière", date: "2024-11-20", type: "Obligatoire", department: "Finance, Vente", logisticsConfirmed: true, materialsPrepared: false, invitationsSent: false, progress: calculateSessionProgress({logisticsConfirmed: true, materialsPrepared: false, invitationsSent: false}) },
+  { id: "sess001", title: "Formation LAB-FT (Recyclage)", date: "2024-09-15", type: "Obligatoire", department: "Tous", logisticsConfirmed: true, materialsPrepared: true, invitationsSent: false, isCompleted: false, participants: 0, totalInvitees: 50, progress: calculateSessionProgress({logisticsConfirmed: true, materialsPrepared: true, invitationsSent: false}) },
+  { id: "sess002", title: "Nouveautés RGPD et Impact Opérationnel", date: "2024-10-05", type: "Recommandée", department: "Marketing, IT", logisticsConfirmed: false, materialsPrepared: true, invitationsSent: true, isCompleted: false, participants: 0, totalInvitees: 25, progress: calculateSessionProgress({logisticsConfirmed: false, materialsPrepared: true, invitationsSent: true}) },
+  { id: "sess003", title: "Sensibilisation à la Déontologie Financière", date: "2024-06-20", type: "Obligatoire", department: "Finance, Vente", logisticsConfirmed: true, materialsPrepared: true, invitationsSent: true, isCompleted: true, participants: 18, totalInvitees: 20, progress: calculateSessionProgress({logisticsConfirmed: true, materialsPrepared: true, invitationsSent: true}) },
 ];
 
 const initialSensitizationCampaignsMock: SensitizationCampaign[] = [
@@ -71,7 +70,7 @@ const initialSensitizationCampaignsMock: SensitizationCampaign[] = [
     },
     { 
       id: "camp003", name: "Déontologie", status: "Terminée", launchDate: "2024-01-28", target: "Tous les employés", iconName: "Gavel", 
-      progress: 100 // Assuming 100% as it's Terminé and criteria not defined for it
+      progress: 100
     },
     { 
       id: "camp004", name: "Rappel bonnes pratiques mots de passe", status: "Planifiée", launchDate: "2024-08-01", target: "Tous les employés", iconName: "KeyRound", 
@@ -137,7 +136,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   }, [trainingRegistryItems, upcomingSessions, sensitizationCampaigns]);
 
   // Training Registry CRUD
-  const addTrainingRegistryItem = (item: Omit<TrainingRegistryItem, 'id' | 'lastUpdated' | 'progress'>) => {
+  const addTrainingRegistryItem = (item: Omit<TrainingRegistryItem, 'id' | 'lastUpdated' | 'progress' | 'successRate'> & { successRate?: number }) => {
     const progress = calculateRegistryItemProgress(item);
     const newItem: TrainingRegistryItem = {
       ...item,
@@ -147,6 +146,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
       assessmentAvailable: item.assessmentAvailable || false,
       feedbackMechanismInPlace: item.feedbackMechanismInPlace || false,
       progress,
+      successRate: item.successRate,
     };
     setTrainingRegistryItems(prevItems => [newItem, ...prevItems]);
   };
@@ -155,13 +155,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
     setTrainingRegistryItems(prevItems =>
       prevItems.map(item => {
         if (item.id === itemId) {
-          const updatedFields = {
-            ...item,
-            ...itemUpdate,
-            contentReviewedRecently: itemUpdate.contentReviewedRecently !== undefined ? itemUpdate.contentReviewedRecently : item.contentReviewedRecently,
-            assessmentAvailable: itemUpdate.assessmentAvailable !== undefined ? itemUpdate.assessmentAvailable : item.assessmentAvailable,
-            feedbackMechanismInPlace: itemUpdate.feedbackMechanismInPlace !== undefined ? itemUpdate.feedbackMechanismInPlace : item.feedbackMechanismInPlace,
-          };
+          const updatedFields = { ...item, ...itemUpdate };
           return {
             ...updatedFields,
             lastUpdated: new Date().toISOString().split('T')[0],
@@ -183,9 +177,6 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
     const newSession: UpcomingSession = {
          ...session,
          id: Date.now().toString(),
-         logisticsConfirmed: session.logisticsConfirmed || false,
-         materialsPrepared: session.materialsPrepared || false,
-         invitationsSent: session.invitationsSent || false,
          progress
     };
     setUpcomingSessions(prev => [newSession, ...prev]);
@@ -194,13 +185,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   const editUpcomingSession = (sessionId: string, sessionUpdate: Partial<Omit<UpcomingSession, 'id' | 'progress'>>) => {
     setUpcomingSessions(prev => prev.map(s => {
         if (s.id === sessionId) {
-            const updatedFields = {
-                ...s,
-                ...sessionUpdate,
-                logisticsConfirmed: sessionUpdate.logisticsConfirmed !== undefined ? sessionUpdate.logisticsConfirmed : s.logisticsConfirmed,
-                materialsPrepared: sessionUpdate.materialsPrepared !== undefined ? sessionUpdate.materialsPrepared : s.materialsPrepared,
-                invitationsSent: sessionUpdate.invitationsSent !== undefined ? sessionUpdate.invitationsSent : s.invitationsSent,
-            };
+            const updatedFields = { ...s, ...sessionUpdate };
             return { ...updatedFields, progress: calculateSessionProgress(updatedFields) };
         }
         return s;
@@ -218,12 +203,6 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
         ...campaign, 
         id: Date.now().toString(), 
         progress,
-        kycProceduresUpdated: campaign.kycProceduresUpdated || false,
-        transactionMonitoringEnhanced: campaign.transactionMonitoringEnhanced || false,
-        staffTrainedOnRedFlags: campaign.staffTrainedOnRedFlags || false,
-        dataMappingDone: campaign.dataMappingDone || false,
-        consentMechanismsReviewed: campaign.consentMechanismsReviewed || false,
-        dpiasConducted: campaign.dpiasConducted || false,
     };
     setSensitizationCampaigns(prev => [newCampaign, ...prev]);
   };
@@ -261,4 +240,3 @@ export const useTrainingData = () => {
   }
   return context;
 };
-

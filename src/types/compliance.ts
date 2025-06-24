@@ -67,6 +67,7 @@ export interface TrainingRegistryItem {
   assessmentAvailable?: boolean;
   feedbackMechanismInPlace?: boolean;
   progress?: number;
+  successRate?: number;
 }
 
 // Upcoming Training Session
@@ -81,6 +82,9 @@ export interface UpcomingSession {
   materialsPrepared?: boolean;
   invitationsSent?: boolean;
   progress?: number;
+  isCompleted?: boolean;
+  participants?: number;
+  totalInvitees?: number;
 }
 
 // Sensitization Campaign
@@ -104,4 +108,3 @@ export interface SensitizationCampaign {
   consentMechanismsReviewed?: boolean;
   dpiasConducted?: boolean;
 }
-

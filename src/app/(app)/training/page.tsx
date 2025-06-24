@@ -12,18 +12,12 @@ import * as LucideIcons from "lucide-react"; // Import all icons
 import { 
     Users, 
     BarChart2, 
-    CalendarDays as CalendarDaysIcon, // Renamed to avoid conflict with shadcn Calendar component
+    CalendarDays as CalendarDaysIcon,
     BookOpen, 
-    AlertTriangle, 
     CheckCircle, 
     Percent, 
     ListChecks, 
     Megaphone, 
-    Send,
-    ShieldAlert,
-    FileText,
-    Gavel,
-    KeyRound,
     PlusCircle,
     Edit2,
     Trash2,
@@ -31,19 +25,22 @@ import {
     BookMarked,
     ClipboardCheck,
     MailCheck,
-    ThumbsUp,
     FileQuestion,
     MessageSquarePlus,
-    Settings2,
+    FileSignature,
     ScanSearch,
     UserCheck,
     MapPin,
-    FileSignature,
+    ThumbsUp,
     ShieldQuestion,
+    ShieldAlert,
+    FileText,
+    Gavel,
+    KeyRound
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, useFormField } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -53,21 +50,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { useTrainingData } from "@/contexts/TrainingDataContext";
-import type { TrainingRegistryItem, UpcomingSession, SensitizationCampaign, UpcomingSessionType, SensitizationCampaignStatus } from "@/types/compliance";
+import type { TrainingRegistryItem, UpcomingSession, SensitizationCampaign } from "@/types/compliance";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-
-
-const kpiData = [
-  { title: "Taux de couverture (obligatoire)", value: 85, target: 95, unit: "%", icon: Percent },
-  { title: "Nombre de sessions réalisées (Année)", value: 42, unit: "sessions", icon: CalendarDaysIcon },
-  { title: "Taux de participation moyen", value: 78, unit: "%", icon: Users },
-  { title: "Taux de réussite aux évaluations", value: 92, unit: "%", icon: CheckCircle },
-];
 
 const kpiThemes = [
     { name: "LAB-FT", icon: ShieldAlert},
@@ -100,6 +89,7 @@ const trainingRegistryItemSchema = z.object({
   contentReviewedRecently: z.boolean().optional().default(false),
   assessmentAvailable: z.boolean().optional().default(false),
   feedbackMechanismInPlace: z.boolean().optional().default(false),
+  successRate: z.coerce.number().min(0).max(100).optional(),
 });
 type TrainingRegistryItemFormValues = z.infer<typeof trainingRegistryItemSchema>;
 
@@ -111,6 +101,9 @@ const upcomingSessionSchema = z.object({
     logisticsConfirmed: z.boolean().optional().default(false),
     materialsPrepared: z.boolean().optional().default(false),
     invitationsSent: z.boolean().optional().default(false),
+    isCompleted: z.boolean().optional().default(false),
+    participants: z.coerce.number().min(0).optional(),
+    totalInvitees: z.coerce.number().min(0).optional(),
 });
 type UpcomingSessionFormValues = z.infer<typeof upcomingSessionSchema>;
 
@@ -148,7 +141,7 @@ export default function TrainingPage() {
   }>({ type: null, mode: null });
 
   const registryForm = useForm<TrainingRegistryItemFormValues>({ resolver: zodResolver(trainingRegistryItemSchema), defaultValues: { title: "", objective: "", duration: "", support: "", contentReviewedRecently: false, assessmentAvailable: false, feedbackMechanismInPlace: false }});
-  const sessionForm = useForm<UpcomingSessionFormValues>({ resolver: zodResolver(upcomingSessionSchema), defaultValues: { title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false }});
+  const sessionForm = useForm<UpcomingSessionFormValues>({ resolver: zodResolver(upcomingSessionSchema), defaultValues: { title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false, isCompleted: false }});
   const campaignForm = useForm<SensitizationCampaignFormValues>({ 
     resolver: zodResolver(sensitizationCampaignSchema), 
     defaultValues: { 
@@ -159,6 +152,40 @@ export default function TrainingPage() {
   });
 
 
+  const kpiValues = React.useMemo(() => {
+    const completedSessions = upcomingSessions.filter(s => s.isCompleted);
+    const mandatoryCompletedSessions = completedSessions.filter(s => s.type === 'Obligatoire' && s.isCompleted);
+    const assessedItems = trainingRegistryItems.filter(i => i.assessmentAvailable && i.successRate !== undefined);
+
+    const totalMandatoryParticipants = mandatoryCompletedSessions.reduce((sum, s) => sum + (s.participants || 0), 0);
+    const totalMandatoryInvitees = mandatoryCompletedSessions.reduce((sum, s) => sum + (s.totalInvitees || 0), 0);
+    const coverageRate = totalMandatoryInvitees > 0 ? Math.round((totalMandatoryParticipants / totalMandatoryInvitees) * 100) : 0;
+
+    const completedSessionsCount = completedSessions.length;
+
+    const totalParticipants = completedSessions.reduce((sum, s) => sum + (s.participants || 0), 0);
+    const totalInvitees = completedSessions.reduce((sum, s) => sum + (s.totalInvitees || 0), 0);
+    const avgParticipationRate = totalInvitees > 0 ? Math.round((totalParticipants / totalInvitees) * 100) : 0;
+    
+    const totalSuccessRate = assessedItems.reduce((sum, i) => sum + (i.successRate || 0), 0);
+    const avgSuccessRate = assessedItems.length > 0 ? Math.round(totalSuccessRate / assessedItems.length) : 0;
+
+    return { 
+        coverageRate: { value: coverageRate, target: 95, unit: "%" },
+        completedSessionsCount: { value: completedSessionsCount, unit: "sessions" },
+        avgParticipationRate: { value: avgParticipationRate, unit: "%" },
+        avgSuccessRate: { value: avgSuccessRate, unit: "%" }
+    };
+  }, [upcomingSessions, trainingRegistryItems]);
+
+  const kpiData = [
+    { title: "Taux de couverture (obligatoire)", ...kpiValues.coverageRate, icon: Percent },
+    { title: "Nombre de sessions réalisées (Année)", ...kpiValues.completedSessionsCount, icon: CalendarDaysIcon },
+    { title: "Taux de participation moyen", ...kpiValues.avgParticipationRate, icon: Users },
+    { title: "Taux de réussite aux évaluations", ...kpiValues.avgSuccessRate, icon: CheckCircle },
+  ];
+
+
   const openDialog = (type: "registry" | "session" | "campaign", mode: "add" | "edit", data?: any) => {
     setDialogState({ type, mode, data });
     if (mode === "edit" && data) {
@@ -166,8 +193,8 @@ export default function TrainingPage() {
       if (type === "session") sessionForm.reset({...data, date: new Date(data.date)});
       if (type === "campaign") campaignForm.reset({...data, launchDate: new Date(data.launchDate), progress: data.progress || 0});
     } else {
-      if (type === "registry") registryForm.reset({ title: "", objective: "", duration: "", support: "", contentReviewedRecently: false, assessmentAvailable: false, feedbackMechanismInPlace: false });
-      if (type === "session") sessionForm.reset({ title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false });
+      if (type === "registry") registryForm.reset({ title: "", objective: "", duration: "", support: "", contentReviewedRecently: false, assessmentAvailable: false, feedbackMechanismInPlace: false, successRate: 0 });
+      if (type === "session") sessionForm.reset({ title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false, isCompleted: false, participants: 0, totalInvitees: 0 });
       if (type === "campaign") campaignForm.reset({ 
         name: "", status: "Planifiée", launchDate: new Date(), target: "", iconName: "Megaphone", progress: 0,
         kycProceduresUpdated: false, transactionMonitoringEnhanced: false, staffTrainedOnRedFlags: false,
@@ -231,13 +258,12 @@ export default function TrainingPage() {
 
   const derivedSpecificSensitizationData = React.useMemo(() => {
     return kpiThemes.map(theme => {
-        // Attempt to find an upcoming training session whose title *includes* the theme name
         const matchingSession = upcomingSessions.find(session =>
             session.title.toLowerCase().includes(theme.name.toLowerCase())
         );
         return {
             name: theme.name,
-            rate: matchingSession?.progress ?? 0, // Use session's progress
+            rate: matchingSession?.progress ?? 0,
             icon: theme.icon,
         };
     });
@@ -599,33 +625,35 @@ export default function TrainingPage() {
                   <FormItem><FormLabel>Titre de la formation</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={registryForm.control} name="objective" render={({ field }) => (
-                  <FormItem><FormLabel>Objectif</FormLabel><FormControl><Textarea {...field} rows={3} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Objectif</FormLabel><FormControl><Textarea {...field} rows={2} /></FormControl><FormMessage /></FormItem>
                 )} />
-                <FormField control={registryForm.control} name="duration" render={({ field }) => (
-                  <FormItem><FormLabel>Durée</FormLabel><FormControl><Input {...field} placeholder="Ex: 2h, 3 jours" /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={registryForm.control} name="support" render={({ field }) => (
-                  <FormItem><FormLabel>Support utilisé</FormLabel><FormControl><Input {...field} placeholder="Ex: PPT, Vidéo, Quiz" /></FormControl><FormMessage /></FormItem>
-                )} />
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField control={registryForm.control} name="duration" render={({ field }) => (
+                    <FormItem><FormLabel>Durée</FormLabel><FormControl><Input {...field} placeholder="Ex: 2h" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={registryForm.control} name="support" render={({ field }) => (
+                    <FormItem><FormLabel>Support</FormLabel><FormControl><Input {...field} placeholder="Ex: PPT" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                </div>
                 <div className="space-y-3 pt-2">
-                    <FormLabel className="text-sm font-medium">Critères de complétude de la formation :</FormLabel>
+                    <FormLabel className="text-sm font-medium">Critères de complétude</FormLabel>
                     <FormField control={registryForm.control} name="contentReviewedRecently" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <FormLabel className="font-normal flex items-center text-sm"><FileQuestion className="w-4 h-4 mr-2 text-muted-foreground"/>Contenu revu récemment</FormLabel>
-                        </FormItem>
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><FileQuestion className="w-4 h-4 mr-2 text-muted-foreground"/>Contenu revu récemment</FormLabel></FormItem>
                     )}/>
                     <FormField control={registryForm.control} name="assessmentAvailable" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <FormLabel className="font-normal flex items-center text-sm"><ClipboardCheck className="w-4 h-4 mr-2 text-muted-foreground"/>Évaluation post-formation disponible</FormLabel>
-                        </FormItem>
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><ClipboardCheck className="w-4 h-4 mr-2 text-muted-foreground"/>Évaluation post-formation disponible</FormLabel></FormItem>
                     )}/>
+                     {registryForm.watch("assessmentAvailable") && (
+                        <FormField control={registryForm.control} name="successRate" render={({ field }) => (
+                            <FormItem className="pl-9">
+                                <FormLabel>Taux de réussite moyen (%)</FormLabel>
+                                <FormControl><Input type="number" {...field} className="h-8" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                     )}
                     <FormField control={registryForm.control} name="feedbackMechanismInPlace" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <FormLabel className="font-normal flex items-center text-sm"><MessageSquarePlus className="w-4 h-4 mr-2 text-muted-foreground"/>Mécanisme de feedback en place</FormLabel>
-                        </FormItem>
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><MessageSquarePlus className="w-4 h-4 mr-2 text-muted-foreground"/>Mécanisme de feedback en place</FormLabel></FormItem>
                     )}/>
                 </div>
                 <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
@@ -639,51 +667,46 @@ export default function TrainingPage() {
                 <FormField control={sessionForm.control} name="title" render={({ field }) => (
                   <FormItem><FormLabel>Titre de la session</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
-                <FormField control={sessionForm.control} name="date" render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                        <FormLabel>Date</FormLabel>
-                        <Popover>
-                        <PopoverTrigger asChild>
-                            <FormControl>
-                            <Button variant={"outline"} className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}>
-                                {field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}
-                                <LucideIcons.CalendarDays className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                            </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date("1900-01-01")} initialFocus locale={fr} />
-                        </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                    </FormItem>
-                )} />
-                <FormField control={sessionForm.control} name="type" render={({ field }) => (
-                  <FormItem><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir un type" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Obligatoire">Obligatoire</SelectItem><SelectItem value="Recommandée">Recommandée</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                )} />
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField control={sessionForm.control} name="date" render={({ field }) => (
+                        <FormItem className="flex flex-col"><FormLabel>Date</FormLabel><Popover><PopoverTrigger asChild><FormControl>
+                            <Button variant={"outline"} className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}>{field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}<LucideIcons.CalendarDays className="ml-auto h-4 w-4 opacity-50" /></Button>
+                        </FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date("1900-01-01")} initialFocus locale={fr} /></PopoverContent></Popover><FormMessage /></FormItem>
+                    )} />
+                     <FormField control={sessionForm.control} name="type" render={({ field }) => (
+                        <FormItem><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir un type" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Obligatoire">Obligatoire</SelectItem><SelectItem value="Recommandée">Recommandée</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                    )} />
+                </div>
                 <FormField control={sessionForm.control} name="department" render={({ field }) => (
-                  <FormItem><FormLabel>Département(s) cible(s)</FormLabel><FormControl><Input {...field} placeholder="Ex: Tous, Marketing, Vente" /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Département(s) cible(s)</FormLabel><FormControl><Input {...field} placeholder="Ex: Tous, Marketing" /></FormControl><FormMessage /></FormItem>
                 )} />
                 <div className="space-y-3 pt-2">
-                    <FormLabel className="text-sm font-medium">Critères de préparation de la session :</FormLabel>
+                    <FormLabel className="text-sm font-medium">Critères de préparation</FormLabel>
                      <FormField control={sessionForm.control} name="logisticsConfirmed" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <FormLabel className="font-normal flex items-center text-sm"><BookMarked className="w-4 h-4 mr-2 text-muted-foreground"/>Logistique confirmée (salle, matériel)</FormLabel>
-                        </FormItem>
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal flex items-center text-sm"><BookMarked className="w-4 h-4 mr-2 text-muted-foreground"/>Logistique confirmée</FormLabel></FormItem>
                     )}/>
                      <FormField control={sessionForm.control} name="materialsPrepared" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <FormLabel className="font-normal flex items-center text-sm"><ClipboardCheck className="w-4 h-4 mr-2 text-muted-foreground"/>Supports de formation prêts</FormLabel>
-                        </FormItem>
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal flex items-center text-sm"><ClipboardCheck className="w-4 h-4 mr-2 text-muted-foreground"/>Supports prêts</FormLabel></FormItem>
                     )}/>
                      <FormField control={sessionForm.control} name="invitationsSent" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <FormLabel className="font-normal flex items-center text-sm"><MailCheck className="w-4 h-4 mr-2 text-muted-foreground"/>Invitations envoyées</FormLabel>
-                        </FormItem>
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal flex items-center text-sm"><MailCheck className="w-4 h-4 mr-2 text-muted-foreground"/>Invitations envoyées</FormLabel></FormItem>
                     )}/>
+                </div>
+                <div className="space-y-3 pt-2">
+                    <FormLabel className="text-sm font-medium">Suivi post-session</FormLabel>
+                     <FormField control={sessionForm.control} name="isCompleted" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal flex items-center text-sm"><CheckCircle className="w-4 h-4 mr-2 text-muted-foreground"/>Session réalisée</FormLabel></FormItem>
+                    )}/>
+                    {sessionForm.watch("isCompleted") && (
+                        <div className="grid grid-cols-2 gap-4 pl-9">
+                            <FormField control={sessionForm.control} name="participants" render={({ field }) => (
+                                <FormItem><FormLabel>Participants</FormLabel><FormControl><Input type="number" {...field} className="h-8"/></FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <FormField control={sessionForm.control} name="totalInvitees" render={({ field }) => (
+                                <FormItem><FormLabel>Invités</FormLabel><FormControl><Input type="number" {...field} className="h-8"/></FormControl><FormMessage /></FormItem>
+                            )}/>
+                        </div>
+                    )}
                 </div>
                 <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
               </form>
@@ -697,29 +720,15 @@ export default function TrainingPage() {
                   <FormItem><FormLabel>Nom de la campagne</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                  <FormField control={campaignForm.control} name="launchDate" render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                        <FormLabel>Date de lancement</FormLabel>
-                        <Popover>
-                        <PopoverTrigger asChild>
-                            <FormControl>
-                            <Button variant={"outline"} className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}>
-                                {field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}
-                                <LucideIcons.CalendarDays className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                            </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={fr} />
-                        </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                    </FormItem>
+                    <FormItem className="flex flex-col"><FormLabel>Date de lancement</FormLabel><Popover><PopoverTrigger asChild><FormControl>
+                        <Button variant={"outline"} className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}>{field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}<LucideIcons.CalendarDays className="ml-auto h-4 w-4 opacity-50" /></Button>
+                    </FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={fr} /></PopoverContent></Popover><FormMessage /></FormItem>
                 )} />
                 <FormField control={campaignForm.control} name="status" render={({ field }) => (
                   <FormItem><FormLabel>Statut</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir un statut" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Planifiée">Planifiée</SelectItem><SelectItem value="En cours">En cours</SelectItem><SelectItem value="Terminée">Terminée</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                 )} />
                 <FormField control={campaignForm.control} name="target" render={({ field }) => (
-                  <FormItem><FormLabel>Cible</FormLabel><FormControl><Input {...field} placeholder="Ex: Tous les employés, Managers" /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Cible</FormLabel><FormControl><Input {...field} placeholder="Ex: Tous les employés" /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={campaignForm.control} name="iconName" render={({ field }) => (
                   <FormItem><FormLabel>Icône</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir une icône" /></SelectTrigger></FormControl><SelectContent className="max-h-60">
@@ -727,10 +736,9 @@ export default function TrainingPage() {
                   </SelectContent></Select><FormMessage /></FormItem>
                 )} />
                 
-                {/* Conditional Criteria Checkboxes */}
                 {campaignForm.watch("name") === "LAB-FT" && (
                     <div className="space-y-3 pt-2 border-t mt-4">
-                        <FormLabel className="text-sm font-medium pt-2">Critères spécifiques LAB-FT :</FormLabel>
+                        <FormLabel className="text-sm font-medium pt-2">Critères spécifiques LAB-FT</FormLabel>
                         <FormField control={campaignForm.control} name="kycProceduresUpdated" render={({ field }) => (
                             <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><FileSignature className="w-4 h-4 mr-2 text-muted-foreground"/>Procédures KYC/KYB mises à jour</FormLabel></FormItem>
                         )}/>
@@ -745,35 +753,24 @@ export default function TrainingPage() {
 
                 {campaignForm.watch("name") === "RGPD" && (
                      <div className="space-y-3 pt-2 border-t mt-4">
-                        <FormLabel className="text-sm font-medium pt-2">Critères spécifiques RGPD :</FormLabel>
+                        <FormLabel className="text-sm font-medium pt-2">Critères spécifiques RGPD</FormLabel>
                         <FormField control={campaignForm.control} name="dataMappingDone" render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><MapPin className="w-4 h-4 mr-2 text-muted-foreground"/>Cartographie des données personnelles effectuée</FormLabel></FormItem>
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><MapPin className="w-4 h-4 mr-2 text-muted-foreground"/>Cartographie des données effectuée</FormLabel></FormItem>
                         )}/>
                         <FormField control={campaignForm.control} name="consentMechanismsReviewed" render={({ field }) => (
                             <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><ThumbsUp className="w-4 h-4 mr-2 text-muted-foreground"/>Mécanismes de consentement revus</FormLabel></FormItem>
                         )}/>
                         <FormField control={campaignForm.control} name="dpiasConducted" render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><ShieldQuestion className="w-4 h-4 mr-2 text-muted-foreground"/>AIPD/DPIA menées pour traitements à risque</FormLabel></FormItem>
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal text-sm flex items-center"><ShieldQuestion className="w-4 h-4 mr-2 text-muted-foreground"/>AIPD/DPIA menées</FormLabel></FormItem>
                         )}/>
                     </div>
                 )}
 
-                {/* Progress Slider for other campaigns */}
                 {campaignForm.watch("name") !== "LAB-FT" && campaignForm.watch("name") !== "RGPD" && (
                     <FormField control={campaignForm.control} name="progress" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Progression ({field.value || 0}%)</FormLabel>
-                            <FormControl>
-                                <Slider
-                                    defaultValue={[field.value || 0]}
-                                    max={100}
-                                    step={1}
-                                    onValueChange={(value) => field.onChange(value[0])}
-                                    className="py-2"
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
+                        <FormItem><FormLabel>Progression ({field.value || 0}%)</FormLabel><FormControl>
+                            <Slider defaultValue={[field.value || 0]} max={100} step={1} onValueChange={(value) => field.onChange(value[0])} className="py-2"/>
+                        </FormControl><FormMessage /></FormItem>
                     )} />
                 )}
                 <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
