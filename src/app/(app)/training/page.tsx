@@ -140,8 +140,8 @@ export default function TrainingPage() {
     data?: TrainingRegistryItem | UpcomingSession | SensitizationCampaign;
   }>({ type: null, mode: null });
 
-  const registryForm = useForm<TrainingRegistryItemFormValues>({ resolver: zodResolver(trainingRegistryItemSchema), defaultValues: { title: "", objective: "", duration: "", support: "", contentReviewedRecently: false, assessmentAvailable: false, feedbackMechanismInPlace: false }});
-  const sessionForm = useForm<UpcomingSessionFormValues>({ resolver: zodResolver(upcomingSessionSchema), defaultValues: { title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false, isCompleted: false }});
+  const registryForm = useForm<TrainingRegistryItemFormValues>({ resolver: zodResolver(trainingRegistryItemSchema), defaultValues: { title: "", objective: "", duration: "", support: "", contentReviewedRecently: false, assessmentAvailable: false, feedbackMechanismInPlace: false, successRate: 0 }});
+  const sessionForm = useForm<UpcomingSessionFormValues>({ resolver: zodResolver(upcomingSessionSchema), defaultValues: { title: "", date: new Date(), type: "Obligatoire", department: "", logisticsConfirmed: false, materialsPrepared: false, invitationsSent: false, isCompleted: false, participants: 0, totalInvitees: 0 }});
   const campaignForm = useForm<SensitizationCampaignFormValues>({ 
     resolver: zodResolver(sensitizationCampaignSchema), 
     defaultValues: { 
@@ -267,7 +267,7 @@ export default function TrainingPage() {
             icon: theme.icon,
         };
     });
-  }, [upcomingSessions]);
+  }, [upcomingSessions, kpiThemes]);
 
 
   return (
@@ -647,7 +647,7 @@ export default function TrainingPage() {
                         <FormField control={registryForm.control} name="successRate" render={({ field }) => (
                             <FormItem className="pl-9">
                                 <FormLabel>Taux de réussite moyen (%)</FormLabel>
-                                <FormControl><Input type="number" {...field} className="h-8" /></FormControl>
+                                <FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-8" /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}/>
@@ -700,10 +700,10 @@ export default function TrainingPage() {
                     {sessionForm.watch("isCompleted") && (
                         <div className="grid grid-cols-2 gap-4 pl-9">
                             <FormField control={sessionForm.control} name="participants" render={({ field }) => (
-                                <FormItem><FormLabel>Participants</FormLabel><FormControl><Input type="number" {...field} className="h-8"/></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel>Participants</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-8"/></FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={sessionForm.control} name="totalInvitees" render={({ field }) => (
-                                <FormItem><FormLabel>Invités</FormLabel><FormControl><Input type="number" {...field} className="h-8"/></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel>Invités</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-8"/></FormControl><FormMessage /></FormItem>
                             )}/>
                         </div>
                     )}
@@ -784,3 +784,4 @@ export default function TrainingPage() {
     </div>
   );
 }
+
