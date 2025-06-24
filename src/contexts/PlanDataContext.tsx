@@ -3,9 +3,15 @@
 import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '@/types/compliance';
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { useUser } from './UserContext';
+
+const planDocumentPath = "plan/main";
 
 interface PlanDataContextType {
   planData: ComplianceCategory[];
+  loading: boolean;
   setPlanData: React.Dispatch<React.SetStateAction<ComplianceCategory[]>>;
   updateTaskCompletion: (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => void;
   addCategory: (category: Omit<ComplianceCategory, 'id' | 'subCategories'>) => void;
@@ -22,100 +28,137 @@ interface PlanDataContextType {
 const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined);
 
 export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
-  const [planData, setPlanData] = useState<ComplianceCategory[]>(() => {
-    if (typeof window !== 'undefined') {
-      const savedPlanData = localStorage.getItem('planData');
-      return savedPlanData ? JSON.parse(savedPlanData) : initialCompliancePlanData;
-    }
-    return initialCompliancePlanData;
-  });
+  const [planData, setPlanData] = useState<ComplianceCategory[]>(initialCompliancePlanData);
+  const [loading, setLoading] = useState(true);
+  const { isLoaded } = useUser();
+
+  const planDocRef = doc(db, planDocumentPath);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('planData', JSON.stringify(planData));
+    if (!isLoaded) return;
+
+    const unsubscribe = onSnapshot(planDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setPlanData(docSnap.data().plan);
+      } else {
+        // If it doesn't exist in Firestore, create it with initial data
+        setDoc(planDocRef, { plan: initialCompliancePlanData });
+        setPlanData(initialCompliancePlanData);
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching plan data: ", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [isLoaded]);
+
+  const updateFirestorePlan = async (newPlanData: ComplianceCategory[]) => {
+    try {
+      await setDoc(planDocRef, { plan: newPlanData });
+    } catch (error) {
+      console.error("Error updating plan data in Firestore: ", error);
     }
-  }, [planData]);
+  };
 
   const updateTaskCompletion = (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => {
-    setPlanData(prevPlanData =>
-      prevPlanData.map(cat =>
-        cat.id === categoryId
-          ? {
-              ...cat,
-              subCategories: cat.subCategories.map(sub =>
-                sub.id === subCategoryId
-                  ? {
-                      ...sub,
-                      tasks: sub.tasks.map(task =>
-                        task.id === taskId
-                          ? { ...task, completed }
-                          : task
-                      ),
-                    }
-                  : sub
-              ),
-            }
-          : cat
-      )
+    const newPlanData = planData.map(cat =>
+      cat.id === categoryId
+        ? {
+            ...cat,
+            subCategories: cat.subCategories.map(sub =>
+              sub.id === subCategoryId
+                ? {
+                    ...sub,
+                    tasks: sub.tasks.map(task =>
+                      task.id === taskId ? { ...task, completed } : task
+                    ),
+                  }
+                : sub
+            ),
+          }
+        : cat
     );
+    setPlanData(newPlanData);
+    updateFirestorePlan(newPlanData);
   };
 
   const addCategory = (category: Omit<ComplianceCategory, 'id' | 'subCategories'>) => {
-    setPlanData(prev => [...prev, { ...category, id: Date.now().toString(), subCategories: [] }]);
+    const newPlanData = [...planData, { ...category, id: Date.now().toString(), subCategories: [] }];
+    setPlanData(newPlanData);
+    updateFirestorePlan(newPlanData);
   };
 
   const editCategory = (categoryId: string, categoryUpdate: Partial<Omit<ComplianceCategory, 'id' | 'subCategories'>>) => {
-    setPlanData(prev => prev.map(cat => cat.id === categoryId ? { ...cat, ...categoryUpdate } : cat));
+    const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, ...categoryUpdate } : cat);
+    setPlanData(newPlanData);
+    updateFirestorePlan(newPlanData);
   };
 
   const removeCategory = (categoryId: string) => {
-    setPlanData(prev => prev.filter(cat => cat.id !== categoryId));
+    const newPlanData = planData.filter(cat => cat.id !== categoryId);
+    setPlanData(newPlanData);
+    updateFirestorePlan(newPlanData);
   };
 
   const addSubCategory = (categoryId: string, subCategory: Omit<ComplianceSubCategory, 'id' | 'tasks'>) => {
-    setPlanData(prev => prev.map(cat => cat.id === categoryId ? { ...cat, subCategories: [...cat.subCategories, { ...subCategory, id: Date.now().toString(), tasks: [] }] } : cat));
+    const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, subCategories: [...cat.subCategories, { ...subCategory, id: Date.now().toString(), tasks: [] }] } : cat);
+    setPlanData(newPlanData);
+    updateFirestorePlan(newPlanData);
   };
 
   const editSubCategory = (categoryId: string, subCategoryId: string, subCategoryUpdate: Partial<Omit<ComplianceSubCategory, 'id' | 'tasks'>>) => {
-     setPlanData(prev => prev.map(cat => cat.id === categoryId ? {
+     const newPlanData = planData.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, ...subCategoryUpdate } : sub)
-    } : cat));
+    } : cat);
+    setPlanData(newPlanData);
+    updateFirestorePlan(newPlanData);
   };
 
   const removeSubCategory = (categoryId: string, subCategoryId: string) => {
-    setPlanData(prev => prev.map(cat => cat.id === categoryId ? { ...cat, subCategories: cat.subCategories.filter(sub => sub.id !== subCategoryId) } : cat));
+    const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, subCategories: cat.subCategories.filter(sub => sub.id !== subCategoryId) } : cat);
+    setPlanData(newPlanData);
+    updateFirestorePlan(newPlanData);
   };
 
   const addTask = (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => {
-    setPlanData(prev => prev.map(cat => cat.id === categoryId ? {
+    const newPlanData = planData.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: [...sub.tasks, { ...task, id: Date.now().toString(), completed: false }] } : sub)
-    } : cat));
+    } : cat);
+    setPlanData(newPlanData);
+    updateFirestorePlan(newPlanData);
   };
 
   const editTask = (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed'>>) => {
-     setPlanData(prev => prev.map(cat => cat.id === categoryId ? {
+     const newPlanData = planData.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
         ...sub,
         tasks: sub.tasks.map(t => t.id === taskId ? { ...t, ...taskUpdate } : t)
       } : sub)
-    } : cat));
+    } : cat);
+    setPlanData(newPlanData);
+    updateFirestorePlan(newPlanData);
   };
 
   const removeTask = (categoryId: string, subCategoryId: string, taskId: string) => {
-     setPlanData(prev => prev.map(cat => cat.id === categoryId ? {
+     const newPlanData = planData.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: sub.tasks.filter(t => t.id !== taskId) } : sub)
-    } : cat));
+    } : cat);
+    setPlanData(newPlanData);
+    updateFirestorePlan(newPlanData);
   };
 
 
   return (
-    <PlanDataContext.Provider value={{ 
-        planData, 
-        setPlanData, 
+    <PlanDataContext.Provider value={{
+        planData,
+        loading,
+        setPlanData,
         updateTaskCompletion,
         addCategory,
         editCategory,
@@ -139,4 +182,3 @@ export const usePlanData = () => {
   }
   return context;
 };
-

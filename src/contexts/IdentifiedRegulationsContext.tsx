@@ -3,48 +3,56 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { IdentifiedRegulation, RiskMappingItem, RiskLevel, AlertCriticality } from '@/types/compliance';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, doc, updateDoc, addDoc, query, orderBy } from "firebase/firestore";
+import { useUser } from './UserContext';
+
+const regulationsCollectionName = "identifiedRegulations";
 
 interface IdentifiedRegulationsContextType {
   identifiedRegulations: IdentifiedRegulation[];
+  loading: boolean;
   addIdentifiedRegulation: (
     originalText: string,
     keywords: string[],
     analysis: Record<string, string[]>
-  ) => void;
-  updateRegulation: (regulationId: string, updateData: Partial<Omit<IdentifiedRegulation, 'id'>>) => void;
-  createAlertFromRisk: (risk: RiskMappingItem) => void;
+  ) => Promise<void>;
+  updateRegulation: (regulationId: string, updateData: Partial<Omit<IdentifiedRegulation, 'id'>>) => Promise<void>;
+  createAlertFromRisk: (risk: RiskMappingItem) => Promise<void>;
 }
 
 const IdentifiedRegulationsContext = createContext<IdentifiedRegulationsContextType | undefined>(undefined);
 
 export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNode }) => {
-  const [identifiedRegulations, setIdentifiedRegulations] = useState<IdentifiedRegulation[]>(() => {
-    if (typeof window !== 'undefined') {
-      const savedRegulations = localStorage.getItem('identifiedRegulations');
-      try {
-        const parsed = savedRegulations ? JSON.parse(savedRegulations) : [];
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (error) {
-        console.error("Failed to parse identified regulations from localStorage", error);
-        return [];
-      }
-    }
-    return [];
-  });
+  const [identifiedRegulations, setIdentifiedRegulations] = useState<IdentifiedRegulation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { isLoaded } = useUser();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('identifiedRegulations', JSON.stringify(identifiedRegulations));
-    }
-  }, [identifiedRegulations]);
+    if (!isLoaded) return;
 
-  const addIdentifiedRegulation = (
+    const q = query(collection(db, regulationsCollectionName), orderBy("publicationDate", "desc"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const regulationsData: IdentifiedRegulation[] = [];
+      querySnapshot.forEach((doc) => {
+        regulationsData.push({ id: doc.id, ...doc.data() } as IdentifiedRegulation);
+      });
+      setIdentifiedRegulations(regulationsData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching regulations: ", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [isLoaded]);
+
+  const addIdentifiedRegulation = async (
     originalText: string,
     keywords: string[],
     analysis: Record<string, string[]>
   ) => {
-    const newRegulation: IdentifiedRegulation = {
-      id: Date.now().toString(),
+    const newRegulation: Omit<IdentifiedRegulation, 'id'> = {
       publicationDate: new Date().toISOString(),
       source: 'Veille IA',
       type: 'Nouvelle loi',
@@ -58,18 +66,15 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
       requiredActions: '',
       analysisNotes: '',
     };
-    setIdentifiedRegulations(prev => [newRegulation, ...prev]);
+    await addDoc(collection(db, regulationsCollectionName), newRegulation);
   };
   
-  const updateRegulation = (regulationId: string, updateData: Partial<Omit<IdentifiedRegulation, 'id'>>) => {
-    setIdentifiedRegulations(prevRegulations =>
-      prevRegulations.map(reg =>
-        reg.id === regulationId ? { ...reg, ...updateData } : reg
-      )
-    );
+  const updateRegulation = async (regulationId: string, updateData: Partial<Omit<IdentifiedRegulation, 'id'>>) => {
+    const docRef = doc(db, regulationsCollectionName, regulationId);
+    await updateDoc(docRef, updateData);
   };
   
-  const createAlertFromRisk = (risk: RiskMappingItem) => {
+  const createAlertFromRisk = async (risk: RiskMappingItem) => {
     const mapRiskLevelToCriticality = (riskLevel: RiskLevel): AlertCriticality => {
       switch (riskLevel) {
         case 'Critique':
@@ -84,8 +89,7 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
       }
     };
 
-    const newAlert: IdentifiedRegulation = {
-      id: `risk-${Date.now().toString()}`,
+    const newAlert: Omit<IdentifiedRegulation, 'id'> = {
       publicationDate: new Date().toISOString(),
       source: 'Cartographie des Risques',
       type: 'Risque Interne',
@@ -100,12 +104,11 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
       aiAnalysis: {},
     };
 
-    setIdentifiedRegulations(prev => [newAlert, ...prev]);
+    await addDoc(collection(db, regulationsCollectionName), newAlert);
   };
 
-
   return (
-    <IdentifiedRegulationsContext.Provider value={{ identifiedRegulations, addIdentifiedRegulation, updateRegulation, createAlertFromRisk }}>
+    <IdentifiedRegulationsContext.Provider value={{ identifiedRegulations, loading, addIdentifiedRegulation, updateRegulation, createAlertFromRisk }}>
       {children}
     </IdentifiedRegulationsContext.Provider>
   );

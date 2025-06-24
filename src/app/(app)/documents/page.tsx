@@ -27,6 +27,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from "@/hooks/use-toast";
 import type { Document, DocumentStatus, DocumentType } from '@/types/compliance';
 import { useDocuments } from "@/contexts/DocumentsContext";
+import { Logo } from "@/components/icons/Logo";
 
 const documentSchema = z.object({
   name: z.string().min(1, "Le nom du document est requis."),
@@ -49,7 +50,7 @@ const allPossibleStatuses: DocumentStatus[] = ["Validé", "En Révision", "Archi
 const allPossibleTypes: DocumentType[] = ["Politique", "Procédure", "Rapport", "Support de Formation", "Veille"];
 
 export default function DocumentsPage() {
-  const { documents, updateDocumentStatus, addDocument, editDocument, removeDocument } = useDocuments();
+  const { documents, loading, updateDocumentStatus, addDocument, editDocument, removeDocument } = useDocuments();
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = React.useState("");
   const [filterType, setFilterType] = React.useState<string>("all");
@@ -80,33 +81,46 @@ export default function DocumentsPage() {
   };
   const closeDialog = () => setDialogState({ mode: null });
 
-  const handleFormSubmit = (values: DocumentFormValues) => {
+  const handleFormSubmit = async (values: DocumentFormValues) => {
     const documentData = {
       ...values,
       tags: values.tags ? values.tags.split(',').map(tag => tag.trim()).filter(Boolean) : []
     };
 
-    if (dialogState.mode === "add") {
-      addDocument(documentData);
-      toast({ title: "Document ajouté", description: `Le document "${values.name}" a été ajouté.` });
-    } else if (dialogState.mode === "edit" && dialogState.data?.id) {
-      editDocument(dialogState.data.id, documentData);
-      toast({ title: "Document modifié", description: `Le document "${values.name}" a été mis à jour.` });
+    try {
+        if (dialogState.mode === "add") {
+            await addDocument(documentData);
+            toast({ title: "Document ajouté", description: `Le document "${values.name}" a été ajouté.` });
+        } else if (dialogState.mode === "edit" && dialogState.data?.id) {
+            await editDocument(dialogState.data.id, documentData);
+            toast({ title: "Document modifié", description: `Le document "${values.name}" a été mis à jour.` });
+        }
+    } catch (error) {
+        toast({ variant: "destructive", title: "Erreur", description: "Une erreur est survenue." });
     }
+    
     closeDialog();
   };
 
-  const handleRemoveDocument = (documentId: string) => {
-    removeDocument(documentId);
-    toast({ title: "Document supprimé", description: "Le document a été supprimé avec succès." });
+  const handleRemoveDocument = async (documentId: string) => {
+    try {
+        await removeDocument(documentId);
+        toast({ title: "Document supprimé", description: "Le document a été supprimé avec succès." });
+    } catch (error) {
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le document." });
+    }
   };
   
-  const handleChangeDocumentStatus = (documentId: string, newStatus: DocumentStatus) => {
-    updateDocumentStatus(documentId, newStatus);
-    toast({
-      title: "Statut modifié",
-      description: `Le statut du document a été changé en "${newStatus}".`,
-    });
+  const handleChangeDocumentStatus = async (documentId: string, newStatus: DocumentStatus) => {
+    try {
+        await updateDocumentStatus(documentId, newStatus);
+        toast({
+        title: "Statut modifié",
+        description: `Le statut du document a été changé en "${newStatus}".`,
+        });
+    } catch (error) {
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de modifier le statut." });
+    }
   };
 
   const filteredDocuments = documents.filter(doc => {
@@ -121,6 +135,15 @@ export default function DocumentsPage() {
   
   const documentTypes = ["all", ...allPossibleTypes];
   const documentStatuses = ["all", ...allPossibleStatuses];
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-[calc(100vh-10rem)]">
+        <Logo className="h-12 w-12 animate-spin" />
+        <p className="ml-4 text-lg text-muted-foreground">Chargement des documents...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -344,5 +367,3 @@ export default function DocumentsPage() {
     </div>
   );
 }
-
-    

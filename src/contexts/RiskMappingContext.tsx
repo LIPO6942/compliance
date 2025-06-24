@@ -3,63 +3,68 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { RiskMappingItem } from '@/types/compliance';
-import { initialMockRiskMapping } from '@/data/mockRiskMapping';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy } from "firebase/firestore";
+import { useUser } from './UserContext';
+
+const risksCollectionName = "riskMapping";
 
 interface RiskMappingContextType {
   risks: RiskMappingItem[];
-  addRisk: (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => void;
-  editRisk: (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated'>>) => void;
-  removeRisk: (riskId: string) => void;
+  loading: boolean;
+  addRisk: (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => Promise<void>;
+  editRisk: (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated'>>) => Promise<void>;
+  removeRisk: (riskId: string) => Promise<void>;
 }
 
 const RiskMappingContext = createContext<RiskMappingContextType | undefined>(undefined);
 
 export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
-  const [risks, setRisks] = useState<RiskMappingItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      const savedRisks = localStorage.getItem('riskMapping');
-      try {
-        const parsed = savedRisks ? JSON.parse(savedRisks) : initialMockRiskMapping;
-        return Array.isArray(parsed) ? parsed : initialMockRiskMapping;
-      } catch (error) {
-        console.error("Failed to parse risks from localStorage", error);
-        return initialMockRiskMapping;
-      }
-    }
-    return initialMockRiskMapping;
-  });
+  const [risks, setRisks] = useState<RiskMappingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { isLoaded } = useUser();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('riskMapping', JSON.stringify(risks));
-    }
-  }, [risks]);
+    if (!isLoaded) return;
+    
+    const q = query(collection(db, risksCollectionName), orderBy("lastUpdated", "desc"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const risksData: RiskMappingItem[] = [];
+      querySnapshot.forEach((doc) => {
+        risksData.push({ id: doc.id, ...doc.data() } as RiskMappingItem);
+      });
+      setRisks(risksData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching risks: ", error);
+      setLoading(false);
+    });
 
-  const addRisk = (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => {
-    const newRisk: RiskMappingItem = {
+    return () => unsubscribe();
+  }, [isLoaded]);
+
+  const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => {
+    const newRisk = {
       ...risk,
-      id: Date.now().toString(),
       lastUpdated: new Date().toISOString().split('T')[0],
     };
-    setRisks(prev => [newRisk, ...prev]);
+    await addDoc(collection(db, risksCollectionName), newRisk);
   };
 
-  const editRisk = (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated'>>) => {
-    setRisks(prev =>
-      prev.map(risk =>
-        risk.id === riskId
-          ? { ...risk, ...riskUpdate, lastUpdated: new Date().toISOString().split('T')[0] }
-          : risk
-      )
-    );
+  const editRisk = async (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated'>>) => {
+    const docRef = doc(db, risksCollectionName, riskId);
+    await updateDoc(docRef, {
+      ...riskUpdate,
+      lastUpdated: new Date().toISOString().split('T')[0],
+    });
   };
 
-  const removeRisk = (riskId: string) => {
-    setRisks(prev => prev.filter(risk => risk.id !== riskId));
+  const removeRisk = async (riskId: string) => {
+    await deleteDoc(doc(db, risksCollectionName, riskId));
   };
 
   return (
-    <RiskMappingContext.Provider value={{ risks, addRisk, editRisk, removeRisk }}>
+    <RiskMappingContext.Provider value={{ risks, loading, addRisk, editRisk, removeRisk }}>
       {children}
     </RiskMappingContext.Provider>
   );
