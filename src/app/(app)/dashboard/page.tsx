@@ -12,8 +12,8 @@ import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLe
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
-import type { ComplianceCategory, ComplianceTask } from "@/types/compliance";
-import type { Document } from "@/types/compliance";
+import type { ComplianceCategory, ComplianceTask, Document, DocumentStatus } from "@/types/compliance";
+import { useRouter } from "next/navigation";
 
 
 const complianceStatusBaseColors = {
@@ -51,73 +51,70 @@ export default function DashboardPage() {
   const { documents } = useDocuments();
   const { identifiedRegulations } = useIdentifiedRegulations();
   const [isLoading, setIsLoading] = React.useState(true);
+  const router = useRouter();
 
   const [activeTasksCount, setActiveTasksCount] = React.useState(0);
   const [overdueTasksCount, setOverdueTasksCount] = React.useState(0);
   const [overallCompliancePercentage, setOverallCompliancePercentage] = React.useState(0);
-  const [complianceStatusData, setComplianceStatusData] = React.useState<Array<{status: string; value: number; fill: string}>>([]);
+  const [complianceStatusData, setComplianceStatusData] = React.useState<Array<{status: string; value: number; fill: string, id: DocumentStatus | "none"}>>([]);
   const [taskProgressData, setTaskProgressData] = React.useState<Array<{name: string; completed: number; pending: number; overdue: number}>>([]);
   const [newAlertsCount, setNewAlertsCount] = React.useState(0);
 
 
   React.useEffect(() => {
-    // Ensure data is loaded from localStorage before calculations
     if (planData && documents && identifiedRegulations && typeof window !== 'undefined') {
-      // Calculate Active Tasks
       const allTasks = planData.flatMap(category => category.subCategories.flatMap(subCategory => subCategory.tasks));
       setActiveTasksCount(allTasks.filter(task => !task.completed).length);
-      // setOverdueTasksCount remains 0 as we don't have due dates yet
 
-      // Calculate Overall Compliance Level
       const validatedDocuments = documents.filter(doc => doc.status === "Validé").length;
       const totalDocuments = documents.length;
       setOverallCompliancePercentage(totalDocuments > 0 ? Math.round((validatedDocuments / totalDocuments) * 100) : 0);
 
-      // Prepare Compliance Status Chart Data
       const conformeCount = documents.filter(d => d.status === "Validé").length;
       const enCoursCount = documents.filter(d => d.status === "En Révision").length;
       const nonConformeCount = documents.filter(d => d.status === "Obsolète").length;
       const totalRelevantDocsForPie = conformeCount + enCoursCount + nonConformeCount;
 
-      let newComplianceStatusData = [];
+      let newComplianceStatusData: Array<{status: string; value: number; fill: string, id: DocumentStatus | "none"}> = [];
       if (totalRelevantDocsForPie > 0) {
         newComplianceStatusData = [
-          { status: "Conforme", value: Math.round((conformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.conforme },
-          { status: "En Cours", value: Math.round((enCoursCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.enCours },
-          { status: "Non Conforme", value: Math.round((nonConformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.nonConforme },
-        ].filter(item => item.value > 0); // Filter out zero-value items to avoid clutter
+          { status: "Conforme", value: Math.round((conformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.conforme, id: "Validé" },
+          { status: "En Cours", value: Math.round((enCoursCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.enCours, id: "En Révision" },
+          { status: "Non Conforme", value: Math.round((nonConformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.nonConforme, id: "Obsolète" },
+        ].filter(item => item.value > 0);
       }
       
-      // If no relevant documents, show "Aucune Donnée"
       if (newComplianceStatusData.length === 0) {
         newComplianceStatusData.push(
-            { status: "Aucune Donnée", value: 100, fill: complianceStatusBaseColors.aucuneDonnee }
+            { status: "Aucune Donnée", value: 100, fill: complianceStatusBaseColors.aucuneDonnee, id: "none" }
         );
       }
       setComplianceStatusData(newComplianceStatusData);
 
-
-      // Prepare Task Progress Chart Data
       const newTaskProgressData = planData.map(category => {
         const categoryTasks = category.subCategories.flatMap(sub => sub.tasks);
         const completed = categoryTasks.filter(task => task.completed).length;
         const pending = categoryTasks.filter(task => !task.completed).length;
-        // Truncate long category names for better chart display
         return {
           name: category.name.length > 15 ? category.name.substring(0, 12) + "..." : category.name,
           completed,
           pending,
-          overdue: 0, // Placeholder, as no due dates yet
+          overdue: 0,
         };
       });
       setTaskProgressData(newTaskProgressData);
 
-      // Calculate New Alerts Count
       setNewAlertsCount(identifiedRegulations.filter(reg => reg.status === 'Nouveau').length);
       
       setIsLoading(false);
     }
   }, [planData, documents, identifiedRegulations]);
+
+  const handlePieClick = (data: any) => {
+    if (data && data.id && data.id !== 'none') {
+        router.push(`/documents?status=${data.id}`);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -131,18 +128,20 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tâches Actives</CardTitle>
-            <Activity className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold font-headline">{activeTasksCount}</div>
-            <p className="text-xs text-muted-foreground pt-1">
-              {overdueTasksCount > 0 ? `Dont ${overdueTasksCount} en retard` : "Toutes les tâches suivies"}
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/plan" className="block">
+          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Tâches Actives</CardTitle>
+              <Activity className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold font-headline">{activeTasksCount}</div>
+              <p className="text-xs text-muted-foreground pt-1">
+                {overdueTasksCount > 0 ? `Dont ${overdueTasksCount} en retard` : "Toutes les tâches suivies"}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Link href="/alerts" className="block">
           <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 hover:ring-2 hover:ring-primary cursor-pointer h-full">
@@ -157,31 +156,33 @@ export default function DashboardPage() {
           </Card>
         </Link>
 
-        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Niveau de Conformité Global</CardTitle>
-            <Target className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-3xl font-bold font-headline ${overallCompliancePercentage >= 80 ? 'text-green-600' : overallCompliancePercentage >=50 ? 'text-yellow-500' : 'text-red-600'}`}>
-                {overallCompliancePercentage}%
-            </div>
-            <p className="text-xs text-muted-foreground pt-1">Basé sur les documents validés</p>
-          </CardContent>
-        </Card>
+        <Link href="/documents" className="block">
+          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Niveau de Conformité Global</CardTitle>
+              <Target className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-3xl font-bold font-headline ${overallCompliancePercentage >= 80 ? 'text-green-600' : overallCompliancePercentage >=50 ? 'text-yellow-500' : 'text-red-600'}`}>
+                  {overallCompliancePercentage}%
+              </div>
+              <p className="text-xs text-muted-foreground pt-1">Basé sur les documents validés</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline">Statut de Conformité Documentaire</CardTitle>
-            <CardDescription>Répartition des documents par statut (Validé, En Révision, Obsolète).</CardDescription>
+            <CardDescription>Répartition des documents par statut. Cliquez sur une section pour filtrer.</CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer config={initialChartConfig} className="mx-auto aspect-square max-h-[300px]">
               <PieChart>
                 <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="status" />} />
-                <Pie data={complianceStatusData} dataKey="value" nameKey="status" innerRadius={60} outerRadius={80} cy="50%">
+                <Pie data={complianceStatusData} dataKey="value" nameKey="status" innerRadius={60} outerRadius={80} cy="50%" onClick={handlePieClick} className="cursor-pointer">
                    {complianceStatusData.map((entry, index) => (
                     <Cell key={`cell-${index}-${entry.status}`} fill={entry.fill} />
                   ))}
@@ -335,3 +336,4 @@ function QuickAccessCard({ icon: Icon, title, description, href, actionText }: Q
   );
 }
 
+    

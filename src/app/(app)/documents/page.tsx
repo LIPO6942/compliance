@@ -5,6 +5,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -49,6 +50,7 @@ const allPossibleTypes: DocumentType[] = ["Politique", "Procédure", "Rapport", 
 
 export default function DocumentsPage() {
   const { documents, updateDocumentStatus, addDocument, editDocument, removeDocument } = useDocuments();
+  const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = React.useState("");
   const [filterType, setFilterType] = React.useState<string>("all");
   const [filterStatus, setFilterStatus] = React.useState<string>("all");
@@ -59,7 +61,11 @@ export default function DocumentsPage() {
 
   React.useEffect(() => {
     setIsClient(true);
-  }, []);
+    const statusFromQuery = searchParams.get('status');
+    if (statusFromQuery && allPossibleStatuses.includes(statusFromQuery as DocumentStatus)) {
+        setFilterStatus(statusFromQuery);
+    }
+  }, [searchParams]);
 
 
   const form = useForm<DocumentFormValues>({ resolver: zodResolver(documentSchema) });
@@ -113,8 +119,8 @@ export default function DocumentsPage() {
     return matchesSearch && matchesType && matchesStatus;
   });
   
-  const documentTypes = ["all", ...Array.from(new Set(documents.map(doc => doc.type)))] as ("all" | DocumentType)[];
-  const documentStatuses = ["all", ...Array.from(new Set(documents.map(doc => doc.status)))] as ("all" | DocumentStatus)[];
+  const documentTypes = ["all", ...allPossibleTypes];
+  const documentStatuses = ["all", ...allPossibleStatuses];
 
   return (
     <div className="space-y-6">
@@ -338,3 +344,5 @@ export default function DocumentsPage() {
     </div>
   );
 }
+
+    
