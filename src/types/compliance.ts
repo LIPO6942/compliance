@@ -1,7 +1,5 @@
 
 import type { LucideIcon } from 'lucide-react';
-import type { CategorizeRegulationOutput } from '@/ai/flows/regulatory-categorization';
-
 
 export interface ComplianceTask {
   id: string;
@@ -47,24 +45,19 @@ export type AlertType = "Nouvelle loi" | "Modification réglementaire" | "Alerte
 
 export interface IdentifiedRegulation {
   id: string;
-  publicationDate: string; // Renamed from timestamp
+  publicationDate: string; 
   source: string;
   type: AlertType;
-  summary: string; // Renamed from regulationTextSummary
-  fullText: string; // Renamed from regulationTextFull
-  status: AlertStatus; // Renamed from status, using new type
+  summary: string;
+  fullText: string;
+  status: AlertStatus;
   criticality: AlertCriticality;
-  deadline?: string; // new
-  affectedDepartments?: string[]; // new
-  requiredActions?: string; // new
-  analysisNotes?: string; // new
-  // AI-related fields from previous structure
-  aiInclusionDecision: {
-    include: boolean;
-    reason: string;
-  };
-  aiCategorizationSuggestions?: CategorizeRegulationOutput;
-  aiKeywordsUsed: string;
+  deadline?: string; 
+  affectedDepartments?: string[];
+  requiredActions?: string;
+  analysisNotes?: string;
+  keywords: string[];
+  aiAnalysis?: Record<string, string[]>;
 }
 
 export interface CompletionCriterion {

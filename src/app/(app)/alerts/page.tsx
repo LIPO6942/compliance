@@ -225,18 +225,24 @@ export default function AlertsPage() {
                                             <Info className="mr-2 h-4 w-4" /> Voir détails IA
                                         </DropdownMenuItem>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-80">
-                                        <div className="space-y-4">
-                                            <h4 className="font-medium leading-none">Détails de l'Analyse IA</h4>
-                                            <div>
-                                                <p className="text-sm font-medium text-muted-foreground">Raison d'inclusion</p>
-                                                <p className="text-sm">{alert.aiInclusionDecision.reason}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium text-muted-foreground">Mots-clés utilisés</p>
-                                                <p className="text-sm">{alert.aiKeywordsUsed}</p>
-                                            </div>
-                                        </div>
+                                    <PopoverContent className="w-96">
+                                      <div className="space-y-4">
+                                        <h4 className="font-medium leading-none">Détails de l'Analyse IA</h4>
+                                        {alert.aiAnalysis && Object.keys(alert.aiAnalysis).length > 0 ? (
+                                          <div className="space-y-3">
+                                            {Object.entries(alert.aiAnalysis).map(([keyword, points]) => (
+                                              <div key={keyword}>
+                                                <p className="text-sm font-semibold text-primary">Analyse pour : {keyword}</p>
+                                                <ul className="text-sm list-disc pl-5 mt-1 space-y-1 text-muted-foreground">
+                                                  {points.map((point, index) => <li key={index}>{point}</li>)}
+                                                </ul>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <p className="text-sm text-muted-foreground">Aucune analyse IA disponible pour cette alerte.</p>
+                                        )}
+                                      </div>
                                     </PopoverContent>
                                 </Popover>
                               </DropdownMenuContent>

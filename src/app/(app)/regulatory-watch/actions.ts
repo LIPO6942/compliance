@@ -1,29 +1,20 @@
 "use server";
 
-import { categorizeRegulation, type CategorizeRegulationInput, type CategorizeRegulationOutput } from "@/ai/flows/regulatory-categorization";
-import { shouldIncludeRegulation, type ShouldIncludeRegulationInput, type ShouldIncludeRegulationOutput } from "@/ai/flows/regulatory-inclusion";
+import { analyzeRegulationByKeywords, type AnalyzeRegulationByKeywordsInput, type AnalyzeRegulationByKeywordsOutput } from "@/ai/flows/keyword-analysis";
 
 export interface AnalyzeRegulationResult {
-  inclusion?: ShouldIncludeRegulationOutput;
-  categorization?: CategorizeRegulationOutput;
+  analysis?: AnalyzeRegulationByKeywordsOutput;
   error?: string;
 }
 
 export async function analyzeRegulationAction(
   regulationText: string,
-  keywords: string
+  keywords: string[]
 ): Promise<AnalyzeRegulationResult> {
   try {
-    const inclusionInput: ShouldIncludeRegulationInput = { regulationText, keywords };
-    const inclusionResult = await shouldIncludeRegulation(inclusionInput);
-
-    if (inclusionResult.include) {
-      const categorizationInput: CategorizeRegulationInput = { regulationText };
-      const categorizationResult = await categorizeRegulation(categorizationInput);
-      return { inclusion: inclusionResult, categorization: categorizationResult };
-    }
-
-    return { inclusion: inclusionResult };
+    const input: AnalyzeRegulationByKeywordsInput = { regulationText, keywords };
+    const analysisResult = await analyzeRegulationByKeywords(input);
+    return { analysis: analysisResult };
   } catch (error) {
     console.error("Error in analyzeRegulationAction:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred during AI analysis.";

@@ -2,15 +2,14 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { IdentifiedRegulation, AlertStatus, AlertCriticality, AlertType, RiskMappingItem, RiskLevel } from '@/types/compliance';
-import type { AnalyzeRegulationResult } from '@/app/(app)/regulatory-watch/actions';
+import type { IdentifiedRegulation, RiskMappingItem, RiskLevel, AlertCriticality } from '@/types/compliance';
 
 interface IdentifiedRegulationsContextType {
   identifiedRegulations: IdentifiedRegulation[];
   addIdentifiedRegulation: (
     originalText: string,
-    keywords: string,
-    analysis: AnalyzeRegulationResult
+    keywords: string[],
+    analysis: Record<string, string[]>
   ) => void;
   updateRegulation: (regulationId: string, updateData: Partial<Omit<IdentifiedRegulation, 'id'>>) => void;
   createAlertFromRisk: (risk: RiskMappingItem) => void;
@@ -41,11 +40,9 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
 
   const addIdentifiedRegulation = (
     originalText: string,
-    keywords: string,
-    analysis: AnalyzeRegulationResult
+    keywords: string[],
+    analysis: Record<string, string[]>
   ) => {
-    if (!analysis.inclusion) return; // Should not happen if called correctly
-
     const newRegulation: IdentifiedRegulation = {
       id: Date.now().toString(),
       publicationDate: new Date().toISOString(),
@@ -55,12 +52,8 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
       fullText: originalText,
       status: 'Nouveau',
       criticality: 'Moyenne',
-      aiInclusionDecision: {
-        include: analysis.inclusion.include,
-        reason: analysis.inclusion.reason,
-      },
-      aiCategorizationSuggestions: analysis.categorization,
-      aiKeywordsUsed: keywords,
+      keywords: keywords,
+      aiAnalysis: analysis,
       affectedDepartments: [],
       requiredActions: '',
       analysisNotes: '',
@@ -103,11 +96,8 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
       affectedDepartments: [risk.department],
       requiredActions: risk.expectedAction,
       analysisNotes: `Alerte générée à partir de la cartographie des risques (ID: ${risk.id}).\nPropriétaire du risque: ${risk.owner}`,
-      aiInclusionDecision: {
-        include: true,
-        reason: 'Création manuelle depuis la cartographie des risques.',
-      },
-      aiKeywordsUsed: 'N/A',
+      keywords: [],
+      aiAnalysis: {},
     };
 
     setIdentifiedRegulations(prev => [newAlert, ...prev]);

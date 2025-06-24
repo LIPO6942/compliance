@@ -11,23 +11,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { analyzeRegulationAction, type AnalyzeRegulationResult } from "./actions";
+import { analyzeRegulationAction } from "./actions";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, CheckCircle, Loader2, Sparkles, FileText, Tag, ListChecks, Check, X, Archive } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, Sparkles, FileText, Tag, ListChecks, Check, X, Archive, ThumbsUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 import { Checkbox } from "@/components/ui/checkbox";
 
 const keywordOptions = [
-  { id: "blanchiment", label: "Blanchiment" },
-  { id: "financement terrorisme", label: "Financement terrorisme" },
+  { id: "LAB-FT", label: "LAB-FT" },
+  { id: "Gouvernance", label: "Gouvernance" },
+  { id: "Protection des données", label: "Protection des données" },
   { id: "CTAF", label: "CTAF" },
-  { id: "déclaration de soupçon", label: "Déclaration de soupçon" },
-  { id: "gel des avoirs", label: "Gel des avoirs" },
-  { id: "bénéficiaire effectif", label: "Bénéficiaire effectif" },
-  { id: "diligence renforcée", label: "Diligence renforcée" },
+  { id: "Déclaration de soupçon", label: "Déclaration de soupçon" },
+  { id: "Gel des avoirs", label: "Gel des avoirs" },
+  { id: "Bénéficiaire effectif", label: "Bénéficiaire effectif" },
+  { id: "Diligence renforcée", label: "Diligence renforcée" },
   { id: "PEP (personne politiquement exposée)", label: "PEP" },
-  { id: "filtrage / sanctions", label: "Filtrage / Sanctions" },
+  { id: "Filtrage / Sanctions", label: "Filtrage / Sanctions" },
 ];
 
 
@@ -42,9 +43,9 @@ type RegulatoryWatchFormValues = z.infer<typeof formSchema>;
 
 export default function RegulatoryWatchPage() {
   const [isLoading, setIsLoading] = React.useState(false);
-  const [analysisResult, setAnalysisResult] = React.useState<AnalyzeRegulationResult | null>(null);
+  const [analysisResult, setAnalysisResult] = React.useState<Record<string, string[]> | null>(null);
   const [currentRegulationText, setCurrentRegulationText] = React.useState("");
-  const [currentKeywords, setCurrentKeywords] = React.useState("");
+  const [currentKeywords, setCurrentKeywords] = React.useState<string[]>([]);
   const { toast } = useToast();
   const { addIdentifiedRegulation } = useIdentifiedRegulations();
 
@@ -59,11 +60,10 @@ export default function RegulatoryWatchPage() {
   const onSubmit = async (data: RegulatoryWatchFormValues) => {
     setIsLoading(true);
     setAnalysisResult(null);
-    const keywordsString = data.keywords.join(", ");
     setCurrentRegulationText(data.regulationText);
-    setCurrentKeywords(keywordsString);
+    setCurrentKeywords(data.keywords);
     try {
-      const result = await analyzeRegulationAction(data.regulationText, keywordsString);
+      const result = await analyzeRegulationAction(data.regulationText, data.keywords);
       if (result.error) {
         toast({
           variant: "destructive",
@@ -71,10 +71,10 @@ export default function RegulatoryWatchPage() {
           description: result.error,
         });
       } else {
-        setAnalysisResult(result);
+        setAnalysisResult(result.analysis ?? null);
          toast({
           title: "Analyse Terminée",
-          description: "L'analyse de la réglementation par l'IA est terminée.",
+          description: "L'analyse par mot-clé est terminée. Veuillez vérifier les résultats.",
         });
       }
     } catch (error) {
@@ -90,22 +90,22 @@ export default function RegulatoryWatchPage() {
   };
 
   const handleConfirmAndIntegrate = () => {
-    if (analysisResult && currentRegulationText && analysisResult.inclusion?.include) {
+    if (analysisResult && currentRegulationText) {
       addIdentifiedRegulation(currentRegulationText, currentKeywords, analysisResult);
       toast({
         title: "Réglementation Ajoutée aux Alertes",
         description: "La nouvelle réglementation a été enregistrée et est visible dans le Centre d'Alertes.",
       });
-      setAnalysisResult(null); // Clear the result from the page
-      form.reset(); // Optionally reset the form
+      setAnalysisResult(null);
+      form.reset();
     }
   };
 
   const handleRejectSuggestions = () => {
     setAnalysisResult(null);
     toast({
-      title: "Suggestions Rejetées",
-      description: "L'analyse IA a été effacée.",
+      title: "Analyse Rejetée",
+      description: "Les résultats de l'analyse IA ont été effacés.",
       variant: "default",
     });
      form.reset();
@@ -121,7 +121,7 @@ export default function RegulatoryWatchPage() {
             Veille Réglementaire Assistée par IA
           </CardTitle>
           <CardDescription className="text-lg">
-            Utilisez l'intelligence artificielle pour analyser rapidement les nouvelles réglementations, déterminer leur pertinence et proposer une catégorisation.
+            Utilisez l'intelligence artificielle pour analyser rapidement les nouvelles réglementations, en se basant sur des mots-clés spécifiques.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -164,9 +164,9 @@ export default function RegulatoryWatchPage() {
                 render={() => (
                   <FormItem>
                     <div className="mb-4">
-                      <FormLabel className="text-base">Mots-Clés Prédéfinis</FormLabel>
+                      <FormLabel className="text-base">Mots-Clés pour l'Analyse</FormLabel>
                       <FormDescription>
-                        Sélectionnez les mots-clés pertinents. L'IA utilisera ces mots pour évaluer leur pertinence.
+                        Sélectionnez les angles sous lesquels l'IA doit analyser le texte.
                       </FormDescription>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -235,90 +235,57 @@ export default function RegulatoryWatchPage() {
               <ListChecks className="mr-2 h-6 w-6 text-primary" />
               Résultats de l'Analyse IA
             </CardTitle>
+            <CardDescription>
+              Vérifiez l'analyse générée par l'IA pour chaque mot-clé et décidez de l'intégrer ou non.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {analysisResult.inclusion && (
-              <Card className="shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg font-medium font-headline flex items-center">
-                    {analysisResult.inclusion.include ? (
-                      <CheckCircle className="mr-2 h-5 w-5 text-green-600" />
-                    ) : (
-                      <AlertCircle className="mr-2 h-5 w-5 text-orange-500" />
-                    )}
-                    Décision d'Inclusion
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className={`text-lg font-semibold ${analysisResult.inclusion.include ? 'text-green-700' : 'text-orange-600'}`}>
-                    {analysisResult.inclusion.include ? "Inclure la réglementation" : "Ne pas inclure la réglementation (ou à réviser)"}
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    <span className="font-medium">Raison:</span> {analysisResult.inclusion.reason}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-            {analysisResult.categorization && analysisResult.inclusion?.include && (
-              <Card className="shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg font-medium font-headline flex items-center">
-                    <Tag className="mr-2 h-5 w-5 text-muted-foreground" />
-                    Suggestions de Catégorisation
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <h4 className="font-semibold text-md mb-1">Catégories Suggérées:</h4>
-                    {analysisResult.categorization.suggestedCategories.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {analysisResult.categorization.suggestedCategories.map((cat, index) => (
-                          <Badge key={`cat-${index}`} variant="secondary" className="text-sm px-3 py-1">{cat}</Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Aucune catégorie principale suggérée.</p>
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-md mb-1">Sous-Catégories Suggérées:</h4>
-                     {analysisResult.categorization.suggestedSubCategories.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {analysisResult.categorization.suggestedSubCategories.map((subcat, index) => (
-                          <Badge key={`subcat-${index}`} variant="outline" className="text-sm px-3 py-1">{subcat}</Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Aucune sous-catégorie suggérée.</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            
-            {analysisResult.inclusion && (
-                <CardFooter className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
-                    <Button 
-                        size="lg" 
-                        variant="outline" 
-                        className="w-full sm:w-auto border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={handleRejectSuggestions}
-                    >
-                        <X className="mr-2 h-5 w-5" /> Rejeter les Suggestions
-                    </Button>
-                    {analysisResult.inclusion.include && (
-                        <Button 
-                            size="lg" 
-                            className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
-                            onClick={handleConfirmAndIntegrate}
-                        >
-                            <Check className="mr-2 h-5 w-5" /> Confirmer et Intégrer aux Alertes
-                        </Button>
-                    )}
-                </CardFooter>
+            {Object.keys(analysisResult).length > 0 ? (
+                Object.entries(analysisResult).map(([keyword, analysisPoints]) => (
+                    <Card key={keyword} className="shadow-sm">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-lg font-medium font-headline flex items-center">
+                               <Tag className="mr-2 h-5 w-5 text-muted-foreground" />
+                               Analyse pour : <Badge variant="secondary" className="ml-2">{keyword}</Badge>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                           <ul className="list-disc pl-5 space-y-2 text-sm">
+                                {analysisPoints.map((point, index) => (
+                                    <li key={index} className="text-muted-foreground">{point}</li>
+                                ))}
+                            </ul>
+                        </CardContent>
+                    </Card>
+                ))
+            ) : (
+                <div className="text-center py-8">
+                    <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-medium">Aucune analyse générée</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        L'IA n'a pas pu générer d'analyse. Le texte est peut-être trop court ou non pertinent.
+                    </p>
+                </div>
             )}
           </CardContent>
+          <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t">
+              <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="w-full sm:w-auto border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={handleRejectSuggestions}
+              >
+                  <X className="mr-2 h-5 w-5" /> Rejeter et Réinitialiser
+              </Button>
+              <Button 
+                  size="lg" 
+                  className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleConfirmAndIntegrate}
+                  disabled={Object.keys(analysisResult).length === 0}
+              >
+                  <ThumbsUp className="mr-2 h-5 w-5" /> Confirmer et Intégrer aux Alertes
+              </Button>
+          </CardFooter>
         </Card>
       )}
     </div>
