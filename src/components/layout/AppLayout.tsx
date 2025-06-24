@@ -38,6 +38,7 @@ import {
   Users,
   Map,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -51,6 +52,7 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/contexts/UserContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isFirebaseConfigured } from "@/lib/firebase";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
@@ -201,6 +203,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="flex flex-col">
+        {!isFirebaseConfigured && (
+          <div className="bg-yellow-500 text-white text-center p-2 text-sm font-semibold flex items-center justify-center gap-2 z-50">
+            <AlertTriangle className="h-5 w-5" />
+            <span>Attention: Connexion à la base de données échouée. Vos données ne seront pas sauvegardées.</span>
+          </div>
+        )}
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-md sm:px-6 md:px-8">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="md:hidden" />

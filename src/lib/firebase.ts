@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+import { getFirestore, type Firestore } from "firebase/firestore";
+import { getAuth, type Auth } from "firebase/auth";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -13,16 +13,27 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Check for missing configuration and provide a helpful error message.
-if (!firebaseConfig.apiKey) {
-    throw new Error(
-        "Clé API Firebase manquante. Veuillez créer un fichier .env.local à la racine de votre projet et y ajouter vos identifiants Firebase. Consultez les instructions dans la conversation pour plus de détails."
-    );
+let app: FirebaseApp | null = null;
+let db: Firestore | null = null;
+let auth: Auth | null = null;
+let isFirebaseConfigured = false;
+
+// Safely initialize Firebase
+if (firebaseConfig.apiKey) {
+  try {
+    app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    db = getFirestore(app);
+    auth = getAuth(app);
+    isFirebaseConfigured = true;
+  } catch (e) {
+    console.error("Erreur lors de l'initialisation de Firebase. Veuillez vérifier votre configuration.", e);
+  }
+} else {
+  // This warning will be shown in the server/browser console.
+  // The UI will also show a banner.
+  console.warn(
+    "Clé API Firebase manquante. L'application s'exécutera sans connexion à la base de données. Veuillez créer un fichier .env.local avec vos identifiants Firebase pour activer la persistance des données."
+  );
 }
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
-const auth = getAuth(app);
-
-export { app, db, auth };
+export { app, db, auth, isFirebaseConfigured };

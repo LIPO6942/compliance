@@ -3,7 +3,7 @@
 import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '@/types/compliance';
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { db } from '@/lib/firebase';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useUser } from './UserContext';
 
@@ -32,30 +32,38 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const { isLoaded } = useUser();
 
-  const planDocRef = doc(db, planDocumentPath);
-
   useEffect(() => {
     if (!isLoaded) return;
 
-    const unsubscribe = onSnapshot(planDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setPlanData(docSnap.data().plan);
-      } else {
-        // If it doesn't exist in Firestore, create it with initial data
-        setDoc(planDocRef, { plan: initialCompliancePlanData });
-        setPlanData(initialCompliancePlanData);
-      }
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching plan data: ", error);
-      setLoading(false);
-    });
+    if (isFirebaseConfigured && db) {
+      const planDocRef = doc(db, planDocumentPath);
+      const unsubscribe = onSnapshot(planDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setPlanData(docSnap.data().plan);
+        } else {
+          // If it doesn't exist in Firestore, create it with initial data
+          setDoc(planDocRef, { plan: initialCompliancePlanData });
+          setPlanData(initialCompliancePlanData);
+        }
+        setLoading(false);
+      }, (error) => {
+        console.error("Error fetching plan data: ", error);
+        setLoading(false);
+      });
 
-    return () => unsubscribe();
+      return () => unsubscribe();
+    } else {
+      // Firebase is not configured, use initial data and stop loading
+      setPlanData(initialCompliancePlanData);
+      setLoading(false);
+      console.warn("Firebase is not configured. Plan data will not be saved.");
+    }
   }, [isLoaded]);
 
   const updateFirestorePlan = async (newPlanData: ComplianceCategory[]) => {
+    if (!isFirebaseConfigured || !db) return;
     try {
+      const planDocRef = doc(db, planDocumentPath);
       await setDoc(planDocRef, { plan: newPlanData });
     } catch (error) {
       console.error("Error updating plan data in Firestore: ", error);

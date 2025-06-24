@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { IdentifiedRegulation, RiskMappingItem, RiskLevel, AlertCriticality } from '@/types/compliance';
-import { db } from '@/lib/firebase';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, addDoc, query, orderBy } from "firebase/firestore";
 import { useUser } from './UserContext';
 
@@ -31,6 +31,12 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
   useEffect(() => {
     if (!isLoaded) return;
 
+    if (!isFirebaseConfigured || !db) {
+        setLoading(false);
+        console.warn("Firebase is not configured. Regulations will not be loaded.");
+        return;
+    }
+
     const q = query(collection(db, regulationsCollectionName), orderBy("publicationDate", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const regulationsData: IdentifiedRegulation[] = [];
@@ -52,6 +58,7 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
     keywords: string[],
     analysis: Record<string, string[]>
   ) => {
+    if (!isFirebaseConfigured || !db) return;
     const newRegulation: Omit<IdentifiedRegulation, 'id'> = {
       publicationDate: new Date().toISOString(),
       source: 'Veille IA',
@@ -70,11 +77,13 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
   };
   
   const updateRegulation = async (regulationId: string, updateData: Partial<Omit<IdentifiedRegulation, 'id'>>) => {
+    if (!isFirebaseConfigured || !db) return;
     const docRef = doc(db, regulationsCollectionName, regulationId);
     await updateDoc(docRef, updateData);
   };
   
   const createAlertFromRisk = async (risk: RiskMappingItem) => {
+    if (!isFirebaseConfigured || !db) return;
     const mapRiskLevelToCriticality = (riskLevel: RiskLevel): AlertCriticality => {
       switch (riskLevel) {
         case 'Critique':

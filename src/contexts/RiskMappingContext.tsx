@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { RiskMappingItem } from '@/types/compliance';
-import { db } from '@/lib/firebase';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 import { useUser } from './UserContext';
 
@@ -27,6 +27,12 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!isLoaded) return;
     
+    if (!isFirebaseConfigured || !db) {
+        setLoading(false);
+        console.warn("Firebase is not configured. Risk mapping data will not be loaded.");
+        return;
+    }
+
     const q = query(collection(db, risksCollectionName), orderBy("lastUpdated", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const risksData: RiskMappingItem[] = [];
@@ -44,6 +50,7 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   }, [isLoaded]);
 
   const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => {
+    if (!isFirebaseConfigured || !db) return;
     const newRisk = {
       ...risk,
       lastUpdated: new Date().toISOString().split('T')[0],
@@ -52,6 +59,7 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const editRisk = async (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated'>>) => {
+    if (!isFirebaseConfigured || !db) return;
     const docRef = doc(db, risksCollectionName, riskId);
     await updateDoc(docRef, {
       ...riskUpdate,
@@ -60,6 +68,7 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const removeRisk = async (riskId: string) => {
+    if (!isFirebaseConfigured || !db) return;
     await deleteDoc(doc(db, risksCollectionName, riskId));
   };
 

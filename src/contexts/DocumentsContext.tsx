@@ -2,7 +2,7 @@
 'use client';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { Document, DocumentStatus } from '@/types/compliance';
-import { db } from '@/lib/firebase';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 import { useUser } from './UserContext'; // Assuming a user context exists for auth state
 
@@ -27,6 +27,13 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!isLoaded) return; // Wait for user to be loaded
 
+    if (!isFirebaseConfigured || !db) {
+      setLoading(false);
+      // In a real app, you might fall back to mock data or show an error
+      console.warn("Firebase is not configured. Documents will not be loaded.");
+      return;
+    }
+
     const q = query(collection(db, documentsCollectionName), orderBy("lastUpdated", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const documentsData: Document[] = [];
@@ -44,6 +51,7 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
   }, [isLoaded]);
 
   const updateDocumentStatus = async (documentId: string, newStatus: DocumentStatus) => {
+    if (!isFirebaseConfigured || !db) return;
     const docRef = doc(db, documentsCollectionName, documentId);
     await updateDoc(docRef, {
       status: newStatus,
@@ -52,6 +60,7 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addDocument = async (document: Omit<Document, 'id' | 'status' | 'lastUpdated'>) => {
+    if (!isFirebaseConfigured || !db) return;
     await addDoc(collection(db, documentsCollectionName), {
       ...document,
       status: 'En Révision',
@@ -60,6 +69,7 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const editDocument = async (documentId: string, documentUpdate: Partial<Omit<Document, 'id' | 'status' | 'lastUpdated'>>) => {
+    if (!isFirebaseConfigured || !db) return;
     const docRef = doc(db, documentsCollectionName, documentId);
     await updateDoc(docRef, {
       ...documentUpdate,
@@ -68,6 +78,7 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const removeDocument = async (documentId: string) => {
+    if (!isFirebaseConfigured || !db) return;
     await deleteDoc(doc(db, documentsCollectionName, documentId));
   };
 

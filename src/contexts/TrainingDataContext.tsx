@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { TrainingRegistryItem, UpcomingSession, SensitizationCampaign, CompletionCriterion } from '@/types/compliance';
-import { db } from '@/lib/firebase';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { useUser } from './UserContext';
 
@@ -58,6 +58,13 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!isLoaded) return;
+
+    if (!isFirebaseConfigured || !db) {
+        setLoading(false);
+        console.warn("Firebase is not configured. Training data will not be loaded.");
+        return;
+    }
+
     let loadedCount = 0;
     const totalCollections = 3;
 
@@ -72,19 +79,19 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
     const unsubRegistry = onSnapshot(qRegistry, (snapshot) => {
       setTrainingRegistryItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TrainingRegistryItem)));
       onAllLoaded();
-    });
+    }, (error) => { console.error("Error fetching training registry:", error); onAllLoaded(); });
 
     const qSessions = query(collection(db, sessionsCollectionName), orderBy("date", "desc"));
     const unsubSessions = onSnapshot(qSessions, (snapshot) => {
       setUpcomingSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UpcomingSession)));
       onAllLoaded();
-    });
+    }, (error) => { console.error("Error fetching upcoming sessions:", error); onAllLoaded(); });
 
     const qCampaigns = query(collection(db, campaignsCollectionName), orderBy("launchDate", "desc"));
     const unsubCampaigns = onSnapshot(qCampaigns, (snapshot) => {
       setSensitizationCampaigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SensitizationCampaign)));
       onAllLoaded();
-    });
+    }, (error) => { console.error("Error fetching sensitization campaigns:", error); onAllLoaded(); });
 
     return () => {
       unsubRegistry();
@@ -95,6 +102,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
 
   // Training Registry CRUD
   const addTrainingRegistryItem = async (item: Omit<TrainingRegistryItem, 'id' | 'lastUpdated' | 'progress'>) => {
+    if (!isFirebaseConfigured || !db) return;
     await addDoc(collection(db, registryCollectionName), {
       ...item,
       lastUpdated: new Date().toISOString().split('T')[0],
@@ -103,6 +111,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const editTrainingRegistryItem = async (itemId: string, itemUpdate: Partial<Omit<TrainingRegistryItem, 'id' | 'lastUpdated' | 'progress'>>) => {
+    if (!isFirebaseConfigured || !db) return;
     await updateDoc(doc(db, registryCollectionName, itemId), {
       ...itemUpdate,
       lastUpdated: new Date().toISOString().split('T')[0],
@@ -111,11 +120,13 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const removeTrainingRegistryItem = async (itemId: string) => {
+    if (!isFirebaseConfigured || !db) return;
     await deleteDoc(doc(db, registryCollectionName, itemId));
   };
 
   // Upcoming Sessions CRUD
   const addUpcomingSession = async (session: Omit<UpcomingSession, 'id' | 'progress'>) => {
+    if (!isFirebaseConfigured || !db) return;
     await addDoc(collection(db, sessionsCollectionName), {
       ...session,
       progress: calculateSessionProgress(session)
@@ -123,16 +134,19 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const editUpcomingSession = async (sessionId: string, sessionUpdate: Partial<Omit<UpcomingSession, 'id' | 'progress'>>) => {
+    if (!isFirebaseConfigured || !db) return;
     const updatedFields = { ...sessionUpdate, progress: calculateSessionProgress(sessionUpdate) };
     await updateDoc(doc(db, sessionsCollectionName, sessionId), updatedFields);
   };
 
   const removeUpcomingSession = async (sessionId: string) => {
+    if (!isFirebaseConfigured || !db) return;
     await deleteDoc(doc(db, sessionsCollectionName, sessionId));
   };
 
   // Sensitization Campaigns CRUD
   const addSensitizationCampaign = async (campaign: Omit<SensitizationCampaign, 'id' | 'progress'>) => {
+    if (!isFirebaseConfigured || !db) return;
     await addDoc(collection(db, campaignsCollectionName), {
       ...campaign,
       progress: calculateProgressFromCriteria(campaign.completionCriteria),
@@ -140,6 +154,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const editSensitizationCampaign = async (campaignId: string, campaignUpdate: Partial<Omit<SensitizationCampaign, 'id' | 'progress'>>) => {
+    if (!isFirebaseConfigured || !db) return;
     await updateDoc(doc(db, campaignsCollectionName, campaignId), {
       ...campaignUpdate,
       progress: calculateProgressFromCriteria(campaignUpdate.completionCriteria),
@@ -147,6 +162,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const removeSensitizationCampaign = async (campaignId: string) => {
+    if (!isFirebaseConfigured || !db) return;
     await deleteDoc(doc(db, campaignsCollectionName, campaignId));
   };
 
