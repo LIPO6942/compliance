@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Map, PlusCircle, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -27,6 +27,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import type { RiskMappingItem, RiskLikelihood, RiskImpact, RiskLevel } from '@/types/compliance';
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
+import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 
 const riskSchema = z.object({
   department: z.string().min(1, "La direction est requise."),
@@ -65,6 +66,7 @@ const impactOptions: RiskImpact[] = ["Faible", "Moyen", "Élevé"];
 
 export default function RiskMappingPage() {
   const { risks, addRisk, editRisk, removeRisk } = useRiskMapping();
+  const { createAlertFromRisk } = useIdentifiedRegulations();
   const { toast } = useToast();
   
   const [isClient, setIsClient] = React.useState(false);
@@ -103,6 +105,14 @@ export default function RiskMappingPage() {
     toast({ title: "Risque supprimé", description: "Le risque a été supprimé de la cartographie." });
   };
   
+  const handleCreateAlert = (risk: RiskMappingItem) => {
+    createAlertFromRisk(risk);
+    toast({
+      title: "Alerte créée",
+      description: "Une nouvelle alerte a été créée avec succès dans le Centre d'Alertes.",
+    });
+  };
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -167,6 +177,9 @@ export default function RiskMappingPage() {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => openDialog('edit', risk)}>
                                   <Edit className="mr-2 h-4 w-4" /> Modifier
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleCreateAlert(risk)}>
+                                  <Bell className="mr-2 h-4 w-4" /> Créer une alerte
                                 </DropdownMenuItem>
                                 <AlertDialogTrigger asChild>
                                   <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e) => e.preventDefault()}>

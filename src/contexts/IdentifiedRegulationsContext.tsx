@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { IdentifiedRegulation, AlertStatus, AlertCriticality, AlertType } from '@/types/compliance';
+import type { IdentifiedRegulation, AlertStatus, AlertCriticality, AlertType, RiskMappingItem, RiskLevel } from '@/types/compliance';
 import type { AnalyzeRegulationResult } from '@/app/(app)/regulatory-watch/actions';
 
 interface IdentifiedRegulationsContextType {
@@ -13,6 +13,7 @@ interface IdentifiedRegulationsContextType {
     analysis: AnalyzeRegulationResult
   ) => void;
   updateRegulation: (regulationId: string, updateData: Partial<Omit<IdentifiedRegulation, 'id'>>) => void;
+  createAlertFromRisk: (risk: RiskMappingItem) => void;
 }
 
 const IdentifiedRegulationsContext = createContext<IdentifiedRegulationsContextType | undefined>(undefined);
@@ -74,10 +75,47 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
       )
     );
   };
+  
+  const createAlertFromRisk = (risk: RiskMappingItem) => {
+    const mapRiskLevelToCriticality = (riskLevel: RiskLevel): AlertCriticality => {
+      switch (riskLevel) {
+        case 'Critique':
+        case 'Important':
+          return 'Haute';
+        case 'Modéré':
+          return 'Moyenne';
+        case 'Faible':
+          return 'Basse';
+        default:
+          return 'Moyenne';
+      }
+    };
+
+    const newAlert: IdentifiedRegulation = {
+      id: `risk-${Date.now().toString()}`,
+      publicationDate: new Date().toISOString(),
+      source: 'Cartographie des Risques',
+      type: 'Risque Interne',
+      summary: `Risque: ${risk.riskDescription.substring(0, 100)}${risk.riskDescription.length > 100 ? '...' : ''}`,
+      fullText: `Direction: ${risk.department}\nSujet: ${risk.monitoringSubject}\nDescription: ${risk.riskDescription}\nAction attendue: ${risk.expectedAction}`,
+      status: 'Nouveau',
+      criticality: mapRiskLevelToCriticality(risk.riskLevel),
+      affectedDepartments: [risk.department],
+      requiredActions: risk.expectedAction,
+      analysisNotes: `Alerte générée à partir de la cartographie des risques (ID: ${risk.id}).\nPropriétaire du risque: ${risk.owner}`,
+      aiInclusionDecision: {
+        include: true,
+        reason: 'Création manuelle depuis la cartographie des risques.',
+      },
+      aiKeywordsUsed: 'N/A',
+    };
+
+    setIdentifiedRegulations(prev => [newAlert, ...prev]);
+  };
 
 
   return (
-    <IdentifiedRegulationsContext.Provider value={{ identifiedRegulations, addIdentifiedRegulation, updateRegulation }}>
+    <IdentifiedRegulationsContext.Provider value={{ identifiedRegulations, addIdentifiedRegulation, updateRegulation, createAlertFromRisk }}>
       {children}
     </IdentifiedRegulationsContext.Provider>
   );

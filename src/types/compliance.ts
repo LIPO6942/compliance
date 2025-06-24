@@ -43,7 +43,7 @@ export interface Document {
 // Regulatory Alert Types (Previously IdentifiedRegulation)
 export type AlertStatus = "Nouveau" | "En cours d'analyse" | "Traité" | "Archivé" | "Sans impact";
 export type AlertCriticality = "Haute" | "Moyenne" | "Basse";
-export type AlertType = "Nouvelle loi" | "Modification réglementaire" | "Alerte urgente" | "Autre";
+export type AlertType = "Nouvelle loi" | "Modification réglementaire" | "Alerte urgente" | "Risque Interne" | "Autre";
 
 export interface IdentifiedRegulation {
   id: string;
