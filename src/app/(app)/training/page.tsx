@@ -151,8 +151,8 @@ export default function TrainingPage() {
     }
   });
 
-  const departmentOptions = ["Tous", "Finance", "Opérations", "IT", "Marketing", "Vente", "Conformité"];
-  const targetOptions = ["Tous les employés", "Commerciaux", "Middle Office", "Managers", "Nouveaux Arrivants"];
+  const departmentOptions = ["Juridiques", "Finances", "Comptabilité", "Sinistres matériels", "Sinistre corporel", "Equipements", "RH", "DSI", "Audit", "Organisation", "Qualité Vie", "Commercial", "Recouvrement", "Inspection"];
+  const targetOptions = ["Tous les employés", "Nouveaux recrutés", "Réseau de distribution", "Cadres et managers"];
 
 
   const kpiValues = React.useMemo(() => {
