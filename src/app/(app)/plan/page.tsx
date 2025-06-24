@@ -22,7 +22,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 
 const iconMap: Record<string, LucideIcons.LucideIcon> = {
@@ -356,10 +356,17 @@ export default function PlanPage() {
                                   {task.description && <span className="text-xs text-muted-foreground italic"> - {task.description}</span>}
                                 </div>
                                 {task.deadline && (
-                                  <div className={`text-xs mt-0.5 flex items-center ${isClient && isTaskOverdue(task) ? 'text-destructive' : 'text-muted-foreground'}`}>
-                                    <Clock className="h-3 w-3 mr-1" />
-                                    <span>Échéance: {format(new Date(task.deadline), 'dd/MM/yyyy', { locale: fr })}</span>
-                                  </div>
+                                  isClient ? (
+                                    <div className={`text-xs mt-0.5 flex items-center ${isTaskOverdue(task) ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      <span>Échéance: {format(parseISO(task.deadline), 'dd/MM/yyyy', { locale: fr })}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs mt-0.5 flex items-center text-muted-foreground">
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      <span>Échéance: ...</span>
+                                    </div>
+                                  )
                                 )}
                               </label>
                                <div className="absolute right-0 top-0 opacity-0 group-hover/task:opacity-100 transition-opacity">
