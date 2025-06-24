@@ -8,6 +8,7 @@ export interface ComplianceTask {
   name: string;
   description?: string;
   completed: boolean;
+  deadline?: string; // ISO date string
 }
 
 export interface ComplianceSubCategory {

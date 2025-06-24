@@ -16,12 +16,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from "@/types/compliance";
 import { usePlanData } from "@/contexts/PlanDataContext";
-import { ListTodo, PlusCircle, Edit2, Trash2, MoreVertical, ChevronDown, CheckSquare } from "lucide-react";
+import { ListTodo, PlusCircle, Edit2, Trash2, MoreVertical, ChevronDown, CheckSquare, Clock } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 
 const iconMap: Record<string, LucideIcons.LucideIcon> = {
   Gavel: LucideIcons.Gavel, ShieldAlert: LucideIcons.ShieldAlert, SearchCheck: LucideIcons.SearchCheck, ClipboardCheck: LucideIcons.ClipboardCheck,
@@ -38,7 +40,8 @@ const iconMap: Record<string, LucideIcons.LucideIcon> = {
   Table: LucideIcons.Table, Tag: LucideIcons.Tag, Target: LucideIcons.Target, TerminalSquare: LucideIcons.TerminalSquare, ThumbsUp: LucideIcons.ThumbsUp,
   Trash: LucideIcons.Trash, UserCog: LucideIcons.UserCog, Video: LucideIcons.Video, WalletCards: LucideIcons.WalletCards, Zap: LucideIcons.Zap,
   Eye: LucideIcons.Eye, FileSearch: LucideIcons.FileSearch, PackageCheck: LucideIcons.PackageCheck, Megaphone: LucideIcons.Megaphone, MailWarning: LucideIcons.MailWarning,
-  Siren: LucideIcons.Siren, Projector: LucideIcons.Projector, Wrench: LucideIcons.Wrench, MoreVertical: LucideIcons.MoreVertical, ChevronDown: LucideIcons.ChevronDown
+  Siren: LucideIcons.Siren, Projector: LucideIcons.Projector, Wrench: LucideIcons.Wrench, MoreVertical: LucideIcons.MoreVertical, ChevronDown: LucideIcons.ChevronDown,
+  Clock: LucideIcons.Clock,
 };
 
 const availableIcons = Object.keys(iconMap);
@@ -65,8 +68,14 @@ type SubCategoryFormValues = z.infer<typeof subCategorySchema>;
 const taskSchema = z.object({
   name: z.string().min(1, "Le nom de la tâche est requis."),
   description: z.string().optional(),
+  deadline: z.string().optional(),
 });
 type TaskFormValues = z.infer<typeof taskSchema>;
+
+const isTaskOverdue = (task: ComplianceTask) => {
+  return task.deadline && !task.completed && new Date(task.deadline) < new Date();
+};
+
 
 export default function PlanPage() {
   const { 
@@ -107,11 +116,15 @@ export default function PlanPage() {
     if (mode === "edit") {
       if (type === "category") categoryForm.reset(data);
       else if (type === "subCategory") subCategoryForm.reset(data);
-      else if (type === "task") taskForm.reset({name: data.name, description: data.description});
+      else if (type === "task") taskForm.reset({
+        name: data.name,
+        description: data.description,
+        deadline: data.deadline ? new Date(data.deadline).toISOString().split('T')[0] : ""
+      });
     } else {
       if (type === "category") categoryForm.reset({ name: "", icon: availableIcons[0] });
       else if (type === "subCategory") subCategoryForm.reset({ name: "", icon: availableIcons[0] });
-      else if (type === "task") taskForm.reset({ name: "", description: "" });
+      else if (type === "task") taskForm.reset({ name: "", description: "", deadline: "" });
     }
   };
   const closeDialog = () => setDialogState({ type: null, mode: null });
@@ -154,14 +167,16 @@ export default function PlanPage() {
 
   const handleAddTask = (values: TaskFormValues) => {
     if(dialogState.grandParentId && dialogState.parentId) {
-      addTaskContext(dialogState.grandParentId, dialogState.parentId, values);
+      const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined };
+      addTaskContext(dialogState.grandParentId, dialogState.parentId, taskData);
       toast({ title: "Tâche ajoutée", description: `La tâche "${values.name}" a été ajoutée.` });
     }
     closeDialog();
   };
   const handleEditTask = (values: TaskFormValues) => {
      if(dialogState.grandParentId && dialogState.parentId && dialogState.data?.id) {
-      editTaskContext(dialogState.grandParentId, dialogState.parentId, dialogState.data.id, values);
+      const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined };
+      editTaskContext(dialogState.grandParentId, dialogState.parentId, dialogState.data.id, taskData);
       toast({ title: "Tâche modifiée", description: `La tâche "${values.name}" a été modifiée.` });
     }
     closeDialog();
@@ -318,18 +333,29 @@ export default function PlanPage() {
                         </div>
                       </CardHeader>
                       <CardContent className="px-4 pb-4">
-                        <ul className="space-y-2 list-inside">
+                        <ul className="space-y-3 list-inside">
                           {subCategory.tasks.map((task: ComplianceTask) => (
                             <li key={task.id} className="flex items-start text-sm text-muted-foreground group/task relative pr-10">
                                <Checkbox
                                 id={`task-${task.id}`}
                                 checked={task.completed}
                                 onCheckedChange={() => handleToggleTaskCompletion(category.id, subCategory.id, task.id)}
-                                className="mr-2 mt-0.5 flex-shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                className="mr-2.5 mt-1 flex-shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                                 aria-labelledby={`task-label-${task.id}`}
                               />
-                              <label htmlFor={`task-${task.id}`} id={`task-label-${task.id}`} className="cursor-pointer">
-                                {task.name} {task.description && `- ${task.description}`}
+                              <label htmlFor={`task-${task.id}`} id={`task-label-${task.id}`} className="cursor-pointer flex-grow">
+                                <div>
+                                  <span className={`${task.completed ? 'line-through text-muted-foreground/70' : ''} ${isTaskOverdue(task) ? "text-destructive font-medium" : "text-foreground"}`}>
+                                    {task.name}
+                                  </span>
+                                  {task.description && <span className="text-xs text-muted-foreground italic"> - {task.description}</span>}
+                                </div>
+                                {task.deadline && (
+                                  <div className={`text-xs mt-0.5 flex items-center ${isTaskOverdue(task) ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    <span>Échéance: {format(new Date(task.deadline), 'dd/MM/yyyy', { locale: fr })}</span>
+                                  </div>
+                                )}
                               </label>
                                <div className="absolute right-0 top-0 opacity-0 group-hover/task:opacity-100 transition-opacity">
                                  <AlertDialog>
@@ -372,7 +398,7 @@ export default function PlanPage() {
                             </li>
                           ))}
                         </ul>
-                        <Button variant="outline" size="sm" className="mt-3" onClick={() => openDialog("task", "add", undefined, subCategory.id, category.id)}>
+                        <Button variant="outline" size="sm" className="mt-4" onClick={() => openDialog("task", "add", undefined, subCategory.id, category.id)}>
                           <PlusCircle className="mr-2 h-4 w-4" /> Ajouter une tâche
                         </Button>
                       </CardContent>
@@ -479,6 +505,13 @@ export default function PlanPage() {
                   <FormItem>
                     <FormLabel>Description (Optionnel)</FormLabel>
                     <FormControl><Textarea {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={taskForm.control} name="deadline" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Échéance (Optionnel)</FormLabel>
+                    <FormControl><Input type="date" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />

@@ -64,6 +64,9 @@ export default function DashboardPage() {
   React.useEffect(() => {
     if (planData && documents && identifiedRegulations && typeof window !== 'undefined') {
       const allTasks = planData.flatMap(category => category.subCategories.flatMap(subCategory => subCategory.tasks));
+      const now = new Date();
+      
+      setOverdueTasksCount(allTasks.filter(task => !task.completed && task.deadline && new Date(task.deadline) < now).length);
       setActiveTasksCount(allTasks.filter(task => !task.completed).length);
 
       const validatedDocuments = documents.filter(doc => doc.status === "Validé").length;
@@ -94,13 +97,15 @@ export default function DashboardPage() {
       const newTaskProgressData = planData.map(category => {
         const categoryTasks = category.subCategories.flatMap(sub => sub.tasks);
         const completed = categoryTasks.filter(task => task.completed).length;
-        const pending = categoryTasks.filter(task => !task.completed).length;
+        const overdue = categoryTasks.filter(task => !task.completed && task.deadline && new Date(task.deadline) < now).length;
+        const pending = categoryTasks.filter(task => !task.completed).length - overdue;
+        
         return {
           id: category.id,
           name: category.name.length > 15 ? category.name.substring(0, 12) + "..." : category.name,
           completed,
           pending,
-          overdue: 0,
+          overdue,
         };
       });
       setTaskProgressData(newTaskProgressData);
@@ -147,7 +152,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="text-3xl font-bold font-headline">{activeTasksCount}</div>
               <p className="text-xs text-muted-foreground pt-1">
-                {overdueTasksCount > 0 ? `Dont ${overdueTasksCount} en retard` : "Toutes les tâches suivies"}
+                {overdueTasksCount > 0 ? <span className="text-destructive font-medium">Dont {overdueTasksCount} en retard</span> : "Aucune tâche en retard"}
               </p>
             </CardContent>
           </Card>
@@ -206,7 +211,7 @@ export default function DashboardPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline">Progression des Tâches par Domaine</CardTitle>
-            <CardDescription>Suivi des tâches complétées et en attente par catégorie du plan d'organisation.</CardDescription>
+            <CardDescription>Suivi des tâches complétées, en attente et en retard par catégorie.</CardDescription>
           </CardHeader>
           <CardContent className="h-[340px]">
              <ResponsiveContainer width="100%" height="100%" className="cursor-pointer">
@@ -218,7 +223,7 @@ export default function DashboardPage() {
                 <Legend wrapperStyle={{fontSize: 12}}/>
                 <Bar dataKey="completed" stackId="a" fill="hsl(var(--chart-1))" name="Complétées" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="pending" stackId="a" fill="hsl(var(--chart-4))" name="En Attente" />
-                <Bar dataKey="overdue" stackId="a" fill="hsl(var(--destructive))" name="En Retard" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="overdue" stackId="a" fill="hsl(var(--destructive))" name="En Retard" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

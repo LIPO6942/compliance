@@ -13,9 +13,9 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         name: 'Définition du cadre de gouvernance',
         icon: 'Sheet',
         tasks: [
-          { id: 'gouvernance-cadre-1', name: 'Élaborer et maintenir la charte de la conformité.', completed: false },
-          { id: 'gouvernance-cadre-2', name: 'Définir les politiques et procédures de conformité.', completed: false },
-          { id: 'gouvernance-cadre-3', name: 'Mettre en place une cartographie des risques de non-conformité.', completed: false },
+          { id: 'gouvernance-cadre-1', name: 'Élaborer et maintenir la charte de la conformité.', completed: false, deadline: '2024-09-30T23:59:59.999Z' },
+          { id: 'gouvernance-cadre-2', name: 'Définir les politiques et procédures de conformité.', completed: true, deadline: '2024-07-15T23:59:59.999Z' },
+          { id: 'gouvernance-cadre-3', name: 'Mettre en place une cartographie des risques de non-conformité.', completed: false, deadline: '2024-06-01T23:59:59.999Z' },
         ],
       },
       {
@@ -23,9 +23,9 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         name: 'Organisation de la fonction conformité',
         icon: 'Users',
         tasks: [
-          { id: 'gouvernance-organisation-1', name: 'Définir les rôles et responsabilités au sein du département.', completed: false },
+          { id: 'gouvernance-organisation-1', name: 'Définir les rôles et responsabilités au sein du département.', completed: true },
           { id: 'gouvernance-organisation-2', name: 'Assurer une communication efficace avec les instances dirigeantes.', completed: false },
-          { id: 'gouvernance-organisation-3', name: 'Gérer le budget et les ressources du département conformité.', completed: false },
+          { id: 'gouvernance-organisation-3', name: 'Gérer le budget et les ressources du département conformité.', completed: false, deadline: '2024-12-31T23:59:59.999Z' },
         ],
       },
     ],
@@ -40,9 +40,9 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         name: 'Dispositif de vigilance',
         icon: 'Eye',
         tasks: [
-          { id: 'lab-ft-vigilance-1', name: 'Mettre en œuvre les obligations de connaissance client (KYC/KYB).', completed: false },
+          { id: 'lab-ft-vigilance-1', name: 'Mettre en œuvre les obligations de connaissance client (KYC/KYB).', completed: false, deadline: '2024-05-20T23:59:59.999Z' },
           { id: 'lab-ft-vigilance-2', name: 'Effectuer la surveillance des opérations et transactions suspectes.', completed: false },
-          { id: 'lab-ft-vigilance-3', name: 'Gérer les déclarations de soupçon à TRACFIN.', completed: false },
+          { id: 'lab-ft-vigilance-3', name: 'Gérer les déclarations de soupçon à TRACFIN.', completed: true, deadline: '2024-07-01T23:59:59.999Z' },
         ],
       },
       {
@@ -66,7 +66,7 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         name: 'Identification et analyse des évolutions réglementaires',
         icon: 'FileSearch',
         tasks: [
-          { id: 'veille-identification-1', name: 'Suivre les publications des régulateurs (ACPR, AMF, EBA, etc.).', completed: false },
+          { id: 'veille-identification-1', name: 'Suivre les publications des régulateurs (ACPR, AMF, EBA, etc.).', completed: true },
           { id: 'veille-identification-2', name: 'Analyser l\'impact des nouvelles réglementations sur l\'activité.', completed: false },
           { id: 'veille-identification-3', name: 'Diffuser les informations pertinentes en interne.', completed: false },
         ],
@@ -77,7 +77,7 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         icon: 'PackageCheck',
         tasks: [
           { id: 'veille-produit-1', name: 'Valider la conformité des nouveaux produits avant leur lancement.', completed: false },
-          { id: 'veille-produit-2', name: 'Revoir périodiquement la conformité des produits existants.', completed: false },
+          { id: 'veille-produit-2', name: 'Revoir périodiquement la conformité des produits existants.', completed: false, deadline: '2024-11-30T23:59:59.999Z' },
           { id: 'veille-produit-3', name: 'S\'assurer de la clarté et de la conformité de la documentation commerciale.', completed: false },
         ],
       },
@@ -103,8 +103,8 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         name: 'Reporting réglementaire et interne',
         icon: 'BarChart3',
         tasks: [
-          { id: 'controles-reporting-1', name: 'Préparer et soumettre les rapports réglementaires périodiques.', completed: false },
-          { id: 'controles-reporting-2', name: 'Produire des tableaux de bord de conformité pour la direction.', completed: false },
+          { id: 'controles-reporting-1', name: 'Préparer et soumettre les rapports réglementaires périodiques.', completed: false, deadline: '2024-10-31T23:59:59.999Z' },
+          { id: 'controles-reporting-2', name: 'Produire des tableaux de bord de conformité pour la direction.', completed: true, deadline: '2024-07-25T23:59:59.999Z' },
           { id: 'controles-reporting-3', name: 'Assurer le suivi des indicateurs clés de risque (KRI) de conformité.', completed: false },
         ],
       },
