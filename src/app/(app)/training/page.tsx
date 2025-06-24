@@ -567,12 +567,12 @@ export default function TrainingPage() {
                 </div>
                 <div className="md:w-1/2">
                     <Image
-                        src="https://placehold.co/600x300.png"
+                        src="https://images.unsplash.com/photo-1497633762265-9d179a990aa6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxsZWFybmluZ3xlbnwwfHx8fDE3NTA3NTEyMDJ8MA&ixlib=rb-4.1.0&q=80&w=1080"
                         alt="Compliance Training Illustration"
                         width={600}
                         height={300}
                         className="object-cover w-full h-full max-h-[250px] md:max-h-none"
-                        data-ai-hint="compliance training"
+                        data-ai-hint="learning"
                     />
                 </div>
             </div>
@@ -787,4 +787,3 @@ export default function TrainingPage() {
     </div>
   );
 }
-
