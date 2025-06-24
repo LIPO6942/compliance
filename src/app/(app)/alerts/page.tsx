@@ -22,7 +22,7 @@ import { BellRing, Search, MoreHorizontal, Edit, Archive, Circle, TriangleAlert,
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import type { IdentifiedRegulation, AlertStatus, AlertCriticality, AlertType } from "@/types/compliance";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
@@ -38,7 +38,7 @@ const alertSchema = z.object({
   requiredActions: z.string().optional(),
   analysisNotes: z.string().optional(),
   source: z.string().min(1, "La source est requise."),
-  type: z.enum(["Nouvelle loi", "Modification réglementaire", "Alerte urgente", "Autre"]),
+  type: z.enum(["Nouvelle loi", "Modification réglementaire", "Alerte urgente", "Risque Interne", "Autre"]),
 });
 type AlertFormValues = z.infer<typeof alertSchema>;
 
@@ -114,8 +114,8 @@ export default function AlertsPage() {
 
   const allStatuses = Object.keys(statusConfig) as AlertStatus[];
   const allCriticalities = Object.keys(criticalityConfig) as AlertCriticality[];
-  const allTypes: AlertType[] = ["Nouvelle loi", "Modification réglementaire", "Alerte urgente", "Autre"];
-  const allSources = ["JORT", "CGA", "CTAF", "GAFI", "OFAC", "Veille IA", "Autre"];
+  const allTypes: AlertType[] = ["Nouvelle loi", "Modification réglementaire", "Alerte urgente", "Risque Interne", "Autre"];
+  const allSources = ["JORT", "CGA", "CTAF", "GAFI", "OFAC", "Veille IA", "Cartographie des Risques", "Autre"];
 
   return (
     <div className="space-y-6">
