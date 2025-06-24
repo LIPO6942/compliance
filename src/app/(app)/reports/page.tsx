@@ -4,7 +4,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { FilePieChart, Download, Settings2, CalendarDays, BarChart3, Filter, Mail, Share2, CheckCircle as CheckCircleIcon } from "lucide-react"; // Renamed to avoid conflict
+import { FilePieChart, Download, Settings2, CalendarDays, BarChart3, Filter, Mail, Share2, CheckCircle as CheckCircleIcon, ShieldAlert, Users, MessageSquareWarning } from "lucide-react"; // Renamed to avoid conflict
 import { Label } from "@/components/ui/label";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -142,17 +142,29 @@ export default function ReportsPage() {
                 <Select>
                     <SelectTrigger><SelectValue placeholder="Filtrer par département..." /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="finance">Finance</SelectItem>
-                        <SelectItem value="operations">Opérations</SelectItem>
-                        <SelectItem value="it">IT</SelectItem>
+                        <SelectItem value="juridiques">Juridiques</SelectItem>
+                        <SelectItem value="finances">Finances</SelectItem>
+                        <SelectItem value="comptabilite">Comptabilité</SelectItem>
+                        <SelectItem value="sinistres_materiels">Sinistres matériels</SelectItem>
+                        <SelectItem value="sinistre_corporel">Sinistre corporel</SelectItem>
+                        <SelectItem value="equipements">Equipements</SelectItem>
+                        <SelectItem value="rh">RH</SelectItem>
+                        <SelectItem value="dsi">DSI</SelectItem>
+                        <SelectItem value="audit">Audit</SelectItem>
+                        <SelectItem value="organisation">Organisation</SelectItem>
+                        <SelectItem value="qualite_vie">Qualité Vie</SelectItem>
+                        <SelectItem value="commercial">Commercial</SelectItem>
+                        <SelectItem value="recouvrement">Recouvrement</SelectItem>
+                        <SelectItem value="inspection">Inspection</SelectItem>
                     </SelectContent>
                 </Select>
                 <Select>
                     <SelectTrigger><SelectValue placeholder="Filtrer par type de risque..." /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="lab">LAB-FT</SelectItem>
-                        <SelectItem value="fraude">Fraude</SelectItem>
-                        {/* <SelectItem value="cyber">Cyber-sécurité</SelectItem> */}
+                        <SelectItem value="lab_ft">LAB FT</SelectItem>
+                        <SelectItem value="protection_donnees">Risque protection de données</SelectItem>
+                        <SelectItem value="politique_conformite">Risques politique de conformité</SelectItem>
+                        <SelectItem value="non_conformite_commercial">Risque non conformité commercial</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -223,10 +235,3 @@ export default function ReportsPage() {
 // In a real scenario, you'd install or create a proper date range picker.
 // For this task, this placeholder suffices.
 // Ensure you create `src/components/ui/date-range-picker.tsx` if you need a functional one.
-
-const ShieldAlert = (props: any) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>;
-const Users = (props: any) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11h-6"/></svg>;
-const MessageSquareWarning = (props: any) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v2"/><path d="M12 13h.01"/></svg>;
-// const CheckCircle = (props: any) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>; // Removed to avoid conflict with lucide icon
-
-
