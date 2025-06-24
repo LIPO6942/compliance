@@ -55,6 +55,12 @@ export default function DocumentsPage() {
   const { toast } = useToast();
   
   const [dialogState, setDialogState] = React.useState<{ mode: "add" | "edit" | null; data?: Document }>({ mode: null });
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
+
 
   const form = useForm<DocumentFormValues>({ resolver: zodResolver(documentSchema) });
 
@@ -135,31 +141,33 @@ export default function DocumentsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Type de document" />
-              </SelectTrigger>
-              <SelectContent>
-                {documentTypes.map(type => (
-                  <SelectItem key={type} value={type}>{type === "all" ? "Tous les types" : type}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Statut" />
-              </SelectTrigger>
-              <SelectContent>
-                 {documentStatuses.map(status => (
-                  <SelectItem key={status} value={status}>{status === "all" ? "Tous les statuts" : status}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => openDialog('add')}>
-              <PlusCircle className="mr-2 h-5 w-5" /> Nouveau Document
-            </Button>
-          </div>
+          {isClient && (
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Type de document" />
+                </SelectTrigger>
+                <SelectContent>
+                  {documentTypes.map(type => (
+                    <SelectItem key={type} value={type}>{type === "all" ? "Tous les types" : type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  {documentStatuses.map(status => (
+                    <SelectItem key={status} value={status}>{status === "all" ? "Tous les statuts" : status}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => openDialog('add')}>
+                <PlusCircle className="mr-2 h-5 w-5" /> Nouveau Document
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-md border">
@@ -181,83 +189,91 @@ export default function DocumentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDocuments.length > 0 ? (
-                  filteredDocuments.map((doc) => (
-                    <TableRow key={doc.id} className="hover:bg-muted/30 transition-colors">
-                      <TableCell className="font-medium py-3">{doc.name}</TableCell>
-                      <TableCell className="py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {doc.tags?.map((tag, index) => <Badge key={index} variant="secondary" className="text-xs">{tag}</Badge>)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-3 text-muted-foreground">{doc.type}</TableCell>
-                      <TableCell className="py-3 text-center text-muted-foreground">{doc.version}</TableCell>
-                      <TableCell className="py-3">
-                        <Badge variant="outline" className={`text-xs px-2.5 py-1 ${statusColors[doc.status]}`}>
-                          {doc.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="py-3 text-muted-foreground">{doc.lastUpdated}</TableCell>
-                      <TableCell className="py-3 text-muted-foreground">{doc.owner}</TableCell>
-                      <TableCell className="py-3 text-right">
-                        <AlertDialog>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Ouvrir menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions Document</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => { /* Placeholder for download */ toast({ title: "Fonctionnalité à venir" })}}><Download className="mr-2 h-4 w-4" /> Télécharger</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openDialog('edit', doc)}><Edit className="mr-2 h-4 w-4" /> Modifier les détails</DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuLabel>Changer le statut</DropdownMenuLabel>
-                              {allPossibleStatuses.map(statusValue => (
-                                doc.status !== statusValue && (
-                                  <DropdownMenuItem
-                                    key={statusValue}
-                                    onClick={() => handleChangeDocumentStatus(doc.id, statusValue)}
-                                  >
-                                    {statusValue === "Validé" && <CheckCircle className="mr-2 h-4 w-4 text-green-500" />}
-                                    {statusValue === "En Révision" && <Edit3 className="mr-2 h-4 w-4 text-yellow-500" />}
-                                    {statusValue === "Archivé" && <Archive className="mr-2 h-4 w-4 text-blue-500" />}
-                                    {statusValue === "Obsolète" && <FileX className="mr-2 h-4 w-4 text-gray-500" />}
-                                    Marquer comme {statusValue}
+                {isClient ? (
+                  filteredDocuments.length > 0 ? (
+                    filteredDocuments.map((doc) => (
+                      <TableRow key={doc.id} className="hover:bg-muted/30 transition-colors">
+                        <TableCell className="font-medium py-3">{doc.name}</TableCell>
+                        <TableCell className="py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {doc.tags?.map((tag, index) => <Badge key={index} variant="secondary" className="text-xs">{tag}</Badge>)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3 text-muted-foreground">{doc.type}</TableCell>
+                        <TableCell className="py-3 text-center text-muted-foreground">{doc.version}</TableCell>
+                        <TableCell className="py-3">
+                          <Badge variant="outline" className={`text-xs px-2.5 py-1 ${statusColors[doc.status]}`}>
+                            {doc.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="py-3 text-muted-foreground">{doc.lastUpdated}</TableCell>
+                        <TableCell className="py-3 text-muted-foreground">{doc.owner}</TableCell>
+                        <TableCell className="py-3 text-right">
+                          <AlertDialog>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Ouvrir menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions Document</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => { /* Placeholder for download */ toast({ title: "Fonctionnalité à venir" })}}><Download className="mr-2 h-4 w-4" /> Télécharger</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openDialog('edit', doc)}><Edit className="mr-2 h-4 w-4" /> Modifier les détails</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuLabel>Changer le statut</DropdownMenuLabel>
+                                {allPossibleStatuses.map(statusValue => (
+                                  doc.status !== statusValue && (
+                                    <DropdownMenuItem
+                                      key={statusValue}
+                                      onClick={() => handleChangeDocumentStatus(doc.id, statusValue)}
+                                    >
+                                      {statusValue === "Validé" && <CheckCircle className="mr-2 h-4 w-4 text-green-500" />}
+                                      {statusValue === "En Révision" && <Edit3 className="mr-2 h-4 w-4 text-yellow-500" />}
+                                      {statusValue === "Archivé" && <Archive className="mr-2 h-4 w-4 text-blue-500" />}
+                                      {statusValue === "Obsolète" && <FileX className="mr-2 h-4 w-4 text-gray-500" />}
+                                      Marquer comme {statusValue}
+                                    </DropdownMenuItem>
+                                  )
+                                ))}
+                                <DropdownMenuSeparator />
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e) => e.preventDefault()}>
+                                    <Trash2 className="mr-2 h-4 w-4" /> Supprimer
                                   </DropdownMenuItem>
-                                )
-                              ))}
-                              <DropdownMenuSeparator />
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e) => e.preventDefault()}>
-                                  <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                           <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer ce document ?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Cette action est irréversible et supprimera "{doc.name}".
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Annuler</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleRemoveDocument(doc.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                Supprimer
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                </AlertDialogTrigger>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                             <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer ce document ?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Cette action est irréversible et supprimera "{doc.name}".
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleRemoveDocument(doc.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                  Supprimer
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                        Aucun document ne correspond à vos critères de recherche.
                       </TableCell>
                     </TableRow>
-                  ))
+                  )
                 ) : (
                   <TableRow>
                     <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                      Aucun document ne correspond à vos critères de recherche.
+                      Chargement des documents...
                     </TableCell>
                   </TableRow>
                 )}
@@ -265,7 +281,7 @@ export default function DocumentsPage() {
             </Table>
           </div>
         </CardContent>
-         {filteredDocuments.length > 0 && (
+         {isClient && filteredDocuments.length > 0 && (
           <CardFooter className="justify-between text-sm text-muted-foreground pt-4">
              <div>
               {filteredDocuments.length} document{filteredDocuments.length > 1 ? 's' : ''} trouvé{filteredDocuments.length > 1 ? 's' : ''}.
@@ -322,4 +338,3 @@ export default function DocumentsPage() {
     </div>
   );
 }
-
