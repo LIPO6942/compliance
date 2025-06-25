@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import type { Document, DocumentStatus } from '@/types/compliance';
 import { initialMockDocuments } from '@/data/mockDocuments';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
 import { useUser } from './UserContext'; // Assuming a user context exists for auth state
 
 const documentsCollectionName = "documents";
@@ -26,7 +26,7 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
   const { user, isLoaded } = useUser(); // Using a mock user for now
 
   useEffect(() => {
-    if (!isLoaded) return; // Wait for user to be loaded
+    if (!isLoaded) return; 
 
     if (!isFirebaseConfigured || !db) {
       setDocuments(initialMockDocuments);
@@ -37,10 +37,19 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
 
     const q = query(collection(db, documentsCollectionName), orderBy("lastUpdated", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const documentsData: Document[] = [];
-      querySnapshot.forEach((doc) => {
-        documentsData.push({ id: doc.id, ...doc.data() } as Document);
-      });
+      if (querySnapshot.empty && loading) {
+        console.log(`[${documentsCollectionName}] collection is empty. Seeding with mock data.`);
+        const batch = writeBatch(db!);
+        initialMockDocuments.forEach((mockDoc) => {
+          const { id, ...data } = mockDoc;
+          const docRef = doc(collection(db!, documentsCollectionName)); // Firestore generates ID
+          batch.set(docRef, data);
+        });
+        batch.commit().catch(e => console.error(`Failed to seed ${documentsCollectionName}:`, e));
+        return;
+      }
+
+      const documentsData: Document[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Document));
       setDocuments(documentsData);
       setLoading(false);
     }, (error) => {
@@ -50,7 +59,7 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [isLoaded]);
+  }, [isLoaded, loading]);
 
   const updateDocumentStatus = async (documentId: string, newStatus: DocumentStatus) => {
     if (!isFirebaseConfigured || !db) return;

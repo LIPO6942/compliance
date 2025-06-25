@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import type { RiskMappingItem } from '@/types/compliance';
 import { initialMockRiskMapping } from '@/data/mockRiskMapping';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const risksCollectionName = "riskMapping";
@@ -37,10 +37,19 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
 
     const q = query(collection(db, risksCollectionName), orderBy("lastUpdated", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const risksData: RiskMappingItem[] = [];
-      querySnapshot.forEach((doc) => {
-        risksData.push({ id: doc.id, ...doc.data() } as RiskMappingItem);
-      });
+      if (querySnapshot.empty && loading) {
+        console.log(`[${risksCollectionName}] collection is empty. Seeding with mock data.`);
+        const batch = writeBatch(db!);
+        initialMockRiskMapping.forEach((mockRisk) => {
+          const { id, ...data } = mockRisk;
+          const docRef = doc(collection(db!, risksCollectionName));
+          batch.set(docRef, data);
+        });
+        batch.commit().catch(e => console.error(`Failed to seed ${risksCollectionName}:`, e));
+        return;
+      }
+
+      const risksData: RiskMappingItem[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RiskMappingItem));
       setRisks(risksData);
       setLoading(false);
     }, (error) => {
@@ -50,7 +59,7 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [isLoaded]);
+  }, [isLoaded, loading]);
 
   const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => {
     if (!isFirebaseConfigured || !db) return;

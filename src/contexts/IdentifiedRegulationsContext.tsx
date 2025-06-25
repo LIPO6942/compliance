@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import type { IdentifiedRegulation, RiskMappingItem, RiskLevel, AlertCriticality } from '@/types/compliance';
 import { initialMockRegulations } from '@/data/mockRegulations';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, onSnapshot, doc, updateDoc, addDoc, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, addDoc, query, orderBy, writeBatch } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const regulationsCollectionName = "identifiedRegulations";
@@ -41,10 +41,19 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
 
     const q = query(collection(db, regulationsCollectionName), orderBy("publicationDate", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const regulationsData: IdentifiedRegulation[] = [];
-      querySnapshot.forEach((doc) => {
-        regulationsData.push({ id: doc.id, ...doc.data() } as IdentifiedRegulation);
-      });
+      if (querySnapshot.empty && loading) {
+        console.log(`[${regulationsCollectionName}] collection is empty. Seeding with mock data.`);
+        const batch = writeBatch(db!);
+        initialMockRegulations.forEach((mockReg) => {
+          const { id, ...data } = mockReg;
+          const docRef = doc(collection(db!, regulationsCollectionName));
+          batch.set(docRef, data);
+        });
+        batch.commit().catch(e => console.error(`Failed to seed ${regulationsCollectionName}:`, e));
+        return;
+      }
+      
+      const regulationsData: IdentifiedRegulation[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as IdentifiedRegulation));
       setIdentifiedRegulations(regulationsData);
       setLoading(false);
     }, (error) => {
@@ -54,7 +63,7 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
     });
 
     return () => unsubscribe();
-  }, [isLoaded]);
+  }, [isLoaded, loading]);
 
   const addIdentifiedRegulation = async (
     originalText: string,

@@ -9,7 +9,7 @@ import {
   initialMockSensitizationCampaigns 
 } from '@/data/mockTrainingData';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, writeBatch } from 'firebase/firestore';
 import { useUser } from './UserContext';
 
 // Helper function to calculate progress for UpcomingSession
@@ -64,62 +64,91 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!isLoaded) return;
 
-    const loadMockData = () => {
+    if (!isFirebaseConfigured || !db) {
         setTrainingRegistryItems(initialMockTrainingRegistry);
         setUpcomingSessions(initialMockUpcomingSessions);
         setSensitizationCampaigns(initialMockSensitizationCampaigns);
         setLoading(false);
-        console.warn("Firebase is not configured or failed to load. Falling back to mock training data.");
-    };
-
-    if (!isFirebaseConfigured || !db) {
-        loadMockData();
+        console.warn("Firebase not configured. Falling back to mock training data.");
         return;
     }
-
-    let loadedCount = 0;
-    const totalCollections = 3;
-    let hasError = false;
-
-    const onAllLoaded = () => {
-        loadedCount++;
-        if (loadedCount === totalCollections && !hasError) {
-            setLoading(false);
+    
+    const seedIfEmpty = (collectionName: string, mockData: any[], snapshot: any) => {
+        if (snapshot.empty && loading) {
+            console.log(`[${collectionName}] collection is empty. Seeding with mock data.`);
+            const batch = writeBatch(db!);
+            mockData.forEach((item) => {
+                const { id, ...data } = item;
+                const docRef = doc(collection(db!, collectionName));
+                batch.set(docRef, data);
+            });
+            batch.commit().catch(e => console.error(`Failed to seed ${collectionName}:`, e));
+            return true;
         }
-    }
-
-    const onError = (error: Error) => {
-        if (!hasError) {
-            hasError = true;
-            console.error(error);
-            loadMockData();
-        }
+        return false;
+    };
+    
+    const loadedStatus = { registry: false, sessions: false, campaigns: false };
+    const checkAllLoaded = () => {
+      if (Object.values(loadedStatus).every(Boolean)) {
+        setLoading(false);
+      }
     };
 
-    const qRegistry = query(collection(db, registryCollectionName), orderBy("lastUpdated", "desc"));
-    const unsubRegistry = onSnapshot(qRegistry, (snapshot) => {
-      setTrainingRegistryItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TrainingRegistryItem)));
-      onAllLoaded();
-    }, (error) => onError(error));
+    const unsubRegistry = onSnapshot(query(collection(db, registryCollectionName), orderBy("lastUpdated", "desc")), (snapshot) => {
+        if (seedIfEmpty(registryCollectionName, initialMockTrainingRegistry, snapshot)) return;
+        setTrainingRegistryItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TrainingRegistryItem)));
+        if (!loadedStatus.registry) {
+            loadedStatus.registry = true;
+            checkAllLoaded();
+        }
+    }, (error) => {
+        console.error(`Error with ${registryCollectionName}:`, error);
+        setTrainingRegistryItems(initialMockTrainingRegistry);
+        if (!loadedStatus.registry) {
+            loadedStatus.registry = true;
+            checkAllLoaded();
+        }
+    });
 
-    const qSessions = query(collection(db, sessionsCollectionName), orderBy("date", "desc"));
-    const unsubSessions = onSnapshot(qSessions, (snapshot) => {
-      setUpcomingSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UpcomingSession)));
-      onAllLoaded();
-    }, (error) => onError(error));
+    const unsubSessions = onSnapshot(query(collection(db, sessionsCollectionName), orderBy("date", "desc")), (snapshot) => {
+        if (seedIfEmpty(sessionsCollectionName, initialMockUpcomingSessions, snapshot)) return;
+        setUpcomingSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UpcomingSession)));
+        if (!loadedStatus.sessions) {
+            loadedStatus.sessions = true;
+            checkAllLoaded();
+        }
+    }, (error) => {
+        console.error(`Error with ${sessionsCollectionName}:`, error);
+        setUpcomingSessions(initialMockUpcomingSessions);
+        if (!loadedStatus.sessions) {
+            loadedStatus.sessions = true;
+            checkAllLoaded();
+        }
+    });
 
-    const qCampaigns = query(collection(db, campaignsCollectionName), orderBy("launchDate", "desc"));
-    const unsubCampaigns = onSnapshot(qCampaigns, (snapshot) => {
-      setSensitizationCampaigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SensitizationCampaign)));
-      onAllLoaded();
-    }, (error) => onError(error));
+    const unsubCampaigns = onSnapshot(query(collection(db, campaignsCollectionName), orderBy("launchDate", "desc")), (snapshot) => {
+        if (seedIfEmpty(campaignsCollectionName, initialMockSensitizationCampaigns, snapshot)) return;
+        setSensitizationCampaigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SensitizationCampaign)));
+        if (!loadedStatus.campaigns) {
+            loadedStatus.campaigns = true;
+            checkAllLoaded();
+        }
+    }, (error) => {
+        console.error(`Error with ${campaignsCollectionName}:`, error);
+        setSensitizationCampaigns(initialMockSensitizationCampaigns);
+        if (!loadedStatus.campaigns) {
+            loadedStatus.campaigns = true;
+            checkAllLoaded();
+        }
+    });
 
     return () => {
       unsubRegistry();
       unsubSessions();
       unsubCampaigns();
     };
-  }, [isLoaded]);
+  }, [isLoaded, loading]);
 
   // Training Registry CRUD
   const addTrainingRegistryItem = async (item: Omit<TrainingRegistryItem, 'id' | 'lastUpdated' | 'progress'>) => {
