@@ -6,21 +6,27 @@
 .pnp.js
 .yarn/install-state.gz
 
-# Local Environment Variables
-# -> Store sensitive keys here (like API keys). This file is not committed to Git.
-.env.local
+# Testing
+/coverage
 
-# Build-related
+# Next.js
 /.next/
 /out/
+
+# Production
 /build
 
-# Vercel
-.vercel
-
-# Mac
+# Miscellaneous
 .DS_Store
+*.pem
 
-# IDEs
-/.vscode/
-*.swp
+# Environment variables
+.env*.local
+.env
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Firebase
+apphosting.yaml
