@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Document, DocumentStatus, DocumentType } from '@/types/compliance';
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { Logo } from "@/components/icons/Logo";
+import { Suspense } from 'react';
 
 const documentSchema = z.object({
   name: z.string().min(1, "Le nom du document est requis."),
@@ -49,7 +50,7 @@ const statusColors: Record<DocumentStatus, string> = {
 const allPossibleStatuses: DocumentStatus[] = ["Validé", "En Révision", "Archivé", "Obsolète"];
 const allPossibleTypes: DocumentType[] = ["Politique", "Procédure", "Rapport", "Support de Formation", "Veille"];
 
-export default function DocumentsPage() {
+function DocumentsComponent() {
   const { documents, loading, updateDocumentStatus, addDocument, editDocument, removeDocument } = useDocuments();
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -365,5 +366,14 @@ export default function DocumentsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+
+export default function DocumentsPage() {
+  return (
+    <Suspense fallback={<div>Chargement...</div>}>
+      <DocumentsComponent />
+    </Suspense>
   );
 }
