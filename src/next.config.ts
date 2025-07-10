@@ -25,11 +25,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-    // Désactive l'avertissement de sécurité cross-origin en développement.
-    // Ceci est sûr dans l'environnement de développement contrôlé de Firebase Studio.
-    disableOriginAccessControl: true,
-  },
 };
 
 export default nextConfig;
