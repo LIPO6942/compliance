@@ -24,6 +24,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    // This allows all preview URLs from the development environment.
+    allowedDevOrigins: ["*.cloudworkstations.dev"],
+  },
 };
 
 export default nextConfig;
