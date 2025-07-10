@@ -38,8 +38,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <ThemeContext.Provider value={{ isDarkMode, toggleDarkMode }}>
-      {children}
-    </Theme-context.Provider>
+      {children}    </ThemeContext.Provider>
   );
 };
 
@@ -50,3 +49,4 @@ export const useTheme = () => {
   }
   return context;
 };
+
