@@ -134,67 +134,67 @@ export default function PlanPage() {
   };
   const closeDialog = () => setDialogState({ type: null, mode: null });
 
-  const handleAddCategory = (values: CategoryFormValues) => {
-    addCategoryContext(values);
+  const handleAddCategory = async (values: CategoryFormValues) => {
+    await addCategoryContext(values);
     toast({ title: "Catégorie ajoutée", description: `La catégorie "${values.name}" a été ajoutée.` });
     closeDialog();
   };
-  const handleEditCategory = (values: CategoryFormValues) => {
+  const handleEditCategory = async (values: CategoryFormValues) => {
     if(dialogState.data?.id) {
-      editCategoryContext(dialogState.data.id, values);
+      await editCategoryContext(dialogState.data.id, values);
       toast({ title: "Catégorie modifiée", description: `La catégorie "${values.name}" a été modifiée.` });
     }
     closeDialog();
   };
-  const handleRemoveCategory = (categoryId: string) => {
-    removeCategoryContext(categoryId);
+  const handleRemoveCategory = async (categoryId: string) => {
+    await removeCategoryContext(categoryId);
     toast({ title: "Catégorie supprimée", description: `La catégorie a été supprimée.` });
   };
 
-  const handleAddSubCategory = (values: SubCategoryFormValues) => {
+  const handleAddSubCategory = async (values: SubCategoryFormValues) => {
     if(dialogState.parentId) {
-      addSubCategoryContext(dialogState.parentId, values);
+      await addSubCategoryContext(dialogState.parentId, values);
       toast({ title: "Sous-catégorie ajoutée", description: `La sous-catégorie "${values.name}" a été ajoutée.` });
     }
     closeDialog();
   };
-  const handleEditSubCategory = (values: SubCategoryFormValues) => {
+  const handleEditSubCategory = async (values: SubCategoryFormValues) => {
     if(dialogState.grandParentId && dialogState.data?.id) {
-      editSubCategoryContext(dialogState.grandParentId, dialogState.data.id, values);
+      await editSubCategoryContext(dialogState.grandParentId, dialogState.data.id, values);
       toast({ title: "Sous-catégorie modifiée", description: `La sous-catégorie "${values.name}" a été modifiée.` });
     }
     closeDialog();
   };
-  const handleRemoveSubCategory = (categoryId: string, subCategoryId: string) => {
-    removeSubCategoryContext(categoryId, subCategoryId);
+  const handleRemoveSubCategory = async (categoryId: string, subCategoryId: string) => {
+    await removeSubCategoryContext(categoryId, subCategoryId);
     toast({ title: "Sous-catégorie supprimée", description: `La sous-catégorie a été supprimée.` });
   };
 
-  const handleAddTask = (values: TaskFormValues) => {
+  const handleAddTask = async (values: TaskFormValues) => {
     if(dialogState.grandParentId && dialogState.parentId) {
       const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined };
-      addTaskContext(dialogState.grandParentId, dialogState.parentId, taskData);
+      await addTaskContext(dialogState.grandParentId, dialogState.parentId, taskData);
       toast({ title: "Tâche ajoutée", description: `La tâche "${values.name}" a été ajoutée.` });
     }
     closeDialog();
   };
-  const handleEditTask = (values: TaskFormValues) => {
+  const handleEditTask = async (values: TaskFormValues) => {
      if(dialogState.grandParentId && dialogState.parentId && dialogState.data?.id) {
       const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined };
-      editTaskContext(dialogState.grandParentId, dialogState.parentId, dialogState.data.id, taskData);
+      await editTaskContext(dialogState.grandParentId, dialogState.parentId, dialogState.data.id, taskData);
       toast({ title: "Tâche modifiée", description: `La tâche "${values.name}" a été modifiée.` });
     }
     closeDialog();
   };
-  const handleRemoveTask = (categoryId: string, subCategoryId: string, taskId: string) => {
-    removeTaskContext(categoryId, subCategoryId, taskId);
+  const handleRemoveTask = async (categoryId: string, subCategoryId: string, taskId: string) => {
+    await removeTaskContext(categoryId, subCategoryId, taskId);
     toast({ title: "Tâche supprimée", description: `La tâche a été supprimée.` });
   };
 
-  const handleToggleTaskCompletion = (categoryId: string, subCategoryId: string, taskId: string) => {
+  const handleToggleTaskCompletion = async (categoryId: string, subCategoryId: string, taskId: string) => {
     const task = planData.find(c => c.id === categoryId)?.subCategories.find(sc => sc.id === subCategoryId)?.tasks.find(t => t.id === taskId);
     if (task) {
-        updateTaskCompletion(categoryId, subCategoryId, taskId, !task.completed);
+        await updateTaskCompletion(categoryId, subCategoryId, taskId, !task.completed);
         toast({
             title: "Statut de la tâche modifié",
             description: `La tâche "${task.name}" est maintenant ${!task.completed ? "complétée" : "non complétée"}.`,

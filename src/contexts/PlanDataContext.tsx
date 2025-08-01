@@ -12,17 +12,16 @@ const planDocumentPath = "plan/main";
 interface PlanDataContextType {
   planData: ComplianceCategory[];
   loading: boolean;
-  setPlanData: React.Dispatch<React.SetStateAction<ComplianceCategory[]>>;
-  updateTaskCompletion: (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => void;
-  addCategory: (category: Omit<ComplianceCategory, 'id' | 'subCategories'>) => void;
-  editCategory: (categoryId: string, categoryUpdate: Partial<Omit<ComplianceCategory, 'id' | 'subCategories'>>) => void;
-  removeCategory: (categoryId: string) => void;
-  addSubCategory: (categoryId: string, subCategory: Omit<ComplianceSubCategory, 'id' | 'tasks'>) => void;
-  editSubCategory: (categoryId: string, subCategoryId: string, subCategoryUpdate: Partial<Omit<ComplianceSubCategory, 'id' | 'tasks'>>) => void;
-  removeSubCategory: (categoryId: string, subCategoryId: string) => void;
-  addTask: (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => void;
-  editTask: (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed'>>) => void;
-  removeTask: (categoryId: string, subCategoryId: string, taskId: string) => void;
+  updateTaskCompletion: (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => Promise<void>;
+  addCategory: (category: Omit<ComplianceCategory, 'id' | 'subCategories'>) => Promise<void>;
+  editCategory: (categoryId: string, categoryUpdate: Partial<Omit<ComplianceCategory, 'id' | 'subCategories'>>) => Promise<void>;
+  removeCategory: (categoryId: string) => Promise<void>;
+  addSubCategory: (categoryId: string, subCategory: Omit<ComplianceSubCategory, 'id' | 'tasks'>) => Promise<void>;
+  editSubCategory: (categoryId: string, subCategoryId: string, subCategoryUpdate: Partial<Omit<ComplianceSubCategory, 'id' | 'tasks'>>) => Promise<void>;
+  removeSubCategory: (categoryId: string, subCategoryId: string) => Promise<void>;
+  addTask: (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => Promise<void>;
+  editTask: (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed'>>) => Promise<void>;
+  removeTask: (categoryId: string, subCategoryId: string, taskId: string) => Promise<void>;
 }
 
 const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined);
@@ -71,7 +70,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateTaskCompletion = (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => {
+  const updateTaskCompletion = async (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => {
     const newPlanData = planData.map(cat =>
       cat.id === categoryId
         ? {
@@ -89,59 +88,51 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
           }
         : cat
     );
-    setPlanData(newPlanData);
-    updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(newPlanData);
   };
 
-  const addCategory = (category: Omit<ComplianceCategory, 'id' | 'subCategories'>) => {
+  const addCategory = async (category: Omit<ComplianceCategory, 'id' | 'subCategories'>) => {
     const newPlanData = [...planData, { ...category, id: Date.now().toString(), subCategories: [] }];
-    setPlanData(newPlanData);
-    updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(newPlanData);
   };
 
-  const editCategory = (categoryId: string, categoryUpdate: Partial<Omit<ComplianceCategory, 'id' | 'subCategories'>>) => {
+  const editCategory = async (categoryId: string, categoryUpdate: Partial<Omit<ComplianceCategory, 'id' | 'subCategories'>>) => {
     const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, ...categoryUpdate } : cat);
-    setPlanData(newPlanData);
-    updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(newPlanData);
   };
 
-  const removeCategory = (categoryId: string) => {
+  const removeCategory = async (categoryId: string) => {
     const newPlanData = planData.filter(cat => cat.id !== categoryId);
-    setPlanData(newPlanData);
-    updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(newPlanData);
   };
 
-  const addSubCategory = (categoryId: string, subCategory: Omit<ComplianceSubCategory, 'id' | 'tasks'>) => {
+  const addSubCategory = async (categoryId: string, subCategory: Omit<ComplianceSubCategory, 'id' | 'tasks'>) => {
     const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, subCategories: [...cat.subCategories, { ...subCategory, id: Date.now().toString(), tasks: [] }] } : cat);
-    setPlanData(newPlanData);
-    updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(newPlanData);
   };
 
-  const editSubCategory = (categoryId: string, subCategoryId: string, subCategoryUpdate: Partial<Omit<ComplianceSubCategory, 'id' | 'tasks'>>) => {
+  const editSubCategory = async (categoryId: string, subCategoryId: string, subCategoryUpdate: Partial<Omit<ComplianceSubCategory, 'id' | 'tasks'>>) => {
      const newPlanData = planData.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, ...subCategoryUpdate } : sub)
     } : cat);
-    setPlanData(newPlanData);
-    updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(newPlanData);
   };
 
-  const removeSubCategory = (categoryId: string, subCategoryId: string) => {
+  const removeSubCategory = async (categoryId: string, subCategoryId: string) => {
     const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, subCategories: cat.subCategories.filter(sub => sub.id !== subCategoryId) } : cat);
-    setPlanData(newPlanData);
-    updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(newPlanData);
   };
 
-  const addTask = (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => {
+  const addTask = async (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => {
     const newPlanData = planData.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: [...sub.tasks, { ...task, id: Date.now().toString(), completed: false }] } : sub)
     } : cat);
-    setPlanData(newPlanData);
-    updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(newPlanData);
   };
 
-  const editTask = (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed'>>) => {
+  const editTask = async (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed'>>) => {
      const newPlanData = planData.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
@@ -149,17 +140,15 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         tasks: sub.tasks.map(t => t.id === taskId ? { ...t, ...taskUpdate } : t)
       } : sub)
     } : cat);
-    setPlanData(newPlanData);
-    updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(newPlanData);
   };
 
-  const removeTask = (categoryId: string, subCategoryId: string, taskId: string) => {
+  const removeTask = async (categoryId: string, subCategoryId: string, taskId: string) => {
      const newPlanData = planData.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: sub.tasks.filter(t => t.id !== taskId) } : sub)
     } : cat);
-    setPlanData(newPlanData);
-    updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(newPlanData);
   };
 
 
@@ -167,7 +156,6 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     <PlanDataContext.Provider value={{
         planData,
         loading,
-        setPlanData,
         updateTaskCompletion,
         addCategory,
         editCategory,
