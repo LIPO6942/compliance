@@ -4,19 +4,78 @@ import type { ComplianceCategory } from '@/types/compliance';
 // Icons are now string names from lucide-react
 export const initialCompliancePlanData: ComplianceCategory[] = [
   {
+    id: 'gouvernance-controle',
+    name: 'Gouvernance & Dispositif de Contrôle',
+    icon: 'Gavel',
+    subCategories: [
+      {
+        id: 'gouvernance-controle-1',
+        name: "Politique de conformité",
+        icon: 'FileText',
+        tasks: [
+          { id: 'gouvernance-controle-task-1', name: 'Mettre en place une politique de conformité.', completed: false, year: 2024 },
+          { id: 'gouvernance-controle-task-2', name: 'Contrôler la mise en place de la politique de conformité.', completed: false, year: 2024 },
+          { id: 'gouvernance-controle-task-3', name: "S'assurer de l'indépendance de la fonction conformité.", completed: false, year: 2024 },
+          { id: 'gouvernance-controle-task-4', name: 'Contrôler le respect de la politique de conformité.', completed: false, year: 2024 },
+        ],
+      },
+      {
+        id: 'gouvernance-controle-2',
+        name: "Classification des risques",
+        icon: 'ShieldAlert',
+        tasks: [
+          { id: 'gouvernance-controle-task-5', name: 'Identifier les risques de non-conformité.', completed: false, year: 2024 },
+          { id: 'gouvernance-controle-task-6', name: 'Évaluer les risques de non-conformité.', completed: false, year: 2024 },
+          { id: 'gouvernance-controle-task-7', name: 'Contrôler les risques de non-conformité.', completed: false, year: 2024 },
+          { id: 'gouvernance-controle-task-8', name: 'Atténuer les risques de non-conformité.', completed: false, year: 2024 },
+        ],
+      },
+      {
+        id: 'gouvernance-controle-3',
+        name: "Devoir de conseil / commercialisation",
+        icon: 'MessageSquareWarning',
+        tasks: [
+          { id: 'gouvernance-controle-task-9', name: "S'assurer du respect du devoir de conseil.", completed: false, year: 2024 },
+          { id: 'gouvernance-controle-task-10', name: 'Contrôler la bonne adéquation des produits aux besoins des clients.', completed: false, year: 2024 },
+        ],
+      },
+      {
+        id: 'gouvernance-controle-4',
+        name: "Protection de la clientèle",
+        icon: 'Users',
+        tasks: [
+          { id: 'gouvernance-controle-task-11', name: "S'assurer de la protection de la clientèle.", completed: false, year: 2024 },
+          { id: 'gouvernance-controle-task-12', name: 'Contrôler le traitement des réclamations clients.', completed: false, year: 2024 },
+          { id: 'gouvernance-controle-task-13', name: 'Veiller à la transparence des produits.', completed: false, year: 2024 },
+          { id: 'gouvernance-controle-task-14', name: 'Gérer les conflits d\'intérêts.', completed: false, year: 2024 },
+        ],
+      },
+      {
+        id: 'gouvernance-controle-5',
+        name: "Protection des données personnelles",
+        icon: 'KeyRound',
+        tasks: [
+          { id: 'gouvernance-controle-task-15', name: "S'assurer de la protection des données personnelles.", completed: false, year: 2024 },
+        ],
+      },
+    ],
+  },
+  {
     id: 'kyc-be',
-    name: 'KYC & Identification du Bénéficiaire Effectif',
-    icon: 'Users',
+    name: 'LAB FT (Lutte Anti-Blanchiment et Financement du Terrorisme)',
+    icon: 'ShieldAlert',
     subCategories: [
       {
         id: 'kyc-be-collecte',
-        name: "Collecte et vérification des données (EER)",
+        name: "KYC (Know Your Customer)",
         icon: 'FileDigit',
         tasks: [
-          { id: 'kyc-be-collecte-1', name: "Pour les personnes physiques : Exiger des documents d'identité certifiés conformes, justificatif de domicile, informations professionnelles et fiche KYC signée.", completed: false, year: 2024 },
-          { id: 'kyc-be-collecte-2', name: "Pour les personnes morales : Exiger statuts, RNE, liste des actionnaires, identité des dirigeants et fiche KYC complétée.", completed: false, year: 2024 },
-          { id: 'kyc-be-collecte-3', name: "Pour les OBNL : Exiger JORT de constitution, statuts, identité des personnes habilitées et fiche KYC.", completed: false, year: 2024 },
-          { id: 'kyc-be-collecte-4', name: "Pour les partis politiques : Exiger JORT, autorisation, statuts, liste du bureau exécutif et fiche KYC.", completed: false, year: 2024 },
+          { id: 'kyc-be-collecte-1', name: "Mettre en place une procédure KYC.", completed: false, year: 2024 },
+          { id: 'kyc-be-collecte-2', name: "Contrôler la mise en place de la procédure KYC.", completed: false, year: 2024 },
+          { id: 'kyc-be-collecte-3', name: "S'assurer de l'identification des clients.", completed: false, year: 2024 },
+          { id: 'kyc-be-collecte-4', name: "S'assurer de la vérification de l'identité des clients.", completed: false, year: 2024 },
+          { id: 'kyc-be-collecte-5', name: "S'assurer de la connaissance des clients.", completed: false, year: 2024 },
+          { id: 'kyc-be-collecte-6', name: "S'assurer de la mise à jour des informations des clients.", completed: false, year: 2024 },
         ],
       },
       {
@@ -24,154 +83,69 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         name: "Identification du Bénéficiaire Effectif (BE)",
         icon: 'UserCog',
         tasks: [
-          { id: 'kyc-be-identification-1', name: "Appliquer la démarche progressive d'identification du BE (seuil de 20%).", completed: false, year: 2024 },
-          { id: 'kyc-be-identification-2', name: "Documenter l'ensemble de la démarche d'identification du BE.", completed: false, year: 2024 },
-          { id: 'kyc-be-identification-3', name: "Identifier le dirigeant principal si aucun BE ne peut être déterminé.", completed: false, year: 2024 },
+          { id: 'kyc-be-identification-1', name: "Mettre en place une procédure d'identification des bénéficiaires effectifs.", completed: false, year: 2024 },
+          { id: 'kyc-be-identification-2', name: "Contrôler la mise en place de la procédure d'identification des bénéficiaires effectifs.", completed: false, year: 2024 },
+          { id: 'kyc-be-identification-3', name: "S'assurer de l'identification des bénéficiaires effectifs.", completed: false, year: 2024 },
+          { id: 'kyc-be-identification-4', name: "S'assurer de la vérification de l'identité des bénéficiaires effectifs.", completed: false, year: 2024 },
+          { id: 'kyc-be-identification-5', name: "S'assurer de la connaissance des bénéficiaires effectifs.", completed: false, year: 2024 },
         ],
       },
-      {
-        id: 'kyc-be-maj',
-        name: "Mise à jour des données clients",
-        icon: 'Edit3',
-        tasks: [
-            { id: 'kyc-be-maj-1', name: 'Mettre à jour les données client tout au long de la relation d\'affaires.', completed: false, year: 2024 },
-            { id: 'kyc-be-maj-2', name: 'Définir des triggers pour la mise à jour (changement de capital, résiliation, etc.).', completed: false, year: 2024 },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'screening',
-    name: 'Filtrage (Screening) des Clients',
-    icon: 'Filter',
-    subCategories: [
       {
         id: 'screening-sanctions',
-        name: 'Listes de Sanctions',
-        icon: 'Lock',
+        name: 'Dispositif de filtrage',
+        icon: 'Filter',
         tasks: [
-          { id: 'screening-sanctions-1', name: "Filtrer les clients et BE contre les listes CNLCT et ONU.", completed: false, year: 2024 },
-          { id: 'screening-sanctions-2', name: "Suspendre le dossier et informer le responsable conformité si correspondance.", completed: false, year: 2024 },
+          { id: 'screening-sanctions-1', name: "Mettre en place un dispositif de filtrage des clients et bénéficiaires effectifs.", completed: false, year: 2024 },
+          { id: 'screening-sanctions-2', name: "Contrôler la mise en place du dispositif de filtrage.", completed: false, year: 2024 },
         ],
       },
-      {
-        id: 'screening-surveillance',
-        name: 'Listes de Surveillance',
-        icon: 'Eye',
-        tasks: [
-          { id: 'screening-surveillance-1', name: 'Identifier les PPE et clients sur listes de surveillance pour vigilance spécifique.', completed: false, year: 2024 },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'abr',
-    name: "Évaluation Périodique des Risques (ABR)",
-    icon: 'ShieldAlert',
-    subCategories: [
-      {
-        id: 'abr-evaluation',
-        name: 'Détermination et Évaluation des Risques',
-        icon: 'PieChart',
-        tasks: [
-          { id: 'abr-evaluation-1', name: 'Identifier et évaluer les risques inhérents (clients, produits, pays, canaux).', completed: false, year: 2024 },
-          { id: 'abr-evaluation-2', name: "Définir et évaluer l'appétence au risque de la société.", completed: false, year: 2024 },
-          { id: 'abr-evaluation-3', name: "Évaluer l'efficacité des mesures de contrôle et d'atténuation.", completed: false, year: 2024 },
-          { id: 'abr-evaluation-4', name: 'Calculer le risque résiduel (net).', completed: false, year: 2024 },
-        ],
-      },
-      {
-        id: 'abr-plan',
-        name: "Plan d'action et Mise à Jour",
-        icon: 'ListChecks',
-        tasks: [
-          { id: 'abr-plan-1', name: "Élaborer et mettre en œuvre un plan d'action pour améliorer le dispositif LBA/FT.", completed: false, year: 2024 },
-          { id: 'abr-plan-2', name: 'Maintenir à jour la cartographie des risques (annuellement ou sur événement).', completed: false, year: 2024 },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'vigilance',
-    name: 'Vigilance Renforcée',
-    icon: 'SearchCheck',
-    subCategories: [
-      {
-        id: 'vigilance-mesures',
-        name: 'Mesures Spécifiques pour Risques Élevés et PPE',
-        icon: 'Activity',
-        tasks: [
-          { id: 'vigilance-mesures-1', name: 'Appliquer des mesures renforcées pour les risques élevés et les PPE.', completed: false, year: 2024 },
-          { id: 'vigilance-mesures-2', name: "Obtenir des informations supplémentaires sur l'activité et l'origine des fonds.", completed: false, year: 2024 },
-          { id: 'vigilance-mesures-3', name: 'Effectuer des contrôles intensifs et obtenir l\'autorisation de la DG pour les PPE.', completed: false, year: 2024 },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'monitoring',
-    name: 'Monitoring et Détection des Opérations Suspectes',
-    icon: 'RadioTower',
-    subCategories: [
       {
         id: 'monitoring-analyse',
-        name: 'Analyse et Détection',
+        name: 'Surveillance des opérations',
         icon: 'Search',
         tasks: [
-          { id: 'monitoring-analyse-1', name: 'Analyser les opérations pour vérifier leur adéquation avec le profil client.', completed: false, year: 2024 },
-          { id: 'monitoring-analyse-2', name: 'Détecter les comportements suspects (réticence, curiosité excessive, etc.).', completed: false, year: 2024 },
-          { id: 'monitoring-analyse-3', name: 'Assurer la possibilité pour le personnel de faire une déclaration interne de soupçon.', completed: false, year: 2024 },
-          { id: 'monitoring-analyse-4', name: 'Le SI doit générer des alertes automatiques basées sur des typologies.', completed: false, year: 2024 },
+          { id: 'monitoring-analyse-1', name: "Mettre en place un dispositif de surveillance des opérations.", completed: false, year: 2024 },
+          { id: 'monitoring-analyse-2', name: "Contrôler la mise en place du dispositif de surveillance.", completed: false, year: 2024 },
         ],
       },
-    ],
-  },
-  {
-    id: 'declarations',
-    name: 'Déclarations et Gel des Avoirs',
-    icon: 'Siren',
-    subCategories: [
       {
         id: 'declarations-ctaf',
-        name: 'Déclarations à la CTAF',
+        name: 'Déclaration de soupçon',
         icon: 'MailWarning',
         tasks: [
-          { id: 'declarations-ctaf-1', name: 'Déclarer les opérations suspectes à la CTAF via goAML.', completed: false, year: 2024 },
-          { id: 'declarations-ctaf-2', name: 'Répondre aux demandes d\'information de la CTAF via goAML.', completed: false, year: 2024 },
+          { id: 'declarations-ctaf-1', name: "Mettre en place une procédure de déclaration de soupçon.", completed: false, year: 2024 },
+          { id: 'declarations-ctaf-2', name: "Contrôler la mise en place de la procédure de déclaration de soupçon.", completed: false, year: 2024 },
         ],
       },
       {
         id: 'declarations-cnlct',
-        name: 'Déclarations CNLCT et Gel des Avoirs',
+        name: 'Gel des avoirs',
         icon: 'Lock',
         tasks: [
-          { id: 'declarations-cnlct-1', name: 'Déclarer les soupçons liés au FT à la CNLCT.', completed: false, year: 2024 },
-          { id: 'declarations-cnlct-2', name: 'Geler les fonds ou ressources en cas de correspondance avec une liste de sanctions (dans les 8h).', completed: false, year: 2024 },
-          { id: 'declarations-cnlct-3', name: 'Informer la CNLCT du gel des avoirs.', completed: false, year: 2024 },
-          { id: 'declarations-cnlct-4', name: 'Déposer les fonds gelés sur un compte d\'attente.', completed: false, year: 2024 },
+          { id: 'declarations-cnlct-1', name: "Mettre en place une procédure de gel des avoirs.", completed: false, year: 2024 },
+          { id: 'declarations-cnlct-2', name: "Contrôler la mise en place de la procédure de gel des avoirs.", completed: false, year: 2024 },
         ],
       },
     ],
   },
   {
-    id: 'conservation',
-    name: 'Conservation des Documents',
-    icon: 'Archive',
+    id: 'reporting',
+    name: 'Reporting',
+    icon: 'FilePieChart',
     subCategories: [
       {
-        id: 'conservation-duree',
-        name: 'Règles de Conservation',
-        icon: 'CalendarDays',
+        id: 'reporting-cga',
+        name: 'Rapports au CGA',
+        icon: 'Sheet',
         tasks: [
-          { id: 'conservation-duree-1', name: 'Conserver les dossiers clients et pièces des opérations pendant 10 ans après fin de relation.', completed: false, year: 2024 },
-          { id: 'conservation-duree-2', name: 'Assurer la consultabilité des documents pour reconstitution des opérations.', completed: false, year: 2024 },
+          { id: 'reporting-cga-1', name: 'Élaborer le rapport sur les DS, contrats gelés et activités de conformité.', completed: false, deadline: '2025-01-31T23:59:59.999Z', year: 2024 },
         ],
       },
     ],
   },
   {
     id: 'formation',
-    name: 'Formation des Collaborateurs',
+    name: 'Formation',
     icon: 'Projector',
     subCategories: [
       {
@@ -179,32 +153,15 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         name: 'Programme de Formation Continue',
         icon: 'BookOpen',
         tasks: [
-          { id: 'formation-programme-1', name: 'Assurer une formation continue au personnel (au moins une fois par an).', completed: false, year: 2024 },
-          { id: 'formation-programme-2', name: 'Couvrir les risques, nouvelles tendances, détection et déclaration.', completed: false, year: 2024 },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'reporting',
-    name: 'Reporting Réglementaire (CGA)',
-    icon: 'FilePieChart',
-    subCategories: [
-      {
-        id: 'reporting-cga',
-        name: 'Rapports Annuels au CGA',
-        icon: 'Sheet',
-        tasks: [
-          { id: 'reporting-cga-1', name: 'Adresser les procédures internes LBA/FT au CGA.', completed: false, deadline: '2025-01-31T23:59:59.999Z', year: 2024 },
-          { id: 'reporting-cga-2', name: 'Adresser le rapport d\'audit interne LBA/FT au CGA.', completed: false, deadline: '2025-01-31T23:59:59.999Z', year: 2024 },
-          { id: 'reporting-cga-3', name: 'Adresser le rapport sur les DS, contrats gelés et activités de conformité au CGA.', completed: false, deadline: '2025-01-31T23:59:59.999Z', year: 2024 },
+          { id: 'formation-programme-1', name: 'Mettre en place un programme de formation.', completed: false, year: 2024 },
+          { id: 'formation-programme-2', name: 'Contrôler la mise en place du programme de formation.', completed: false, year: 2024 },
         ],
       },
     ],
   },
   {
     id: 'audit',
-    name: 'Contrôle et Audit Interne',
+    name: 'Piste d\'audit',
     icon: 'ClipboardCheck',
     subCategories: [
       {
@@ -212,24 +169,8 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         name: "Programme d'Audit",
         icon: 'ListTodo',
         tasks: [
-          { id: 'audit-programme-1', name: 'Le contrôle du dispositif LBA/FT doit faire partie du programme d\'audit interne.', completed: false, year: 2024 },
-          { id: 'audit-programme-2', name: "Réaliser un audit du dispositif de contrôle interne LBA/FT au moins tous les 2 ans.", completed: false, year: 2024 },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'gouvernance-controle',
-    name: 'Gouvernance & Dispositif de Contrôle',
-    icon: 'Gavel',
-    subCategories: [
-      {
-        id: 'gouvernance-controle-1',
-        name: "Structure et Responsabilités",
-        icon: 'Building',
-        tasks: [
-          { id: 'gouvernance-controle-task-1', name: 'Définir formellement les rôles et responsabilités de la fonction conformité.', completed: false, year: 2024 },
-          { id: 'gouvernance-controle-task-2', name: "S'assurer de l'indépendance de la fonction conformité.", completed: false, year: 2024 },
+          { id: 'audit-programme-1', name: 'Mettre en place une piste d\'audit.', completed: false, year: 2024 },
+          { id: 'audit-programme-2', name: "Contrôler la mise en place de la piste d'audit.", completed: false, year: 2024 },
         ],
       },
     ],
