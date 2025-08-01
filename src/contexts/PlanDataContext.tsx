@@ -45,6 +45,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onSnapshot(planDocRef, async (docSnap) => {
         if (docSnap.exists()) {
             const data = docSnap.data();
+            console.log("📥 Données reçues de Firestore:", data);
             setPlanData(data.plan || []);
         } else {
             console.log("Plan document does not exist. Creating with initial data.");
@@ -67,24 +68,40 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   
   const updatePlanInFirestore = async (newPlan: ComplianceCategory[]) => {
       if (!isFirebaseConfigured || !db) {
-          console.warn("Firebase not configured. Skipping Firestore update.");
-          setPlanData(newPlan); // Update local state for mock mode
-          return;
-      };
-      const planDocRef = doc(db, planDocumentPath);
-      await updateDoc(planDocRef, { plan: newPlan });
-  };
+        console.warn("❌ Firebase n'est pas configuré !");
+        // For mock mode, we still need to update the local state
+        setPlanData(newPlan);
+        return;
+      }
+    
+      try {
+        const planDocRef = doc(db, planDocumentPath);
+        // Firestore doesn't allow 'undefined' values. We clean the object before sending.
+        const cleanedData = JSON.parse(JSON.stringify(newPlan));
+        console.log("🔁 Mise à jour du plan dans Firestore avec:", cleanedData);
+        await setDoc(planDocRef, { plan: cleanedData });
+      } catch (err) {
+        console.error("🔴 Erreur updatePlanInFirestore:", err);
+      }
+    };
 
 
   const addCategory = async (category: Omit<ComplianceCategory, 'id' | 'subCategories'>) => {
-    const newCategory: ComplianceCategory = {
-      ...category,
-      id: Date.now().toString(),
-      subCategories: [],
+      const newCategory: ComplianceCategory = {
+        ...category,
+        id: Date.now().toString(),
+        subCategories: [],
+      };
+    
+      try {
+        const updatedPlan = [...planData, newCategory];
+        console.log("🟡 Tentative d'ajout de catégorie:", newCategory);
+        await updatePlanInFirestore(updatedPlan);
+        console.log("🟢 Catégorie ajoutée avec succès.");
+      } catch (error) {
+        console.error("🔴 Erreur lors de l'ajout de la catégorie:", error);
+      }
     };
-    const updatedPlan = [...planData, newCategory];
-    await updatePlanInFirestore(updatedPlan);
-  };
   
   const editCategory = async (categoryId: string, categoryUpdate: Partial<Omit<ComplianceCategory, 'id' | 'subCategories'>>) => {
     const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, ...categoryUpdate } : cat);

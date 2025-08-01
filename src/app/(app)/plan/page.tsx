@@ -24,6 +24,7 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useUser } from "@/contexts/UserContext";
 
 const iconMap: Record<string, LucideIcons.LucideIcon> = {
   Gavel: LucideIcons.Gavel, ShieldAlert: LucideIcons.ShieldAlert, SearchCheck: LucideIcons.SearchCheck, ClipboardCheck: LucideIcons.ClipboardCheck,
@@ -82,7 +83,7 @@ export default function PlanPage() {
   const { 
     planData, 
     updateTaskCompletion,
-    addCategory: addCategoryContext,
+    addCategory,
     editCategory: editCategoryContext,
     removeCategory: removeCategoryContext,
     addSubCategory: addSubCategoryContext,
@@ -111,6 +112,13 @@ export default function PlanPage() {
     if (!years.has(currentYear)) years.add(currentYear);
     return Array.from(years).sort((a, b) => b - a);
   }, [planData, currentYear]);
+
+  const { isLoaded } = useUser();
+  console.log("👤 User loaded:", isLoaded);
+
+  React.useEffect(() => {
+    console.log("🎯 PlanData actuel:", planData);
+  }, [planData]);
 
   const [isClient, setIsClient] = React.useState(false);
   React.useEffect(() => {
@@ -154,7 +162,7 @@ export default function PlanPage() {
   const closeDialog = () => setDialogState({ type: null, mode: null });
 
   const handleAddCategory = async (values: CategoryFormValues) => {
-    await addCategoryContext(values);
+    await addCategory(values);
     toast({ title: "Catégorie ajoutée", description: `La catégorie "${values.name}" a été ajoutée.` });
     closeDialog();
   };
@@ -254,6 +262,9 @@ export default function PlanPage() {
                     </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button onClick={() => addCategory({ name: "Test Catégorie", icon: "Zap" })} variant="outline">
+                      Ajouter Catégorie Test
+                    </Button>
                     <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
                         <SelectTrigger className="w-[180px]">
                             <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
