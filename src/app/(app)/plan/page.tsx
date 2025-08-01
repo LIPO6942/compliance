@@ -70,7 +70,6 @@ const taskSchema = z.object({
   name: z.string().min(1, "Le nom de la tâche est requis."),
   description: z.string().optional(),
   deadline: z.string().optional(),
-  year: z.coerce.number().min(2020, "L'année doit être valide."),
 });
 type TaskFormValues = z.infer<typeof taskSchema>;
 
@@ -96,23 +95,6 @@ export default function PlanPage() {
   const [activeAccordionItems, setActiveAccordionItems] = React.useState<string[]>([]);
   const { toast } = useToast();
   
-  const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = React.useState<number>(currentYear);
-  const availableYears = React.useMemo(() => {
-    const years = new Set<number>();
-    planData.forEach(cat => 
-      cat.subCategories.forEach(sub => 
-        sub.tasks.forEach(task => {
-          if (task.year) {
-            years.add(task.year)
-          }
-        })
-      )
-    );
-    if (!years.has(currentYear)) years.add(currentYear);
-    return Array.from(years).sort((a, b) => b - a);
-  }, [planData, currentYear]);
-
   const { isLoaded } = useUser();
     const [isClient, setIsClient] = React.useState(false);
 
@@ -121,7 +103,10 @@ export default function PlanPage() {
   }, []);
 
   React.useEffect(() => {
-    setActiveAccordionItems(planData.map(cat => cat.id));
+    // Expand all categories by default when data loads
+    if (planData.length > 0) {
+      setActiveAccordionItems(planData.map(cat => cat.id));
+    }
   }, [planData]);
 
 
@@ -146,12 +131,11 @@ export default function PlanPage() {
         name: data.name,
         description: data.description,
         deadline: data.deadline ? new Date(data.deadline).toISOString().split('T')[0] : "",
-        year: data.year,
       });
     } else {
       if (type === "category") categoryForm.reset({ name: "", icon: availableIcons[0] });
       else if (type === "subCategory") subCategoryForm.reset({ name: "", icon: availableIcons[0] });
-      else if (type === "task") taskForm.reset({ name: "", description: "", deadline: "", year: selectedYear });
+      else if (type === "task") taskForm.reset({ name: "", description: "", deadline: "" });
     }
   };
   const closeDialog = () => setDialogState({ type: null, mode: null });
@@ -224,31 +208,6 @@ export default function PlanPage() {
     }
   };
   
-  const filteredPlanData = React.useMemo(() => {
-    return planData.map(category => {
-      // Create a new category object with subcategories filtered by year
-      const categoryWithFilteredTasks = {
-        ...category,
-        subCategories: category.subCategories.map(subCategory => ({
-          ...subCategory,
-          tasks: subCategory.tasks.filter(task => task.year === selectedYear)
-        }))
-      };
-      
-      // Determine if this category should be visible
-      const hasTasksForYear = categoryWithFilteredTasks.subCategories.some(sub => sub.tasks.length > 0);
-      const isNewEmptyCategory = category.subCategories.length === 0;
-
-      // Return the category if it has tasks for the year, or if it's a new empty category.
-      // Otherwise, return null to filter it out.
-      return (hasTasksForYear || isNewEmptyCategory) ? categoryWithFilteredTasks : null;
-    }).filter((category): category is ComplianceCategory => category !== null) // Remove the nulls
-    .map(category => ({ // Second map to filter out empty subcategories from the final result
-        ...category,
-        subCategories: category.subCategories.filter(sub => sub.tasks.length > 0)
-    }));
-  }, [planData, selectedYear]);
-
   const CategoryIconComponent = ({ iconName }: { iconName: string }) => {
     const Icon = getIconComponent(iconName);
     return <Icon className="h-6 w-6 text-primary" />;
@@ -268,30 +227,17 @@ export default function PlanPage() {
                 <div>
                     <CardTitle className="font-headline text-3xl">Plan d'Organisation de la Conformité</CardTitle>
                     <CardDescription className="text-lg mt-1">
-                    Structure des tâches par catégories, filtrée par année.
+                    Structure complète des tâches et responsabilités.
                     </CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                        <SelectTrigger className="w-[180px]">
-                            <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                            <SelectValue placeholder="Année" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {availableYears.map(year => (
-                                <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Button onClick={() => openDialog("category", "add")} className="whitespace-nowrap">
-                        <PlusCircle className="mr-2 h-5 w-5" /> Catégorie
-                    </Button>
-                </div>
+                <Button onClick={() => openDialog("category", "add")} className="whitespace-nowrap">
+                    <PlusCircle className="mr-2 h-5 w-5" /> Catégorie
+                </Button>
             </div>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Ce plan sert de référence pour l'organisation des activités de conformité. Vous pouvez ajouter, modifier ou supprimer des éléments pour l'année sélectionnée.
+            Ce plan sert de référence pour l'organisation des activités de conformité. Vous pouvez ajouter, modifier ou supprimer des éléments.
           </p>
         </CardContent>
       </Card>
@@ -302,7 +248,7 @@ export default function PlanPage() {
         value={activeAccordionItems}
         onValueChange={setActiveAccordionItems}
       >
-        {filteredPlanData.length > 0 ? filteredPlanData.map((category: ComplianceCategory) => (
+        {planData.length > 0 ? planData.map((category: ComplianceCategory) => (
             <AccordionItem key={category.id} value={category.id} id={category.id} className="bg-card border border-border rounded-lg shadow-md overflow-hidden">
                <AccordionPrimitive.Header className="flex items-center px-6 py-4 hover:bg-muted/50 transition-colors group">
                 <ShadcnAccordionTrigger className="p-0 hover:no-underline flex-1 [&>svg]:ml-auto">
@@ -487,8 +433,8 @@ export default function PlanPage() {
             </AccordionItem>
           )) : (
              <Card className="text-center p-8 border-dashed shadow-none">
-                <CardTitle className="text-xl font-medium">Aucune tâche pour {selectedYear}</CardTitle>
-                <CardDescription className="mt-2">Il n'y a pas de tâches de conformité planifiées pour cette année. <br /> Changez d'année ou ajoutez de nouvelles catégories et tâches.</CardDescription>
+                <CardTitle className="text-xl font-medium">Aucun plan de conformité défini</CardTitle>
+                <CardDescription className="mt-2">Commencez par ajouter votre première catégorie pour construire votre plan.</CardDescription>
             </Card>
           )}
       </Accordion>
@@ -587,18 +533,6 @@ export default function PlanPage() {
                     <FormMessage />
                   </FormItem>
                 )} />
-                <FormField control={taskForm.control} name="year" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Année de la tâche</FormLabel>
-                     <Select onValueChange={(v) => field.onChange(parseInt(v))} defaultValue={field.value.toString()}>
-                        <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
-                        <SelectContent>
-                          {availableYears.map(year => <SelectItem key={year} value={year.toString()}>{year}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
                 <FormField control={taskForm.control} name="deadline" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Échéance (Optionnel)</FormLabel>
@@ -618,4 +552,3 @@ export default function PlanPage() {
     </div>
   );
 }
-

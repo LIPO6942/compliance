@@ -4,7 +4,7 @@ import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc, writeBatch, collection } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
@@ -19,8 +19,8 @@ interface PlanDataContextType {
   addSubCategory: (categoryId: string, subCategory: Omit<ComplianceSubCategory, 'id' | 'tasks'>) => Promise<void>;
   editSubCategory: (categoryId: string, subCategoryId: string, subCategoryUpdate: Partial<Omit<ComplianceSubCategory, 'id' | 'tasks'>>) => Promise<void>;
   removeSubCategory: (categoryId: string, subCategoryId: string) => Promise<void>;
-  addTask: (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => Promise<void>;
-  editTask: (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed'>>) => Promise<void>;
+  addTask: (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed' | 'year'>) => Promise<void>;
+  editTask: (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed' | 'year'>>) => Promise<void>;
   removeTask: (categoryId: string, subCategoryId: string, taskId: string) => Promise<void>;
 }
 
@@ -44,17 +44,15 @@ const cleanData = (data: any): any => {
 const updatePlanInFirestore = async (newPlan: ComplianceCategory[]) => {
   if (!isFirebaseConfigured || !db) {
     console.warn("Firebase is not configured. Plan data will not be saved.");
-    // In a real app, you might want to handle this more gracefully, e.g., by updating local state only.
     return;
   }
-
   try {
     const planDocRef = doc(db, "plan", "main");
     const cleanedData = cleanData(newPlan);
     await setDoc(planDocRef, { plan: cleanedData });
   } catch (err) {
     console.error("🔥 Erreur updatePlanInFirestore:", err);
-    throw err; // Re-throw to be caught by the calling function
+    throw err;
   }
 };
 
@@ -83,12 +81,10 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         } else {
             console.log("Plan document does not exist. Creating with initial data.");
             try {
-                // Seed the document with initial data
                 await setDoc(planDocRef, { plan: initialCompliancePlanData });
-                // The snapshot listener will automatically pick up the new data, so no need to set state here.
             } catch (e) {
                 console.error("Error creating initial plan document:", e);
-                setPlanData(initialCompliancePlanData); // Fallback on error
+                setPlanData(initialCompliancePlanData);
             }
         }
         setLoading(false);
@@ -165,11 +161,12 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const addTask = async (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => {
+  const addTask = async (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed' | 'year'>) => {
     const newTaskData: ComplianceTask = {
       ...task,
       id: Date.now().toString(),
       completed: false,
+      year: new Date().getFullYear(), // Assign current year by default
     };
     try {
       const newPlanData = planData.map(cat => cat.id === categoryId ? {
@@ -182,7 +179,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const editTask = async (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed'>>) => {
+  const editTask = async (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed' | 'year'>>) => {
       try {
         const newPlanData = planData.map(cat => (cat.id === categoryId ? {
             ...cat,
