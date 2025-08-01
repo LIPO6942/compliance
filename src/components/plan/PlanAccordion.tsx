@@ -1,4 +1,6 @@
 
+"use client";
+
 import * as React from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger as ShadcnAccordionTrigger } from "@/components/ui/accordion";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
@@ -31,6 +33,7 @@ const iconMap: Record<string, LucideIcons.LucideIcon> = {
   Siren: LucideIcons.Siren, Projector: LucideIcons.Projector, Wrench: LucideIcons.Wrench, MoreVertical: LucideIcons.MoreVertical, ChevronDown: LucideIcons.ChevronDown,
   Clock: LucideIcons.Clock,
 };
+
 const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => (iconName && iconMap[iconName]) || LucideIcons.ListTodo;
 const isTaskOverdue = (task: ComplianceTask) => task.deadline && !task.completed && new Date(task.deadline) < new Date();
 
