@@ -157,12 +157,18 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const editTask = async (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed'>>) => {
-    const newPlanData = planData.map(cat => cat.id === categoryId ? {
-      ...cat,
-      subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
-        ...sub,
-        tasks: sub.tasks.map(t => t.id === taskId ? { ...t, ...taskUpdate, deadline: taskUpdate.deadline || undefined, description: taskUpdate.description || undefined } : t)
-      } : sub)
+    const newPlanData = planData.map(cat => (cat.id === categoryId ? {
+        ...cat,
+        subCategories: cat.subCategories.map(sub => (sub.id === subCategoryId ? {
+            ...sub,
+            tasks: sub.tasks.map(t => (t.id === taskId ? { 
+                ...t, 
+                ...taskUpdate,
+                // Explicitly handle optional fields to avoid 'undefined'
+                description: taskUpdate.description || t.description || undefined,
+                deadline: taskUpdate.deadline || t.deadline || undefined,
+            } : t))
+        } : sub))
     } : cat));
     await updateFirestorePlan(newPlanData);
   };
