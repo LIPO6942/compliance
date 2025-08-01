@@ -13,11 +13,10 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         name: "Collecte et vérification des données (EER)",
         icon: 'FileDigit',
         tasks: [
-          { id: 'kyc-be-collecte-1', name: "S'assurer du remplissage complet et de la signature de la fiche KYC.", completed: false, year: 2024 },
-          { id: 'kyc-be-collecte-2', name: "Exiger et vérifier les documents pour les personnes physiques (CIN, passeport, etc.).", completed: false, year: 2024 },
-          { id: 'kyc-be-collecte-3', name: "Exiger et vérifier les documents pour les personnes morales (Statuts, RNE, etc.).", completed: false, year: 2024 },
-          { id: 'kyc-be-collecte-4', name: "Exiger et vérifier les documents spécifiques pour les OBNL.", completed: false, year: 2024 },
-          { id: 'kyc-be-collecte-5', name: "Exiger et vérifier les documents spécifiques pour les partis politiques.", completed: false, year: 2024 },
+          { id: 'kyc-be-collecte-1', name: "Pour les personnes physiques : Exiger des documents d'identité certifiés conformes, justificatif de domicile, informations professionnelles et fiche KYC signée.", completed: false, year: 2024 },
+          { id: 'kyc-be-collecte-2', name: "Pour les personnes morales : Exiger statuts, RNE, liste des actionnaires, identité des dirigeants et fiche KYC complétée.", completed: false, year: 2024 },
+          { id: 'kyc-be-collecte-3', name: "Pour les OBNL : Exiger JORT de constitution, statuts, identité des personnes habilitées et fiche KYC.", completed: false, year: 2024 },
+          { id: 'kyc-be-collecte-4', name: "Pour les partis politiques : Exiger JORT, autorisation, statuts, liste du bureau exécutif et fiche KYC.", completed: false, year: 2024 },
         ],
       },
       {
@@ -72,7 +71,7 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
     subCategories: [
       {
         id: 'abr-evaluation',
-        name: 'Évaluation des risques',
+        name: 'Détermination et Évaluation des Risques',
         icon: 'PieChart',
         tasks: [
           { id: 'abr-evaluation-1', name: 'Identifier et évaluer les risques inhérents (clients, produits, pays, canaux).', completed: false, year: 2024 },
@@ -83,7 +82,7 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
       },
       {
         id: 'abr-plan',
-        name: "Plan d'action et mise à jour",
+        name: "Plan d'action et Mise à Jour",
         icon: 'ListChecks',
         tasks: [
           { id: 'abr-plan-1', name: "Élaborer et mettre en œuvre un plan d'action pour améliorer le dispositif LBA/FT.", completed: false, year: 2024 },
@@ -99,7 +98,7 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
     subCategories: [
       {
         id: 'vigilance-mesures',
-        name: 'Mesures spécifiques',
+        name: 'Mesures Spécifiques pour Risques Élevés et PPE',
         icon: 'Activity',
         tasks: [
           { id: 'vigilance-mesures-1', name: 'Appliquer des mesures renforcées pour les risques élevés et les PPE.', completed: false, year: 2024 },
@@ -111,7 +110,7 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
   },
   {
     id: 'monitoring',
-    name: 'Monitoring et Détection',
+    name: 'Monitoring et Détection des Opérations Suspectes',
     icon: 'RadioTower',
     subCategories: [
       {
@@ -121,7 +120,7 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         tasks: [
           { id: 'monitoring-analyse-1', name: 'Analyser les opérations pour vérifier leur adéquation avec le profil client.', completed: false, year: 2024 },
           { id: 'monitoring-analyse-2', name: 'Détecter les comportements suspects (réticence, curiosité excessive, etc.).', completed: false, year: 2024 },
-          { id: 'monitoring-analyse-3', name: 'Le personnel doit pouvoir faire une déclaration interne de soupçon au responsable conformité.', completed: false, year: 2024 },
+          { id: 'monitoring-analyse-3', name: 'Assurer la possibilité pour le personnel de faire une déclaration interne de soupçon.', completed: false, year: 2024 },
           { id: 'monitoring-analyse-4', name: 'Le SI doit générer des alertes automatiques basées sur des typologies.', completed: false, year: 2024 },
         ],
       },
@@ -143,7 +142,7 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
       },
       {
         id: 'declarations-cnlct',
-        name: 'Déclarations CNLCT et Gel',
+        name: 'Déclarations CNLCT et Gel des Avoirs',
         icon: 'Lock',
         tasks: [
           { id: 'declarations-cnlct-1', name: 'Déclarer les soupçons liés au FT à la CNLCT.', completed: false, year: 2024 },
@@ -161,7 +160,7 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
     subCategories: [
       {
         id: 'conservation-duree',
-        name: 'Règles de conservation',
+        name: 'Règles de Conservation',
         icon: 'CalendarDays',
         tasks: [
           { id: 'conservation-duree-1', name: 'Conserver les dossiers clients et pièces des opérations pendant 10 ans après fin de relation.', completed: false, year: 2024 },
@@ -173,11 +172,11 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
   {
     id: 'formation',
     name: 'Formation des Collaborateurs',
-    icon: 'Users',
+    icon: 'Projector',
     subCategories: [
       {
         id: 'formation-programme',
-        name: 'Programme de formation',
+        name: 'Programme de Formation Continue',
         icon: 'BookOpen',
         tasks: [
           { id: 'formation-programme-1', name: 'Assurer une formation continue au personnel (au moins une fois par an).', completed: false, year: 2024 },
@@ -193,7 +192,7 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
     subCategories: [
       {
         id: 'reporting-cga',
-        name: 'Rapports annuels au CGA',
+        name: 'Rapports Annuels au CGA',
         icon: 'Sheet',
         tasks: [
           { id: 'reporting-cga-1', name: 'Adresser les procédures internes LBA/FT au CGA.', completed: false, deadline: '2025-01-31T23:59:59.999Z', year: 2024 },
@@ -210,7 +209,7 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
     subCategories: [
       {
         id: 'audit-programme',
-        name: "Programme d'audit",
+        name: "Programme d'Audit",
         icon: 'ListTodo',
         tasks: [
           { id: 'audit-programme-1', name: 'Le contrôle du dispositif LBA/FT doit faire partie du programme d\'audit interne.', completed: false, year: 2024 },
@@ -220,3 +219,5 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
     ],
   },
 ];
+
+    
