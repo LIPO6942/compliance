@@ -204,9 +204,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </Sidebar>
       <SidebarInset className="flex flex-col">
         {!isFirebaseConfigured && (
-          <div className="bg-yellow-500 text-white text-center p-2 text-sm font-semibold flex items-center justify-center gap-2 z-50">
+          <div className="bg-destructive text-destructive-foreground text-center p-2.5 text-sm font-semibold flex items-center justify-center gap-2 z-50 shadow-lg">
             <AlertTriangle className="h-5 w-5" />
-            <span>Attention: Connexion à la base de données échouée. Vos données ne seront pas sauvegardées.</span>
+            <span>Attention: Connexion à la base de données impossible. Vos modifications ne seront pas sauvegardées.</span>
           </div>
         )}
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-md sm:px-6 md:px-8">
