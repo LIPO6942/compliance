@@ -26,6 +26,18 @@ interface PlanDataContextType {
 
 const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined);
 
+// Helper to remove undefined fields from an object before sending to Firestore
+const cleanupObjectForFirestore = (obj: any) => {
+  const newObj: any = {};
+  Object.keys(obj).forEach(key => {
+    if (obj[key] !== undefined) {
+      newObj[key] = obj[key];
+    }
+  });
+  return newObj;
+};
+
+
 export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   const [planData, setPlanData] = useState<ComplianceCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,18 +72,25 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isLoaded]);
 
-  const updateFirestorePlan = async (newPlanData: ComplianceCategory[]) => {
-    if (!isFirebaseConfigured || !db) return;
-    try {
-      const planDocRef = doc(db, planDocumentPath);
-      await setDoc(planDocRef, { plan: newPlanData });
-    } catch (error) {
-      console.error("Error updating plan data in Firestore: ", error);
+  const updateFirestorePlan = async (getNewPlanData: () => ComplianceCategory[]) => {
+    const newPlanData = getNewPlanData();
+    if (isFirebaseConfigured && db) {
+      try {
+        const planDocRef = doc(db, planDocumentPath);
+        await setDoc(planDocRef, { plan: newPlanData });
+      } catch (error) {
+        console.error("Error updating plan data in Firestore: ", error);
+        // If Firestore update fails, we might want to revert the state,
+        // but for now, we rely on the onSnapshot to keep it in sync.
+      }
+    } else {
+      // If firebase is not configured, we update the local state directly
+      setPlanData(newPlanData);
     }
   };
 
   const updateTaskCompletion = async (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => {
-    const newPlanData = planData.map(cat =>
+    await updateFirestorePlan(() => planData.map(cat =>
       cat.id === categoryId
         ? {
             ...cat,
@@ -87,68 +106,60 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
             ),
           }
         : cat
-    );
-    await updateFirestorePlan(newPlanData);
+    ));
   };
 
   const addCategory = async (category: Omit<ComplianceCategory, 'id' | 'subCategories'>) => {
-    const newPlanData = [...planData, { ...category, id: Date.now().toString(), subCategories: [] }];
-    await updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(() => [...planData, { ...category, id: Date.now().toString(), subCategories: [] }]);
   };
 
   const editCategory = async (categoryId: string, categoryUpdate: Partial<Omit<ComplianceCategory, 'id' | 'subCategories'>>) => {
-    const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, ...categoryUpdate } : cat);
-    await updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(() => planData.map(cat => cat.id === categoryId ? { ...cat, ...categoryUpdate } : cat));
   };
 
   const removeCategory = async (categoryId: string) => {
-    const newPlanData = planData.filter(cat => cat.id !== categoryId);
-    await updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(() => planData.filter(cat => cat.id !== categoryId));
   };
 
   const addSubCategory = async (categoryId: string, subCategory: Omit<ComplianceSubCategory, 'id' | 'tasks'>) => {
-    const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, subCategories: [...cat.subCategories, { ...subCategory, id: Date.now().toString(), tasks: [] }] } : cat);
-    await updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(() => planData.map(cat => cat.id === categoryId ? { ...cat, subCategories: [...cat.subCategories, { ...subCategory, id: Date.now().toString(), tasks: [] }] } : cat));
   };
 
   const editSubCategory = async (categoryId: string, subCategoryId: string, subCategoryUpdate: Partial<Omit<ComplianceSubCategory, 'id' | 'tasks'>>) => {
-     const newPlanData = planData.map(cat => cat.id === categoryId ? {
+     await updateFirestorePlan(() => planData.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, ...subCategoryUpdate } : sub)
-    } : cat);
-    await updateFirestorePlan(newPlanData);
+    } : cat));
   };
 
   const removeSubCategory = async (categoryId: string, subCategoryId: string) => {
-    const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, subCategories: cat.subCategories.filter(sub => sub.id !== subCategoryId) } : cat);
-    await updateFirestorePlan(newPlanData);
+    await updateFirestorePlan(() => planData.map(cat => cat.id === categoryId ? { ...cat, subCategories: cat.subCategories.filter(sub => sub.id !== subCategoryId) } : cat));
   };
 
   const addTask = async (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => {
-    const newPlanData = planData.map(cat => cat.id === categoryId ? {
+    const newTask = cleanupObjectForFirestore({ ...task, id: Date.now().toString(), completed: false });
+    await updateFirestorePlan(() => planData.map(cat => cat.id === categoryId ? {
       ...cat,
-      subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: [...sub.tasks, { ...task, id: Date.now().toString(), completed: false }] } : sub)
-    } : cat);
-    await updateFirestorePlan(newPlanData);
+      subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: [...sub.tasks, newTask] } : sub)
+    } : cat));
   };
 
   const editTask = async (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed'>>) => {
-     const newPlanData = planData.map(cat => cat.id === categoryId ? {
+    const cleanedUpdate = cleanupObjectForFirestore(taskUpdate);
+     await updateFirestorePlan(() => planData.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
         ...sub,
-        tasks: sub.tasks.map(t => t.id === taskId ? { ...t, ...taskUpdate } : t)
+        tasks: sub.tasks.map(t => t.id === taskId ? { ...t, ...cleanedUpdate } : t)
       } : sub)
-    } : cat);
-    await updateFirestorePlan(newPlanData);
+    } : cat));
   };
 
   const removeTask = async (categoryId: string, subCategoryId: string, taskId: string) => {
-     const newPlanData = planData.map(cat => cat.id === categoryId ? {
+     await updateFirestorePlan(() => planData.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: sub.tasks.filter(t => t.id !== taskId) } : sub)
-    } : cat);
-    await updateFirestorePlan(newPlanData);
+    } : cat));
   };
 
 
