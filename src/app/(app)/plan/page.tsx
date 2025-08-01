@@ -16,7 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from "@/types/compliance";
 import { usePlanData } from "@/contexts/PlanDataContext";
-import { ListTodo, PlusCircle, Edit2, Trash2, MoreVertical, ChevronDown, Clock, Gavel, ShieldAlert, Users, SearchCheck, ClipboardCheck, Archive } from "lucide-react";
+import { ListTodo, PlusCircle, Edit2, Trash2, MoreVertical, ChevronDown, Clock } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
