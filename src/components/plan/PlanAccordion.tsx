@@ -2,15 +2,14 @@
 "use client";
 
 import * as React from "react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger as ShadcnAccordionTrigger } from "@/components/ui/accordion";
-import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from "@/types/compliance";
-import { ListTodo, PlusCircle, Edit2, Trash2, MoreVertical, ChevronDown, Clock } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, MoreVertical, Clock } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -35,7 +34,9 @@ const iconMap: Record<string, LucideIcons.LucideIcon> = {
 };
 
 const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => (iconName && iconMap[iconName]) || LucideIcons.ListTodo;
-const isTaskOverdue = (task: ComplianceTask) => task.deadline && !task.completed && new Date(task.deadline) < new Date();
+const isTaskOverdue = (task: ComplianceTask) => {
+    return task.deadline && !task.completed && new Date(task.deadline) < new Date();
+};
 
 interface PlanAccordionProps {
     planData: ComplianceCategory[];
@@ -69,13 +70,13 @@ export function PlanAccordion({
           const Icon = getIconComponent(category.icon);
           return (
           <AccordionItem key={category.id} value={category.id} id={category.id} className="bg-card border rounded-lg shadow-md overflow-hidden">
-             <AccordionPrimitive.Header className="flex items-center px-6 py-4 hover:bg-muted/50 transition-colors group">
-              <ShadcnAccordionTrigger className="p-0 hover:no-underline flex-1 [&>svg]:ml-auto">
+            <div className="flex items-center px-6 py-4 hover:bg-muted/50 transition-colors group">
+              <AccordionTrigger className="p-0 hover:no-underline flex-1 [&>svg]:ml-auto">
                 <div className="flex items-center space-x-3">
                   <Icon className="h-6 w-6 text-primary" />
                   <span className="text-xl font-headline font-medium">{category.name}</span>
                 </div>
-              </ShadcnAccordionTrigger>
+              </AccordionTrigger>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity pl-3">
                 <AlertDialog>
                   <DropdownMenu>
@@ -107,7 +108,7 @@ export function PlanAccordion({
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
-            </AccordionPrimitive.Header>
+            </div>
             <AccordionContent className="px-6 pt-0 pb-6">
               <div className="space-y-4 mt-4">
                 {category.subCategories.map((subCategory: ComplianceSubCategory) => {
@@ -187,12 +188,12 @@ export function PlanAccordion({
         )})
       ) : (
            <Card className="text-center p-8 border-dashed shadow-none">
-              <CardTitle className="text-xl font-medium">Aucun plan de conformité défini</CardTitle>
-              <CardDescription className="mt-2">Commencez par ajouter votre première catégorie pour construire votre plan.</CardDescription>
+              <CardHeader className="p-0">
+                <CardTitle className="text-xl font-medium">Aucun plan de conformité défini</CardTitle>
+                <CardDescription className="mt-2">Commencez par ajouter votre première catégorie pour construire votre plan.</CardDescription>
+              </CardHeader>
           </Card>
         )}
     </Accordion>
   );
 }
-
-    
