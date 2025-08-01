@@ -4,7 +4,7 @@ import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
@@ -42,6 +42,9 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const planDocRef = doc(db, planDocumentPath);
+
+    // This is the correct way to handle initialization and real-time updates.
+    // The onSnapshot listener will handle all subsequent updates automatically.
     const unsubscribe = onSnapshot(planDocRef, async (docSnap) => {
         if (docSnap.exists()) {
             const data = docSnap.data();
@@ -50,10 +53,11 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         } else {
             console.log("Plan document does not exist. Creating with initial data.");
             try {
+                // Set initial data, onSnapshot will be triggered with this new data.
                 await setDoc(planDocRef, { plan: initialCompliancePlanData });
-                setPlanData(initialCompliancePlanData);
             } catch (e) {
                 console.error("Error creating initial plan document:", e);
+                setPlanData(initialCompliancePlanData); // Fallback
             }
         }
         setLoading(false);

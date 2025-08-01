@@ -262,9 +262,6 @@ export default function PlanPage() {
                     </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button onClick={() => addCategory({ name: "Test Catégorie", icon: "Zap" })} variant="outline">
-                      Ajouter Catégorie Test
-                    </Button>
                     <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
                         <SelectTrigger className="w-[180px]">
                             <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
