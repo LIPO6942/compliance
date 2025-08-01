@@ -51,19 +51,8 @@ const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => {
   if (iconName && iconMap[iconName]) {
     return iconMap[iconName];
   }
-  return LucideIcons.ListTodo; 
+  return LucideIcons.ListTodo;
 };
-
-const CategoryIconComponent = ({ iconName, colorClass }: { iconName: string; colorClass: string }) => {
-  const Icon = getIconComponent(iconName);
-  return <Icon className={`h-6 w-6 ${colorClass}`} />;
-};
-
-const SubCategoryIconComponent = ({ iconName }: { iconName?: string }) => {
-  const Icon = getIconComponent(iconName);
-  return <Icon className="h-5 w-5 mr-2 text-accent" />;
-};
-
 
 const categorySchema = z.object({
   name: z.string().min(1, "Le nom de la catégorie est requis."),
@@ -95,6 +84,17 @@ const categoryBorderColors = [
     "border-chart-1", "border-chart-2", "border-chart-3", "border-chart-4", "border-chart-5", "border-teal-500", "border-fuchsia-500"
 ];
 
+const CategoryIconComponent = ({ iconName, colorClass }: { iconName: string; colorClass: string }) => {
+  const Icon = getIconComponent(iconName);
+  return <Icon className={cn('h-6 w-6', colorClass)} />;
+};
+
+const SubCategoryIconComponent = ({ iconName }: { iconName?: string }) => {
+  const Icon = getIconComponent(iconName);
+  return <Icon className="h-5 w-5 mr-2 text-accent" />;
+};
+
+
 export default function PlanPage() {
   const { 
     planData, 
@@ -113,7 +113,7 @@ export default function PlanPage() {
   const { toast } = useToast();
   
   const { isLoaded } = useUser();
-    const [isClient, setIsClient] = React.useState(false);
+  const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
     setIsClient(true);
@@ -562,3 +562,5 @@ export default function PlanPage() {
     </div>
   );
 }
+
+    
