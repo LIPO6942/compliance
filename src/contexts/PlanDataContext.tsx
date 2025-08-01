@@ -4,7 +4,7 @@ import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, writeBatch, collection } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
@@ -28,49 +28,49 @@ const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined
 
 // Helper to remove undefined fields from an object before sending to Firestore
 const cleanupObjectForFirestore = (obj: any) => {
-    return JSON.parse(JSON.stringify(obj), (key, value) => {
+    return JSON.parse(JSON.stringify(obj, (key, value) => {
         return value === undefined ? null : value;
-    });
+    }));
 };
 
 
 export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
-  const [planData, setPlanData] = useState<ComplianceCategory[]>(initialCompliancePlanData);
+  const [planData, setPlanData] = useState<ComplianceCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const { isLoaded } = useUser();
 
   useEffect(() => {
     if (!isLoaded) return;
 
-    if (isFirebaseConfigured && db) {
-      const planDocRef = doc(db, planDocumentPath);
-      const unsubscribe = onSnapshot(planDocRef, (docSnap) => {
+    if (!isFirebaseConfigured || !db) {
+      setPlanData(initialCompliancePlanData);
+      setLoading(false);
+      console.warn("Firebase is not configured. Plan data will use mock data and not be saved.");
+      return;
+    }
+
+    const planDocRef = doc(db, planDocumentPath);
+    const unsubscribe = onSnapshot(planDocRef, (docSnap) => {
         if (docSnap.exists()) {
-          setPlanData(docSnap.data().plan);
+            const data = docSnap.data();
+            setPlanData(data.plan || []);
         } else {
-          // If it doesn't exist in Firestore, create it with initial data
-          setDoc(planDocRef, { plan: initialCompliancePlanData });
-          setPlanData(initialCompliancePlanData);
+            console.log("Plan document does not exist. Creating with initial data.");
+            setDoc(planDocRef, { plan: initialCompliancePlanData })
+                .then(() => setPlanData(initialCompliancePlanData))
+                .catch(e => console.error("Error creating initial plan document:", e));
         }
         setLoading(false);
-      }, (error) => {
+    }, (error) => {
         console.error("Error fetching plan data, falling back to mock data: ", error);
         setPlanData(initialCompliancePlanData);
         setLoading(false);
-      });
+    });
 
-      return () => unsubscribe();
-    } else {
-      // Firebase is not configured, use initial data and stop loading
-      setPlanData(initialCompliancePlanData);
-      setLoading(false);
-      console.warn("Firebase is not configured. Plan data will not be saved.");
-    }
+    return () => unsubscribe();
   }, [isLoaded]);
 
   const updateFirestorePlan = async (newData: ComplianceCategory[]) => {
-     // The onSnapshot listener will automatically update the local state.
-     // We optimistically update the state for a snappier UI, but the source of truth is Firestore.
     setPlanData(newData);
     if (isFirebaseConfigured && db) {
       try {
