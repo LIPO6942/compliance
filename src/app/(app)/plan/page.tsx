@@ -16,7 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from "@/types/compliance";
 import { usePlanData } from "@/contexts/PlanDataContext";
-import { ListTodo, PlusCircle, Edit2, Trash2, MoreVertical, ChevronDown, Clock, CalendarDays } from "lucide-react";
+import { ListTodo, PlusCircle, Edit2, Trash2, MoreVertical, ChevronDown, Clock, Gavel, ShieldAlert, Users, SearchCheck, ClipboardCheck, Archive } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,7 +25,6 @@ import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useUser } from "@/contexts/UserContext";
-import { cn } from "@/lib/utils";
 
 const iconMap: Record<string, LucideIcons.LucideIcon> = {
   Gavel: LucideIcons.Gavel, ShieldAlert: LucideIcons.ShieldAlert, SearchCheck: LucideIcons.SearchCheck, ClipboardCheck: LucideIcons.ClipboardCheck,
@@ -78,13 +77,6 @@ const isTaskOverdue = (task: ComplianceTask) => {
   return task.deadline && !task.completed && new Date(task.deadline) < new Date();
 };
 
-const categoryColors = [
-    "text-chart-1", "text-chart-2", "text-chart-3", "text-chart-4", "text-chart-5", "text-teal-500", "text-fuchsia-500"
-];
-const categoryBorderColors = [
-    "border-chart-1", "border-chart-2", "border-chart-3", "border-chart-4", "border-chart-5", "border-teal-500", "border-fuchsia-500"
-];
-
 export default function PlanPage() {
   const { 
     planData, 
@@ -110,7 +102,6 @@ export default function PlanPage() {
   }, []);
 
   React.useEffect(() => {
-    // Expand all categories by default when data loads
     if (planData.length > 0) {
       setActiveAccordionItems(planData.map(cat => cat.id));
     }
@@ -244,16 +235,14 @@ export default function PlanPage() {
         value={activeAccordionItems}
         onValueChange={setActiveAccordionItems}
       >
-        {planData.length > 0 ? planData.map((category: ComplianceCategory, index) => {
-            const colorClass = categoryColors[index % categoryColors.length];
-            const borderColorClass = categoryBorderColors[index % categoryBorderColors.length];
+        {planData.length > 0 ? planData.map((category: ComplianceCategory) => {
             const Icon = getIconComponent(category.icon);
             return (
-            <AccordionItem key={category.id} value={category.id} id={category.id} className={`bg-card border rounded-lg shadow-md overflow-hidden border-l-4 ${borderColorClass}`}>
+            <AccordionItem key={category.id} value={category.id} id={category.id} className="bg-card border rounded-lg shadow-md overflow-hidden">
                <AccordionPrimitive.Header className="flex items-center px-6 py-4 hover:bg-muted/50 transition-colors group">
                 <ShadcnAccordionTrigger className="p-0 hover:no-underline flex-1 [&>svg]:ml-auto">
                   <div className="flex items-center space-x-3">
-                    <Icon className={cn('h-6 w-6', colorClass)} />
+                    <Icon className="h-6 w-6 text-primary" />
                     <span className="text-xl font-headline font-medium">{category.name}</span>
                   </div>
                 </ShadcnAccordionTrigger>
