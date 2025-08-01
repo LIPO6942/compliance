@@ -4,7 +4,7 @@ import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
@@ -74,7 +74,6 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       const planDocRef = doc(db, planDocumentPath);
       await setDoc(planDocRef, { plan: cleanupObjectForFirestore(newData) });
     } else {
-       // If firebase is not configured, we just update the local state.
        setPlanData(newData);
     }
   };
@@ -101,13 +100,16 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addCategory = async (category: Omit<ComplianceCategory, 'id' | 'subCategories'>) => {
+    if (!isFirebaseConfigured || !db) return;
     const newCategory: ComplianceCategory = { 
         ...category, 
         id: Date.now().toString(), 
         subCategories: [] 
     };
-    const newPlanData = [...planData, newCategory];
-    await updateFirestorePlan(newPlanData);
+    const planDocRef = doc(db, planDocumentPath);
+    await updateDoc(planDocRef, {
+        plan: arrayUnion(cleanupObjectForFirestore(newCategory))
+    });
   };
 
   const editCategory = async (categoryId: string, categoryUpdate: Partial<Omit<ComplianceCategory, 'id' | 'subCategories'>>) => {
