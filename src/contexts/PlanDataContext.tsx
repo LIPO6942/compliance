@@ -4,7 +4,7 @@ import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc, writeBatch, collection } from "firebase/firestore";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
@@ -26,13 +26,11 @@ interface PlanDataContextType {
 
 const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined);
 
-// Helper to remove undefined fields from an object before sending to Firestore
 const cleanupObjectForFirestore = (obj: any) => {
     return JSON.parse(JSON.stringify(obj, (key, value) => {
         return value === undefined ? null : value;
     }));
 };
-
 
 export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   const [planData, setPlanData] = useState<ComplianceCategory[]>([]);
@@ -56,8 +54,10 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
             setPlanData(data.plan || []);
         } else {
             console.log("Plan document does not exist. Creating with initial data.");
-            setDoc(planDocRef, { plan: initialCompliancePlanData })
-                .then(() => setPlanData(initialCompliancePlanData))
+            // Set local state immediately to avoid UI flicker
+            setPlanData(initialCompliancePlanData);
+            // Create document in Firestore with initial data
+            setDoc(planDocRef, { plan: cleanupObjectForFirestore(initialCompliancePlanData) })
                 .catch(e => console.error("Error creating initial plan document:", e));
         }
         setLoading(false);
@@ -71,15 +71,20 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   }, [isLoaded]);
 
   const updateFirestorePlan = async (newData: ComplianceCategory[]) => {
-    setPlanData(newData);
+    // Optimistic update for better UX is tricky with this setup.
+    // The most reliable way is to write to Firestore and let onSnapshot update the state.
     if (isFirebaseConfigured && db) {
       try {
         const planDocRef = doc(db, planDocumentPath);
+        // Use the new data to update Firestore. The onSnapshot listener will then update the local state.
         await setDoc(planDocRef, { plan: cleanupObjectForFirestore(newData) });
       } catch (error) {
         console.error("Error updating plan data in Firestore: ", error);
-        // If Firestore update fails, onSnapshot will eventually revert the state.
+        // Revert to current state if error? The snapshot listener should handle this automatically.
       }
+    } else {
+       // If firebase is not configured, just update local state.
+       setPlanData(newData);
     }
   };
 
@@ -125,7 +130,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addSubCategory = async (categoryId: string, subCategory: Omit<ComplianceSubCategory, 'id' | 'tasks'>) => {
-    const newSubCategory: ComplianceSubCategory = { ...subCategory, id: Date.now().toString(), tasks: [] };
+    const newSubCategory: ComplianceSubCategory = { ...subCategory, icon: subCategory.icon || 'ListTodo', id: Date.now().toString(), tasks: [] };
     const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, subCategories: [...cat.subCategories, newSubCategory] } : cat);
     await updateFirestorePlan(newPlanData);
   };
