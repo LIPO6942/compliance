@@ -182,6 +182,7 @@ export default function PlanPage() {
     }
     closeDialog();
   };
+  
   const handleEditTask = async (values: TaskFormValues) => {
      if(dialogState.grandParentId && dialogState.parentId && dialogState.data?.id) {
       const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined };
@@ -190,6 +191,7 @@ export default function PlanPage() {
     }
     closeDialog();
   };
+
   const handleRemoveTask = async (categoryId: string, subCategoryId: string, taskId: string) => {
     await removeTaskContext(categoryId, subCategoryId, taskId);
     toast({ title: "Tâche supprimée", description: `La tâche a été supprimée.` });
