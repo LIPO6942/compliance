@@ -4,7 +4,7 @@ import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
@@ -73,9 +73,8 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     if (isFirebaseConfigured && db) {
       const planDocRef = doc(db, planDocumentPath);
       await setDoc(planDocRef, { plan: cleanupObjectForFirestore(newData) });
-    } else {
-       setPlanData(newData);
     }
+    // No need for an else, as the onSnapshot will handle local state for mock data
   };
 
   const updateTaskCompletion = async (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => {
@@ -100,16 +99,13 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addCategory = async (category: Omit<ComplianceCategory, 'id' | 'subCategories'>) => {
-    if (!isFirebaseConfigured || !db) return;
-    const newCategory: ComplianceCategory = { 
-        ...category, 
-        id: Date.now().toString(), 
-        subCategories: [] 
+    const newCategory: ComplianceCategory = {
+      ...category,
+      id: Date.now().toString(),
+      subCategories: [],
     };
-    const planDocRef = doc(db, planDocumentPath);
-    await updateDoc(planDocRef, {
-        plan: arrayUnion(cleanupObjectForFirestore(newCategory))
-    });
+    const newPlanData = [...planData, newCategory];
+    await updateFirestorePlan(newPlanData);
   };
 
   const editCategory = async (categoryId: string, categoryUpdate: Partial<Omit<ComplianceCategory, 'id' | 'subCategories'>>) => {
@@ -142,12 +138,10 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addTask = async (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => {
-    const newTaskData: ComplianceTask = { 
-      ...task, 
-      id: Date.now().toString(), 
-      completed: false, 
-      description: task.description || undefined,
-      deadline: task.deadline || undefined,
+    const newTaskData: ComplianceTask = {
+      ...task,
+      id: Date.now().toString(),
+      completed: false,
     };
     const newPlanData = planData.map(cat => cat.id === categoryId ? {
       ...cat,
@@ -161,12 +155,9 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         ...cat,
         subCategories: cat.subCategories.map(sub => (sub.id === subCategoryId ? {
             ...sub,
-            tasks: sub.tasks.map(t => (t.id === taskId ? { 
-                ...t, 
+            tasks: sub.tasks.map(t => (t.id === taskId ? {
+                ...t,
                 ...taskUpdate,
-                // Explicitly handle optional fields to avoid 'undefined'
-                description: taskUpdate.description || t.description || undefined,
-                deadline: taskUpdate.deadline || t.deadline || undefined,
             } : t))
         } : sub))
     } : cat));
