@@ -4,7 +4,7 @@ import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, updateDoc, getDoc } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
@@ -68,7 +68,8 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   
   const updatePlanInFirestore = async (newPlan: ComplianceCategory[]) => {
       if (!isFirebaseConfigured || !db) {
-        setPlanData(newPlan);
+        setPlanData(newPlan); // Fallback for mock data
+        console.warn("Firebase not configured. Using mock data.");
         return;
       }
     
