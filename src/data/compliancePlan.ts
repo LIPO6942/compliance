@@ -218,4 +218,20 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
       },
     ],
   },
+  {
+    id: 'gouvernance-controle',
+    name: 'Gouvernance & Dispositif de Contrôle',
+    icon: 'Gavel',
+    subCategories: [
+      {
+        id: 'gouvernance-controle-1',
+        name: "Structure et Responsabilités",
+        icon: 'Building',
+        tasks: [
+          { id: 'gouvernance-controle-task-1', name: 'Définir formellement les rôles et responsabilités de la fonction conformité.', completed: false, year: 2024 },
+          { id: 'gouvernance-controle-task-2', name: "S'assurer de l'indépendance de la fonction conformité.", completed: false, year: 2024 },
+        ],
+      },
+    ],
+  },
 ];
