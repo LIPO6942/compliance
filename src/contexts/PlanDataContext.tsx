@@ -4,7 +4,7 @@ import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc, updateDoc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
@@ -25,6 +25,22 @@ interface PlanDataContextType {
 }
 
 const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined);
+
+const cleanData = (data: any): any => {
+  if (Array.isArray(data)) {
+    return data.map(cleanData);
+  } else if (typeof data === 'object' && data !== null) {
+    const cleaned: Record<string, any> = {};
+    for (const key in data) {
+      if (data[key] !== undefined) {
+        cleaned[key] = cleanData(data[key]);
+      }
+    }
+    return cleaned;
+  }
+  return data;
+};
+
 
 export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   const [planData, setPlanData] = useState<ComplianceCategory[]>([]);
@@ -53,7 +69,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
                 await setDoc(planDocRef, { plan: initialCompliancePlanData });
             } catch (e) {
                 console.error("Error creating initial plan document:", e);
-                setPlanData(initialCompliancePlanData); // Fallback
+                setPlanData(initialCompliancePlanData);
             }
         }
         setLoading(false);
@@ -68,19 +84,19 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   
   const updatePlanInFirestore = async (newPlan: ComplianceCategory[]) => {
       if (!isFirebaseConfigured || !db) {
-        setPlanData(newPlan); // Fallback for mock data
-        console.warn("Firebase not configured. Using mock data.");
+        setPlanData(newPlan);
+        console.warn("❌ Firebase n'est pas configuré !");
         return;
       }
     
       try {
         const planDocRef = doc(db, planDocumentPath);
-        // Firestore doesn't allow 'undefined' values. We clean the object before sending.
-        const cleanedData = JSON.parse(JSON.stringify(newPlan));
+        const cleanedData = cleanData(newPlan);
+        console.log("✅ Envoi dans Firestore:", cleanedData);
         await setDoc(planDocRef, { plan: cleanedData });
       } catch (err) {
-        console.error("Error updating plan in Firestore:", err);
-        throw err; // Re-throw the error to be caught by the caller
+        console.error("🔥 Erreur updatePlanInFirestore:", err);
+        throw err;
       }
     };
 
