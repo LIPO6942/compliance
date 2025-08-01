@@ -107,7 +107,6 @@ export default function PlanPage() {
     }
   }, [planData]);
 
-
   const [dialogState, setDialogState] = React.useState<{
     type: "category" | "subCategory" | "task" | null;
     mode: "add" | "edit" | null;
@@ -136,6 +135,7 @@ export default function PlanPage() {
       else if (type === "task") taskForm.reset({ name: "", description: "", deadline: "" });
     }
   };
+
   const closeDialog = () => setDialogState({ type: null, mode: null });
 
   const handleAddCategory = async (values: CategoryFormValues) => {
@@ -143,6 +143,7 @@ export default function PlanPage() {
     toast({ title: "Catégorie ajoutée", description: `La catégorie "${values.name}" a été ajoutée.` });
     closeDialog();
   };
+
   const handleEditCategory = async (values: CategoryFormValues) => {
     if(dialogState.data?.id) {
       await editCategoryContext(dialogState.data.id, values);
@@ -150,6 +151,7 @@ export default function PlanPage() {
     }
     closeDialog();
   };
+
   const handleRemoveCategory = async (categoryId: string) => {
     await removeCategoryContext(categoryId);
     toast({ title: "Catégorie supprimée", description: `La catégorie a été supprimée.` });
@@ -162,6 +164,7 @@ export default function PlanPage() {
     }
     closeDialog();
   };
+
   const handleEditSubCategory = async (values: SubCategoryFormValues) => {
     if(dialogState.grandParentId && dialogState.data?.id) {
       await editSubCategoryContext(dialogState.grandParentId, dialogState.data.id, values);
@@ -169,6 +172,7 @@ export default function PlanPage() {
     }
     closeDialog();
   };
+
   const handleRemoveSubCategory = async (categoryId: string, subCategoryId: string) => {
     await removeSubCategoryContext(categoryId, subCategoryId);
     toast({ title: "Sous-catégorie supprimée", description: `La sous-catégorie a été supprimée.` });
@@ -545,5 +549,3 @@ export default function PlanPage() {
     </div>
   );
 }
-
-    
