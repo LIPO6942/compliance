@@ -4,7 +4,7 @@ import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
@@ -26,6 +26,7 @@ interface PlanDataContextType {
 
 const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined);
 
+// Helper to remove 'undefined' values which Firestore doesn't support.
 const cleanupObjectForFirestore = (obj: any) => {
     return JSON.parse(JSON.stringify(obj, (key, value) => {
         return value === undefined ? null : value;
@@ -54,8 +55,8 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
             setPlanData(data.plan || []);
         } else {
             console.log("Plan document does not exist. Creating with initial data.");
-            setPlanData(initialCompliancePlanData);
             setDoc(planDocRef, { plan: cleanupObjectForFirestore(initialCompliancePlanData) })
+                .then(() => setPlanData(initialCompliancePlanData))
                 .catch(e => console.error("Error creating initial plan document:", e));
         }
         setLoading(false);
@@ -70,14 +71,10 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
 
   const updateFirestorePlan = async (newData: ComplianceCategory[]) => {
     if (isFirebaseConfigured && db) {
-      try {
-        const planDocRef = doc(db, planDocumentPath);
-        // Use updateDoc to modify only the 'plan' field without overwriting the whole document.
-        await updateDoc(planDocRef, { plan: cleanupObjectForFirestore(newData) });
-      } catch (error) {
-        console.error("Error updating plan data in Firestore: ", error);
-      }
+      const planDocRef = doc(db, planDocumentPath);
+      await setDoc(planDocRef, { plan: cleanupObjectForFirestore(newData) });
     } else {
+       // If firebase is not configured, we just update the local state.
        setPlanData(newData);
     }
   };
