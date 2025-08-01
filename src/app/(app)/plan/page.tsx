@@ -77,6 +77,12 @@ const isTaskOverdue = (task: ComplianceTask) => {
   return task.deadline && !task.completed && new Date(task.deadline) < new Date();
 };
 
+const categoryColors = [
+    "text-chart-1", "text-chart-2", "text-chart-3", "text-chart-4", "text-chart-5", "text-teal-500", "text-fuchsia-500"
+];
+const categoryBorderColors = [
+    "border-chart-1", "border-chart-2", "border-chart-3", "border-chart-4", "border-chart-5", "border-teal-500", "border-fuchsia-500"
+];
 
 export default function PlanPage() {
   const { 
@@ -208,9 +214,9 @@ export default function PlanPage() {
     }
   };
   
-  const CategoryIconComponent = ({ iconName }: { iconName: string }) => {
+  const CategoryIconComponent = ({ iconName, colorClass }: { iconName: string, colorClass: string }) => {
     const Icon = getIconComponent(iconName);
-    return <Icon className="h-6 w-6 text-primary" />;
+    return <Icon className={`h-6 w-6 ${colorClass}`} />;
   };
   
   const SubCategoryIconComponent = ({ iconName }: { iconName?: string }) => {
@@ -248,12 +254,15 @@ export default function PlanPage() {
         value={activeAccordionItems}
         onValueChange={setActiveAccordionItems}
       >
-        {planData.length > 0 ? planData.map((category: ComplianceCategory) => (
-            <AccordionItem key={category.id} value={category.id} id={category.id} className="bg-card border border-border rounded-lg shadow-md overflow-hidden">
+        {planData.length > 0 ? planData.map((category: ComplianceCategory, index) => {
+            const colorClass = categoryColors[index % categoryColors.length];
+            const borderColorClass = categoryBorderColors[index % categoryBorderColors.length];
+            return (
+            <AccordionItem key={category.id} value={category.id} id={category.id} className={`bg-card border rounded-lg shadow-md overflow-hidden border-l-4 ${borderColorClass}`}>
                <AccordionPrimitive.Header className="flex items-center px-6 py-4 hover:bg-muted/50 transition-colors group">
                 <ShadcnAccordionTrigger className="p-0 hover:no-underline flex-1 [&>svg]:ml-auto">
                   <div className="flex items-center space-x-3">
-                    <CategoryIconComponent iconName={category.icon} />
+                    <CategoryIconComponent iconName={category.icon} colorClass={colorClass} />
                     <span className="text-xl font-headline font-medium">{category.name}</span>
                   </div>
                 </ShadcnAccordionTrigger>
@@ -431,7 +440,8 @@ export default function PlanPage() {
                 </div>
               </AccordionContent>
             </AccordionItem>
-          )) : (
+          )})
+        ) : (
              <Card className="text-center p-8 border-dashed shadow-none">
                 <CardTitle className="text-xl font-medium">Aucun plan de conformité défini</CardTitle>
                 <CardDescription className="mt-2">Commencez par ajouter votre première catégorie pour construire votre plan.</CardDescription>
@@ -552,5 +562,3 @@ export default function PlanPage() {
     </div>
   );
 }
-
-    
