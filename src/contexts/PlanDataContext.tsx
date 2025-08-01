@@ -79,6 +79,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         await setDoc(planDocRef, { plan: cleanedData });
       } catch (err) {
         console.error("Error updating plan in Firestore:", err);
+        throw err; // Re-throw the error to be caught by the caller
       }
     };
 
