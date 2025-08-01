@@ -4,7 +4,7 @@ import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
@@ -54,9 +54,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
             setPlanData(data.plan || []);
         } else {
             console.log("Plan document does not exist. Creating with initial data.");
-            // Set local state immediately to avoid UI flicker
             setPlanData(initialCompliancePlanData);
-            // Create document in Firestore with initial data
             setDoc(planDocRef, { plan: cleanupObjectForFirestore(initialCompliancePlanData) })
                 .catch(e => console.error("Error creating initial plan document:", e));
         }
@@ -71,19 +69,15 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   }, [isLoaded]);
 
   const updateFirestorePlan = async (newData: ComplianceCategory[]) => {
-    // Optimistic update for better UX is tricky with this setup.
-    // The most reliable way is to write to Firestore and let onSnapshot update the state.
     if (isFirebaseConfigured && db) {
       try {
         const planDocRef = doc(db, planDocumentPath);
-        // Use the new data to update Firestore. The onSnapshot listener will then update the local state.
-        await setDoc(planDocRef, { plan: cleanupObjectForFirestore(newData) });
+        // Use updateDoc to modify only the 'plan' field without overwriting the whole document.
+        await updateDoc(planDocRef, { plan: cleanupObjectForFirestore(newData) });
       } catch (error) {
         console.error("Error updating plan data in Firestore: ", error);
-        // Revert to current state if error? The snapshot listener should handle this automatically.
       }
     } else {
-       // If firebase is not configured, just update local state.
        setPlanData(newData);
     }
   };
@@ -149,7 +143,13 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addTask = async (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => {
-    const newTaskData: ComplianceTask = { ...task, id: Date.now().toString(), completed: false };
+    const newTaskData: ComplianceTask = { 
+      ...task, 
+      id: Date.now().toString(), 
+      completed: false, 
+      description: task.description || undefined,
+      deadline: task.deadline || undefined,
+    };
     const newPlanData = planData.map(cat => cat.id === categoryId ? {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: [...sub.tasks, newTaskData] } : sub)
@@ -162,7 +162,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       ...cat,
       subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
         ...sub,
-        tasks: sub.tasks.map(t => t.id === taskId ? { ...t, ...taskUpdate } : t)
+        tasks: sub.tasks.map(t => t.id === taskId ? { ...t, ...taskUpdate, deadline: taskUpdate.deadline || undefined, description: taskUpdate.description || undefined } : t)
       } : sub)
     } : cat));
     await updateFirestorePlan(newPlanData);
