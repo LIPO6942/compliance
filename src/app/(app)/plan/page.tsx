@@ -54,6 +54,17 @@ const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => {
   return LucideIcons.ListTodo; 
 };
 
+const CategoryIconComponent = ({ iconName, colorClass }: { iconName: string; colorClass: string }) => {
+  const Icon = getIconComponent(iconName);
+  return <Icon className={`h-6 w-6 ${colorClass}`} />;
+};
+
+const SubCategoryIconComponent = ({ iconName }: { iconName?: string }) => {
+  const Icon = getIconComponent(iconName);
+  return <Icon className="h-5 w-5 mr-2 text-accent" />;
+};
+
+
 const categorySchema = z.object({
   name: z.string().min(1, "Le nom de la catégorie est requis."),
   icon: z.string().min(1, "L'icône de la catégorie est requise."),
@@ -213,17 +224,6 @@ export default function PlanPage() {
         });
     }
   };
-  
-  const CategoryIconComponent = ({ iconName, colorClass }: { iconName: string, colorClass: string }) => {
-    const Icon = getIconComponent(iconName);
-    return <Icon className={`h-6 w-6 ${colorClass}`} />;
-  };
-  
-  const SubCategoryIconComponent = ({ iconName }: { iconName?: string }) => {
-    const Icon = getIconComponent(iconName);
-    return <Icon className="h-5 w-5 mr-2 text-accent" />;
-  };
-
 
   return (
     <div className="space-y-6">
