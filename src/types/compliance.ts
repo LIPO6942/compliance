@@ -7,7 +7,6 @@ export interface ComplianceTask {
   description?: string;
   completed: boolean;
   deadline?: string; // ISO date string
-  year: number;
 }
 
 export interface ComplianceSubCategory {
@@ -127,3 +126,5 @@ export interface RiskMappingItem {
   owner: string;
   lastUpdated: string;
 }
+
+    
