@@ -114,6 +114,7 @@ export default function PlanPage() {
   }, [planData, currentYear]);
 
   const { isLoaded } = useUser();
+    const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
     setIsClient(true);
@@ -223,16 +224,29 @@ export default function PlanPage() {
     }
   };
   
-  const [isClient, setIsClient] = React.useState(false);
-  
   const filteredPlanData = React.useMemo(() => {
-    return planData.map(category => ({
-      ...category,
-      subCategories: category.subCategories.map(subCategory => ({
-        ...subCategory,
-        tasks: subCategory.tasks.filter(task => task.year === selectedYear)
-      })).filter(subCategory => subCategory.tasks.length > 0) // Hide subcategories with no tasks for the selected year
-    })).filter(category => category.subCategories.length > 0); // Hide categories with no subcategories for the selected year
+    return planData.map(category => {
+      // Create a new category object with subcategories filtered by year
+      const categoryWithFilteredTasks = {
+        ...category,
+        subCategories: category.subCategories.map(subCategory => ({
+          ...subCategory,
+          tasks: subCategory.tasks.filter(task => task.year === selectedYear)
+        }))
+      };
+      
+      // Determine if this category should be visible
+      const hasTasksForYear = categoryWithFilteredTasks.subCategories.some(sub => sub.tasks.length > 0);
+      const isNewEmptyCategory = category.subCategories.length === 0;
+
+      // Return the category if it has tasks for the year, or if it's a new empty category.
+      // Otherwise, return null to filter it out.
+      return (hasTasksForYear || isNewEmptyCategory) ? categoryWithFilteredTasks : null;
+    }).filter((category): category is ComplianceCategory => category !== null) // Remove the nulls
+    .map(category => ({ // Second map to filter out empty subcategories from the final result
+        ...category,
+        subCategories: category.subCategories.filter(sub => sub.tasks.length > 0)
+    }));
   }, [planData, selectedYear]);
 
   const CategoryIconComponent = ({ iconName }: { iconName: string }) => {
@@ -604,3 +618,4 @@ export default function PlanPage() {
     </div>
   );
 }
+
