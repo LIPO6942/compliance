@@ -219,5 +219,3 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
     ],
   },
 ];
-
-    
