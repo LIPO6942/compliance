@@ -99,7 +99,15 @@ export default function PlanPage() {
   const [selectedYear, setSelectedYear] = React.useState<number>(currentYear);
   const availableYears = React.useMemo(() => {
     const years = new Set<number>();
-    planData.forEach(cat => cat.subCategories.forEach(sub => sub.tasks.forEach(task => years.add(task.year))));
+    planData.forEach(cat => 
+      cat.subCategories.forEach(sub => 
+        sub.tasks.forEach(task => {
+          if (task.year) {
+            years.add(task.year)
+          }
+        })
+      )
+    );
     if (!years.has(currentYear)) years.add(currentYear);
     return Array.from(years).sort((a, b) => b - a);
   }, [planData, currentYear]);
