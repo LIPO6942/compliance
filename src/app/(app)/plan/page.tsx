@@ -114,13 +114,7 @@ export default function PlanPage() {
   }, [planData, currentYear]);
 
   const { isLoaded } = useUser();
-  console.log("👤 User loaded:", isLoaded);
 
-  React.useEffect(() => {
-    console.log("🎯 PlanData actuel:", planData);
-  }, [planData]);
-
-  const [isClient, setIsClient] = React.useState(false);
   React.useEffect(() => {
     setIsClient(true);
   }, []);
@@ -228,6 +222,8 @@ export default function PlanPage() {
         });
     }
   };
+  
+  const [isClient, setIsClient] = React.useState(false);
   
   const filteredPlanData = React.useMemo(() => {
     return planData.map(category => ({
