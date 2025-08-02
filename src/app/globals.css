@@ -23,7 +23,7 @@
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 231 48% 54%; /* Deep Blue for ring */
-    --chart-1: 231 48% 54%; /* Deep Blue */
+    --chart-1: 25 85% 55%; /* Orange */
     --chart-2: 180 100% 35%; /* Teal variant */
     --chart-3: 210 40% 50%; /* Another Blue Shade */
     --chart-4: 250 50% 60%; /* Purplish Blue */
@@ -61,7 +61,7 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 231 48% 60%; /* Lighter Deep Blue for ring */
-    --chart-1: 231 48% 60%;
+    --chart-1: 25 85% 60%;
     --chart-2: 180 100% 40%;
     --chart-3: 210 50% 60%;
     --chart-4: 250 60% 70%;
