@@ -3,10 +3,9 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read and write access to all documents for development purposes.
-    // In a production environment, these rules should be more restrictive.
+    // Allow read, write, and delete for all authenticated users
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
     }
   }
 }
