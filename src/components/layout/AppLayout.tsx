@@ -176,7 +176,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
                   <Avatar key="user-profile-avatar" className="h-8 w-8">
-                    <AvatarImage src={user.avatarUrl} alt="User Avatar" data-ai-hint="professional portrait" />
                     <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                   </Avatar>
                   <div className="group-data-[collapsible=icon]:hidden text-left">
