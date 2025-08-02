@@ -89,19 +89,43 @@ export default function AlertsPage() {
 
   const handleFormSubmit = (values: AlertFormValues) => {
     if (!editingAlert) return;
-    
-    const updateData: Partial<IdentifiedRegulation> = {
-      ...values,
-      affectedDepartments: values.affectedDepartments ? values.affectedDepartments.split(',').map(d => d.trim()).filter(Boolean) : []
-    };
 
+    // Build the update object carefully, avoiding undefined values
+    const updateData: Partial<IdentifiedRegulation> = {
+      status: values.status,
+      criticality: values.criticality,
+      source: values.source,
+      type: values.type,
+    };
+    
     if (values.deadline) {
       updateData.deadline = new Date(values.deadline).toISOString();
     } else {
-      delete (updateData as Partial<AlertFormValues>).deadline; // Important: remove deadline if empty
+      updateData.deadline = ''; // Send empty string to clear, or handle differently if needed
     }
+    
+    if (values.affectedDepartments) {
+      updateData.affectedDepartments = values.affectedDepartments.split(',').map(d => d.trim()).filter(Boolean);
+    } else {
+      updateData.affectedDepartments = [];
+    }
+    
+    if (values.requiredActions) {
+      updateData.requiredActions = values.requiredActions;
+    } else {
+      updateData.requiredActions = '';
+    }
+    
+    if (values.analysisNotes) {
+      updateData.analysisNotes = values.analysisNotes;
+    } else {
+      updateData.analysisNotes = '';
+    }
+    
+    // Firestore does not allow `undefined`. We must clean the object.
+    const finalUpdateData = Object.fromEntries(Object.entries(updateData).filter(([_, v]) => v !== undefined));
 
-    updateRegulation(editingAlert.id, updateData);
+    updateRegulation(editingAlert.id, finalUpdateData);
     toast({ title: "Alerte mise à jour", description: `L'alerte a été modifiée avec succès.` });
     closeDialog();
   };
@@ -338,3 +362,5 @@ export default function AlertsPage() {
     </div>
   );
 }
+
+    
