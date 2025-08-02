@@ -94,10 +94,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [openSubMenu, setOpenSubMenu] = React.useState<string | null>(activeParent?.label || null);
 
   const currentPage = navItems
-    .flatMap((item) => ("subItems" in item ? item.subItems : item))
+    .flatMap((item) => ("subItems" in item ? item.subItems : [item, ...item.subItems || []]))
     .find((item) => item && pathname.startsWith(item.href));
 
-  const pageTitle = currentPage?.title || "Compliance Navigator";
+  const pageTitle = currentPage?.title || (pathname.startsWith('/settings') ? 'Paramètres' : 'Compliance Navigator');
 
   return (
     <SidebarProvider defaultOpen={!isMobile} open={isMobile ? false : undefined}>

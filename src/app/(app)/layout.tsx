@@ -8,6 +8,7 @@ import { RiskMappingProvider } from "@/contexts/RiskMappingContext";
 import { UserProvider } from "@/contexts/UserContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { KeywordsProvider } from "@/contexts/KeywordsContext";
+import { DocumentTypesProvider } from "@/contexts/DocumentTypesContext";
 
 export default function ApplicationGroupLayout({
   children,
@@ -19,15 +20,17 @@ export default function ApplicationGroupLayout({
       <UserProvider>
         <PlanDataProvider>
           <DocumentsProvider>
-            <IdentifiedRegulationsProvider>
-              <TrainingDataProvider>
-                <RiskMappingProvider>
-                  <KeywordsProvider>
-                    <AppLayout>{children}</AppLayout>
-                  </KeywordsProvider>
-                </RiskMappingProvider>
-              </TrainingDataProvider>
-            </IdentifiedRegulationsProvider>
+            <DocumentTypesProvider>
+              <IdentifiedRegulationsProvider>
+                <TrainingDataProvider>
+                  <RiskMappingProvider>
+                    <KeywordsProvider>
+                      <AppLayout>{children}</AppLayout>
+                    </KeywordsProvider>
+                  </RiskMappingProvider>
+                </TrainingDataProvider>
+              </IdentifiedRegulationsProvider>
+            </DocumentTypesProvider>
           </DocumentsProvider>
         </PlanDataProvider>
       </UserProvider>

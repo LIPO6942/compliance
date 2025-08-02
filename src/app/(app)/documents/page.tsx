@@ -29,10 +29,11 @@ import type { Document, DocumentStatus, DocumentType } from '@/types/compliance'
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { Logo } from "@/components/icons/Logo";
 import { Suspense } from 'react';
+import { useDocumentTypes } from "@/contexts/DocumentTypesContext";
 
 const documentSchema = z.object({
   name: z.string().min(1, "Le nom du document est requis."),
-  type: z.enum(["Politique", "Procédure", "Rapport", "Support de Formation", "Veille", "Légal/Officiel", "Formulaire Interne", "Contractuel", "Financier", "Rapport Interne", "Base de Données Externe", "Déclaration Officielle", "Matériel Pédagogique/Registres", "Documents Justificatifs", "Registre/Dossier Physique/Electronique"], { required_error: "Le type est requis." }),
+  type: z.string({ required_error: "Le type est requis." }).min(1, "Le type est requis."),
   version: z.string().min(1, "La version est requise."),
   owner: z.string().min(1, "Le propriétaire est requis."),
   tags: z.string().optional(),
@@ -48,10 +49,10 @@ const statusColors: Record<DocumentStatus, string> = {
 };
 
 const allPossibleStatuses: DocumentStatus[] = ["Validé", "En Révision", "Archivé", "Obsolète"];
-const allPossibleTypes: DocumentType[] = ["Politique", "Procédure", "Rapport", "Support de Formation", "Veille", "Légal/Officiel", "Formulaire Interne", "Contractuel", "Financier", "Rapport Interne", "Base de Données Externe", "Déclaration Officielle", "Matériel Pédagogique/Registres", "Documents Justificatifs", "Registre/Dossier Physique/Electronique"];
 
 function DocumentsComponent() {
   const { documents, loading, updateDocumentStatus, addDocument, editDocument, removeDocument } = useDocuments();
+  const { documentTypes, loading: typesLoading } = useDocumentTypes();
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = React.useState("");
   const [filterType, setFilterType] = React.useState<string>("all");
@@ -77,7 +78,7 @@ function DocumentsComponent() {
     if (mode === "edit" && data) {
       form.reset({ ...data, tags: data.tags?.join(', ') || '' });
     } else {
-      form.reset({ name: "", type: "Procédure", version: "1.0", owner: "", tags: "" });
+      form.reset({ name: "", type: documentTypes[0]?.id || "", version: "1.0", owner: "", tags: "" });
     }
   };
   const closeDialog = () => setDialogState({ mode: null });
@@ -134,10 +135,10 @@ function DocumentsComponent() {
     return matchesSearch && matchesType && matchesStatus;
   });
   
-  const documentTypes = ["all", ...allPossibleTypes];
+  const allFilterableTypes = ["all", ...documentTypes.map(t => t.id)];
   const documentStatuses = ["all", ...allPossibleStatuses];
 
-  if (loading) {
+  if (loading || typesLoading) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-10rem)]">
         <Logo className="h-12 w-12 animate-spin" />
@@ -178,7 +179,7 @@ function DocumentsComponent() {
                   <SelectValue placeholder="Type de document" />
                 </SelectTrigger>
                 <SelectContent>
-                  {documentTypes.map(type => (
+                  {allFilterableTypes.map(type => (
                     <SelectItem key={type} value={type}>{type === "all" ? "Tous les types" : type}</SelectItem>
                   ))}
                 </SelectContent>
@@ -339,7 +340,7 @@ function DocumentsComponent() {
                 <FormField control={form.control} name="type" render={({ field }) => (
                   <FormItem><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>{allPossibleTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
+                    <SelectContent>{documentTypes.map(type => <SelectItem key={type.id} value={type.id}>{type.label}</SelectItem>)}</SelectContent>
                   </Select><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="version" render={({ field }) => (

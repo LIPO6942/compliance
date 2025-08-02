@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon } from "lucide-react";
+import { Settings as SettingsIcon, ChevronRight, FileType } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -103,7 +104,7 @@ export default function SettingsPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Interface</CardTitle>
-                    <CardDescription>Personnalisez l'apparence de l'application.</CardDescription>
+                    <CardDescription>Personnalisez l'apparence de l'application et les listes de valeurs.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                      <div className="flex items-center justify-between rounded-lg border p-4">
@@ -120,6 +121,18 @@ export default function SettingsPage() {
                             onCheckedChange={toggleDarkMode}
                         />
                     </div>
+                    <Link href="/settings/document-types" className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-4">
+                            <FileType className="h-6 w-6 text-muted-foreground" />
+                            <div>
+                                <Label>Gestion des Types de Documents</Label>
+                                <p className="text-sm text-muted-foreground">
+                                    Ajoutez, modifiez ou supprimez les types de documents.
+                                </p>
+                            </div>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                    </Link>
                 </CardContent>
             </Card>
 
