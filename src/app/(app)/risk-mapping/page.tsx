@@ -60,9 +60,12 @@ const riskLevelColors: Record<RiskLevel, string> = {
   "Critique": "bg-red-100 text-red-800 border-red-300 dark:bg-red-800/30 dark:text-red-400",
 };
 
-const departmentOptions = ["Juridiques", "Finances", "Comptabilité", "Sinistres matériels", "Sinistre corporel", "Equipements", "RH", "DSI", "Audit", "Organisation", "Qualité Vie", "Commercial", "Recouvrement", "Inspection"];
+const departmentOptions = ["Toutes", "Juridiques", "Finances", "Comptabilité", "Sinistres matériels", "Sinistre corporel", "Equipements", "RH", "DSI", "Audit", "Organisation", "Qualité Vie", "Commercial", "Recouvrement", "Inspection"];
 const likelihoodOptions: RiskLikelihood[] = ["Faible", "Moyenne", "Élevée"];
 const impactOptions: RiskImpact[] = ["Faible", "Moyen", "Élevé"];
+const riskLevelOptions: RiskLevel[] = ["Faible", "Modéré", "Important", "Critique"];
+const allRiskLevels = ["all", ...riskLevelOptions];
+const allDepartments = ["all", ...departmentOptions];
 
 export default function RiskMappingPage() {
   const { risks, addRisk, editRisk, removeRisk } = useRiskMapping();
@@ -74,6 +77,9 @@ export default function RiskMappingPage() {
 
   const [dialogState, setDialogState] = React.useState<{ mode: "add" | "edit" | null; data?: RiskMappingItem }>({ mode: null });
   const form = useForm<RiskFormValues>({ resolver: zodResolver(riskSchema) });
+  
+  const [filterRiskLevel, setFilterRiskLevel] = React.useState<string>("all");
+  const [filterDepartment, setFilterDepartment] = React.useState<string>("all");
 
   const openDialog = (mode: "add" | "edit", data?: RiskMappingItem) => {
     setDialogState({ mode, data });
@@ -113,6 +119,13 @@ export default function RiskMappingPage() {
     });
   };
 
+  const filteredRisks = React.useMemo(() => risks.filter(risk => {
+    if (filterRiskLevel !== "all" && risk.riskLevel !== filterRiskLevel) return false;
+    if (filterDepartment !== "all" && risk.department !== filterDepartment) return false;
+    return true;
+  }), [risks, filterRiskLevel, filterDepartment]);
+
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -129,11 +142,35 @@ export default function RiskMappingPage() {
 
       <Card className="shadow-md">
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Liste des Risques</CardTitle>
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => openDialog('add')}>
-              <PlusCircle className="mr-2 h-5 w-5" /> Ajouter un Risque
-            </Button>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex-1">
+                <CardTitle>Liste des Risques</CardTitle>
+            </div>
+            {isClient && (
+              <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                 <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
+                    <SelectTrigger className="w-full sm:w-[200px]">
+                      <SelectValue placeholder="Filtrer par niveau de risque" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous les niveaux</SelectItem>
+                      {riskLevelOptions.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                 <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+                    <SelectTrigger className="w-full sm:w-[200px]">
+                      <SelectValue placeholder="Filtrer par direction" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes les directions</SelectItem>
+                      {departmentOptions.slice(1).map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => openDialog('add')}>
+                  <PlusCircle className="mr-2 h-5 w-5" /> Ajouter un Risque
+                </Button>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -152,8 +189,8 @@ export default function RiskMappingPage() {
               </TableHeader>
               <TableBody>
                 {isClient ? (
-                  risks.length > 0 ? (
-                    risks.map((risk) => (
+                  filteredRisks.length > 0 ? (
+                    filteredRisks.map((risk) => (
                       <TableRow key={risk.id} className="hover:bg-muted/30 transition-colors">
                         <TableCell className="font-medium">{risk.department}</TableCell>
                         <TableCell className="text-muted-foreground">{risk.monitoringSubject}</TableCell>
@@ -209,7 +246,7 @@ export default function RiskMappingPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                        Aucun risque identifié. Commencez par en ajouter un.
+                        Aucun risque ne correspond à vos filtres.
                       </TableCell>
                     </TableRow>
                   )
@@ -224,9 +261,9 @@ export default function RiskMappingPage() {
             </Table>
           </div>
         </CardContent>
-         {isClient && risks.length > 0 && (
+         {isClient && filteredRisks.length > 0 && (
           <CardFooter className="justify-end text-sm text-muted-foreground pt-4">
-             {risks.length} risque{risks.length > 1 ? 's' : ''} identifié{risks.length > 1 ? 's' : ''}.
+             {filteredRisks.length} risque{filteredRisks.length > 1 ? 's' : ''} trouvé{filteredRisks.length > 1 ? 's' : ''}.
           </CardFooter>
         )}
       </Card>
@@ -243,7 +280,7 @@ export default function RiskMappingPage() {
                <FormField control={form.control} name="department" render={({ field }) => (
                   <FormItem><FormLabel>Direction Concernée</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Choisir une direction"/></SelectTrigger></FormControl>
-                    <SelectContent>{departmentOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                    <SelectContent>{departmentOptions.slice(1).map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
                   </Select><FormMessage /></FormItem>
                 )} />
               <FormField control={form.control} name="owner" render={({ field }) => (
@@ -286,3 +323,5 @@ export default function RiskMappingPage() {
     </div>
   );
 }
+
+    

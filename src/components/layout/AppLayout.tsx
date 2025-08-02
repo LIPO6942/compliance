@@ -15,9 +15,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
-  SidebarMenuSub,
-  SidebarMenuSubItem,
-  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,9 +24,6 @@ import {
   Gavel,
   ShieldAlert,
   SearchCheck,
-  ClipboardCheck,
-  MessageSquareWarning,
-  FolderKanban,
   FileText,
   FilePieChart,
   Settings,
@@ -37,10 +31,9 @@ import {
   BellRing,
   Users,
   Map,
-  ChevronDown,
   AlertTriangle,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,16 +50,8 @@ import { isFirebaseConfigured } from "@/lib/firebase";
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
   { href: "/plan", icon: Gavel, label: "Plan d'Organisation", title: "Plan d'Organisation" },
-  {
-    label: "Veille Réglementaire",
-    icon: SearchCheck,
-    title: "Veille Réglementaire",
-    href: "/regulatory-watch", // Main link for the group
-    subItems: [
-      { href: "/regulatory-watch", label: "Analyse IA", title: "Veille Réglementaire IA" },
-      { href: "/risk-mapping", label: "Cartographie des Risques", title: "Cartographie des Risques" },
-    ],
-  },
+  { href: "/regulatory-watch", icon: SearchCheck, label: "Assistance Conformité IA", title: "Assistance Conformité IA" },
+  { href: "/risk-mapping", icon: Map, label: "Cartographie des Risques", title: "Cartographie des Risques" },
   { href: "/alerts", icon: BellRing, label: "Centre d'Alertes", title: "Centre d'Alertes" },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },
   { href: "/training", icon: Users, label: "Formations", title: "Formations et Sensibilisation" },
@@ -86,16 +71,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     }
     return name.substring(0, 2).toUpperCase();
   };
-
-  const activeParent = navItems.find((item) =>
-    "subItems" in item && item.subItems?.some((sub) => pathname.startsWith(sub.href))
-  );
-
-  const [openSubMenu, setOpenSubMenu] = React.useState<string | null>(activeParent?.label || null);
-
-  const currentPage = navItems
-    .flatMap((item) => ("subItems" in item ? item.subItems : [item, ...item.subItems || []]))
-    .find((item) => item && pathname.startsWith(item.href));
+  
+  const currentPage = navItems.find((item) => pathname.startsWith(item.href));
 
   const pageTitle = currentPage?.title || (pathname.startsWith('/settings') ? 'Paramètres' : 'Compliance Navigator');
 
@@ -113,60 +90,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <SidebarContent className="p-2">
           <ScrollArea className="h-full">
             <SidebarMenu>
-              {navItems.map((item) =>
-                "subItems" in item ? (
-                  <SidebarMenuItem key={item.label}>
+              {navItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <Link href={item.href}>
                     <SidebarMenuButton
-                      onClick={() => setOpenSubMenu(openSubMenu === item.label ? null : item.label)}
-                      isActive={item.subItems.some((sub) => pathname.startsWith(sub.href))}
+                      isActive={pathname.startsWith(item.href)}
                       tooltip={{ children: item.label, className: "font-body" }}
-                      className="font-body justify-between"
+                      className="font-body"
                     >
-                      <div className="flex items-center gap-2">
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </div>
-                      <ChevronDown
-                        className={`h-4 w-4 shrink-0 transition-transform duration-200 group-data-[collapsible=icon]:hidden ${
-                          openSubMenu === item.label ? "rotate-180" : ""
-                        }`}
-                      />
+                      <item.icon />
+                      <span>{item.label}</span>
                     </SidebarMenuButton>
-                    <div
-                      className={`grid overflow-hidden transition-all duration-300 ease-in-out ${
-                        openSubMenu === item.label ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-                      }`}
-                    >
-                      <div className="overflow-hidden">
-                        <SidebarMenuSub>
-                          {item.subItems.map((subItem) => (
-                            <SidebarMenuSubItem key={subItem.href}>
-                              <SidebarMenuSubButton asChild isActive={pathname.startsWith(subItem.href)}>
-                                <Link href={subItem.href}>
-                                  {subItem.label}
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          ))}
-                        </SidebarMenuSub>
-                      </div>
-                    </div>
-                  </SidebarMenuItem>
-                ) : (
-                  <SidebarMenuItem key={item.href}>
-                    <Link href={item.href!}>
-                      <SidebarMenuButton
-                        isActive={pathname.startsWith(item.href!)}
-                        tooltip={{ children: item.label, className: "font-body" }}
-                        className="font-body"
-                      >
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                    </Link>
-                  </SidebarMenuItem>
-                )
-              )}
+                  </Link>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </ScrollArea>
         </SidebarContent>
@@ -233,3 +170,5 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+
+    

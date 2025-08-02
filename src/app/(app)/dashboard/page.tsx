@@ -5,7 +5,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map } from "lucide-react";
 import Image from "next/image";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
@@ -282,7 +282,7 @@ export default function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <QuickAccessCard
           icon={ShieldAlert}
-          title="Veille Réglementaire IA"
+          title="Assistance Conformité IA"
           description="Analysez les nouvelles réglementations avec l'IA et gérez leur intégration."
           href="/regulatory-watch"
           actionText="Analyser une Réglementation"
@@ -295,11 +295,11 @@ export default function DashboardPage() {
           actionText="Accéder aux Documents"
         />
         <QuickAccessCard
-          icon={Users}
-          title="Formations et Sensibilisation"
-          description="Organisez, suivez et promouvez les formations et campagnes de sensibilisation essentielles à une culture de conformité robuste."
-          href="/training"
-          actionText="Explorer les Programmes"
+          icon={Map}
+          title="Cartographie des Risques"
+          description="Identifiez, évaluez et suivez les risques de non-conformité au sein de votre organisation."
+          href="/risk-mapping"
+          actionText="Consulter la Cartographie"
         />
       </div>
 
@@ -373,3 +373,6 @@ function QuickAccessCard({ icon: Icon, title, description, href, actionText }: Q
 
     
 
+
+
+    

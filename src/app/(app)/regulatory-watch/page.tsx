@@ -120,7 +120,7 @@ export default function RegulatoryWatchPage() {
         <CardHeader>
           <CardTitle className="font-headline text-3xl flex items-center">
             <Sparkles className="mr-2 h-7 w-7 text-primary" />
-            Veille Réglementaire Assistée par IA
+            Assistance Conformité IA
           </CardTitle>
           <CardDescription className="text-lg">
             Utilisez l'intelligence artificielle pour analyser rapidement les nouvelles réglementations, en se basant sur des mots-clés spécifiques.
@@ -333,3 +333,5 @@ export default function RegulatoryWatchPage() {
     </div>
   );
 }
+
+    
