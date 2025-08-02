@@ -41,8 +41,22 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
         return;
     }
 
-    const q = query(collection(db, regulationsCollectionName), orderBy("publicationDate", "desc"));
+    const regulationsRef = collection(db, regulationsCollectionName);
+    const q = query(regulationsRef, orderBy("publicationDate", "desc"));
+    
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      // If the mock data is empty and the database is not, we clear the database.
+      if (initialMockRegulations.length === 0 && !querySnapshot.empty) {
+        console.log(`[${regulationsCollectionName}] mock data is empty, but Firestore contains data. Clearing collection.`);
+        const batch = writeBatch(db!);
+        querySnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit().catch(e => console.error(`Failed to clear ${regulationsCollectionName}:`, e));
+        // The listener will be re-triggered, so we can return here.
+        return;
+      }
+      
       // This condition ensures we don't re-seed if the user has already interacted with the data.
       if (querySnapshot.empty && loading && initialMockRegulations.length > 0) {
         console.log(`[${regulationsCollectionName}] collection is empty. Seeding with mock data.`);
