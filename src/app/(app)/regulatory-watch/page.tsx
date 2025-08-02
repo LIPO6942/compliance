@@ -18,22 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Logo } from "@/components/icons/Logo";
-
-const initialKeywordOptions = [
-  { id: "LAB-FT", label: "LAB-FT" },
-  { id: "Gouvernance", label: "Gouvernance" },
-  { id: "Protection des données", label: "Protection des données" },
-  { id: "CTAF", label: "CTAF" },
-  { id: "Déclaration de soupçon", label: "Déclaration de soupçon" },
-  { id: "Gel des avoirs", label: "Gel des avoirs" },
-  { id: "Bénéficiaire effectif", label: "Bénéficiaire effectif" },
-  { id: "Diligence renforcée", label: "Diligence renforcée" },
-  { id: "PEP (personne politiquement exposée)", label: "PEP" },
-  { id: "Filtrage / Sanctions", label: "Filtrage / Sanctions" },
-];
-
-const localStorageKey = "customKeywords";
-
+import { useKeywords } from "@/contexts/KeywordsContext";
 
 const formSchema = z.object({
   regulationText: z.string().min(50, { message: "Le texte réglementaire doit contenir au moins 50 caractères." }),
@@ -52,34 +37,8 @@ export default function RegulatoryWatchPage() {
   const { toast } = useToast();
   const { addIdentifiedRegulation } = useIdentifiedRegulations();
   
-  const [keywordOptions, setKeywordOptions] = React.useState(initialKeywordOptions);
+  const { keywords: keywordOptions, loading: keywordsLoading, addKeyword, removeKeyword } = useKeywords();
   const [newKeyword, setNewKeyword] = React.useState("");
-  const [isClient, setIsClient] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsClient(true);
-    try {
-      const savedKeywords = localStorage.getItem(localStorageKey);
-      if (savedKeywords) {
-        setKeywordOptions(JSON.parse(savedKeywords));
-      } else {
-        localStorage.setItem(localStorageKey, JSON.stringify(initialKeywordOptions));
-      }
-    } catch (error) {
-        console.error("Failed to access localStorage or parse keywords:", error);
-        setKeywordOptions(initialKeywordOptions);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (isClient) {
-      try {
-        localStorage.setItem(localStorageKey, JSON.stringify(keywordOptions));
-      } catch (error) {
-         console.error("Failed to save keywords to localStorage:", error);
-      }
-    }
-  }, [keywordOptions, isClient]);
 
   const form = useForm<RegulatoryWatchFormValues>({
     resolver: zodResolver(formSchema),
@@ -89,22 +48,13 @@ export default function RegulatoryWatchPage() {
     },
   });
   
-  const handleAddKeyword = () => {
-    const trimmedKeyword = newKeyword.trim();
-    if (trimmedKeyword && !keywordOptions.some(k => k.label.toLowerCase() === trimmedKeyword.toLowerCase())) {
-        setKeywordOptions(currentOptions => [...currentOptions, { id: trimmedKeyword, label: trimmedKeyword }]);
-        setNewKeyword("");
-    } else if (trimmedKeyword) {
-        toast({
-            variant: "destructive",
-            title: "Mot-clé existant",
-            description: "Ce mot-clé existe déjà dans la liste.",
-        });
-    }
+  const handleAddKeyword = async () => {
+    await addKeyword(newKeyword);
+    setNewKeyword("");
   };
 
-  const handleRemoveKeyword = (keywordIdToRemove: string) => {
-    setKeywordOptions(currentOptions => currentOptions.filter(option => option.id !== keywordIdToRemove));
+  const handleRemoveKeyword = async (keywordIdToRemove: string) => {
+    await removeKeyword(keywordIdToRemove);
     const currentSelection = form.getValues('keywords') || [];
     form.setValue('keywords', currentSelection.filter(id => id !== keywordIdToRemove), { shouldValidate: true });
   };
@@ -231,41 +181,48 @@ export default function RegulatoryWatchPage() {
                               onCheckedChange={(checked) => {
                                   field.onChange(checked ? keywordOptions.map((item) => item.id) : []);
                               }}
+                              disabled={keywordsLoading}
                           />
                           <Label htmlFor="select-all" className="text-sm font-normal cursor-pointer">
                               Tout cocher
                           </Label>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {keywordOptions.map((item) => (
-                           <div key={item.id} className="group relative flex items-center space-x-3 rounded-md border p-3 shadow-sm">
-                              <Checkbox
-                                  id={`keyword-${item.id}`}
-                                  checked={field.value?.includes(item.id)}
-                                  onCheckedChange={(checked) => {
-                                      const currentSelection = field.value || [];
-                                      const newSelection = checked
-                                          ? [...currentSelection, item.id]
-                                          : currentSelection.filter((value) => value !== item.id);
-                                      field.onChange(newSelection);
-                                  }}
-                              />
-                              <Label htmlFor={`keyword-${item.id}`} className="text-sm font-normal cursor-pointer flex-1">
-                                  {item.label}
-                              </Label>
-                              <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={() => handleRemoveKeyword(item.id)}
-                              >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                          </div>
-                        ))}
-                      </div>
+                      {keywordsLoading ? (
+                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {[...Array(6)].map((_, i) => <div key={i} className="h-12 w-full bg-muted rounded-md animate-pulse"></div>)}
+                         </div>
+                      ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {keywordOptions.map((item) => (
+                            <div key={item.id} className="group relative flex items-center space-x-3 rounded-md border p-3 shadow-sm">
+                                <Checkbox
+                                    id={`keyword-${item.id}`}
+                                    checked={field.value?.includes(item.id)}
+                                    onCheckedChange={(checked) => {
+                                        const currentSelection = field.value || [];
+                                        const newSelection = checked
+                                            ? [...currentSelection, item.id]
+                                            : currentSelection.filter((value) => value !== item.id);
+                                        field.onChange(newSelection);
+                                    }}
+                                />
+                                <Label htmlFor={`keyword-${item.id}`} className="text-sm font-normal cursor-pointer flex-1">
+                                    {item.label}
+                                </Label>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => handleRemoveKeyword(item.id)}
+                                >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </div>
+                            ))}
+                        </div>
+                      )}
                       <FormMessage className="pt-2" />
                     </FormItem>
                   );

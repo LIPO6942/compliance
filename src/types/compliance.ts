@@ -10,7 +10,7 @@ export interface ComplianceTask {
 }
 
 export interface ComplianceSubCategory {
-  id: string;
+  id:string;
   name: string;
   icon?: string;
   tasks: ComplianceTask[];
@@ -127,4 +127,8 @@ export interface RiskMappingItem {
   lastUpdated: string;
 }
 
+export interface CustomKeyword {
+  id: string;
+  label: string;
+}
     
