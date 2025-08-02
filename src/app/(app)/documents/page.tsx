@@ -32,7 +32,7 @@ import { Suspense } from 'react';
 
 const documentSchema = z.object({
   name: z.string().min(1, "Le nom du document est requis."),
-  type: z.enum(["Politique", "Procédure", "Rapport", "Support de Formation", "Veille"], { required_error: "Le type est requis." }),
+  type: z.enum(["Politique", "Procédure", "Rapport", "Support de Formation", "Veille", "Légal/Officiel", "Formulaire Interne", "Contractuel", "Financier", "Rapport Interne", "Base de Données Externe", "Déclaration Officielle", "Matériel Pédagogique/Registres", "Documents Justificatifs", "Registre/Dossier Physique/Electronique"], { required_error: "Le type est requis." }),
   version: z.string().min(1, "La version est requise."),
   owner: z.string().min(1, "Le propriétaire est requis."),
   tags: z.string().optional(),
@@ -48,7 +48,7 @@ const statusColors: Record<DocumentStatus, string> = {
 };
 
 const allPossibleStatuses: DocumentStatus[] = ["Validé", "En Révision", "Archivé", "Obsolète"];
-const allPossibleTypes: DocumentType[] = ["Politique", "Procédure", "Rapport", "Support de Formation", "Veille"];
+const allPossibleTypes: DocumentType[] = ["Politique", "Procédure", "Rapport", "Support de Formation", "Veille", "Légal/Officiel", "Formulaire Interne", "Contractuel", "Financier", "Rapport Interne", "Base de Données Externe", "Déclaration Officielle", "Matériel Pédagogique/Registres", "Documents Justificatifs", "Registre/Dossier Physique/Electronique"];
 
 function DocumentsComponent() {
   const { documents, loading, updateDocumentStatus, addDocument, editDocument, removeDocument } = useDocuments();

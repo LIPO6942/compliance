@@ -5,11 +5,11 @@ export const initialMockDocuments: Document[] = [
   {
     id: 'doc-kyc-id',
     name: "Documents d'Identification Client (KYC)",
-    type: "Légal/Officiel (Copies Certifiées)",
+    type: "Légal/Officiel",
     version: '1.0',
     status: 'Validé',
     lastUpdated: '2024-07-26',
-    owner: 'Client (Fournisseur), Agent de Souscription (Collecte), Responsable Conformité (Vérification)',
+    owner: 'Client / Agent de Souscription',
     tags: ['KYC', 'Identification Client', 'Diligence']
   },
   {
@@ -19,7 +19,7 @@ export const initialMockDocuments: Document[] = [
     version: '2.3',
     status: 'En Révision',
     lastUpdated: '2024-07-26',
-    owner: 'Agent de Souscription (Remplissage), Client (Signature), Responsable Conformité (Revue)',
+    owner: 'Agent de Souscription / Client',
     tags: ['KYC', 'Identification Client', 'Enregistrement Interne']
   },
   {
@@ -29,13 +29,13 @@ export const initialMockDocuments: Document[] = [
     version: '1.1',
     status: 'Validé',
     lastUpdated: '2024-07-26',
-    owner: 'Client (Remplissage/Signature), Agent de Souscription (Réception)',
+    owner: 'Client / Agent de Souscription',
     tags: ["Opération d'Assurance", 'Contrat', 'Diligence']
   },
   {
     id: 'doc-insurance-contract',
     name: "Contrat d'Assurance et Annexes",
-    type: 'Légal/Contractuel',
+    type: 'Contractuel',
     version: '1.0',
     status: 'Archivé',
     lastUpdated: '2024-01-30',
@@ -49,7 +49,7 @@ export const initialMockDocuments: Document[] = [
     version: '1.0',
     status: 'Validé',
     lastUpdated: '2024-07-26',
-    owner: 'Client (Fournisseur), Responsable Conformité (Analyse)',
+    owner: 'Client / Responsable Conformité',
     tags: ['Fonds', 'Transaction', 'LBA/FT']
   },
   {
@@ -59,23 +59,23 @@ export const initialMockDocuments: Document[] = [
     version: '1.0',
     status: 'En Révision',
     lastUpdated: '2024-07-26',
-    owner: 'Agence (Signalement), Responsable Conformité (Analyse)',
+    owner: 'Agence / Responsable Conformité',
     tags: ['Soupçon', 'Alerte', 'Signalement Interne', 'LBA/FT']
   },
   {
     id: 'doc-ppe-check',
     name: 'Informations de Vérification du Statut de PPE',
-    type: 'Interne',
+    type: 'Rapport Interne',
     version: '1.0',
     status: 'Validé',
     lastUpdated: '2024-07-26',
-    owner: 'Agence (Collecte), Responsable Conformité (Vérification)',
+    owner: 'Agence / Responsable Conformité',
     tags: ['PPE', 'Diligence Renforcée', 'Risque Client']
   },
   {
     id: 'doc-beneficiary-id',
     name: 'Documentation d’Identification du Bénéficiaire Effectif (BE)',
-    type: 'Documentation Interne, Rapport',
+    type: 'Rapport Interne',
     version: '1.2',
     status: 'Validé',
     lastUpdated: '2024-07-26',
@@ -89,7 +89,7 @@ export const initialMockDocuments: Document[] = [
     version: '1.0',
     status: 'Validé',
     lastUpdated: '2024-07-26',
-    owner: 'Client (Fournisseur), Responsable Conformité (Analyse)',
+    owner: 'Client / Responsable Conformité',
     tags: ['Transaction', 'Post-Souscription', 'Mise à Jour KYC']
   },
   {
@@ -99,7 +99,7 @@ export const initialMockDocuments: Document[] = [
     version: '1.0',
     status: 'Archivé',
     lastUpdated: '2024-07-26',
-    owner: "Agence, Compagnie d'Assurance",
+    owner: "Agence / Compagnie d'Assurance",
     tags: ['Archivage', 'Conformité', 'KYC']
   },
   {
@@ -109,7 +109,7 @@ export const initialMockDocuments: Document[] = [
     version: '1.0',
     status: 'Validé',
     lastUpdated: '2024-07-26',
-    owner: 'Agent de Souscription/Personnel (Initiateur), Responsable Conformité (Réception)',
+    owner: 'Agent / Responsable Conformité',
     tags: ['Soupçon', 'Alerte', 'Signalement Interne', 'LBA/FT']
   },
   {
@@ -125,27 +125,27 @@ export const initialMockDocuments: Document[] = [
   {
     id: 'doc-lbaft-manual',
     name: 'Manuel Interne de Procédures LBA/FT',
-    type: 'Document Interne',
+    type: 'Procédure',
     version: '3.0',
     status: 'En Révision',
     lastUpdated: '2024-07-26',
-    owner: 'Responsable Conformité (Développement), Direction Générale (Approbation)',
+    owner: 'Responsable Conformité / Direction',
     tags: ['Procédures', 'Contrôles Internes', 'Conformité', 'LBA/FT']
   },
   {
     id: 'doc-internal-audit',
     name: 'Rapport d’Audit Interne sur le Dispositif LBA/FT',
-    type: 'Rapport Interne',
+    type: 'Rapport',
     version: '2024',
     status: 'Validé',
     lastUpdated: '2024-07-26',
-    owner: 'Audit Interne (Rédaction), Responsable Conformité (Utilisation)',
+    owner: 'Audit Interne / Responsable Conformité',
     tags: ['Audit', 'Contrôle Interne', 'Conformité', 'LBA/FT']
   },
   {
     id: 'doc-stats-ds',
     name: 'Rapport Statistique des Déclarations de Soupçon',
-    type: 'Rapport interne (pour soumission externe)',
+    type: 'Rapport',
     version: '1.0',
     status: 'Validé',
     lastUpdated: '2024-07-26',
@@ -155,7 +155,7 @@ export const initialMockDocuments: Document[] = [
   {
     id: 'doc-frozen-contracts',
     name: 'Rapport sur les Contrats Gelés',
-    type: 'Rapport interne (pour soumission externe)',
+    type: 'Rapport',
     version: '1.0',
     status: 'Validé',
     lastUpdated: '2024-07-26',
@@ -165,7 +165,7 @@ export const initialMockDocuments: Document[] = [
   {
     id: 'doc-diligence-respect',
     name: "Rapport sur le Respect des Diligences d'Identification",
-    type: 'Rapport interne (pour soumission externe)',
+    type: 'Rapport',
     version: '1.0',
     status: 'Validé',
     lastUpdated: '2024-07-26',
@@ -175,7 +175,7 @@ export const initialMockDocuments: Document[] = [
   {
     id: 'doc-annual-compliance',
     name: 'Rapport Annuel du Responsable de la Conformité',
-    type: 'Rapport interne (pour soumission externe)',
+    type: 'Rapport',
     version: '2023',
     status: 'Archivé',
     lastUpdated: '2024-02-01',
@@ -189,7 +189,7 @@ export const initialMockDocuments: Document[] = [
     version: 'N/A',
     status: 'Validé',
     lastUpdated: '2024-07-26',
-    owner: 'Correspondant CTAF (Désigné par la compagnie)',
+    owner: 'Correspondant CTAF',
     tags: ['DS', 'CTAF', 'LBA/FT', 'Signalement Externe']
   },
   {
@@ -199,17 +199,17 @@ export const initialMockDocuments: Document[] = [
     version: 'N/A',
     status: 'Validé',
     lastUpdated: '2024-07-26',
-    owner: 'Correspondant CNLCT (Désigné par la compagnie)',
-    tags: ['Sanctions', 'Gel des Avoirs', 'Financement du Terrorisme', 'CNLCT', 'Signalement Externe']
+    owner: 'Correspondant CNLCT',
+    tags: ['Sanctions', 'Gel des Avoirs', 'Financement du Terrorisme', 'CNLCT']
   },
   {
     id: 'doc-training-program',
     name: 'Programmes et Matériels de Formation LBA/FT',
-    type: 'Matériel Pédagogique/Registres',
+    type: 'Support de Formation',
     version: '2024',
     status: 'En Révision',
     lastUpdated: '2024-07-26',
-    owner: 'Service RH/Formation, Responsable Conformité',
+    owner: 'Service RH/Formation / Responsable Conformité',
     tags: ['Formation', 'Ressources Humaines', 'Conformité', 'LBA/FT']
   }
 ];

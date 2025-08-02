@@ -25,7 +25,23 @@ export interface ComplianceCategory {
 
 // Document Types
 export type DocumentStatus = "Validé" | "En Révision" | "Archivé" | "Obsolète";
-export type DocumentType = "Politique" | "Procédure" | "Rapport" | "Support de Formation" | "Veille";
+export type DocumentType = 
+  | "Politique" 
+  | "Procédure" 
+  | "Rapport" 
+  | "Support de Formation" 
+  | "Veille"
+  | "Légal/Officiel"
+  | "Formulaire Interne"
+  | "Contractuel"
+  | "Financier"
+  | "Rapport Interne"
+  | "Base de Données Externe"
+  | "Déclaration Officielle"
+  | "Matériel Pédagogique/Registres"
+  | "Documents Justificatifs"
+  | "Registre/Dossier Physique/Electronique";
+
 
 export interface Document {
   id: string;
