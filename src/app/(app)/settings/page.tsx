@@ -89,8 +89,7 @@ export default function SettingsPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" defaultValue="conformite@mae.com.tn" readOnly />
-                        <p className="text-xs text-muted-foreground">L'adresse e-mail n'est pas modifiable pour le moment.</p>
+                        <Input id="email" type="email" value={profile.email} onChange={handleInputChange} />
                     </div>
                 </CardContent>
             </Card>

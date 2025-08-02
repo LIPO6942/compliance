@@ -78,6 +78,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile();
   const { user, isLoaded } = useUser();
 
+  const getInitials = (name: string): string => {
+    if (!name) return 'U';
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length > 1) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
   const activeParent = navItems.find((item) =>
     "subItems" in item && item.subItems?.some((sub) => pathname.startsWith(sub.href))
   );
@@ -168,7 +177,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
                   <Avatar key="user-profile-avatar" className="h-8 w-8">
                     <AvatarImage src={user.avatarUrl} alt="User Avatar" data-ai-hint="professional portrait" />
-                    <AvatarFallback>{user.name?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
+                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                   </Avatar>
                   <div className="group-data-[collapsible=icon]:hidden text-left">
                     <p className="text-sm font-medium text-sidebar-foreground">{user.name}</p>

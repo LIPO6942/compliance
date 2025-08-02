@@ -11,6 +11,7 @@ export interface UserProfile {
   name: string;
   role: string;
   avatarUrl: string;
+  email: string;
 }
 
 interface UserContextType {
@@ -23,6 +24,7 @@ const defaultUser: UserProfile = {
   name: 'Utilisateur',
   role: 'Responsable Conformité',
   avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWx8ZW58MHx8fHwxNzUwOTgzODg5fDA&ixlib=rb-4.1.0&q=80&w=1080',
+  email: 'conformite@mae.com.tn',
 };
 
 const userDocPath = "users/main-user"; // Using a single document for this prototype
