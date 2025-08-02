@@ -27,13 +27,19 @@ const availableRoles = [
 
 export default function SettingsPage() {
     const { toast } = useToast();
-    const { user, updateUser } = useUser();
-    const [profile, setProfile] = useState<UserProfile>(user);
+    const { user, updateUser, isLoaded } = useUser();
+    const [profile, setProfile] = useState<Partial<UserProfile>>({
+      name: '',
+      email: '',
+      role: ''
+    });
     const { isDarkMode, toggleDarkMode } = useTheme();
 
     useEffect(() => {
-        setProfile(user);
-    }, [user]);
+        if (isLoaded && user) {
+            setProfile(user);
+        }
+    }, [user, isLoaded]);
 
     const handleSaveChanges = () => {
         updateUser(profile);
@@ -72,11 +78,11 @@ export default function SettingsPage() {
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="name">Nom</Label>
-                        <Input id="name" value={profile.name} onChange={handleInputChange} />
+                        <Input id="name" value={profile.name || ''} onChange={handleInputChange} />
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="role">Rôle</Label>
-                        <Select value={profile.role} onValueChange={handleRoleChange}>
+                        <Select value={profile.role || ''} onValueChange={handleRoleChange}>
                             <SelectTrigger id="role">
                                 <SelectValue placeholder="Choisir un rôle" />
                             </SelectTrigger>
@@ -89,7 +95,7 @@ export default function SettingsPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" value={profile.email} onChange={handleInputChange} />
+                        <Input id="email" type="email" value={profile.email || ''} onChange={handleInputChange} />
                     </div>
                 </CardContent>
             </Card>
