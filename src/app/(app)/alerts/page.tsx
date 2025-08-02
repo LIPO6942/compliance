@@ -31,7 +31,7 @@ import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 
 const alertSchema = z.object({
-  status: z.enum(["Nouveau", "En cours d'analyse", "Traité", "Archivé", "Sans impact"]),
+  status: z.enum(["Nouveau", "En cours d'analyse", "Traité", "Sans impact", "Archivé"]),
   criticality: z.enum(["Haute", "Moyenne", "Basse"]),
   deadline: z.string().optional(),
   affectedDepartments: z.string().optional(),
@@ -64,7 +64,7 @@ export default function AlertsPage() {
   React.useEffect(() => { setIsClient(true) }, []);
 
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [filterStatus, setFilterStatus] = React.useState<string>("all");
+  const [filterStatus, setFilterStatus] = React.useState<string>("actives");
   const [filterCriticality, setFilterCriticality] = React.useState<string>("all");
 
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -101,7 +101,7 @@ export default function AlertsPage() {
     if (values.deadline) {
       updateData.deadline = new Date(values.deadline).toISOString();
     } else {
-      updateData.deadline = ''; // Send empty string to clear, or handle differently if needed
+      updateData.deadline = '';
     }
     
     if (values.affectedDepartments) {
@@ -112,18 +112,14 @@ export default function AlertsPage() {
     
     if (values.requiredActions) {
       updateData.requiredActions = values.requiredActions;
-    } else {
-      updateData.requiredActions = '';
     }
     
     if (values.analysisNotes) {
       updateData.analysisNotes = values.analysisNotes;
-    } else {
-      updateData.analysisNotes = '';
     }
     
     // Firestore does not allow `undefined`. We must clean the object.
-    const finalUpdateData = Object.fromEntries(Object.entries(updateData).filter(([_, v]) => v !== undefined));
+    const finalUpdateData = Object.fromEntries(Object.entries(updateData).filter(([_, v]) => v !== undefined && v !== ''));
 
     updateRegulation(editingAlert.id, finalUpdateData);
     toast({ title: "Alerte mise à jour", description: `L'alerte a été modifiée avec succès.` });
@@ -131,8 +127,14 @@ export default function AlertsPage() {
   };
   
   const filteredAlerts = React.useMemo(() => identifiedRegulations.filter(alert => {
-    if (filterStatus !== "all" && alert.status !== filterStatus) return false;
+    if (filterStatus === "actives") {
+        if (alert.status !== "Nouveau" && alert.status !== "En cours d'analyse") return false;
+    } else if (filterStatus !== "all" && alert.status !== filterStatus) {
+        return false;
+    }
+
     if (filterCriticality !== "all" && alert.criticality !== filterCriticality) return false;
+    
     const searchLower = searchTerm.toLowerCase();
     if (searchLower && 
         !alert.summary.toLowerCase().includes(searchLower) &&
@@ -169,6 +171,7 @@ export default function AlertsPage() {
                   <SelectValue placeholder="Filtrer par statut" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="actives">Alertes Actives</SelectItem>
                   <SelectItem value="all">Tous les statuts</SelectItem>
                   {allStatuses.map(s => <SelectItem key={s} value={s}>{statusConfig[s].label}</SelectItem>)}
                 </SelectContent>
@@ -362,5 +365,3 @@ export default function AlertsPage() {
     </div>
   );
 }
-
-    
