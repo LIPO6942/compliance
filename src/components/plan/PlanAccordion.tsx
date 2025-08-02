@@ -61,7 +61,7 @@ export function PlanAccordion({
     onAddTask, onEditTask, onRemoveTask, onToggleTask
 }: PlanAccordionProps) {
   return (
-    <Accordion 
+    <Accordion
       type="multiple" 
       className="w-full space-y-4" 
       value={activeAccordionItems}
@@ -198,3 +198,4 @@ export function PlanAccordion({
     </Accordion>
   );
 }
+    
