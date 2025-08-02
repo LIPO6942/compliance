@@ -46,13 +46,13 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/contexts/UserContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isFirebaseConfigured } from "@/lib/firebase";
+import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
   { href: "/plan", icon: Gavel, label: "Plan d'Organisation", title: "Plan d'Organisation" },
   { href: "/regulatory-watch", icon: SearchCheck, label: "Assistance Conformité IA", title: "Assistance Conformité IA" },
   { href: "/risk-mapping", icon: Map, label: "Cartographie des Risques", title: "Cartographie des Risques" },
-  { href: "/alerts", icon: BellRing, label: "Centre d'Alertes", title: "Centre d'Alertes" },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },
   { href: "/training", icon: Users, label: "Formations", title: "Formations et Sensibilisation" },
   { href: "/reports", icon: FilePieChart, label: "Reporting Automatisé", title: "Reporting Automatisé" },
@@ -62,6 +62,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const { user, isLoaded } = useUser();
+  const { identifiedRegulations } = useIdentifiedRegulations();
+
+  const newAlertsCount = React.useMemo(() => {
+    return identifiedRegulations.filter(reg => reg.status === 'Nouveau').length;
+  }, [identifiedRegulations]);
+
 
   const getInitials = (name: string): string => {
     if (!name) return 'U';
@@ -72,7 +78,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return name.substring(0, 2).toUpperCase();
   };
   
-  const currentPage = navItems.find((item) => pathname.startsWith(item.href));
+  const currentPage = navItems.find((item) => pathname.startsWith(item.href)) || (pathname.startsWith('/alerts') ? { title: "Centre d'Alertes" } : undefined);
 
   const pageTitle = currentPage?.title || (pathname.startsWith('/settings') ? 'Paramètres' : 'Compliance Navigator');
 
@@ -161,7 +167,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {pageTitle}
             </h1>
           </div>
-          {/* Placeholder for additional header controls like dark mode toggle or notifications */}
+          <div className="flex items-center gap-4">
+             <Link href="/alerts">
+              <Button variant="ghost" size="icon" aria-label="Voir les alertes" className="relative">
+                <BellRing className="h-6 w-6" />
+                {newAlertsCount > 0 && (
+                  <span className="absolute top-0 right-0 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500">
+                       <span className="absolute -top-4 -right-1.5 text-xs font-bold">{newAlertsCount}</span>
+                    </span>
+                  </span>
+                )}
+              </Button>
+            </Link>
+          </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
           {children}
@@ -170,5 +190,3 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
-    

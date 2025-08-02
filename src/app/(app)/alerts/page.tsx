@@ -119,17 +119,6 @@ export default function AlertsPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline text-3xl flex items-center">
-            <BellRing className="mr-3 h-8 w-8 text-primary" />
-            Centre d’Alertes Réglementaires
-          </CardTitle>
-          <CardDescription className="text-lg">
-            Centralisez, suivez et évaluez l'impact de toutes les évolutions réglementaires.
-          </CardDescription>
-        </CardHeader>
-      </Card>
 
       <Card className="shadow-md">
         <CardHeader className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

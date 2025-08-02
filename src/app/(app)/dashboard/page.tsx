@@ -368,11 +368,3 @@ function QuickAccessCard({ icon: Icon, title, description, href, actionText }: Q
     </Card>
   );
 }
-
-    
-
-    
-
-
-
-    
