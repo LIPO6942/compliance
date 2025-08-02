@@ -89,11 +89,18 @@ export default function AlertsPage() {
 
   const handleFormSubmit = (values: AlertFormValues) => {
     if (!editingAlert) return;
-    const updateData = {
+    
+    const updateData: Partial<IdentifiedRegulation> = {
       ...values,
-      deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined,
       affectedDepartments: values.affectedDepartments ? values.affectedDepartments.split(',').map(d => d.trim()).filter(Boolean) : []
     };
+
+    if (values.deadline) {
+      updateData.deadline = new Date(values.deadline).toISOString();
+    } else {
+      delete (updateData as Partial<AlertFormValues>).deadline; // Important: remove deadline if empty
+    }
+
     updateRegulation(editingAlert.id, updateData);
     toast({ title: "Alerte mise à jour", description: `L'alerte a été modifiée avec succès.` });
     closeDialog();
