@@ -37,13 +37,14 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
     if (!isFirebaseConfigured || !db) {
         setIdentifiedRegulations(initialMockRegulations);
         setLoading(false);
-        console.warn("Firebase is not configured. Regulations will use mock data.");
+        console.warn("Firebase not configured. Regulations will use mock data.");
         return;
     }
 
     const q = query(collection(db, regulationsCollectionName), orderBy("publicationDate", "desc"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      if (querySnapshot.empty && loading) {
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      // This condition ensures we don't re-seed if the user has already interacted with the data.
+      if (querySnapshot.empty && loading && initialMockRegulations.length > 0) {
         console.log(`[${regulationsCollectionName}] collection is empty. Seeding with mock data.`);
         const batch = writeBatch(db!);
         initialMockRegulations.forEach((mockReg) => {
@@ -51,7 +52,8 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
           const docRef = doc(collection(db!, regulationsCollectionName));
           batch.set(docRef, data);
         });
-        batch.commit().catch(e => console.error(`Failed to seed ${regulationsCollectionName}:`, e));
+        await batch.commit().catch(e => console.error(`Failed to seed ${regulationsCollectionName}:`, e));
+        // The listener will be re-triggered by the seeding, so we can return here.
         return;
       }
       
