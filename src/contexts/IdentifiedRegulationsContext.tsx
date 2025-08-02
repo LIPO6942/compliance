@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import type { IdentifiedRegulation, RiskMappingItem, RiskLevel, AlertCriticality } from '@/types/compliance';
 import { initialMockRegulations } from '@/data/mockRegulations';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, onSnapshot, doc, updateDoc, addDoc, query, orderBy, writeBatch } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, addDoc, query, orderBy, writeBatch, where, getDocs, deleteDoc } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const regulationsCollectionName = "identifiedRegulations";
@@ -20,6 +20,8 @@ interface IdentifiedRegulationsContextType {
   ) => Promise<void>;
   updateRegulation: (regulationId: string, updateData: Partial<Omit<IdentifiedRegulation, 'id'>>) => Promise<void>;
   createAlertFromRisk: (risk: RiskMappingItem) => Promise<void>;
+  findAlertByRiskId: (riskId: string) => IdentifiedRegulation | undefined;
+  removeAlertByRiskId: (riskId: string) => Promise<void>;
 }
 
 const IdentifiedRegulationsContext = createContext<IdentifiedRegulationsContextType | undefined>(undefined);
@@ -123,13 +125,35 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
       analysisNotes: `Alerte générée à partir de la cartographie des risques (ID: ${risk.id}).\nPropriétaire du risque: ${risk.owner}`,
       keywords: [],
       aiAnalysis: {},
+      sourceRiskId: risk.id, // Link the alert to the risk
     };
 
     await addDoc(collection(db, regulationsCollectionName), newAlert);
   };
+  
+  const findAlertByRiskId = (riskId: string): IdentifiedRegulation | undefined => {
+    return identifiedRegulations.find(alert => alert.sourceRiskId === riskId);
+  };
+
+  const removeAlertByRiskId = async (riskId: string) => {
+    if (!isFirebaseConfigured || !db) return;
+    const q = query(collection(db, regulationsCollectionName), where("sourceRiskId", "==", riskId));
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+        const batch = writeBatch(db);
+        querySnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+    } else {
+        console.warn(`No alert found for riskId: ${riskId}`);
+    }
+  };
+
 
   return (
-    <IdentifiedRegulationsContext.Provider value={{ identifiedRegulations, loading, addIdentifiedRegulation, updateRegulation, createAlertFromRisk }}>
+    <IdentifiedRegulationsContext.Provider value={{ identifiedRegulations, loading, addIdentifiedRegulation, updateRegulation, createAlertFromRisk, findAlertByRiskId, removeAlertByRiskId }}>
       {children}
     </IdentifiedRegulationsContext.Provider>
   );

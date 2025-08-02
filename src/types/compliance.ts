@@ -63,6 +63,7 @@ export interface IdentifiedRegulation {
   analysisNotes?: string;
   keywords: string[];
   aiAnalysis?: Record<string, string[]>;
+  sourceRiskId?: string; // Added to link alert to a risk
 }
 
 export interface CompletionCriterion {

@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell } from "lucide-react";
+import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -69,7 +69,7 @@ const allDepartments = ["all", ...departmentOptions];
 
 export default function RiskMappingPage() {
   const { risks, addRisk, editRisk, removeRisk } = useRiskMapping();
-  const { createAlertFromRisk } = useIdentifiedRegulations();
+  const { createAlertFromRisk, findAlertByRiskId, removeAlertByRiskId } = useIdentifiedRegulations();
   const { toast } = useToast();
   
   const [isClient, setIsClient] = React.useState(false);
@@ -111,12 +111,22 @@ export default function RiskMappingPage() {
     toast({ title: "Risque supprimé", description: "Le risque a été supprimé de la cartographie." });
   };
   
-  const handleCreateAlert = (risk: RiskMappingItem) => {
-    createAlertFromRisk(risk);
-    toast({
-      title: "Alerte créée",
-      description: "Une nouvelle alerte a été créée avec succès dans le Centre d'Alertes.",
-    });
+  const handleToggleAlert = async (risk: RiskMappingItem) => {
+    const existingAlert = findAlertByRiskId(risk.id);
+    if (existingAlert) {
+      await removeAlertByRiskId(risk.id);
+      toast({
+        title: "Alerte Retirée",
+        description: "L'alerte associée à ce risque a été supprimée.",
+        variant: "default",
+      });
+    } else {
+      await createAlertFromRisk(risk);
+      toast({
+        title: "Alerte Créée",
+        description: "Une nouvelle alerte a été créée avec succès dans le Centre d'Alertes.",
+      });
+    }
   };
 
   const filteredRisks = React.useMemo(() => risks.filter(risk => {
@@ -190,59 +200,63 @@ export default function RiskMappingPage() {
               <TableBody>
                 {isClient ? (
                   filteredRisks.length > 0 ? (
-                    filteredRisks.map((risk) => (
-                      <TableRow key={risk.id} className="hover:bg-muted/30 transition-colors">
-                        <TableCell className="font-medium">{risk.department}</TableCell>
-                        <TableCell className="text-muted-foreground">{risk.monitoringSubject}</TableCell>
-                        <TableCell>{risk.likelihood}</TableCell>
-                        <TableCell>{risk.impact}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={`text-xs px-2.5 py-1 ${riskLevelColors[risk.riskLevel]}`}>
-                            {risk.riskLevel}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground max-w-xs truncate">{risk.expectedAction}</TableCell>
-                        <TableCell className="text-right">
-                          <AlertDialog>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <span className="sr-only">Ouvrir menu</span>
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openDialog('edit', risk)}>
-                                  <Edit className="mr-2 h-4 w-4" /> Modifier
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleCreateAlert(risk)}>
-                                  <Bell className="mr-2 h-4 w-4" /> Créer une alerte
-                                </DropdownMenuItem>
-                                <AlertDialogTrigger asChild>
-                                  <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e) => e.preventDefault()}>
-                                    <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                    filteredRisks.map((risk) => {
+                      const existingAlert = findAlertByRiskId(risk.id);
+                      return (
+                        <TableRow key={risk.id} className="hover:bg-muted/30 transition-colors">
+                          <TableCell className="font-medium">{risk.department}</TableCell>
+                          <TableCell className="text-muted-foreground">{risk.monitoringSubject}</TableCell>
+                          <TableCell>{risk.likelihood}</TableCell>
+                          <TableCell>{risk.impact}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={`text-xs px-2.5 py-1 ${riskLevelColors[risk.riskLevel]}`}>
+                              {risk.riskLevel}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground max-w-xs truncate">{risk.expectedAction}</TableCell>
+                          <TableCell className="text-right">
+                            <AlertDialog>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <span className="sr-only">Ouvrir menu</span>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => openDialog('edit', risk)}>
+                                    <Edit className="mr-2 h-4 w-4" /> Modifier
                                   </DropdownMenuItem>
-                                </AlertDialogTrigger>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Supprimer ce risque ?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Cette action est irréversible.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleRemoveRisk(risk.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                  Supprimer
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                                  <DropdownMenuItem onClick={() => handleToggleAlert(risk)} className={existingAlert ? "text-amber-600 focus:text-amber-600" : ""}>
+                                    {existingAlert ? <BellOff className="mr-2 h-4 w-4" /> : <Bell className="mr-2 h-4 w-4" />}
+                                    {existingAlert ? "Retirer de l'alerte" : "Créer une alerte"}
+                                  </DropdownMenuItem>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e) => e.preventDefault()}>
+                                      <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Supprimer ce risque ?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Cette action est irréversible.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleRemoveRisk(risk.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    Supprimer
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   ) : (
                     <TableRow>
                       <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
@@ -323,5 +337,3 @@ export default function RiskMappingPage() {
     </div>
   );
 }
-
-    
