@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import type { Document, DocumentStatus } from '@/types/compliance';
 import { initialMockDocuments } from '@/data/mockDocuments';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, writeBatch, getDocs } from "firebase/firestore";
 import { useUser } from './UserContext'; // Assuming a user context exists for auth state
 
 const documentsCollectionName = "documents";
@@ -23,7 +23,7 @@ const DocumentsContext = createContext<DocumentsContextType | undefined>(undefin
 export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user, isLoaded } = useUser(); // Using a mock user for now
+  const { isLoaded } = useUser();
 
   useEffect(() => {
     if (!isLoaded) return; 
@@ -35,18 +35,35 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const q = query(collection(db, documentsCollectionName), orderBy("lastUpdated", "desc"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      if (querySnapshot.empty && loading) {
-        console.log(`[${documentsCollectionName}] collection is empty. Seeding with mock data.`);
+    const documentsRef = collection(db, documentsCollectionName);
+    const q = query(documentsRef, orderBy("lastUpdated", "desc"));
+
+    const reseedData = async () => {
+        console.log(`[${documentsCollectionName}] collection is outdated or empty. Reseeding with fresh mock data.`);
+        const existingDocs = await getDocs(documentsRef);
         const batch = writeBatch(db!);
+        
+        // Delete old documents
+        existingDocs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        // Add new documents
         initialMockDocuments.forEach((mockDoc) => {
           const { id, ...data } = mockDoc;
-          const docRef = doc(collection(db!, documentsCollectionName)); // Firestore generates ID
+          const docRef = doc(collection(db!, documentsCollectionName));
           batch.set(docRef, data);
         });
-        batch.commit().catch(e => console.error(`Failed to seed ${documentsCollectionName}:`, e));
-        return;
+
+        await batch.commit().catch(e => console.error(`Failed to reseed ${documentsCollectionName}:`, e));
+    };
+
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      // Force re-seeding if the data is not what we expect.
+      if (querySnapshot.docs.length < initialMockDocuments.length) {
+          await reseedData();
+          // The listener will be re-triggered by reseedData, so we can return here.
+          return;
       }
 
       const documentsData: Document[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Document));
@@ -59,7 +76,7 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [isLoaded, loading]);
+  }, [isLoaded]);
 
   const updateDocumentStatus = async (documentId: string, newStatus: DocumentStatus) => {
     if (!isFirebaseConfigured || !db) return;
