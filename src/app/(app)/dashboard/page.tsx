@@ -225,20 +225,20 @@ export default function DashboardPage() {
             <CardTitle className="font-headline">Progression des Tâches par Domaine</CardTitle>
             <CardDescription>Suivi des tâches complétées, en attente et en retard par catégorie.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[340px]">
+          <CardContent className="h-[400px]">
              {isClient ? (
-                <ResponsiveContainer width="100%" height="100%" className="cursor-pointer">
-                <BarChart data={taskProgressData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }} onClick={handleBarClick}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-                  <XAxis dataKey="name" tick={{fontSize: 12}} angle={-15} textAnchor="end" height={50} />
-                  <YAxis tick={{fontSize: 12}} allowDecimals={false} />
-                  <Tooltip contentStyle={{backgroundColor: 'hsl(var(--background))', borderRadius: 'var(--radius)', borderColor: 'hsl(var(--border))'}} labelStyle={{color: 'hsl(var(--foreground))', fontWeight: 'bold'}}/>
-                  <Legend wrapperStyle={{fontSize: 12}}/>
-                  <Bar dataKey="completed" stackId="a" fill="hsl(var(--chart-1))" name="Complétées" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="pending" stackId="a" fill="hsl(var(--chart-4))" name="En Attente" />
-                  <Bar dataKey="overdue" stackId="a" fill="hsl(var(--destructive))" name="En Retard" />
-                </BarChart>
-              </ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={taskProgressData} margin={{ top: 5, right: 0, left: 0, bottom: 60 }} onClick={handleBarClick} className="cursor-pointer">
+                    <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                    <XAxis dataKey="name" tick={{fontSize: 12}} angle={-45} textAnchor="end" interval={0}/>
+                    <YAxis tick={{fontSize: 12}} allowDecimals={false} />
+                    <Tooltip contentStyle={{backgroundColor: 'hsl(var(--background))', borderRadius: 'var(--radius)', borderColor: 'hsl(var(--border))'}} labelStyle={{color: 'hsl(var(--foreground))', fontWeight: 'bold'}}/>
+                    <Legend wrapperStyle={{fontSize: 12}}/>
+                    <Bar dataKey="completed" stackId="a" fill="hsl(var(--chart-1))" name="Complétées" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="pending" stackId="a" fill="hsl(var(--chart-4))" name="En Attente" />
+                    <Bar dataKey="overdue" stackId="a" fill="hsl(var(--destructive))" name="En Retard" />
+                  </BarChart>
+                </ResponsiveContainer>
              ) : (
                 <div className="flex h-full items-center justify-center">
                     <Logo className="h-10 w-10 animate-spin" />
