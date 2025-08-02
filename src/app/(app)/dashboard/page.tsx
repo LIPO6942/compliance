@@ -108,7 +108,7 @@ export default function DashboardPage() {
         
         return {
           id: category.id,
-          name: category.name.length > 15 ? category.name.substring(0, 12) + "..." : category.name,
+          name: category.name.length > 25 ? category.name.substring(0, 22) + "..." : category.name,
           completed,
           pending,
           overdue,
@@ -193,18 +193,18 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6">
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline">Statut de Conformité Documentaire</CardTitle>
             <CardDescription>Répartition des documents par statut. Cliquez sur une section pour filtrer.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="h-[250px] w-full">
             {isClient ? (
-              <ChartContainer config={initialChartConfig} className="mx-auto aspect-square max-h-[300px]">
+              <ChartContainer config={initialChartConfig} className="mx-auto aspect-square max-h-[250px]">
                 <PieChart>
                   <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="status" />} />
-                  <Pie data={complianceStatusData} dataKey="value" nameKey="status" innerRadius={60} outerRadius={80} cy="50%" onClick={handlePieClick} className="cursor-pointer">
+                  <Pie data={complianceStatusData} dataKey="value" nameKey="status" innerRadius={50} outerRadius={70} cy="50%" onClick={handlePieClick} className="cursor-pointer">
                      {complianceStatusData.map((entry, index) => (
                       <Cell key={`cell-${index}-${entry.status}`} fill={entry.fill} />
                     ))}
@@ -213,7 +213,7 @@ export default function DashboardPage() {
                 </PieChart>
               </ChartContainer>
             ) : (
-               <div className="mx-auto flex aspect-square max-h-[300px] items-center justify-center">
+               <div className="mx-auto flex h-full items-center justify-center">
                   <Logo className="h-10 w-10 animate-spin" />
                </div>
             )}
@@ -223,17 +223,17 @@ export default function DashboardPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline">Progression des Tâches par Domaine</CardTitle>
-            <CardDescription>Suivi des tâches complétées, en attente et en retard par catégorie.</CardDescription>
+            <CardDescription>Suivi des tâches complétées, en attente et en retard. Cliquez sur une barre pour voir les détails.</CardDescription>
           </CardHeader>
           <CardContent className="h-[400px]">
              {isClient ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={taskProgressData} margin={{ top: 5, right: 0, left: 0, bottom: 60 }} onClick={handleBarClick} className="cursor-pointer">
+                  <BarChart data={taskProgressData} margin={{ top: 5, right: 20, left: 0, bottom: 70 }} onClick={handleBarClick} className="cursor-pointer">
                     <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-                    <XAxis dataKey="name" tick={{fontSize: 12}} angle={-45} textAnchor="end" interval={0}/>
+                    <XAxis dataKey="name" tick={{fontSize: 12}} angle={-45} textAnchor="end" interval={0} height={80} />
                     <YAxis tick={{fontSize: 12}} allowDecimals={false} />
                     <Tooltip contentStyle={{backgroundColor: 'hsl(var(--background))', borderRadius: 'var(--radius)', borderColor: 'hsl(var(--border))'}} labelStyle={{color: 'hsl(var(--foreground))', fontWeight: 'bold'}}/>
-                    <Legend wrapperStyle={{fontSize: 12}}/>
+                    <Legend wrapperStyle={{fontSize: 12, paddingTop: 20}}/>
                     <Bar dataKey="completed" stackId="a" fill="hsl(var(--chart-1))" name="Complétées" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="pending" stackId="a" fill="hsl(var(--chart-4))" name="En Attente" />
                     <Bar dataKey="overdue" stackId="a" fill="hsl(var(--destructive))" name="En Retard" />
@@ -368,3 +368,5 @@ function QuickAccessCard({ icon: Icon, title, description, href, actionText }: Q
     </Card>
   );
 }
+
+    
