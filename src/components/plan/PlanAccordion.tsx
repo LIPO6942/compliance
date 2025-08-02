@@ -34,6 +34,7 @@ const iconMap: Record<string, LucideIcons.LucideIcon> = {
 };
 
 const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => (iconName && iconMap[iconName]) || LucideIcons.ListTodo;
+
 const isTaskOverdue = (task: ComplianceTask) => {
     return task.deadline && !task.completed && new Date(task.deadline) < new Date();
 };
