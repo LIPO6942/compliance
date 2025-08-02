@@ -32,6 +32,8 @@ const initialKeywordOptions = [
   { id: "Filtrage / Sanctions", label: "Filtrage / Sanctions" },
 ];
 
+const localStorageKey = "customKeywords";
+
 
 const formSchema = z.object({
   regulationText: z.string().min(50, { message: "Le texte réglementaire doit contenir au moins 50 caractères." }),
@@ -52,6 +54,32 @@ export default function RegulatoryWatchPage() {
   
   const [keywordOptions, setKeywordOptions] = React.useState(initialKeywordOptions);
   const [newKeyword, setNewKeyword] = React.useState("");
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+    try {
+      const savedKeywords = localStorage.getItem(localStorageKey);
+      if (savedKeywords) {
+        setKeywordOptions(JSON.parse(savedKeywords));
+      } else {
+        localStorage.setItem(localStorageKey, JSON.stringify(initialKeywordOptions));
+      }
+    } catch (error) {
+        console.error("Failed to access localStorage or parse keywords:", error);
+        setKeywordOptions(initialKeywordOptions);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (isClient) {
+      try {
+        localStorage.setItem(localStorageKey, JSON.stringify(keywordOptions));
+      } catch (error) {
+         console.error("Failed to save keywords to localStorage:", error);
+      }
+    }
+  }, [keywordOptions, isClient]);
 
   const form = useForm<RegulatoryWatchFormValues>({
     resolver: zodResolver(formSchema),
