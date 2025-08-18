@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
   },
   swcMinify: false,
   experimental: {
+    appDocumentPreloading: true,
     // This allows all preview URLs from the development environment.
     allowedDevOrigins: ["*.cloudworkstations.dev"],
   },
