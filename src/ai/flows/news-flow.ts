@@ -87,19 +87,21 @@ const fetchComplianceNewsFlow = ai.defineFlow(
 
       const transformedNews: NewsItem[] = newsData.articles
         .map((article: any): NewsItem | null => {
-          // Be less strict: only require a title and a url to consider the article valid.
-          if (!article || !article.title || article.title === '[Removed]' || !article.url) {
-             console.warn(`[NEWS FLOW] Article ignoré car il manque un titre ou une URL:`, article);
+          // Final, simplified filter: Only reject if there's no title.
+          if (!article?.title || article.title === '[Removed]') {
+             console.warn(`[NEWS FLOW] Article ignoré car il manque un titre:`, article);
              return null;
           }
           try {
+            // Use article.url as a unique ID, or title+publishedAt if URL is missing
+            const uniqueId = article.url || `${article.title}-${article.publishedAt}`;
             return {
-              id: article.url, 
+              id: uniqueId, 
               title: article.title,
               date: new Date(article.publishedAt).toISOString().split('T')[0],
               source: mapSourceToEnum(article.source?.name),
               description: article.description || "Aucune description disponible.", // Provide a fallback
-              url: article.url,
+              url: article.url || undefined, // URL is optional
               imageUrl: article.urlToImage || undefined,
             };
           } catch (transformError) {
