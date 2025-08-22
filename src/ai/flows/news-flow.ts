@@ -150,9 +150,8 @@ const fetchComplianceNewsFlow = ai.defineFlow(
     let allNews: NewsItem[] = [];
 
     // Process results from all fetchers
-    results.forEach((result, index) => {
-        const providerName = index === 0 ? 'NewsAPI' : index === 1 ? 'GNews' : 'MarketAux';
-        if (result.status === 'fulfilled' && Array.isArray(result.value) && result.value.length > 0) {
+    results.forEach((result) => {
+        if (result.status === 'fulfilled' && Array.isArray(result.value)) {
             allNews.push(...result.value);
         }
     });
