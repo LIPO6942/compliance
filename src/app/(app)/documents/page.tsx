@@ -127,7 +127,7 @@ function DocumentsComponent() {
     }
   };
 
-  const filteredDocuments = documents.filter(doc => {
+  const filteredDocuments = React.useMemo(() => documents.filter(doc => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = doc.name.toLowerCase().includes(searchLower) ||
                           doc.owner.toLowerCase().includes(searchLower) ||
@@ -135,7 +135,7 @@ function DocumentsComponent() {
     const matchesType = filterType === "all" || doc.type === filterType;
     const matchesStatus = filterStatus === "all" || doc.status === filterStatus;
     return matchesSearch && matchesType && matchesStatus;
-  });
+  }), [documents, searchTerm, filterType, filterStatus]);
   
   const allFilterableTypes = ["all", ...documentTypes.map(t => t.id)];
   const documentStatuses = ["all", ...allPossibleStatuses];
