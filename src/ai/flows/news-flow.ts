@@ -72,7 +72,7 @@ const fetchComplianceNewsFlow = ai.defineFlow(
             return [];
         }
 
-        const newsData = await response.json() as any;
+        const newsData: any = await response.json();
 
         if (!newsData.articles || newsData.articles.length === 0) {
            console.warn("GNews n'a retourné aucun article pour la requête.");
