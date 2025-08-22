@@ -9,6 +9,7 @@ import { UserProvider } from "@/contexts/UserContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { KeywordsProvider } from "@/contexts/KeywordsContext";
 import { DocumentTypesProvider } from "@/contexts/DocumentTypesContext";
+import { NewsProvider } from "@/contexts/NewsContext";
 
 export default function ApplicationGroupLayout({
   children,
@@ -25,7 +26,9 @@ export default function ApplicationGroupLayout({
                 <TrainingDataProvider>
                   <RiskMappingProvider>
                     <KeywordsProvider>
-                      <AppLayout>{children}</AppLayout>
+                      <NewsProvider>
+                        <AppLayout>{children}</AppLayout>
+                      </NewsProvider>
                     </KeywordsProvider>
                   </RiskMappingProvider>
                 </TrainingDataProvider>
@@ -37,3 +40,5 @@ export default function ApplicationGroupLayout({
     </ThemeProvider>
   );
 }
+
+    

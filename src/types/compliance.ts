@@ -139,4 +139,14 @@ export interface CustomKeyword {
   id: string;
   label: string;
 }
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  date: string; // ISO Date String
+  source: "CGA" | "JORT" | "GAFI" | "Autre";
+  description: string;
+  url?: string;
+}
+
     

@@ -5,16 +5,20 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper } from "lucide-react";
 import Image from "next/image";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
-import type { ComplianceCategory, ComplianceTask, Document, DocumentStatus } from "@/types/compliance";
+import type { ComplianceCategory, ComplianceTask, Document, DocumentStatus, NewsItem } from "@/types/compliance";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/icons/Logo";
+import { useNews } from "@/contexts/NewsContext";
+import { Badge } from "@/components/ui/badge";
+import { format, parseISO } from "date-fns";
+import { fr } from "date-fns/locale";
 
 
 const complianceStatusBaseColors = {
@@ -51,6 +55,7 @@ export default function DashboardPage() {
   const { planData } = usePlanData();
   const { documents } = useDocuments();
   const { identifiedRegulations } = useIdentifiedRegulations();
+  const { news, loading: newsLoading } = useNews();
   const [isLoading, setIsLoading] = React.useState(true);
   const router = useRouter();
 
@@ -306,14 +311,28 @@ export default function DashboardPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline flex items-center">
-            <Lightbulb className="mr-2 h-6 w-6 text-primary" />
-            Astuce du Jour
+            <Newspaper className="mr-2 h-6 w-6 text-primary" />
+            Fil d'Actualité Conformité
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">
-            Pensez à revoir votre cartographie des risques au moins une fois par an, et après chaque changement réglementaire majeur.
-          </p>
+           {newsLoading ? (
+            <p className="text-muted-foreground">Chargement des actualités...</p>
+          ) : (
+            <ul className="space-y-4">
+              {news.slice(0, 4).map((item: NewsItem) => (
+                <li key={item.id} className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <Badge variant={item.source === 'CGA' ? 'default' : 'secondary'} className="w-[60px] justify-center">{item.source}</Badge>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm leading-tight">{item.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{format(parseISO(item.date), "d MMMM yyyy", { locale: fr })}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
 
