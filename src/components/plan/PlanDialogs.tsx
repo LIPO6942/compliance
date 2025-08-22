@@ -66,6 +66,7 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
   const categoryForm = useForm<CategoryFormValues>({ resolver: zodResolver(categorySchema) });
   const subCategoryForm = useForm<SubCategoryFormValues>({ resolver: zodResolver(subCategorySchema) });
   const taskForm = useForm<TaskFormValues>({ resolver: zodResolver(taskSchema) });
+  const [openCombobox, setOpenCombobox] = React.useState(false);
 
   const { documents } = useDocuments();
 
@@ -85,6 +86,14 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
         if (dialogState.type === 'task') taskForm.reset({ name: "", description: "", deadline: "", documentIds: [] });
     }
   }, [dialogState, categoryForm, subCategoryForm, taskForm]);
+  
+  const handleSelectDocument = React.useCallback((docId: string, isSelected: boolean, field: any) => {
+    const selectedDocs = field.value || [];
+    const newSelectedDocs = isSelected
+      ? selectedDocs.filter((id: string) => id !== docId)
+      : [...selectedDocs, docId];
+    field.onChange(newSelectedDocs);
+  }, []);
 
   return (
     <Dialog open={!!dialogState.type} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
@@ -129,12 +138,13 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Documents Liés (Optionnel)</FormLabel>
-                    <Popover>
+                    <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
                             variant="outline"
                             role="combobox"
+                            aria-expanded={openCombobox}
                             className={cn(
                               "w-full justify-between h-auto",
                               !field.value?.length && "text-muted-foreground"
@@ -157,29 +167,28 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                           <CommandList>
                             <CommandEmpty>Aucun document trouvé.</CommandEmpty>
                             <CommandGroup>
-                              {documents.map((doc) => (
-                                <CommandItem
-                                  value={doc.name}
-                                  key={doc.id}
-                                  onSelect={() => {
-                                    const selectedDocs = field.value || [];
-                                    const newSelectedDocs = selectedDocs.includes(doc.id)
-                                      ? selectedDocs.filter((id) => id !== doc.id)
-                                      : [...selectedDocs, doc.id];
-                                    field.onChange(newSelectedDocs);
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      field.value?.includes(doc.id)
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    )}
-                                  />
-                                  {doc.name}
-                                </CommandItem>
-                              ))}
+                              {documents.map((doc) => {
+                                const isSelected = field.value?.includes(doc.id) ?? false;
+                                return (
+                                  <CommandItem
+                                    value={doc.id}
+                                    key={doc.id}
+                                    onSelect={() => {
+                                      handleSelectDocument(doc.id, isSelected, field);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        isSelected
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      )}
+                                    />
+                                    {doc.name}
+                                  </CommandItem>
+                                );
+                              })}
                             </CommandGroup>
                            </CommandList>
                         </Command>
