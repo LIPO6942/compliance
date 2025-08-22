@@ -9,7 +9,7 @@ export const initialMockNews: NewsItem[] = [
     date: '2024-08-05',
     source: 'OFAC',
     description: "De nouvelles entités et individus ont été ajoutés, nécessitant une vigilance accrue lors de l'entrée en relation et des transactions.",
-    url: '#',
+    url: 'https://ofac.treasury.gov/',
   },
   {
     id: 'news-2',
@@ -17,7 +17,7 @@ export const initialMockNews: NewsItem[] = [
     date: '2024-07-28',
     source: 'CGA',
     description: "La circulaire détaille les attentes du régulateur en matière de conception, de surveillance et de distribution des produits d'assurance.",
-    url: '#',
+    url: 'https://www.cga.gov.tn/index.php?id=222&L=0',
   },
   {
     id: 'news-3',
@@ -25,7 +25,7 @@ export const initialMockNews: NewsItem[] = [
     date: '2024-07-22',
     source: 'GAFI',
     description: "Le rapport met en lumière des schémas émergents utilisant des produits d'assurance-vie et de capitalisation complexes.",
-     url: '#',
+     url: 'https://www.fatf-gafi.org/fr/home.html',
   },
   {
     id: 'news-4',
