@@ -2,7 +2,7 @@
 'use server';
 
 /**
- * @fileOverview A flow for fetching compliance news from a real news API.
+ * @fileOverview A flow for fetching compliance news from the NewsAPI.
  *
  * - fetchComplianceNews - A function that returns a list of compliance news items.
  * - ComplianceNewsOutput - The return type for the fetchComplianceNews function.
@@ -30,7 +30,7 @@ export async function fetchComplianceNews(): Promise<ComplianceNewsOutput> {
   return fetchComplianceNewsFlow();
 }
 
-const mapSourceToEnum = (sourceName: string): NewsItem['source'] => {
+const mapSourceToEnum = (sourceName?: string | null): NewsItem['source'] => {
   if (!sourceName) return 'Autre';
   const lowerSourceName = sourceName.toLowerCase();
   if (lowerSourceName.includes('cga')) return 'CGA';
@@ -48,31 +48,42 @@ const fetchComplianceNewsFlow = ai.defineFlow(
     outputSchema: ComplianceNewsOutputSchema,
   },
   async () => {
-    const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
+    const NEWS_API_KEY = process.env.NEWS_API_KEY;
 
-    if (!GNEWS_API_KEY) {
-      console.error("[NEWS FLOW] Clé API GNews (GNEWS_API_KEY) non trouvée. Le fil d'actualité sera vide.");
+    if (!NEWS_API_KEY) {
+      console.error("[NEWS FLOW] Clé API NewsAPI (NEWS_API_KEY) non trouvée. Le fil d'actualité sera vide.");
       return [];
     }
 
     try {
-      const query = encodeURIComponent('"conformité financière" OR "lutte anti-blanchiment"');
-      const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&country=fr,be,ch,ca&topic=business&max=5&apikey=${GNEWS_API_KEY}`;
+      const query = encodeURIComponent('("conformité financière" OR "réglementation assurance" OR "lutte anti-blanchiment") AND (NOT "crypto")');
+      const url = `https://newsapi.org/v2/everything?q=${query}&language=fr&sortBy=publishedAt&pageSize=5&apiKey=${NEWS_API_KEY}`;
       
+      console.log(`[NEWS FLOW] Appel de l'API NewsAPI avec l'URL: ${url.replace(NEWS_API_KEY, '***')}`);
+
       const response = await fetch(url);
+      
+      console.log(`[NEWS FLOW] Statut de la réponse de NewsAPI: ${response.status}`);
 
       if (!response.ok) {
         const errorBody = await response.text();
-        console.error(`[NEWS FLOW] Erreur de l'API GNews. Statut: ${response.status}. Réponse: ${errorBody}`);
+        console.error(`[NEWS FLOW] Erreur de l'API NewsAPI. Statut: ${response.status}. Réponse: ${errorBody}`);
         return [];
       }
 
-      const newsData = await response.json() as { articles?: any[], totalArticles?: number };
+      const newsData = await response.json() as { articles?: any[], totalResults?: number, status: string, code?: string, message?: string };
+      
+      if (newsData.status === 'error') {
+          console.error(`[NEWS FLOW] Erreur renvoyée par l'API NewsAPI: ${newsData.code} - ${newsData.message}`);
+          return [];
+      }
 
       if (!newsData || !newsData.articles || newsData.articles.length === 0) {
-        console.warn("[NEWS FLOW] GNews n'a retourné aucun article pour la requête. Le fil d'actualité sera vide.");
+        console.warn("[NEWS FLOW] NewsAPI n'a retourné aucun article pour la requête. Le fil d'actualité sera vide.");
         return [];
       }
+
+      console.log(`[NEWS FLOW] Articles reçus de NewsAPI: ${newsData.articles.length}`);
 
       const transformedNews: NewsItem[] = newsData.articles
         .map((article: any): NewsItem | null => {
@@ -81,6 +92,10 @@ const fetchComplianceNewsFlow = ai.defineFlow(
              return null;
           }
           try {
+            // NewsAPI can return "[Removed]" for titles of retracted articles
+            if (article.title === '[Removed]') {
+                return null;
+            }
             return {
               id: article.url, 
               title: article.title,
@@ -88,7 +103,7 @@ const fetchComplianceNewsFlow = ai.defineFlow(
               source: mapSourceToEnum(article.source?.name),
               description: article.description,
               url: article.url,
-              imageUrl: article.image || undefined,
+              imageUrl: article.urlToImage || undefined,
             };
           } catch (transformError) {
              console.error(`[NEWS FLOW] Erreur lors de la transformation d'un article:`, transformError, "Données de l'article:", article);
@@ -97,6 +112,7 @@ const fetchComplianceNewsFlow = ai.defineFlow(
         })
         .filter((item): item is NewsItem => item !== null);
         
+      console.log(`[NEWS FLOW] Articles transformés avec succès: ${transformedNews.length}`);
       return transformedNews;
 
     } catch (error) {

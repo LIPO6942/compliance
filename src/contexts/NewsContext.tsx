@@ -17,12 +17,17 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { isLoaded } = useUser();
-  const hasFetched = useRef(false); // Flag to prevent double fetching
+  const hasFetched = useRef(false);
 
   useEffect(() => {
-    if (!isLoaded || hasFetched.current) return;
+    // Only run if the user is loaded and we haven't fetched yet
+    if (!isLoaded || hasFetched.current) {
+      return;
+    }
 
     const loadNews = async () => {
+      // Set the flag to true immediately to prevent re-fetching
+      hasFetched.current = true; 
       setLoading(true);
       try {
         const newsData = await fetchComplianceNews();
@@ -35,7 +40,6 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     
-    hasFetched.current = true; // Set flag to true after the first run
     loadNews();
     
   }, [isLoaded]);

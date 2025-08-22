@@ -147,4 +147,5 @@ export interface NewsItem {
   source: "CGA" | "JORT" | "GAFI" | "OFAC" | "UE" | "Autre";
   description: string;
   url?: string;
+  imageUrl?: string;
 }
