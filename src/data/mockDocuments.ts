@@ -3,6 +3,17 @@ import type { Document } from '@/types/compliance';
 
 export const initialMockDocuments: Document[] = [
   {
+    id: 'doc-lbaft-manual',
+    name: 'Manuel Interne de Procédures LBA/FT',
+    type: 'Procédure',
+    version: '3.0',
+    status: 'En Révision',
+    lastUpdated: '2024-07-26',
+    owner: 'Responsable Conformité / Direction',
+    tags: ['Procédures', 'Contrôles Internes', 'Conformité', 'LBA/FT'],
+    url: 'https://mega.nz/file/MbN1nCBK#GvQJAqDarN--9VreCKsFMOowU8QgQ9fXN-pqZess0KA'
+  },
+  {
     id: 'doc-kyc-id',
     name: "Documents d'Identification Client (KYC)",
     type: "Légal/Officiel",
@@ -121,16 +132,6 @@ export const initialMockDocuments: Document[] = [
     lastUpdated: '2024-07-26',
     owner: 'Responsable Conformité',
     tags: ['Sanctions', 'Financement du Terrorisme', 'Prolifération AMD', 'Conformité']
-  },
-  {
-    id: 'doc-lbaft-manual',
-    name: 'Manuel Interne de Procédures LBA/FT',
-    type: 'Procédure',
-    version: '3.0',
-    status: 'En Révision',
-    lastUpdated: '2024-07-26',
-    owner: 'Responsable Conformité / Direction',
-    tags: ['Procédures', 'Contrôles Internes', 'Conformité', 'LBA/FT']
   },
   {
     id: 'doc-internal-audit',

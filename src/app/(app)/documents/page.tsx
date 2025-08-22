@@ -18,7 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { FileText, PlusCircle, Search, ArrowUpDown, MoreHorizontal, Download, Edit, Trash2, CheckCircle, Edit3, Archive, FileX, Tags } from "lucide-react";
+import { FileText, PlusCircle, Search, ArrowUpDown, MoreHorizontal, Download, Edit, Trash2, CheckCircle, Edit3, Archive, FileX, Tags, Link as LinkIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -30,6 +30,7 @@ import { useDocuments } from "@/contexts/DocumentsContext";
 import { Logo } from "@/components/icons/Logo";
 import { Suspense } from 'react';
 import { useDocumentTypes } from "@/contexts/DocumentTypesContext";
+import Link from 'next/link';
 
 const documentSchema = z.object({
   name: z.string().min(1, "Le nom du document est requis."),
@@ -37,6 +38,7 @@ const documentSchema = z.object({
   version: z.string().min(1, "La version est requise."),
   owner: z.string().min(1, "Le propriétaire est requis."),
   tags: z.string().optional(),
+  url: z.string().url("Veuillez entrer une URL valide.").optional().or(z.literal('')),
 });
 type DocumentFormValues = z.infer<typeof documentSchema>;
 
@@ -76,9 +78,9 @@ function DocumentsComponent() {
   const openDialog = (mode: "add" | "edit", data?: Document) => {
     setDialogState({ mode, data });
     if (mode === "edit" && data) {
-      form.reset({ ...data, tags: data.tags?.join(', ') || '' });
+      form.reset({ ...data, tags: data.tags?.join(', ') || '', url: data.url || '' });
     } else {
-      form.reset({ name: "", type: documentTypes[0]?.id || "", version: "1.0", owner: "", tags: "" });
+      form.reset({ name: "", type: documentTypes[0]?.id || "", version: "1.0", owner: "", tags: "", url: "" });
     }
   };
   const closeDialog = () => setDialogState({ mode: null });
@@ -224,7 +226,18 @@ function DocumentsComponent() {
                   filteredDocuments.length > 0 ? (
                     filteredDocuments.map((doc) => (
                       <TableRow key={doc.id} className="hover:bg-muted/30 transition-colors">
-                        <TableCell className="font-medium py-3">{doc.name}</TableCell>
+                        <TableCell className="font-medium py-3">
+                          <div className="flex items-center gap-2">
+                             {doc.url ? (
+                              <Link href={doc.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                {doc.name}
+                              </Link>
+                            ) : (
+                              doc.name
+                            )}
+                            {doc.url && <LinkIcon className="h-3 w-3 text-muted-foreground" />}
+                          </div>
+                        </TableCell>
                         <TableCell className="py-3">
                           <div className="flex flex-wrap gap-1">
                             {doc.tags?.map((tag, index) => <Badge key={index} variant="secondary" className="text-xs">{tag}</Badge>)}
@@ -250,7 +263,15 @@ function DocumentsComponent() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Actions Document</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => { /* Placeholder for download */ toast({ title: "Fonctionnalité à venir" })}}><Download className="mr-2 h-4 w-4" /> Télécharger</DropdownMenuItem>
+                                {doc.url ? (
+                                  <DropdownMenuItem asChild>
+                                    <Link href={doc.url} target="_blank" rel="noopener noreferrer">
+                                      <Download className="mr-2 h-4 w-4" /> Télécharger
+                                    </Link>
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem disabled><Download className="mr-2 h-4 w-4" /> Télécharger</DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem onClick={() => openDialog('edit', doc)}><Edit className="mr-2 h-4 w-4" /> Modifier les détails</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuLabel>Changer le statut</DropdownMenuLabel>
@@ -335,6 +356,9 @@ function DocumentsComponent() {
             <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
               <FormField control={form.control} name="name" render={({ field }) => (
                 <FormItem><FormLabel>Nom du document</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+               <FormField control={form.control} name="url" render={({ field }) => (
+                <FormItem><FormLabel>URL du document (Optionnel)</FormLabel><FormControl><Input {...field} placeholder="https://..." /></FormControl><FormMessage /></FormItem>
               )} />
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="type" render={({ field }) => (

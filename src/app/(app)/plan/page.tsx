@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useToast } from "@/hooks/use-toast";
-import type { ComplianceTask, ComplianceCategory, ComplianceSubCategory } from "@/types/compliance";
+import type { ComplianceTask, ComplianceCategory, ComplianceSubCategory, Document } from "@/types/compliance";
 import type { DialogState } from "@/components/plan/types";
 import { PlanHeader } from "@/components/plan/PlanHeader";
 import { PlanDialogs } from "@/components/plan/PlanDialogs";
@@ -16,16 +16,23 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { PlusCircle, Edit2, Trash2, MoreVertical, Clock } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, MoreVertical, Clock, Link as LinkIcon, FileText } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Logo } from "@/components/icons/Logo";
-
+import { useDocuments } from "@/contexts/DocumentsContext";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 
 const categorySchema = z.object({ name: z.string().min(1, "Le nom de la catégorie est requis."), icon: z.string().min(1, "L'icône de la catégorie est requise.") });
 const subCategorySchema = z.object({ name: z.string().min(1, "Le nom de la sous-catégorie est requis."), icon: z.string().optional() });
-const taskSchema = z.object({ name: z.string().min(1, "Le nom de la tâche est requis."), description: z.string().optional(), deadline: z.string().optional() });
+const taskSchema = z.object({ 
+    name: z.string().min(1, "Le nom de la tâche est requis."), 
+    description: z.string().optional(), 
+    deadline: z.string().optional(),
+    documentIds: z.array(z.string()).optional(),
+});
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
 type SubCategoryFormValues = z.infer<typeof subCategorySchema>;
@@ -72,6 +79,7 @@ export default function PlanPage() {
     editTask: editTaskContext,
     removeTask: removeTaskContext,
   } = usePlanData();
+  const { documents, loading: docsLoading } = useDocuments();
 
   const { toast } = useToast();
   
@@ -188,7 +196,13 @@ export default function PlanPage() {
     }
   };
 
-  if (loading) {
+  const getLinkedDocuments = (task: ComplianceTask): Document[] => {
+    if (!task.documentIds || task.documentIds.length === 0) return [];
+    return documents.filter(doc => task.documentIds!.includes(doc.id));
+  };
+
+
+  if (loading || docsLoading) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-10rem)]">
         <Logo className="h-12 w-12 animate-spin" />
@@ -278,33 +292,52 @@ export default function PlanPage() {
                                     </CardHeader>
                                     <CardContent className="px-4 pb-4">
                                     <ul className="space-y-3 list-inside">
-                                        {subCategory.tasks.map((task: ComplianceTask) => (
-                                        <li key={task.id} className="flex items-start text-sm text-muted-foreground group/task relative pr-10">
-                                            <Checkbox id={`task-${task.id}`} checked={task.completed} onCheckedChange={() => handleToggleTaskCompletion(category.id, subCategory.id, task.id)} className="mr-2.5 mt-1 flex-shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" aria-labelledby={`task-label-${task.id}`}/>
-                                            <label htmlFor={`task-${task.id}`} id={`task-label-${task.id}`} className="cursor-pointer flex-grow">
-                                            <div>
-                                                <span className={`${task.completed ? 'line-through text-muted-foreground/70' : ''} ${isClient && isTaskOverdue(task) ? "text-destructive font-medium" : "text-foreground"}`}>{task.name}</span>
-                                                {task.description && <span className="text-xs text-muted-foreground italic"> - {task.description}</span>}
-                                            </div>
-                                            {task.deadline && (isClient ? (<div className={`text-xs mt-0.5 flex items-center ${isTaskOverdue(task) ? 'text-destructive' : 'text-muted-foreground'}`}><Clock className="h-3 w-3 mr-1" /><span>Échéance: {format(parseISO(task.deadline), 'dd/MM/yyyy', { locale: fr })}</span></div>) : (<div className="text-xs mt-0.5 flex items-center text-muted-foreground"><Clock className="h-3 w-3 mr-1" /><span>Échéance: ...</span></div>))}
-                                            </label>
-                                            <div className="absolute right-0 top-0 opacity-0 group-hover/task:opacity-100 transition-opacity">
-                                            <AlertDialog>
-                                                <DropdownMenu>
-                                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" side="left">
-                                                    <DropdownMenuItem onClick={() => openDialog("task", "edit", task, subCategory.id, category.id)}><Edit2 className="mr-2 h-4 w-4" /> Modifier</DropdownMenuItem>
-                                                    <AlertDialogTrigger asChild><DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10"><Trash2 className="mr-2 h-4 w-4" /> Supprimer</DropdownMenuItem></AlertDialogTrigger>
-                                                </DropdownMenuContent>
-                                                </DropdownMenu>
-                                                <AlertDialogContent>
-                                                <AlertDialogHeader><AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette tâche ?</AlertDialogTitle><AlertDialogDescription>Cette action est irréversible et supprimera la tâche "{task.name}".</AlertDialogDescription></AlertDialogHeader>
-                                                <AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={() => handleRemoveTask(category.id, subCategory.id, task.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction></AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                            </div>
-                                        </li>
-                                        ))}
+                                        {subCategory.tasks.map((task: ComplianceTask) => {
+                                          const linkedDocs = getLinkedDocuments(task);
+                                          return (
+                                            <li key={task.id} className="flex items-start text-sm text-muted-foreground group/task relative pr-10">
+                                                <Checkbox id={`task-${task.id}`} checked={task.completed} onCheckedChange={() => handleToggleTaskCompletion(category.id, subCategory.id, task.id)} className="mr-2.5 mt-1 flex-shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" aria-labelledby={`task-label-${task.id}`}/>
+                                                <label htmlFor={`task-${task.id}`} id={`task-label-${task.id}`} className="cursor-pointer flex-grow">
+                                                <div>
+                                                    <span className={`${task.completed ? 'line-through text-muted-foreground/70' : ''} ${isClient && isTaskOverdue(task) ? "text-destructive font-medium" : "text-foreground"}`}>{task.name}</span>
+                                                    {task.description && <span className="text-xs text-muted-foreground italic"> - {task.description}</span>}
+                                                </div>
+                                                {task.deadline && (isClient ? (<div className={`text-xs mt-0.5 flex items-center ${isTaskOverdue(task) ? 'text-destructive' : 'text-muted-foreground'}`}><Clock className="h-3 w-3 mr-1" /><span>Échéance: {format(parseISO(task.deadline), 'dd/MM/yyyy', { locale: fr })}</span></div>) : (<div className="text-xs mt-0.5 flex items-center text-muted-foreground"><Clock className="h-3 w-3 mr-1" /><span>Échéance: ...</span></div>))}
+                                                {linkedDocs.length > 0 && (
+                                                  <div className="mt-2 flex flex-wrap gap-2">
+                                                    {linkedDocs.map(doc => (
+                                                      <Badge key={doc.id} variant="secondary" className="font-normal text-xs">
+                                                        <FileText className="h-3 w-3 mr-1.5" />
+                                                        {doc.url ? (
+                                                          <Link href={doc.url} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center">
+                                                              {doc.name} <LinkIcon className="h-3 w-3 ml-1.5"/>
+                                                          </Link>
+                                                        ) : (
+                                                          doc.name
+                                                        )}
+                                                      </Badge>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                                </label>
+                                                <div className="absolute right-0 top-0 opacity-0 group-hover/task:opacity-100 transition-opacity">
+                                                <AlertDialog>
+                                                    <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" side="left">
+                                                        <DropdownMenuItem onClick={() => openDialog("task", "edit", task, subCategory.id, category.id)}><Edit2 className="mr-2 h-4 w-4" /> Modifier</DropdownMenuItem>
+                                                        <AlertDialogTrigger asChild><DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10"><Trash2 className="mr-2 h-4 w-4" /> Supprimer</DropdownMenuItem></AlertDialogTrigger>
+                                                    </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                    <AlertDialogContent>
+                                                    <AlertDialogHeader><AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette tâche ?</AlertDialogTitle><AlertDialogDescription>Cette action est irréversible et supprimera la tâche "{task.name}".</AlertDialogDescription></AlertDialogHeader>
+                                                    <AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={() => handleRemoveTask(category.id, subCategory.id, task.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction></AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                                </div>
+                                            </li>
+                                          );
+                                        })}
                                     </ul>
                                     <Button variant="outline" size="sm" className="mt-4" onClick={() => openDialog("task", "add", undefined, subCategory.id, category.id)}>
                                         <PlusCircle className="mr-2 h-4 w-4" /> Ajouter une tâche

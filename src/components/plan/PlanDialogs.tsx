@@ -5,12 +5,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import * as LucideIcons from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { DialogState } from "./types";
+import { useDocuments } from "@/contexts/DocumentsContext";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 const iconMap: Record<string, LucideIcons.LucideIcon> = {
   Gavel: LucideIcons.Gavel, ShieldAlert: LucideIcons.ShieldAlert, SearchCheck: LucideIcons.SearchCheck, ClipboardCheck: LucideIcons.ClipboardCheck,
@@ -36,7 +42,13 @@ const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => (iconNam
 
 const categorySchema = z.object({ name: z.string().min(1, "Le nom de la catégorie est requis."), icon: z.string().min(1, "L'icône de la catégorie est requise.") });
 const subCategorySchema = z.object({ name: z.string().min(1, "Le nom de la sous-catégorie est requis."), icon: z.string().optional() });
-const taskSchema = z.object({ name: z.string().min(1, "Le nom de la tâche est requis."), description: z.string().optional(), deadline: z.string().optional() });
+const taskSchema = z.object({ 
+    name: z.string().min(1, "Le nom de la tâche est requis."), 
+    description: z.string().optional(), 
+    deadline: z.string().optional(),
+    documentIds: z.array(z.string()).optional(),
+});
+
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
 type SubCategoryFormValues = z.infer<typeof subCategorySchema>;
@@ -55,6 +67,8 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
   const subCategoryForm = useForm<SubCategoryFormValues>({ resolver: zodResolver(subCategorySchema) });
   const taskForm = useForm<TaskFormValues>({ resolver: zodResolver(taskSchema) });
 
+  const { documents } = useDocuments();
+
   React.useEffect(() => {
     if (dialogState.mode === 'edit' && dialogState.data) {
         if (dialogState.type === 'category') categoryForm.reset(dialogState.data);
@@ -63,11 +77,12 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
             name: dialogState.data.name,
             description: dialogState.data.description,
             deadline: dialogState.data.deadline ? new Date(dialogState.data.deadline).toISOString().split('T')[0] : "",
+            documentIds: dialogState.data.documentIds || [],
         });
     } else {
         if (dialogState.type === 'category') categoryForm.reset({ name: "", icon: availableIcons[0] });
         if (dialogState.type === 'subCategory') subCategoryForm.reset({ name: "", icon: availableIcons[0] });
-        if (dialogState.type === 'task') taskForm.reset({ name: "", description: "", deadline: "" });
+        if (dialogState.type === 'task') taskForm.reset({ name: "", description: "", deadline: "", documentIds: [] });
     }
   }, [dialogState, categoryForm, subCategoryForm, taskForm]);
 
@@ -107,6 +122,77 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
               <FormField control={taskForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nom de la tâche</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={taskForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description (Optionnel)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={taskForm.control} name="deadline" render={({ field }) => (<FormItem><FormLabel>Échéance (Optionnel)</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              
+               <FormField
+                control={taskForm.control}
+                name="documentIds"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Documents Liés (Optionnel)</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              "w-full justify-between h-auto",
+                              !field.value?.length && "text-muted-foreground"
+                            )}
+                          >
+                             <div className="flex gap-1 flex-wrap">
+                                {field.value && field.value.length > 0
+                                ? documents
+                                    .filter((doc) => field.value?.includes(doc.id))
+                                    .map((doc) => <Badge key={doc.id} variant="secondary">{doc.name}</Badge>)
+                                : "Sélectionner des documents"}
+                             </div>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <Command>
+                          <CommandInput placeholder="Rechercher un document..." />
+                          <CommandList>
+                            <CommandEmpty>Aucun document trouvé.</CommandEmpty>
+                            <CommandGroup>
+                              {documents.map((doc) => (
+                                <CommandItem
+                                  value={doc.name}
+                                  key={doc.id}
+                                  onSelect={() => {
+                                    const selectedDocs = field.value || [];
+                                    const newSelectedDocs = selectedDocs.includes(doc.id)
+                                      ? selectedDocs.filter((id) => id !== doc.id)
+                                      : [...selectedDocs, doc.id];
+                                    field.onChange(newSelectedDocs);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      field.value?.includes(doc.id)
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  {doc.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                           </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <FormDescription>
+                      Liez des preuves documentaires à cette tâche.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
             </form>
           </Form>

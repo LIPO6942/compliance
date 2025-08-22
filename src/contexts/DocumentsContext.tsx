@@ -51,7 +51,7 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
         // Add new documents
         initialMockDocuments.forEach((mockDoc) => {
           const { id, ...data } = mockDoc;
-          const docRef = doc(collection(db!, documentsCollectionName));
+          const docRef = doc(collection(db!, documentsCollectionName), id); // Use explicit ID
           batch.set(docRef, data);
         });
 

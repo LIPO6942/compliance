@@ -7,6 +7,7 @@ export interface ComplianceTask {
   description?: string;
   completed: boolean;
   deadline?: string; // ISO date string
+  documentIds?: string[]; // <-- NOUVEAU: IDs des documents liés
 }
 
 export interface ComplianceSubCategory {
@@ -41,6 +42,7 @@ export interface Document {
   lastUpdated: string;
   owner: string;
   tags?: string[];
+  url?: string; // <-- NOUVEAU: URL vers le document
 }
 
 // Regulatory Alert Types (Previously IdentifiedRegulation)
