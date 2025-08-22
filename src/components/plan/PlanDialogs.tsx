@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { DialogState } from "./types";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -66,7 +67,6 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
   const categoryForm = useForm<CategoryFormValues>({ resolver: zodResolver(categorySchema) });
   const subCategoryForm = useForm<SubCategoryFormValues>({ resolver: zodResolver(subCategorySchema) });
   const taskForm = useForm<TaskFormValues>({ resolver: zodResolver(taskSchema) });
-  const [openCombobox, setOpenCombobox] = React.useState(false);
 
   const { documents } = useDocuments();
 
@@ -86,14 +86,6 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
         if (dialogState.type === 'task') taskForm.reset({ name: "", description: "", deadline: "", documentIds: [] });
     }
   }, [dialogState, categoryForm, subCategoryForm, taskForm]);
-  
-  const handleSelectDocument = (docId: string, field: any) => {
-    const selectedDocs = field.value || [];
-    const newSelectedDocs = selectedDocs.includes(docId)
-      ? selectedDocs.filter((id: string) => id !== docId)
-      : [...selectedDocs, docId];
-    field.onChange(newSelectedDocs);
-  };
 
   return (
     <Dialog open={!!dialogState.type} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
@@ -136,17 +128,16 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                 control={taskForm.control}
                 name="documentIds"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
+                  <FormItem>
                     <FormLabel>Documents Liés (Optionnel)</FormLabel>
-                    <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                    <Popover>
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
                             variant="outline"
                             role="combobox"
-                            aria-expanded={openCombobox}
                             className={cn(
-                              "w-full justify-between h-auto",
+                              "w-full justify-between h-auto min-h-10",
                               !field.value?.length && "text-muted-foreground"
                             )}
                           >
@@ -162,35 +153,35 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                         </FormControl>
                       </PopoverTrigger>
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                        <Command>
-                          <CommandInput placeholder="Rechercher un document..." />
-                          <CommandList>
-                            <CommandEmpty>Aucun document trouvé.</CommandEmpty>
-                            <CommandGroup>
-                              {documents.map((doc) => {
+                         <ScrollArea className="h-48">
+                            <div className="p-2 space-y-1">
+                            {documents.map((doc) => {
                                 const isSelected = field.value?.includes(doc.id) ?? false;
                                 return (
-                                  <CommandItem
+                                <div
                                     key={doc.id}
-                                    onSelect={() => {
-                                      handleSelectDocument(doc.id, field);
+                                    className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent cursor-pointer"
+                                    onClick={() => {
+                                        const selectedDocs = field.value || [];
+                                        const newSelectedDocs = isSelected
+                                        ? selectedDocs.filter((id: string) => id !== doc.id)
+                                        : [...selectedDocs, doc.id];
+                                        field.onChange(newSelectedDocs);
                                     }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        isSelected
-                                          ? "opacity-100"
-                                          : "opacity-0"
-                                      )}
+                                >
+                                    <Checkbox
+                                        id={`doc-${doc.id}`}
+                                        checked={isSelected}
+                                        readOnly
                                     />
-                                    {doc.name}
-                                  </CommandItem>
+                                    <label htmlFor={`doc-${doc.id}`} className="text-sm font-medium leading-none cursor-pointer">
+                                        {doc.name}
+                                    </label>
+                                </div>
                                 );
-                              })}
-                            </CommandGroup>
-                           </CommandList>
-                        </Command>
+                            })}
+                            </div>
+                         </ScrollArea>
                       </PopoverContent>
                     </Popover>
                     <FormDescription>
