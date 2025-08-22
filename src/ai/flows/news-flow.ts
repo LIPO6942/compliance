@@ -53,46 +53,62 @@ const fetchComplianceNewsFlow = ai.defineFlow(
   },
   async () => {
     
-    // --- Integration with GNews API ---
     const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
 
     if (!GNEWS_API_KEY) {
-      console.error("Clé API GNews non configurée (GNEWS_API_KEY). Impossible de récupérer les actualités.");
+      console.error("[NEWS DEBUG] Clé API GNews non configurée (GNEWS_API_KEY). Impossible de récupérer les actualités.");
       return [];
     }
+    
+    console.log("[NEWS DEBUG] Tentative de récupération des actualités depuis GNews.");
 
     try {
         const query = encodeURIComponent('"conformité assurance" OR "lutte anti-blanchiment"');
         const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&country=fr,be,ch,ca&topic=business&max=5&apikey=${GNEWS_API_KEY}`;
         
+        console.log(`[NEWS DEBUG] Appel de l'URL: ${url.replace(GNEWS_API_KEY, '*****')}`);
+
         const response = await fetch(url);
         
+        console.log(`[NEWS DEBUG] Statut de la réponse de GNews: ${response.status}`);
+
         if (!response.ok) {
-            console.error("Erreur lors de la récupération des actualités depuis GNews:", await response.text());
+            const errorText = await response.text();
+            console.error("[NEWS DEBUG] Erreur lors de la récupération des actualités depuis GNews:", errorText);
             return [];
         }
 
         const newsData: any = await response.json();
 
         if (!newsData.articles || newsData.articles.length === 0) {
-           console.warn("GNews n'a retourné aucun article pour la requête.");
+           console.warn("[NEWS DEBUG] GNews n'a retourné aucun article pour la requête.");
            return [];
         }
 
-        const realNews: NewsItem[] = newsData.articles.slice(0, 5).map((article: any, index: number) => ({
-            id: article.url || `real-news-${index}`,
-            title: article.title,
-            date: new Date(article.publishedAt).toISOString().split('T')[0], // Format YYYY-MM-DD
-            source: mapSourceToEnum(article.source.name),
-            description: article.description,
-            url: article.url,
-            imageUrl: article.image,
-        }));
-        
-        return realNews;
+        console.log(`[NEWS DEBUG] ${newsData.articles.length} articles reçus de GNews. Tentative de transformation.`);
+
+        try {
+            const realNews: NewsItem[] = newsData.articles.slice(0, 5).map((article: any, index: number) => ({
+                id: article.url || `real-news-${index}`,
+                title: article.title,
+                date: new Date(article.publishedAt).toISOString().split('T')[0],
+                source: mapSourceToEnum(article.source.name),
+                description: article.description,
+                url: article.url,
+                imageUrl: article.image,
+            }));
+            
+            console.log("[NEWS DEBUG] Transformation réussie. Retour des articles.", realNews);
+            return realNews;
+
+        } catch (transformError) {
+            console.error("[NEWS DEBUG] Erreur lors de la transformation des articles GNews:", transformError);
+            console.error("[NEWS DEBUG] Données brutes de l'article problématique:", newsData.articles[0]); // Log the first article for inspection
+            return [];
+        }
 
     } catch (error) {
-        console.error("Erreur lors de la connexion à GNews:", error);
+        console.error("[NEWS DEBUG] Erreur inattendue lors de la connexion à GNews:", error);
         return [];
     }
   }
