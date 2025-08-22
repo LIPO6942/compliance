@@ -3,9 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { NewsItem } from '@/types/compliance';
-import { initialMockNews } from '@/data/mockNews';
-import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { fetchComplianceNews } from '@/ai/flows/news-flow';
 import { useUser } from './UserContext';
 
 interface NewsContextType {
@@ -21,14 +19,22 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
   const { isLoaded } = useUser();
 
   useEffect(() => {
-    // For this prototype, we'll stick to mock data as a real news feed is complex.
-    // The structure is here to easily switch to Firebase if needed.
     if (!isLoaded) return;
+
+    const loadNews = async () => {
+      setLoading(true);
+      try {
+        const newsData = await fetchComplianceNews();
+        setNews(newsData);
+      } catch (error) {
+        console.error("Failed to fetch compliance news:", error);
+        setNews([]); // Fallback to empty list on error
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    // Sort news by date descending to ensure the latest news is first
-    const sortedNews = [...initialMockNews].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setNews(sortedNews);
-    setLoading(false);
+    loadNews();
     
   }, [isLoaded]);
 
