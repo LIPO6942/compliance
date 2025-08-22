@@ -87,13 +87,13 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
     }
   }, [dialogState, categoryForm, subCategoryForm, taskForm]);
   
-  const handleSelectDocument = React.useCallback((docId: string, isSelected: boolean, field: any) => {
+  const handleSelectDocument = (docId: string, field: any) => {
     const selectedDocs = field.value || [];
-    const newSelectedDocs = isSelected
+    const newSelectedDocs = selectedDocs.includes(docId)
       ? selectedDocs.filter((id: string) => id !== docId)
       : [...selectedDocs, docId];
     field.onChange(newSelectedDocs);
-  }, []);
+  };
 
   return (
     <Dialog open={!!dialogState.type} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
@@ -171,11 +171,9 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                                 const isSelected = field.value?.includes(doc.id) ?? false;
                                 return (
                                   <CommandItem
-                                    value={doc.name}
                                     key={doc.id}
-                                    onSelect={(e) => {
-                                      e.preventDefault();
-                                      handleSelectDocument(doc.id, isSelected, field);
+                                    onSelect={() => {
+                                      handleSelectDocument(doc.id, field);
                                     }}
                                   >
                                     <Check
