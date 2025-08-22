@@ -22,7 +22,7 @@ const ComplianceNewsOutputSchema = z.array(
     date: z.string().describe("La date de publication au format AAAA-MM-JJ."),
     source: z.enum(["CGA", "JORT", "GAFI", "OFAC", "UE", "Autre"]).describe("La source de l'information."),
     description: z.string().describe("Une courte description (1-2 phrases) de l'actualité."),
-    url: z.string().optional().describe("L'URL vers l'article complet, si disponible."),
+    url: z.string().url().optional().describe("L'URL vers l'article complet, si disponible."),
     imageUrl: z.string().url().optional().describe("L'URL d'une image pour l'article."),
   })
 ).length(5).describe("Une liste de 5 articles d'actualité sur la conformité.");
@@ -75,7 +75,7 @@ const fetchComplianceNewsFlow = ai.defineFlow(
 
     try {
         const query = encodeURIComponent('"conformité assurance" OR "lutte anti-blanchiment" OR "insurance compliance" OR "aml"');
-        const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&country=fr,us&topic=business&max=5&apikey=${GNEWS_API_KEY}`;
+        const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr,en&country=fr,us&topic=business&max=5&apikey=${GNEWS_API_KEY}`;
         
         const response = await fetch(url);
         
@@ -105,6 +105,7 @@ const fetchComplianceNewsFlow = ai.defineFlow(
         
         // Ensure we always return 5 items, supplementing with AI if necessary
         if (realNews.length < 5) {
+            console.warn(`GNews a retourné seulement ${realNews.length} articles. Complément avec l'IA.`);
             const { output: aiNews } = await newsPrompt();
             if (aiNews) {
                 const needed = 5 - realNews.length;
