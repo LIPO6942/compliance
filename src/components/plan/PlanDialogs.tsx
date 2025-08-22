@@ -171,7 +171,7 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                                 const isSelected = field.value?.includes(doc.id) ?? false;
                                 return (
                                   <CommandItem
-                                    value={doc.id}
+                                    value={doc.name}
                                     key={doc.id}
                                     onSelect={() => {
                                       handleSelectDocument(doc.id, isSelected, field);
