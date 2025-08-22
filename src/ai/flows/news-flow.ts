@@ -100,7 +100,7 @@ const fetchComplianceNewsFlow = ai.defineFlow(
             source: mapSourceToEnum(article.source.name),
             description: article.description,
             url: article.url,
-            imageUrl: article.image,
+            imageUrl: article.image, // Corrected from imageUrl to image
         }));
         
         // Ensure we always return 5 items, supplementing with AI if necessary
