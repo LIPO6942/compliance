@@ -144,9 +144,7 @@ export interface NewsItem {
   id: string;
   title: string;
   date: string; // ISO Date String
-  source: "CGA" | "JORT" | "GAFI" | "Autre";
+  source: "CGA" | "JORT" | "GAFI" | "OFAC" | "UE" | "Autre";
   description: string;
   url?: string;
 }
-
-    

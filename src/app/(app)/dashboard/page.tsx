@@ -142,6 +142,16 @@ export default function DashboardPage() {
     }
   };
 
+  const newsSourceColors: Record<NewsItem['source'], string> = {
+    CGA: 'bg-blue-600 hover:bg-blue-700',
+    JORT: 'bg-green-600 hover:bg-green-700',
+    GAFI: 'bg-gray-700 hover:bg-gray-800',
+    OFAC: 'bg-red-600 hover:bg-red-700',
+    UE: 'bg-indigo-600 hover:bg-indigo-700',
+    Autre: 'bg-gray-500 hover:bg-gray-600',
+  };
+
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-10rem)]">
@@ -321,12 +331,12 @@ export default function DashboardPage() {
           ) : (
             <ul className="space-y-4">
               {news.slice(0, 4).map((item: NewsItem) => (
-                <li key={item.id} className="flex items-start gap-4">
-                  <div className="flex-shrink-0">
-                    <Badge variant={item.source === 'CGA' ? 'default' : 'secondary'} className="w-[60px] justify-center">{item.source}</Badge>
+                <li key={item.id} className="flex items-start gap-4 group">
+                  <div className="flex-shrink-0 pt-1">
+                    <Badge className={`w-[60px] justify-center text-white ${newsSourceColors[item.source]}`}>{item.source}</Badge>
                   </div>
                   <div>
-                    <p className="font-semibold text-sm leading-tight">{item.title}</p>
+                    <a href={item.url || '#'} target="_blank" rel="noopener noreferrer" className="font-semibold text-sm leading-tight group-hover:underline">{item.title}</a>
                     <p className="text-xs text-muted-foreground mt-0.5">{format(parseISO(item.date), "d MMMM yyyy", { locale: fr })}</p>
                   </div>
                 </li>
@@ -387,5 +397,3 @@ function QuickAccessCard({ icon: Icon, title, description, href, actionText }: Q
     </Card>
   );
 }
-
-    
