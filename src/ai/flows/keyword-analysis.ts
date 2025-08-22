@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -31,9 +32,16 @@ export async function analyzeRegulationByKeywords(
 const keywordAnalysisPrompt = ai.definePrompt({
     name: 'keywordAnalysisPrompt',
     input: { schema: z.object({ regulationText: z.string(), keyword: z.string() }) },
-    output: { schema: z.object({ analysis: z.array(z.string()).length(3).describe('A list of 3 clear points for the analysis.') }) },
-    prompt: `Tu es un assistant conformité. Analyse ce texte réglementaire uniquement sous l’angle du mot-clé : "{{keyword}}".
-Résume les obligations, risques potentiels, et échéances éventuelles. Présente l’analyse en 3 points clairs.
+    output: { schema: z.object({ analysis: z.array(z.string()).length(3).describe('Une liste de 3 points clairs pour l\'analyse.') }) },
+    prompt: `Tu es un expert en conformité réglementaire. Ta mission est d'analyser le texte réglementaire fourni sous l'angle spécifique du mot-clé "{{keyword}}".
+
+Ton analyse doit être structurée en exactement 3 points clairs et concis :
+1.  **Obligations Principales :** Identifie la ou les deux obligations les plus importantes directement liées au mot-clé.
+2.  **Risques & Impacts :** Décris le principal risque de non-conformité et son impact potentiel pour l'entreprise.
+3.  **Recommandation / Action :** Propose une action concrète et prioritaire à entreprendre pour répondre aux obligations identifiées.
+
+Sois précis et concentre-toi uniquement sur les éléments pertinents au mot-clé.
+
 Texte à analyser : {{{regulationText}}}`,
 });
 
@@ -62,3 +70,4 @@ const analyzeRegulationByKeywordsFlow = ai.defineFlow(
     return analysisMap;
   }
 );
+
