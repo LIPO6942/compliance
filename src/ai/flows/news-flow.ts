@@ -87,21 +87,18 @@ const fetchComplianceNewsFlow = ai.defineFlow(
 
       const transformedNews: NewsItem[] = newsData.articles
         .map((article: any): NewsItem | null => {
-          if (!article || !article.title || !article.description || !article.url) {
-             console.warn(`[NEWS FLOW] Article ignoré car il manque des champs essentiels (titre, description ou url):`, article);
+          // Be less strict: only require a title and a url to consider the article valid.
+          if (!article || !article.title || article.title === '[Removed]' || !article.url) {
+             console.warn(`[NEWS FLOW] Article ignoré car il manque un titre ou une URL:`, article);
              return null;
           }
           try {
-            // NewsAPI can return "[Removed]" for titles of retracted articles
-            if (article.title === '[Removed]') {
-                return null;
-            }
             return {
               id: article.url, 
               title: article.title,
               date: new Date(article.publishedAt).toISOString().split('T')[0],
               source: mapSourceToEnum(article.source?.name),
-              description: article.description,
+              description: article.description || "Aucune description disponible.", // Provide a fallback
               url: article.url,
               imageUrl: article.urlToImage || undefined,
             };
