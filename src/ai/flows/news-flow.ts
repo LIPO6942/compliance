@@ -33,26 +33,17 @@ export async function fetchComplianceNews(): Promise<ComplianceNewsOutput> {
 // Fetcher for NewsAPI.org
 const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
     const NEWS_API_KEY = process.env.NEWS_API_KEY;
-    if (!NEWS_API_KEY) {
-        console.log("[NewsAPI] Clé API non trouvée. Ignore ce fournisseur.");
-        return [];
-    }
+    if (!NEWS_API_KEY) return [];
 
     try {
         const query = encodeURIComponent('("conformité financière" OR "réglementation assurance" OR "lutte anti-blanchiment") AND (NOT "crypto")');
         const url = `https://newsapi.org/v2/everything?q=${query}&language=fr&sortBy=publishedAt&pageSize=5&apiKey=${NEWS_API_KEY}`;
         
         const response = await fetch(url);
-        if (!response.ok) {
-            console.error(`[NewsAPI] Erreur. Statut: ${response.status}.`);
-            return [];
-        }
+        if (!response.ok) return [];
 
         const newsData = await response.json() as { articles?: any[], status: string };
-        if (newsData.status !== 'ok' || !newsData.articles) {
-            console.warn("[NewsAPI] n'a retourné aucun article.");
-            return [];
-        }
+        if (newsData.status !== 'ok' || !newsData.articles) return [];
 
         return newsData.articles
             .map((article: any): NewsItem | null => {
@@ -68,9 +59,7 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
                 };
             })
             .filter((item): item is NewsItem => item !== null);
-
     } catch (error) {
-        console.error("[NewsAPI] Erreur majeure inattendue:", error);
         return [];
     }
 };
@@ -78,26 +67,17 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
 // Fetcher for GNews.io
 const fetchFromGNews = async (): Promise<NewsItem[]> => {
     const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
-    if (!GNEWS_API_KEY) {
-        console.log("[GNews] Clé API non trouvée. Ignore ce fournisseur.");
-        return [];
-    }
+    if (!GNEWS_API_KEY) return [];
     
     try {
         const query = encodeURIComponent('"conformité financière" OR "lutte anti-blanchiment"');
         const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&country=fr,be,ch,ca&topic=business&max=5&apikey=${GNEWS_API_KEY}`;
         
         const response = await fetch(url);
-        if (!response.ok) {
-            console.error(`[GNews] Erreur. Statut: ${response.status}.`);
-            return [];
-        }
+        if (!response.ok) return [];
         
         const newsData = await response.json() as { articles?: any[] };
-        if (!newsData.articles) {
-            console.warn("[GNews] n'a retourné aucun article.");
-            return [];
-        }
+        if (!newsData.articles) return [];
 
         return newsData.articles
             .map((article: any): NewsItem | null => {
@@ -113,9 +93,7 @@ const fetchFromGNews = async (): Promise<NewsItem[]> => {
                 };
             })
             .filter((item): item is NewsItem => item !== null);
-
     } catch (error) {
-        console.error("[GNews] Erreur majeure inattendue:", error);
         return [];
     }
 };
@@ -123,26 +101,17 @@ const fetchFromGNews = async (): Promise<NewsItem[]> => {
 // Fetcher for MarketAux
 const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
     const MARKETAUX_API_KEY = process.env.MARKETAUX_API_KEY;
-    if (!MARKETAUX_API_KEY) {
-        console.log("[MarketAux] Clé API non trouvée. Ignore ce fournisseur.");
-        return [];
-    }
+    if (!MARKETAUX_API_KEY) return [];
 
     try {
         const query = encodeURIComponent('(compliance OR regulation) AND (finance OR insurance OR banking)');
         const url = `https://api.marketaux.com/v1/news/all?search=${query}&language=fr&limit=5&api_token=${MARKETAUX_API_KEY}`;
 
         const response = await fetch(url);
-        if (!response.ok) {
-            console.error(`[MarketAux] Erreur. Statut: ${response.status}.`);
-            return [];
-        }
+        if (!response.ok) return [];
 
         const newsData = await response.json() as { data?: any[] };
-        if (!newsData.data) {
-            console.warn("[MarketAux] n'a retourné aucun article.");
-            return [];
-        }
+        if (!newsData.data) return [];
 
         return newsData.data
             .map((article: any): NewsItem | null => {
@@ -158,9 +127,7 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
                 };
             })
             .filter((item): item is NewsItem => item !== null);
-
     } catch (error) {
-        console.error("[MarketAux] Erreur majeure inattendue:", error);
         return [];
     }
 };
@@ -173,8 +140,6 @@ const fetchComplianceNewsFlow = ai.defineFlow(
     outputSchema: ComplianceNewsOutputSchema,
   },
   async () => {
-    console.log("[NEWS FLOW] Lancement de la récupération depuis tous les fournisseurs.");
-    
     // Run all fetches in parallel
     const results = await Promise.allSettled([
       fetchFromNewsAPI(),
@@ -188,21 +153,22 @@ const fetchComplianceNewsFlow = ai.defineFlow(
     results.forEach((result, index) => {
         const providerName = index === 0 ? 'NewsAPI' : index === 1 ? 'GNews' : 'MarketAux';
         if (result.status === 'fulfilled' && Array.isArray(result.value) && result.value.length > 0) {
-            console.log(`[NEWS FLOW] ${result.value.length} articles reçus de ${providerName}.`);
             allNews.push(...result.value);
-        } else if (result.status === 'rejected') {
-            console.error(`[NEWS FLOW] Le fournisseur ${providerName} a échoué:`, result.reason);
         }
     });
-
-    // Deduplicate news items based on URL or title
-    const uniqueNews = Array.from(new Map(allNews.map(item => [item.url || item.title, item])).values());
     
+    console.log(`[NEWS FLOW] Total d'articles reçus (brut): ${allNews.length}.`);
+
+    // Deduplicate news items based on URL, which is a more reliable unique identifier
+    const uniqueNews = allNews.filter((item, index, self) =>
+        item.url && self.findIndex(t => t.url === item.url) === index
+    );
+    
+    console.log(`[NEWS FLOW] Total d'articles uniques après déduplication: ${uniqueNews.length}.`);
+
     // Sort by date, most recent first
     uniqueNews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
-    console.log(`[NEWS FLOW] Total d'articles uniques après fusion: ${uniqueNews.length}.`);
-
     // Return the top 5
     return uniqueNews.slice(0, 5);
   }
