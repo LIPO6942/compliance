@@ -150,6 +150,7 @@ export default function DashboardPage() {
     UE: 'bg-indigo-600 hover:bg-indigo-700',
     NewsAPI: 'bg-sky-600 hover:bg-sky-700',
     GNews: 'bg-emerald-600 hover:bg-emerald-700',
+    MarketAux: 'bg-orange-600 hover:bg-orange-700',
     Autre: 'bg-gray-500 hover:bg-gray-600',
   };
 

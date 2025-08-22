@@ -34,12 +34,19 @@ const nextConfig: NextConfig = {
         hostname: 'gnews.io',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.marketaux.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
   env: {
     NEWS_API_KEY: process.env.NEWS_API_KEY,
     GNEWS_API_KEY: process.env.GNEWS_API_KEY,
+    MARKETAUX_API_KEY: process.env.MARKETAUX_API_KEY,
   }
 };
 

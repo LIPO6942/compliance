@@ -2,7 +2,7 @@
 'use server';
 
 /**
- * @fileOverview A flow for fetching compliance news from multiple APIs (NewsAPI and GNews).
+ * @fileOverview A flow for fetching compliance news from multiple APIs (NewsAPI, GNews, MarketAux).
  *
  * - fetchComplianceNews - A function that returns a list of compliance news items.
  * - ComplianceNewsOutput - The return type for the fetchComplianceNews function.
@@ -17,7 +17,7 @@ const ComplianceNewsOutputSchema = z.array(
     id: z.string().describe("Un identifiant unique pour l'actualité."),
     title: z.string().describe("Le titre de l'article de presse."),
     date: z.string().describe("La date de publication au format AAAA-MM-JJ."),
-    source: z.enum(["NewsAPI", "GNews", "CGA", "JORT", "GAFI", "OFAC", "UE", "Autre"]).describe("La source de l'information."),
+    source: z.enum(["NewsAPI", "GNews", "MarketAux", "CGA", "JORT", "GAFI", "OFAC", "UE", "Autre"]).describe("La source de l'information."),
     description: z.string().describe("Une courte description (1-2 phrases) de l'actualité."),
     url: z.string().url().optional().describe("L'URL vers l'article complet, si disponible."),
     imageUrl: z.string().url().optional().describe("L'URL d'une image pour l'article."),
@@ -29,20 +29,6 @@ export type ComplianceNewsOutput = z.infer<typeof ComplianceNewsOutputSchema>;
 export async function fetchComplianceNews(): Promise<ComplianceNewsOutput> {
   return fetchComplianceNewsFlow();
 }
-
-const mapSourceToEnum = (sourceName?: string | null): NewsItem['source'] => {
-  if (!sourceName) return 'Autre';
-  const lowerSourceName = sourceName.toLowerCase();
-  if (lowerSourceName.includes('cga')) return 'CGA';
-  if (lowerSourceName.includes('jort')) return 'JORT';
-  if (lowerSourceName.includes('fatf') || lowerSourceName.includes('gafi')) return 'GAFI';
-  if (lowerSourceName.includes('ofac')) return 'OFAC';
-  if (lowerSourceName.includes('european union') || lowerSourceName.includes('ue')) return 'UE';
-  if (lowerSourceName.includes('gnews')) return 'GNews';
-  if (lowerSourceName.includes('newsapi')) return 'NewsAPI';
-  return 'Autre';
-};
-
 
 // Fetcher for NewsAPI.org
 const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
@@ -134,6 +120,51 @@ const fetchFromGNews = async (): Promise<NewsItem[]> => {
     }
 };
 
+// Fetcher for MarketAux
+const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
+    const MARKETAUX_API_KEY = process.env.MARKETAUX_API_KEY;
+    if (!MARKETAUX_API_KEY) {
+        console.log("[MarketAux] Clé API non trouvée. Ignore ce fournisseur.");
+        return [];
+    }
+
+    try {
+        const query = encodeURIComponent('(compliance OR regulation) AND (finance OR insurance OR banking)');
+        const url = `https://api.marketaux.com/v1/news/all?search=${query}&language=fr&limit=5&api_token=${MARKETAUX_API_KEY}`;
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            console.error(`[MarketAux] Erreur. Statut: ${response.status}.`);
+            return [];
+        }
+
+        const newsData = await response.json() as { data?: any[] };
+        if (!newsData.data) {
+            console.warn("[MarketAux] n'a retourné aucun article.");
+            return [];
+        }
+
+        return newsData.data
+            .map((article: any): NewsItem | null => {
+                if (!article?.title) return null;
+                return {
+                    id: article.uuid,
+                    title: article.title,
+                    date: new Date(article.published_on).toISOString().split('T')[0],
+                    source: 'MarketAux',
+                    description: article.description || "Aucune description disponible.",
+                    url: article.url || undefined,
+                    imageUrl: article.image_url || undefined,
+                };
+            })
+            .filter((item): item is NewsItem => item !== null);
+
+    } catch (error) {
+        console.error("[MarketAux] Erreur majeure inattendue:", error);
+        return [];
+    }
+};
+
 
 const fetchComplianceNewsFlow = ai.defineFlow(
   {
@@ -148,14 +179,15 @@ const fetchComplianceNewsFlow = ai.defineFlow(
     const results = await Promise.allSettled([
       fetchFromNewsAPI(),
       fetchFromGNews(),
+      fetchFromMarketAux(),
     ]);
 
     let allNews: NewsItem[] = [];
 
     // Process results from all fetchers
     results.forEach((result, index) => {
-        const providerName = index === 0 ? 'NewsAPI' : 'GNews';
-        if (result.status === 'fulfilled' && result.value.length > 0) {
+        const providerName = index === 0 ? 'NewsAPI' : index === 1 ? 'GNews' : 'MarketAux';
+        if (result.status === 'fulfilled' && Array.isArray(result.value) && result.value.length > 0) {
             console.log(`[NEWS FLOW] ${result.value.length} articles reçus de ${providerName}.`);
             allNews.push(...result.value);
         } else if (result.status === 'rejected') {

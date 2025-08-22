@@ -144,7 +144,7 @@ export interface NewsItem {
   id: string;
   title: string;
   date: string; // ISO Date String
-  source: "NewsAPI" | "GNews" | "CGA" | "JORT" | "GAFI" | "OFAC" | "UE" | "Autre";
+  source: "NewsAPI" | "GNews" | "MarketAux" | "CGA" | "JORT" | "GAFI" | "OFAC" | "UE" | "Autre";
   description: string;
   url?: string;
   imageUrl?: string;
