@@ -173,7 +173,8 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                                   <CommandItem
                                     value={doc.name}
                                     key={doc.id}
-                                    onSelect={() => {
+                                    onSelect={(e) => {
+                                      e.preventDefault();
                                       handleSelectDocument(doc.id, isSelected, field);
                                     }}
                                   >
