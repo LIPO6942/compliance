@@ -28,11 +28,18 @@ const nextConfig: NextConfig = {
         hostname: 'newsapi.org',
         port: '',
         pathname: '/**',
+      },
+       {
+        protocol: 'https',
+        hostname: 'gnews.io',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
   env: {
     NEWS_API_KEY: process.env.NEWS_API_KEY,
+    GNEWS_API_KEY: process.env.GNEWS_API_KEY,
   }
 };
 

@@ -148,6 +148,8 @@ export default function DashboardPage() {
     GAFI: 'bg-gray-700 hover:bg-gray-800',
     OFAC: 'bg-red-600 hover:bg-red-700',
     UE: 'bg-indigo-600 hover:bg-indigo-700',
+    NewsAPI: 'bg-sky-600 hover:bg-sky-700',
+    GNews: 'bg-emerald-600 hover:bg-emerald-700',
     Autre: 'bg-gray-500 hover:bg-gray-600',
   };
 
@@ -333,10 +335,10 @@ export default function DashboardPage() {
             <p className="text-muted-foreground">Chargement des actualités...</p>
           ) : (
             <ul className="space-y-4">
-              {news.slice(0, 4).map((item: NewsItem) => (
+              {news.slice(0, 5).map((item: NewsItem) => (
                 <li key={item.id} className="flex items-start gap-4 group">
                   <div className="flex-shrink-0 pt-1">
-                    <Badge className={`w-[60px] justify-center text-white ${newsSourceColors[item.source]}`}>{item.source}</Badge>
+                    <Badge className={`w-[80px] justify-center text-white ${newsSourceColors[item.source]}`}>{item.source}</Badge>
                   </div>
                   <div>
                     <a href={item.url || '#'} target="_blank" rel="noopener noreferrer" className="font-semibold text-sm leading-tight group-hover:underline">{item.title}</a>
