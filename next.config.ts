@@ -31,6 +31,9 @@ const nextConfig: NextConfig = {
       }
     ],
   },
+  env: {
+    GNEWS_API_KEY: process.env.GNEWS_API_KEY,
+  }
 };
 
 export default nextConfig;

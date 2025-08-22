@@ -9,7 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import type { NewsItem } from '@/types/compliance';
 import fetch from 'node-fetch';
 
@@ -96,7 +96,7 @@ const fetchComplianceNewsFlow = ai.defineFlow(
         const realNews: NewsItem[] = newsData.articles.slice(0, 5).map((article: any, index: number) => ({
             id: article.url || `real-news-${index}`,
             title: article.title,
-            date: article.publishedAt.split('T')[0], // Format YYYY-MM-DD
+            date: new Date(article.publishedAt).toISOString().split('T')[0], // Format YYYY-MM-DD
             source: mapSourceToEnum(article.source.name),
             description: article.description,
             url: article.url,
