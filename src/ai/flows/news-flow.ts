@@ -39,7 +39,7 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
 
     try {
         const query = encodeURIComponent('("conformité financière" OR "réglementation assurance" OR "lutte anti-blanchiment") AND (NOT "crypto")');
-        const url = `https://newsapi.org/v2/everything?q=${query}&language=fr&sortBy=publishedAt&pageSize=5&apiKey=${NEWS_API_KEY}`;
+        const url = `https://newsapi.org/v2/everything?q=${query}&language=fr&sortBy=publishedAt&pageSize=10&apiKey=${NEWS_API_KEY}`;
         
         const response = await fetch(url);
         if (!response.ok) return [];
@@ -49,14 +49,14 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
 
         return newsData.articles
             .map((article: any): NewsItem | null => {
-                if (!article?.title || article.title === '[Removed]') return null;
+                if (!article?.title || article.title === '[Removed]' || !article.url) return null;
                 return {
-                    id: article.url || `${article.title}-${article.publishedAt}`,
+                    id: article.url,
                     title: article.title,
                     date: new Date(article.publishedAt).toISOString().split('T')[0],
                     source: 'NewsAPI',
                     description: article.description || "Aucune description disponible.",
-                    url: article.url || undefined,
+                    url: article.url,
                     imageUrl: article.urlToImage || undefined,
                 };
             })
@@ -74,7 +74,7 @@ const fetchFromGNews = async (): Promise<NewsItem[]> => {
     
     try {
         const query = encodeURIComponent('"conformité financière" OR "lutte anti-blanchiment"');
-        const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&country=fr,be,ch,ca&topic=business&max=5&apikey=${GNEWS_API_KEY}`;
+        const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&country=fr,be,ch,ca&topic=business&max=10&apikey=${GNEWS_API_KEY}`;
         
         const response = await fetch(url);
         if (!response.ok) return [];
@@ -84,15 +84,15 @@ const fetchFromGNews = async (): Promise<NewsItem[]> => {
 
         return newsData.articles
             .map((article: any): NewsItem | null => {
-                if (!article?.title) return null;
+                if (!article?.title || !article.url) return null;
                 return {
                     id: article.url,
                     title: article.title,
                     date: new Date(article.publishedAt).toISOString().split('T')[0],
                     source: 'GNews',
                     description: article.description || "Aucune description disponible.",
-                    url: article.url || undefined,
-imageUrl: article.image || undefined,
+                    url: article.url,
+                    imageUrl: article.image || undefined,
                 };
             })
             .filter((item): item is NewsItem => item !== null);
@@ -109,7 +109,7 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
 
     try {
         const query = encodeURIComponent('(compliance OR regulation) AND (finance OR insurance OR banking)');
-        const url = `https://api.marketaux.com/v1/news/all?search=${query}&language=fr&limit=5&api_token=${MARKETAUX_API_KEY}`;
+        const url = `https://api.marketaux.com/v1/news/all?search=${query}&language=fr&limit=10&api_token=${MARKETAUX_API_KEY}`;
 
         const response = await fetch(url);
         if (!response.ok) return [];
@@ -119,14 +119,14 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
 
         return newsData.data
             .map((article: any): NewsItem | null => {
-                if (!article?.title) return null;
+                if (!article?.title || !article.url) return null;
                 return {
                     id: article.uuid,
                     title: article.title,
                     date: new Date(article.published_on).toISOString().split('T')[0],
                     source: 'MarketAux',
                     description: article.description || "Aucune description disponible.",
-                    url: article.url || undefined,
+                    url: article.url,
                     imageUrl: article.image_url || undefined,
                 };
             })
@@ -147,7 +147,7 @@ const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
         const feed = await parser.parseURL(url);
         if (!feed.items) return [];
 
-        return feed.items.slice(0, 5).map((item): NewsItem | null => {
+        return feed.items.slice(0, 10).map((item): NewsItem | null => {
             if (!item.title || !item.link || !item.isoDate) return null;
             return {
                 id: item.guid || item.link,
@@ -156,10 +156,9 @@ const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
                 source: 'Google News',
                 description: item.contentSnippet || 'Aucune description disponible.',
                 url: item.link,
-                // Google News RSS doesn't provide images, so we leave it undefined.
                 imageUrl: undefined, 
             };
-        }).filter((item): item is NewsItem => item !== null);
+        }).filter((item): item is NewsItem => item !== null && !!item.url);
 
     } catch (error) {
         console.error("[NEWS FLOW] Error fetching from Google News RSS:", error);
@@ -175,7 +174,6 @@ const fetchComplianceNewsFlow = ai.defineFlow(
     outputSchema: ComplianceNewsOutputSchema,
   },
   async () => {
-    // Run all fetches in parallel
     const allNewsPromises = [
         fetchFromNewsAPI(),
         fetchFromGNews(),
@@ -185,27 +183,26 @@ const fetchComplianceNewsFlow = ai.defineFlow(
     const results = await Promise.allSettled(allNewsPromises);
 
     let allNews: NewsItem[] = [];
-
-    // Process results from all fetchers
     results.forEach((result) => {
         if (result.status === 'fulfilled' && Array.isArray(result.value)) {
             allNews.push(...result.value);
         }
     });
     
-    console.log(`[NEWS FLOW] Total d'articles reçus (brut): ${allNews.length}.`);
+    console.log(`[NEWS FLOW] Total d'articles reçus de toutes les sources: ${allNews.length}.`);
 
-    // Deduplicate news items based on URL, which is a more reliable unique identifier
-    const uniqueNews = allNews.filter((item, index, self) =>
-        item.url ? self.findIndex(t => t.url === item.url) === index : true
-    );
+    const uniqueNewsByUrl = new Map<string, NewsItem>();
+    for (const item of allNews) {
+        if (item.url && !uniqueNewsByUrl.has(item.url)) {
+            uniqueNewsByUrl.set(item.url, item);
+        }
+    }
+    const uniqueNews = Array.from(uniqueNewsByUrl.values());
     
-    console.log(`[NEWS FLOW] Total d'articles uniques après déduplication: ${uniqueNews.length}.`);
+    console.log(`[NEWS FLOW] Total d'articles uniques (après déduplication par URL): ${uniqueNews.length}.`);
 
-    // Sort by date, most recent first
     uniqueNews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
-    // Return the top 5
     return uniqueNews.slice(0, 5);
   }
 );
