@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef, useCallback } from 'react';
 import type { NewsItem } from '@/types/compliance';
 import { fetchComplianceNews } from '@/ai/flows/news-flow';
 import { useUser } from './UserContext';
@@ -9,6 +9,7 @@ import { useUser } from './UserContext';
 interface NewsContextType {
   news: NewsItem[];
   loading: boolean;
+  refetchNews: () => Promise<void>;
 }
 
 const NewsContext = createContext<NewsContextType | undefined>(undefined);
@@ -19,33 +20,35 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
   const { isLoaded } = useUser();
   const hasFetched = useRef(false);
 
+  const loadNews = useCallback(async (force = false) => {
+    if (hasFetched.current && !force) return;
+
+    hasFetched.current = true;
+    setLoading(true);
+    try {
+      const newsData = await fetchComplianceNews();
+      setNews(newsData);
+    } catch (error) {
+      console.error("Failed to fetch compliance news:", error);
+      setNews([]); // Fallback to empty list on error
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const refetchNews = useCallback(async () => {
+    await loadNews(true);
+  }, [loadNews]);
+  
   useEffect(() => {
-    // Only run if the user is loaded and we haven't fetched yet
     if (!isLoaded || hasFetched.current) {
       return;
     }
-
-    const loadNews = async () => {
-      // Set the flag to true immediately to prevent re-fetching
-      hasFetched.current = true; 
-      setLoading(true);
-      try {
-        const newsData = await fetchComplianceNews();
-        setNews(newsData);
-      } catch (error) {
-        console.error("Failed to fetch compliance news:", error);
-        setNews([]); // Fallback to empty list on error
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     loadNews();
-    
-  }, [isLoaded]);
+  }, [isLoaded, loadNews]);
 
   return (
-    <NewsContext.Provider value={{ news, loading }}>
+    <NewsContext.Provider value={{ news, loading, refetchNews }}>
       {children}
     </NewsContext.Provider>
   );

@@ -5,7 +5,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
@@ -55,7 +55,7 @@ export default function DashboardPage() {
   const { planData } = usePlanData();
   const { documents } = useDocuments();
   const { identifiedRegulations } = useIdentifiedRegulations();
-  const { news, loading: newsLoading } = useNews();
+  const { news, loading: newsLoading, refetchNews } = useNews();
   const [isLoading, setIsLoading] = React.useState(true);
   const router = useRouter();
 
@@ -319,11 +319,14 @@ export default function DashboardPage() {
       </div>
 
       <Card className="shadow-lg">
-        <CardHeader>
+        <CardHeader className="flex flex-row justify-between items-center">
           <CardTitle className="font-headline flex items-center">
             <Newspaper className="mr-2 h-6 w-6 text-primary" />
             Fil d'Actualité Conformité
           </CardTitle>
+          <Button variant="ghost" size="icon" onClick={refetchNews} disabled={newsLoading}>
+             <RefreshCw className={`h-5 w-5 ${newsLoading ? 'animate-spin' : ''}`} />
+          </Button>
         </CardHeader>
         <CardContent>
            {newsLoading ? (
