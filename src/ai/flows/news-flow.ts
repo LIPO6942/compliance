@@ -65,10 +65,10 @@ const fetchComplianceNewsFlow = ai.defineFlow(
   async () => {
     
     // --- Integration with GNews API ---
-    const GNEWS_API_KEY = process.env.NEXT_PUBLIC_GNEWS_API_KEY;
+    const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
 
     if (!GNEWS_API_KEY) {
-      console.warn("Clé API GNews non configurée (NEXT_PUBLIC_GNEWS_API_KEY). Utilisation du prompt IA en fallback.");
+      console.warn("Clé API GNews non configurée (GNEWS_API_KEY). Utilisation du prompt IA en fallback.");
       const { output } = await newsPrompt();
       return output || [];
     }
