@@ -11,13 +11,15 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import type { NewsItem } from '@/types/compliance';
+import Parser from 'rss-parser';
+
 
 const ComplianceNewsOutputSchema = z.array(
   z.object({
     id: z.string().describe("Un identifiant unique pour l'actualité."),
     title: z.string().describe("Le titre de l'article de presse."),
     date: z.string().describe("La date de publication au format AAAA-MM-JJ."),
-    source: z.enum(["NewsAPI", "GNews", "MarketAux", "CGA", "JORT", "GAFI", "OFAC", "UE", "Autre"]).describe("La source de l'information."),
+    source: z.enum(["NewsAPI", "GNews", "MarketAux", "Google News", "CGA", "JORT", "GAFI", "OFAC", "UE", "Autre"]).describe("La source de l'information."),
     description: z.string().describe("Une courte description (1-2 phrases) de l'actualité."),
     url: z.string().url().optional().describe("L'URL vers l'article complet, si disponible."),
     imageUrl: z.string().url().optional().describe("L'URL d'une image pour l'article."),
@@ -60,6 +62,7 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
             })
             .filter((item): item is NewsItem => item !== null);
     } catch (error) {
+        console.error("[NEWS FLOW] Error fetching from NewsAPI:", error);
         return [];
     }
 };
@@ -89,11 +92,12 @@ const fetchFromGNews = async (): Promise<NewsItem[]> => {
                     source: 'GNews',
                     description: article.description || "Aucune description disponible.",
                     url: article.url || undefined,
-                    imageUrl: article.image || undefined,
+imageUrl: article.image || undefined,
                 };
             })
             .filter((item): item is NewsItem => item !== null);
     } catch (error) {
+        console.error("[NEWS FLOW] Error fetching from GNews:", error);
         return [];
     }
 };
@@ -128,6 +132,37 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
             })
             .filter((item): item is NewsItem => item !== null);
     } catch (error) {
+        console.error("[NEWS FLOW] Error fetching from MarketAux:", error);
+        return [];
+    }
+};
+
+// Fetcher for Google News RSS
+const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
+    try {
+        const parser = new Parser();
+        const query = encodeURIComponent('("conformité financière" OR "réglementation assurance" OR "lutte anti-blanchiment") when:7d');
+        const url = `https://news.google.com/rss/search?q=${query}&hl=fr&gl=FR&ceid=FR:fr`;
+
+        const feed = await parser.parseURL(url);
+        if (!feed.items) return [];
+
+        return feed.items.slice(0, 5).map((item): NewsItem | null => {
+            if (!item.title || !item.link || !item.isoDate) return null;
+            return {
+                id: item.guid || item.link,
+                title: item.title,
+                date: new Date(item.isoDate).toISOString().split('T')[0],
+                source: 'Google News',
+                description: item.contentSnippet || 'Aucune description disponible.',
+                url: item.link,
+                // Google News RSS doesn't provide images, so we leave it undefined.
+                imageUrl: undefined, 
+            };
+        }).filter((item): item is NewsItem => item !== null);
+
+    } catch (error) {
+        console.error("[NEWS FLOW] Error fetching from Google News RSS:", error);
         return [];
     }
 };
@@ -141,11 +176,13 @@ const fetchComplianceNewsFlow = ai.defineFlow(
   },
   async () => {
     // Run all fetches in parallel
-    const results = await Promise.allSettled([
-      fetchFromNewsAPI(),
-      fetchFromGNews(),
-      fetchFromMarketAux(),
-    ]);
+    const allNewsPromises = [
+        fetchFromNewsAPI(),
+        fetchFromGNews(),
+        fetchFromMarketAux(),
+        fetchFromGoogleNewsRSS(),
+    ];
+    const results = await Promise.allSettled(allNewsPromises);
 
     let allNews: NewsItem[] = [];
 
@@ -160,7 +197,7 @@ const fetchComplianceNewsFlow = ai.defineFlow(
 
     // Deduplicate news items based on URL, which is a more reliable unique identifier
     const uniqueNews = allNews.filter((item, index, self) =>
-        item.url && self.findIndex(t => t.url === item.url) === index
+        item.url ? self.findIndex(t => t.url === item.url) === index : true
     );
     
     console.log(`[NEWS FLOW] Total d'articles uniques après déduplication: ${uniqueNews.length}.`);

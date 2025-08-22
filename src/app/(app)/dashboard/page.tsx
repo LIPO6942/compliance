@@ -151,6 +151,7 @@ export default function DashboardPage() {
     NewsAPI: 'bg-sky-600 hover:bg-sky-700',
     GNews: 'bg-emerald-600 hover:bg-emerald-700',
     MarketAux: 'bg-orange-600 hover:bg-orange-700',
+    "Google News": 'bg-blue-500 hover:bg-blue-600',
     Autre: 'bg-gray-500 hover:bg-gray-600',
   };
 
@@ -339,7 +340,7 @@ export default function DashboardPage() {
               {news.slice(0, 5).map((item: NewsItem) => (
                 <li key={item.id} className="flex items-start gap-4 group">
                   <div className="flex-shrink-0 pt-1">
-                    <Badge className={`w-[80px] justify-center text-white ${newsSourceColors[item.source]}`}>{item.source}</Badge>
+                    <Badge className={`w-[95px] justify-center text-white ${newsSourceColors[item.source]}`}>{item.source}</Badge>
                   </div>
                   <div>
                     <a href={item.url || '#'} target="_blank" rel="noopener noreferrer" className="font-semibold text-sm leading-tight group-hover:underline">{item.title}</a>
