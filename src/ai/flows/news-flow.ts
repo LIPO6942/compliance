@@ -65,10 +65,10 @@ const fetchComplianceNewsFlow = ai.defineFlow(
   async () => {
     
     // --- Integration with GNews API ---
-    const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
+    const GNEWS_API_KEY = process.env.NEXT_PUBLIC_GNEWS_API_KEY;
 
     if (!GNEWS_API_KEY) {
-      console.warn("Clé API GNews non configurée (GNEWS_API_KEY). Utilisation du prompt IA en fallback.");
+      console.warn("Clé API GNews non configurée (NEXT_PUBLIC_GNEWS_API_KEY). Utilisation du prompt IA en fallback.");
       const { output } = await newsPrompt();
       return output || [];
     }
@@ -86,6 +86,12 @@ const fetchComplianceNewsFlow = ai.defineFlow(
         }
 
         const newsData = await response.json() as any;
+
+        if (!newsData.articles || newsData.articles.length === 0) {
+           console.warn("GNews n'a retourné aucun article, utilisation du prompt IA en fallback.");
+           const { output } = await newsPrompt();
+           return output || [];
+        }
 
         const realNews: NewsItem[] = newsData.articles.slice(0, 5).map((article: any, index: number) => ({
             id: article.url || `real-news-${index}`,
