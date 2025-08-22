@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
 import type { NewsItem } from '@/types/compliance';
 import { fetchComplianceNews } from '@/ai/flows/news-flow';
 import { useUser } from './UserContext';
@@ -17,9 +17,10 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { isLoaded } = useUser();
+  const hasFetched = useRef(false); // Flag to prevent double fetching
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || hasFetched.current) return;
 
     const loadNews = async () => {
       setLoading(true);
@@ -34,6 +35,7 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     
+    hasFetched.current = true; // Set flag to true after the first run
     loadNews();
     
   }, [isLoaded]);
