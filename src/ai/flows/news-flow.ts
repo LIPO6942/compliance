@@ -11,8 +11,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import type { NewsItem } from '@/types/compliance';
-import fetch from 'node-fetch';
-
 
 // Define the output schema based on the NewsItem type.
 const ComplianceNewsOutputSchema = z.array(
@@ -35,6 +33,7 @@ export async function fetchComplianceNews(): Promise<ComplianceNewsOutput> {
 }
 
 const mapSourceToEnum = (sourceName: string): NewsItem['source'] => {
+  if (!sourceName) return 'Autre';
   const lowerSourceName = sourceName.toLowerCase();
   if (lowerSourceName.includes('cga')) return 'CGA';
   if (lowerSourceName.includes('jort')) return 'JORT';
@@ -56,60 +55,54 @@ const fetchComplianceNewsFlow = ai.defineFlow(
     const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
 
     if (!GNEWS_API_KEY) {
-      console.error("[NEWS DEBUG] Clé API GNews non configurée (GNEWS_API_KEY). Impossible de récupérer les actualités.");
+      console.error("[NEWS FLOW] Clé API GNews (GNEWS_API_KEY) non trouvée dans les variables d'environnement. Le flux ne peut pas s'exécuter.");
       return [];
     }
     
-    console.log("[NEWS DEBUG] Tentative de récupération des actualités depuis GNews.");
-
     try {
         const query = encodeURIComponent('"conformité assurance" OR "lutte anti-blanchiment"');
         const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&country=fr,be,ch,ca&topic=business&max=5&apikey=${GNEWS_API_KEY}`;
         
-        console.log(`[NEWS DEBUG] Appel de l'URL: ${url.replace(GNEWS_API_KEY, '*****')}`);
-
         const response = await fetch(url);
-        
-        console.log(`[NEWS DEBUG] Statut de la réponse de GNews: ${response.status}`);
 
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error("[NEWS DEBUG] Erreur lors de la récupération des actualités depuis GNews:", errorText);
-            return [];
+            const errorBody = await response.text();
+            console.error(`[NEWS FLOW] Erreur de l'API GNews. Statut: ${response.status}. Réponse: ${errorBody}`);
+            return []; // Return empty on API error
         }
 
-        const newsData: any = await response.json();
+        const newsData = await response.json() as { articles?: any[] };
 
         if (!newsData.articles || newsData.articles.length === 0) {
-           console.warn("[NEWS DEBUG] GNews n'a retourné aucun article pour la requête.");
+           console.warn("[NEWS FLOW] GNews n'a retourné aucun article pour la requête.");
            return [];
         }
 
-        console.log(`[NEWS DEBUG] ${newsData.articles.length} articles reçus de GNews. Tentative de transformation.`);
+        const transformedNews: NewsItem[] = newsData.articles
+            .map((article: any, index: number): NewsItem | null => {
+                // Basic validation to ensure the article is usable
+                if (!article || !article.title || !article.description || !article.url) {
+                    console.warn('[NEWS FLOW] Article ignoré car il manque des champs essentiels:', article);
+                    return null;
+                }
+                return {
+                    id: article.url, // Use URL as a unique ID
+                    title: article.title,
+                    date: new Date(article.publishedAt).toISOString().split('T')[0],
+                    source: mapSourceToEnum(article.source?.name),
+                    description: article.description,
+                    url: article.url,
+                    imageUrl: article.image || undefined, // Use image if present, otherwise undefined
+                };
+            })
+            .filter((item): item is NewsItem => item !== null) // Filter out any null (skipped) articles
+            .slice(0, 5); // Ensure we don't exceed 5 articles
 
-        try {
-            const realNews: NewsItem[] = newsData.articles.slice(0, 5).map((article: any, index: number) => ({
-                id: article.url || `real-news-${index}`,
-                title: article.title,
-                date: new Date(article.publishedAt).toISOString().split('T')[0],
-                source: mapSourceToEnum(article.source.name),
-                description: article.description,
-                url: article.url,
-                imageUrl: article.image,
-            }));
-            
-            console.log("[NEWS DEBUG] Transformation réussie. Retour des articles.", realNews);
-            return realNews;
-
-        } catch (transformError) {
-            console.error("[NEWS DEBUG] Erreur lors de la transformation des articles GNews:", transformError);
-            console.error("[NEWS DEBUG] Données brutes de l'article problématique:", newsData.articles[0]); // Log the first article for inspection
-            return [];
-        }
+        return transformedNews;
 
     } catch (error) {
-        console.error("[NEWS DEBUG] Erreur inattendue lors de la connexion à GNews:", error);
-        return [];
+        console.error("[NEWS FLOW] Erreur inattendue lors de la récupération ou du traitement des actualités:", error);
+        return []; // Return empty on any other error
     }
   }
 );
