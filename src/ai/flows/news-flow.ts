@@ -74,8 +74,8 @@ const fetchComplianceNewsFlow = ai.defineFlow(
     }
 
     try {
-        const query = encodeURIComponent('"conformité assurance" OR "lutte anti-blanchiment" OR "insurance compliance" OR "aml"');
-        const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr,en&country=fr,us&topic=business&max=5&apikey=${GNEWS_API_KEY}`;
+        const query = encodeURIComponent('"conformité assurance" OR "lutte anti-blanchiment"');
+        const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&country=fr,be,ch,ca&topic=business&max=5&apikey=${GNEWS_API_KEY}`;
         
         const response = await fetch(url);
         
