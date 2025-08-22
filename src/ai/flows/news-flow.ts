@@ -51,7 +51,7 @@ const fetchComplianceNewsFlow = ai.defineFlow(
     const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
 
     if (!GNEWS_API_KEY) {
-      console.error("[NEWS FLOW] Clé API GNews (GNEWS_API_KEY) non trouvée dans .env ou .env.local. Le fil d'actualité sera vide.");
+      console.error("[NEWS FLOW] Clé API GNews (GNEWS_API_KEY) non trouvée. Le fil d'actualité sera vide.");
       return [];
     }
 
@@ -59,9 +59,7 @@ const fetchComplianceNewsFlow = ai.defineFlow(
       const query = encodeURIComponent('"conformité financière" OR "lutte anti-blanchiment"');
       const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&country=fr,be,ch,ca&topic=business&max=5&apikey=${GNEWS_API_KEY}`;
       
-      console.log(`[NEWS FLOW] Appel de l'API GNews avec l'URL: ${url}`);
       const response = await fetch(url);
-      console.log(`[NEWS FLOW] Statut de la réponse de GNews: ${response.status}`);
 
       if (!response.ok) {
         const errorBody = await response.text();
@@ -70,24 +68,21 @@ const fetchComplianceNewsFlow = ai.defineFlow(
       }
 
       const newsData = await response.json() as { articles?: any[], totalArticles?: number };
-      console.log(`[NEWS FLOW] Données JSON reçues. Nombre total d'articles trouvés par l'API: ${newsData.totalArticles}`);
 
-      if (!newsData.articles || newsData.articles.length === 0) {
+      if (!newsData || !newsData.articles || newsData.articles.length === 0) {
         console.warn("[NEWS FLOW] GNews n'a retourné aucun article pour la requête. Le fil d'actualité sera vide.");
         return [];
       }
-      
-      console.log(`[NEWS FLOW] Reçu ${newsData.articles.length} articles de GNews. Début de la transformation...`);
 
       const transformedNews: NewsItem[] = newsData.articles
-        .map((article: any, index: number): NewsItem | null => {
+        .map((article: any): NewsItem | null => {
+          if (!article || !article.title || !article.description || !article.url) {
+             console.warn(`[NEWS FLOW] Article ignoré car il manque des champs essentiels (titre, description ou url):`, article);
+             return null;
+          }
           try {
-            if (!article || !article.title || !article.description || !article.url) {
-              console.warn(`[NEWS FLOW] Article ignoré car il manque des champs essentiels (titre, description ou url):`, article);
-              return null;
-            }
             return {
-              id: article.url, // Using URL as a unique ID
+              id: article.url, 
               title: article.title,
               date: new Date(article.publishedAt).toISOString().split('T')[0],
               source: mapSourceToEnum(article.source?.name),
@@ -96,18 +91,17 @@ const fetchComplianceNewsFlow = ai.defineFlow(
               imageUrl: article.image || undefined,
             };
           } catch (transformError) {
-             console.error(`[NEWS FLOW] Erreur lors de la transformation de l'article n°${index}:`, transformError, "Données de l'article:", article);
+             console.error(`[NEWS FLOW] Erreur lors de la transformation d'un article:`, transformError, "Données de l'article:", article);
              return null;
           }
         })
         .filter((item): item is NewsItem => item !== null);
         
-      console.log(`[NEWS FLOW] Transformation terminée. ${transformedNews.length} articles valides.`);
       return transformedNews;
 
     } catch (error) {
       console.error("[NEWS FLOW] Erreur majeure inattendue dans le flux de récupération des actualités:", error);
-      return []; // Return empty on any other error
+      return [];
     }
   }
 );
