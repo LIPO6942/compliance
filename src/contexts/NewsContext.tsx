@@ -25,7 +25,9 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     // The structure is here to easily switch to Firebase if needed.
     if (!isLoaded) return;
     
-    setNews(initialMockNews);
+    // Sort news by date descending to ensure the latest news is first
+    const sortedNews = [...initialMockNews].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    setNews(sortedNews);
     setLoading(false);
     
   }, [isLoaded]);
@@ -44,5 +46,3 @@ export const useNews = () => {
   }
   return context;
 };
-
-    
