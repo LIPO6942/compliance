@@ -411,8 +411,8 @@ export default function DashboardPage() {
           <p className="text-muted-foreground flex-1">
             Consultez notre base de connaissance ou contactez le support pour toute question relative à Compliance Navigator.
           </p>
-          <Button variant="outline" className="border-accent text-accent hover:bg-accent/10 hover:text-accent">
-            Contacter le Support
+          <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent/10 hover:text-accent">
+            <a href="mailto:Moslem.gouia@gmail.com">Contacter le Support</a>
           </Button>
         </CardContent>
       </Card>
