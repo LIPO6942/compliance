@@ -159,7 +159,7 @@ const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
                 url: item.link,
                 imageUrl: undefined, 
             };
-        }).filter((item): item is NewsItem => item !== null && !!item.url);
+        }).filter((item): item is NewsItem => item !== null);
 
     } catch (error) {
         console.error("[NEWS FLOW] Error fetching from Google News RSS:", error);
