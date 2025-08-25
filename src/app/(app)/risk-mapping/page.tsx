@@ -18,21 +18,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff } from "lucide-react";
+import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import type { RiskMappingItem, RiskLikelihood, RiskImpact, RiskLevel, RiskCategory } from '@/types/compliance';
+import type { RiskMappingItem, RiskLikelihood, RiskImpact, RiskLevel, RiskCategory, Document } from '@/types/compliance';
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
+import { useDocuments } from "@/contexts/DocumentsContext";
+import Link from "next/link";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const riskSchema = z.object({
   department: z.string().min(1, "La direction est requise."),
   category: z.enum(["Clients", "Produits et Services", "Pays et Zones Géographiques", "Canaux de Distribution"]),
-  regulatoryContent: z.string().min(1, "Le contenu réglementaire est requis."),
+  documentIds: z.array(z.string()).optional(),
   riskDescription: z.string().min(1, "La description du risque est requise."),
   likelihood: z.enum(["Faible", "Modérée", "Élevée", "Très élevée"]),
   impact: z.enum(["Faible", "Modéré", "Élevé", "Très élevé"]),
@@ -72,6 +78,7 @@ const allCategories = ["all", ...categoryOptions];
 export default function RiskMappingPage() {
   const { risks, addRisk, editRisk, removeRisk } = useRiskMapping();
   const { createAlertFromRisk, findAlertByRiskId, removeAlertByRiskId } = useIdentifiedRegulations();
+  const { documents } = useDocuments();
   const { toast } = useToast();
   
   const [isClient, setIsClient] = React.useState(false);
@@ -87,9 +94,12 @@ export default function RiskMappingPage() {
   const openDialog = (mode: "add" | "edit", data?: RiskMappingItem) => {
     setDialogState({ mode, data });
     if (mode === "edit" && data) {
-      form.reset(data);
+      form.reset({
+        ...data,
+        documentIds: data.documentIds || [],
+      });
     } else {
-      form.reset({ department: '', category: 'Clients', regulatoryContent: '', riskDescription: '', likelihood: 'Faible', impact: 'Faible', expectedAction: '', owner: '' });
+      form.reset({ department: '', category: 'Clients', riskDescription: '', likelihood: 'Faible', impact: 'Faible', expectedAction: '', owner: '', documentIds: [] });
     }
   };
 
@@ -138,6 +148,11 @@ export default function RiskMappingPage() {
     if (filterCategory !== "all" && risk.category !== filterCategory) return false;
     return true;
   }), [risks, filterRiskLevel, filterDepartment, filterCategory]);
+
+  const getLinkedDocuments = (risk: RiskMappingItem): Document[] => {
+    if (!risk.documentIds || risk.documentIds.length === 0) return [];
+    return documents.filter(doc => risk.documentIds!.includes(doc.id));
+  };
 
 
   return (
@@ -201,12 +216,11 @@ export default function RiskMappingPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead>Catégorie de Risque</TableHead>
+                  <TableHead>Contenu Réglementaire</TableHead>
                   <TableHead>Description</TableHead>
-                  <TableHead>Probabilité</TableHead>
-                  <TableHead>Impact</TableHead>
                   <TableHead>Niveau de Risque</TableHead>
                   <TableHead>Action Attendue</TableHead>
+                  <TableHead>Propriétaire</TableHead>
                   <TableHead className="text-right w-[80px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -215,18 +229,33 @@ export default function RiskMappingPage() {
                   filteredRisks.length > 0 ? (
                     filteredRisks.map((risk) => {
                       const existingAlert = findAlertByRiskId(risk.id);
+                      const linkedDocs = getLinkedDocuments(risk);
                       return (
                         <TableRow key={risk.id} className="hover:bg-muted/30 transition-colors">
-                          <TableCell className="font-medium">{risk.category}</TableCell>
+                          <TableCell className="max-w-xs">
+                             <div className="flex flex-wrap gap-1">
+                                {linkedDocs.length > 0 ? linkedDocs.map(doc => (
+                                  <Badge key={doc.id} variant="secondary" className="font-normal text-xs">
+                                    <FileText className="h-3 w-3 mr-1.5" />
+                                    {doc.url ? (
+                                      <Link href={doc.url} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center">
+                                          {doc.name} <LinkIcon className="h-3 w-3 ml-1.5"/>
+                                      </Link>
+                                    ) : (
+                                      doc.name
+                                    )}
+                                  </Badge>
+                                )) : <span className="text-xs text-muted-foreground">Aucun</span>}
+                              </div>
+                          </TableCell>
                           <TableCell className="text-muted-foreground max-w-xs truncate">{risk.riskDescription}</TableCell>
-                          <TableCell>{risk.likelihood}</TableCell>
-                          <TableCell>{risk.impact}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className={`text-xs px-2.5 py-1 ${riskLevelColors[risk.riskLevel]}`}>
                               {risk.riskLevel}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-muted-foreground max-w-xs truncate">{risk.expectedAction}</TableCell>
+                          <TableCell>{risk.owner}</TableCell>
                           <TableCell className="text-right">
                             <AlertDialog>
                               <DropdownMenu>
@@ -319,9 +348,75 @@ export default function RiskMappingPage() {
               <FormField control={form.control} name="owner" render={({ field }) => (
                 <FormItem><FormLabel>Propriétaire / Pilote</FormLabel><FormControl><Input {...field} placeholder="Ex: Direction Commerciale" /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control} name="regulatoryContent" render={({ field }) => (
-                <FormItem><FormLabel>Contenu Réglementaire Associé</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
+              
+              <FormField
+                control={form.control}
+                name="documentIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Documents Liés (Optionnel)</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              "w-full justify-between h-auto min-h-10",
+                              !field.value?.length && "text-muted-foreground"
+                            )}
+                          >
+                             <div className="flex gap-1 flex-wrap">
+                                {field.value && field.value.length > 0
+                                ? documents
+                                    .filter((doc) => field.value?.includes(doc.id))
+                                    .map((doc) => <Badge key={doc.id} variant="secondary">{doc.name}</Badge>)
+                                : "Sélectionner des documents"}
+                             </div>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                         <ScrollArea className="h-48">
+                            <div className="p-2 space-y-1">
+                            {documents.map((doc) => {
+                                const isSelected = field.value?.includes(doc.id) ?? false;
+                                return (
+                                <div
+                                    key={doc.id}
+                                    className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent cursor-pointer"
+                                    onClick={() => {
+                                        const selectedDocs = field.value || [];
+                                        const newSelectedDocs = isSelected
+                                        ? selectedDocs.filter((id: string) => id !== doc.id)
+                                        : [...selectedDocs, doc.id];
+                                        field.onChange(newSelectedDocs);
+                                    }}
+                                >
+                                    <Checkbox
+                                        id={`doc-${doc.id}`}
+                                        checked={isSelected}
+                                        readOnly
+                                    />
+                                    <label htmlFor={`doc-${doc.id}`} className="text-sm font-medium leading-none cursor-pointer">
+                                        {doc.name}
+                                    </label>
+                                </div>
+                                );
+                            })}
+                            </div>
+                         </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
+                    <FormDescription>
+                      Liez des documents de référence à ce risque.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField control={form.control} name="riskDescription" render={({ field }) => (
                 <FormItem><FormLabel>Description du Risque</FormLabel><FormControl><Textarea {...field} placeholder="Description détaillée du risque de non-conformité..." /></FormControl><FormMessage /></FormItem>
               )} />

@@ -126,7 +126,8 @@ export interface RiskMappingItem {
   id: string;
   department: string;
   category: RiskCategory;
-  regulatoryContent: string;
+  regulatoryContent?: string; // Keep for backward compatibility of mock data
+  documentIds?: string[];
   riskDescription: string;
   likelihood: RiskLikelihood;
   impact: RiskImpact;
