@@ -103,8 +103,8 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
     if (!isFirebaseConfigured || !db) return;
     const mapRiskLevelToCriticality = (riskLevel: RiskLevel): AlertCriticality => {
       switch (riskLevel) {
-        case 'Critique':
-        case 'Important':
+        case 'Très élevé':
+        case 'Élevé':
           return 'Haute';
         case 'Modéré':
           return 'Moyenne';

@@ -34,36 +34,36 @@ const riskSchema = z.object({
   monitoringSubject: z.string().min(1, "Le sujet de veille est requis."),
   regulatoryContent: z.string().min(1, "Le contenu réglementaire est requis."),
   riskDescription: z.string().min(1, "La description du risque est requise."),
-  likelihood: z.enum(["Faible", "Moyenne", "Élevée"]),
-  impact: z.enum(["Faible", "Moyen", "Élevé"]),
+  likelihood: z.enum(["Faible", "Modérée", "Élevée", "Très élevée"]),
+  impact: z.enum(["Faible", "Modéré", "Élevé", "Très élevé"]),
   expectedAction: z.string().min(1, "L'action attendue est requise."),
   owner: z.string().min(1, "Le propriétaire est requis."),
 });
 
 type RiskFormValues = z.infer<typeof riskSchema>;
 
-const likelihoodMap: Record<RiskLikelihood, number> = { "Faible": 1, "Moyenne": 2, "Élevée": 3 };
-const impactMap: Record<RiskImpact, number> = { "Faible": 1, "Moyen": 2, "Élevé": 3 };
+const likelihoodMap: Record<RiskLikelihood, number> = { "Faible": 1, "Modérée": 2, "Élevée": 3, "Très élevée": 4 };
+const impactMap: Record<RiskImpact, number> = { "Faible": 1, "Modéré": 2, "Élevé": 3, "Très élevé": 4 };
 
 const calculateRiskLevel = (likelihood: RiskLikelihood, impact: RiskImpact): RiskLevel => {
   const score = likelihoodMap[likelihood] * impactMap[impact];
-  if (score <= 2) return "Faible";
-  if (score <= 4) return "Modéré";
-  if (score <= 6) return "Important";
-  return "Critique";
+  if (score <= 4) return "Faible";
+  if (score <= 8) return "Modéré";
+  if (score <= 11) return "Élevé";
+  return "Très élevé";
 };
 
 const riskLevelColors: Record<RiskLevel, string> = {
   "Faible": "bg-green-100 text-green-800 border-green-300 dark:bg-green-800/30 dark:text-green-300",
   "Modéré": "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-800/30 dark:text-yellow-400",
-  "Important": "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-800/30 dark:text-orange-400",
-  "Critique": "bg-red-100 text-red-800 border-red-300 dark:bg-red-800/30 dark:text-red-400",
+  "Élevé": "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-800/30 dark:text-orange-400",
+  "Très élevé": "bg-red-100 text-red-800 border-red-300 dark:bg-red-800/30 dark:text-red-400",
 };
 
 const departmentOptions = ["Toutes", "Juridiques", "Finances", "Comptabilité", "Sinistres matériels", "Sinistre corporel", "Equipements", "RH", "DSI", "Audit", "Organisation", "Qualité Vie", "Commercial", "Recouvrement", "Inspection"];
-const likelihoodOptions: RiskLikelihood[] = ["Faible", "Moyenne", "Élevée"];
-const impactOptions: RiskImpact[] = ["Faible", "Moyen", "Élevé"];
-const riskLevelOptions: RiskLevel[] = ["Faible", "Modéré", "Important", "Critique"];
+const likelihoodOptions: RiskLikelihood[] = ["Faible", "Modérée", "Élevée", "Très élevée"];
+const impactOptions: RiskImpact[] = ["Faible", "Modéré", "Élevé", "Très élevé"];
+const riskLevelOptions: RiskLevel[] = ["Faible", "Modéré", "Élevé", "Très élevé"];
 const allRiskLevels = ["all", ...riskLevelOptions];
 const allDepartments = ["all", ...departmentOptions];
 

@@ -117,9 +117,9 @@ export interface SensitizationCampaign {
 }
 
 // Risk Mapping Types
-export type RiskLikelihood = "Faible" | "Moyenne" | "Élevée";
-export type RiskImpact = "Faible" | "Moyen" | "Élevé";
-export type RiskLevel = "Faible" | "Modéré" | "Important" | "Critique";
+export type RiskLikelihood = "Faible" | "Modérée" | "Élevée" | "Très élevée";
+export type RiskImpact = "Faible" | "Modéré" | "Élevé" | "Très élevé";
+export type RiskLevel = "Faible" | "Modéré" | "Élevé" | "Très élevé";
 
 export interface RiskMappingItem {
   id: string;
