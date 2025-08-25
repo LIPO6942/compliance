@@ -141,7 +141,7 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
 const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
     try {
         const parser = new Parser();
-        const query = encodeURIComponent('"actualités conformité financière"');
+        const query = encodeURIComponent('"Conformité" OR "assurance" OR "LAB/FT" OR "Gafi" OR "LCB-FT" OR "Bénéficiaire effectif"');
         const url = `https://news.google.com/rss/search?q=${query}&hl=fr&gl=FR&ceid=FR:fr`;
 
         const feed = await parser.parseURL(url);
