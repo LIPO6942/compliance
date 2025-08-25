@@ -148,11 +148,12 @@ const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
         if (!feed.items) return [];
 
         return feed.items.slice(0, 10).map((item): NewsItem | null => {
-            if (!item.title || !item.link || !item.isoDate) return null;
+            if (!item.title || !item.link) return null;
+            const itemDate = item.isoDate ? new Date(item.isoDate) : new Date(); // Fallback to current date
             return {
                 id: item.guid || item.link,
                 title: item.title,
-                date: new Date(item.isoDate).toISOString().split('T')[0],
+                date: itemDate.toISOString().split('T')[0],
                 source: 'Google News',
                 description: item.contentSnippet || 'Aucune description disponible.',
                 url: item.link,
@@ -206,5 +207,3 @@ const fetchComplianceNewsFlow = ai.defineFlow(
     return uniqueNews.slice(0, 5);
   }
 );
-
-    
