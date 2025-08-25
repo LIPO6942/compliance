@@ -5,7 +5,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, XCircle } from "lucide-react";
 import Image from "next/image";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
@@ -65,7 +65,7 @@ export default function DashboardPage() {
   const { documents } = useDocuments();
   const { identifiedRegulations } = useIdentifiedRegulations();
   const { risks } = useRiskMapping();
-  const { news, loading: newsLoading, refetchNews } = useNews();
+  const { news, loading: newsLoading, refetchNews, dismissNewsItem } = useNews();
   const [isLoading, setIsLoading] = React.useState(true);
   const router = useRouter();
 
@@ -371,10 +371,12 @@ export default function DashboardPage() {
 
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row justify-between items-center">
-          <CardTitle className="font-headline flex items-center">
-            <Newspaper className="mr-2 h-6 w-6 text-primary" />
-            Fil d'Actualité Conformité
-          </CardTitle>
+          <div className="flex-1">
+            <CardTitle className="font-headline flex items-center">
+              <Newspaper className="mr-2 h-6 w-6 text-primary" />
+              Fil d'Actualité Conformité
+            </CardTitle>
+          </div>
           <Button variant="ghost" size="icon" onClick={refetchNews} disabled={newsLoading}>
              <RefreshCw className={`h-5 w-5 ${newsLoading ? 'animate-spin' : ''}`} />
           </Button>
@@ -385,14 +387,23 @@ export default function DashboardPage() {
           ) : (
             <ul className="space-y-4">
               {news.slice(0, 5).map((item: NewsItem) => (
-                <li key={item.id} className="flex items-start gap-4 group">
+                <li key={item.id} className="group flex items-start gap-4">
                   <div className="flex-shrink-0 pt-1">
                     <Badge className={`w-[95px] justify-center text-white ${newsSourceColors[item.source]}`}>{item.source}</Badge>
                   </div>
-                  <div>
+                  <div className="flex-grow">
                     <a href={item.url || '#'} target="_blank" rel="noopener noreferrer" className="font-semibold text-sm leading-tight group-hover:underline">{item.title}</a>
                     <p className="text-xs text-muted-foreground mt-0.5">{format(parseISO(item.date), "d MMMM yyyy", { locale: fr })}</p>
                   </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    onClick={() => dismissNewsItem(item.id)}
+                    aria-label="Écarter l'actualité"
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </Button>
                 </li>
               ))}
             </ul>

@@ -10,12 +10,14 @@ interface NewsContextType {
   news: NewsItem[];
   loading: boolean;
   refetchNews: () => Promise<void>;
+  dismissNewsItem: (id: string) => void;
 }
 
 const NewsContext = createContext<NewsContextType | undefined>(undefined);
 
 export const NewsProvider = ({ children }: { children: ReactNode }) => {
-  const [news, setNews] = useState<NewsItem[]>([]);
+  const [allNews, setAllNews] = useState<NewsItem[]>([]);
+  const [dismissedNewsIds, setDismissedNewsIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const { isLoaded } = useUser();
   const hasFetched = useRef(false);
@@ -27,10 +29,11 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const newsData = await fetchComplianceNews();
-      setNews(newsData);
+      setAllNews(newsData);
+      setDismissedNewsIds([]); // Reset dismissed items on new fetch
     } catch (error) {
       console.error("Failed to fetch compliance news:", error);
-      setNews([]); // Fallback to empty list on error
+      setAllNews([]); // Fallback to empty list on error
     } finally {
       setLoading(false);
     }
@@ -47,8 +50,14 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     loadNews();
   }, [isLoaded, loadNews]);
 
+  const dismissNewsItem = (id: string) => {
+    setDismissedNewsIds(prev => [...prev, id]);
+  };
+
+  const visibleNews = allNews.filter(item => !dismissedNewsIds.includes(item.id));
+
   return (
-    <NewsContext.Provider value={{ news, loading, refetchNews }}>
+    <NewsContext.Provider value={{ news: visibleNews, loading, refetchNews, dismissNewsItem }}>
       {children}
     </NewsContext.Provider>
   );
