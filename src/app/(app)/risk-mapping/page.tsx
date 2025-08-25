@@ -216,8 +216,9 @@ export default function RiskMappingPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
+                  <TableHead>Description du Risque</TableHead>
+                  <TableHead>Catégorie</TableHead>
                   <TableHead>Contenu Réglementaire</TableHead>
-                  <TableHead>Description</TableHead>
                   <TableHead>Niveau de Risque</TableHead>
                   <TableHead>Action Attendue</TableHead>
                   <TableHead>Propriétaire</TableHead>
@@ -232,23 +233,26 @@ export default function RiskMappingPage() {
                       const linkedDocs = getLinkedDocuments(risk);
                       return (
                         <TableRow key={risk.id} className="hover:bg-muted/30 transition-colors">
+                          <TableCell className="font-medium max-w-xs truncate">{risk.riskDescription}</TableCell>
+                          <TableCell className="text-muted-foreground">{risk.category}</TableCell>
                           <TableCell className="max-w-xs">
-                             <div className="flex flex-wrap gap-1">
+                             <div className="flex flex-col items-start gap-1">
                                 {linkedDocs.length > 0 ? linkedDocs.map(doc => (
-                                  <Badge key={doc.id} variant="secondary" className="font-normal text-xs">
-                                    <FileText className="h-3 w-3 mr-1.5" />
-                                    {doc.url ? (
-                                      <Link href={doc.url} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center">
-                                          {doc.name} <LinkIcon className="h-3 w-3 ml-1.5"/>
-                                      </Link>
-                                    ) : (
-                                      doc.name
-                                    )}
-                                  </Badge>
+                                  <Link 
+                                      key={doc.id}
+                                      href={doc.url || '#'} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer" 
+                                      className="text-xs text-blue-600 hover:underline flex items-center gap-1.5"
+                                      onClick={(e) => !doc.url && e.preventDefault()}
+                                  >
+                                    <FileText className="h-3 w-3" />
+                                    <span>{doc.name}</span>
+                                    {doc.url && <LinkIcon className="h-3 w-3" />}
+                                  </Link>
                                 )) : <span className="text-xs text-muted-foreground">Aucun</span>}
                               </div>
                           </TableCell>
-                          <TableCell className="text-muted-foreground max-w-xs truncate">{risk.riskDescription}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className={`text-xs px-2.5 py-1 ${riskLevelColors[risk.riskLevel]}`}>
                               {risk.riskLevel}
@@ -448,3 +452,5 @@ export default function RiskMappingPage() {
     </div>
   );
 }
+
+    
