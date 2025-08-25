@@ -38,7 +38,7 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
     if (!NEWS_API_KEY) return [];
 
     try {
-        const query = encodeURIComponent('"conformité financière" OR "réglementation assurance" OR "lutte anti-blanchiment"');
+        const query = encodeURIComponent('"conformité financière" OR "réglementation financière" OR "réglementation assurance" OR "lutte anti-blanchiment"');
         const url = `https://newsapi.org/v2/everything?q=${query}&language=fr&sortBy=publishedAt&pageSize=10&apiKey=${NEWS_API_KEY}`;
         
         const response = await fetch(url);
@@ -73,8 +73,8 @@ const fetchFromGNews = async (): Promise<NewsItem[]> => {
     if (!GNEWS_API_KEY) return [];
     
     try {
-        const query = encodeURIComponent('"conformité financière" OR "réglementation assurance" OR "lutte anti-blanchiment"');
-        const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&country=fr,be,ch,ca&topic=business&max=10&apikey=${GNEWS_API_KEY}`;
+        const query = encodeURIComponent('"conformité financière" OR "réglementation financière" OR "réglementation assurance" OR "lutte anti-blanchiment"');
+        const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&topic=business&max=10&apikey=${GNEWS_API_KEY}`;
         
         const response = await fetch(url);
         if (!response.ok) return [];
