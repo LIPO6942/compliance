@@ -38,7 +38,7 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
     if (!NEWS_API_KEY) return [];
 
     try {
-        const query = encodeURIComponent('"conformité financière" OR "réglementation financière" OR "réglementation assurance" OR "lutte anti-blanchiment"');
+        const query = encodeURIComponent('"conformité financière" OR "réglementation financière" OR "réglementation assurance" OR "lutte anti-blanchiment" OR "LAB-FT" OR "LCB-FT" OR "veille réglementaire"');
         const url = `https://newsapi.org/v2/everything?q=${query}&language=fr&sortBy=publishedAt&pageSize=10&apiKey=${NEWS_API_KEY}`;
         
         const response = await fetch(url);
@@ -73,7 +73,7 @@ const fetchFromGNews = async (): Promise<NewsItem[]> => {
     if (!GNEWS_API_KEY) return [];
     
     try {
-        const query = encodeURIComponent('"conformité financière" OR "réglementation financière" OR "réglementation assurance" OR "lutte anti-blanchiment"');
+        const query = encodeURIComponent('"conformité financière" OR "réglementation financière" OR "réglementation assurance" OR "lutte anti-blanchiment" OR "LAB-FT" OR "LCB-FT" OR "veille réglementaire"');
         const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&topic=business&max=10&apikey=${GNEWS_API_KEY}`;
         
         const response = await fetch(url);
@@ -108,7 +108,7 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
     if (!MARKETAUX_API_KEY) return [];
 
     try {
-        const query = encodeURIComponent('(compliance OR regulation) AND (finance OR insurance OR banking)');
+        const query = encodeURIComponent('(compliance OR regulation OR "LAB-FT" OR "LCB-FT" OR "veille réglementaire") AND (finance OR insurance OR banking)');
         const url = `https://api.marketaux.com/v1/news/all?search=${query}&language=fr&limit=10&api_token=${MARKETAUX_API_KEY}`;
 
         const response = await fetch(url);
@@ -141,7 +141,7 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
 const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
     try {
         const parser = new Parser();
-        const query = encodeURIComponent('conformité financière OR réglementation assurance OR LBA-FT');
+        const query = encodeURIComponent('"conformité financière" OR "réglementation assurance" OR "Lutte Anti Blanchiment" OR "LAB-FT" OR "LCB-FT" OR "veille réglementaire"');
         const url = `https://news.google.com/rss/search?q=${query}&hl=fr&gl=FR&ceid=FR:fr`;
 
         const feed = await parser.parseURL(url);
