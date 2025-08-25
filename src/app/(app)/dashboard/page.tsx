@@ -5,20 +5,21 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History } from "lucide-react";
 import Image from "next/image";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
-import type { ComplianceCategory, ComplianceTask, Document, DocumentStatus, NewsItem } from "@/types/compliance";
+import type { ComplianceCategory, ComplianceTask, Document, DocumentStatus, NewsItem, IdentifiedRegulation, RiskMappingItem } from "@/types/compliance";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/icons/Logo";
 import { useNews } from "@/contexts/NewsContext";
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useRiskMapping } from "@/contexts/RiskMappingContext";
 
 
 const complianceStatusBaseColors = {
@@ -50,11 +51,20 @@ const initialChartConfig: ChartConfig = {
   }
 } satisfies ChartConfig
 
+type ActivityItem = {
+  id: string;
+  type: 'document' | 'alert' | 'risk';
+  description: string;
+  date: Date;
+  href: string;
+  Icon: React.ElementType;
+}
 
 export default function DashboardPage() {
   const { planData } = usePlanData();
   const { documents } = useDocuments();
   const { identifiedRegulations } = useIdentifiedRegulations();
+  const { risks } = useRiskMapping();
   const { news, loading: newsLoading, refetchNews } = useNews();
   const [isLoading, setIsLoading] = React.useState(true);
   const router = useRouter();
@@ -65,6 +75,7 @@ export default function DashboardPage() {
   const [complianceStatusData, setComplianceStatusData] = React.useState<Array<{status: string; value: number; fill: string, id: DocumentStatus | "none"}>>([]);
   const [taskProgressData, setTaskProgressData] = React.useState<Array<{id: string; name: string; completed: number; pending: number; overdue: number}>>([]);
   const [newAlertsCount, setNewAlertsCount] = React.useState(0);
+  const [lastTwoActions, setLastTwoActions] = React.useState<ActivityItem[]>([]);
   const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
@@ -73,7 +84,7 @@ export default function DashboardPage() {
 
 
   React.useEffect(() => {
-    if (planData && documents && identifiedRegulations) {
+    if (planData && documents && identifiedRegulations && risks) {
       const allTasks = planData.flatMap(category => category.subCategories.flatMap(subCategory => subCategory.tasks));
       const now = new Date();
       
@@ -122,10 +133,43 @@ export default function DashboardPage() {
       setTaskProgressData(newTaskProgressData);
 
       setNewAlertsCount(identifiedRegulations.filter(reg => reg.status === 'Nouveau').length);
+
+      // --- Logic for Last Two Actions ---
+      const documentActions: ActivityItem[] = documents.map(doc => ({
+        id: `doc-${doc.id}`,
+        type: 'document',
+        description: `Document "${doc.name}" mis à jour (Statut: ${doc.status})`,
+        date: parseISO(doc.lastUpdated),
+        href: `/documents?type=${doc.type}`,
+        Icon: FileText,
+      }));
+
+      const alertActions: ActivityItem[] = identifiedRegulations.map(alert => ({
+        id: `alert-${alert.id}`,
+        type: 'alert',
+        description: `Nouvelle alerte "${alert.summary}" ajoutée.`,
+        date: parseISO(alert.publicationDate),
+        href: '/alerts',
+        Icon: Bell,
+      }));
+      
+      const riskActions: ActivityItem[] = risks.map(risk => ({
+        id: `risk-${risk.id}`,
+        type: 'risk',
+        description: `Risque "${risk.riskDescription.substring(0, 30)}..." mis à jour.`,
+        date: parseISO(risk.lastUpdated),
+        href: '/risk-mapping',
+        Icon: ShieldAlert,
+      }));
+      
+      const allActions = [...documentActions, ...alertActions, ...riskActions];
+      allActions.sort((a, b) => b.date.getTime() - a.date.getTime());
+      setLastTwoActions(allActions.slice(0, 2));
+      // --- End Logic ---
       
       setIsLoading(false);
     }
-  }, [planData, documents, identifiedRegulations]);
+  }, [planData, documents, identifiedRegulations, risks]);
 
   const handlePieClick = (data: any) => {
     if (data && data.id && data.id !== 'none') {
@@ -267,36 +311,39 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Card className="shadow-lg overflow-hidden">
-        <div className="md:flex">
-          <div className="md:w-1/2 p-6 flex flex-col justify-center">
-            <CardHeader className="p-0 pb-4">
-              <CardTitle className="font-headline text-2xl">Plan d'Organisation Détaillé</CardTitle>
-              <CardDescription>Accédez à la structure complète des tâches et responsabilités de votre département conformité.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <p className="text-muted-foreground mb-6">
-                Visualisez les catégories fonctionnelles, les sous-catégories détaillées et les exemples de tâches concrètes pour une meilleure organisation et un suivi efficace.
-              </p>
-              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Link href="/plan">
-                  Consulter le Plan <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-            </CardContent>
-          </div>
-          <div className="md:w-1/2 bg-muted/40">
-             <Image
-                src="https://images.unsplash.com/photo-1544654262-e295983be0f4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyMHx8b3JnYW5pc2F0aW9ufGVufDB8fHx8MTc1MDM2NzQ1NXww&ixlib=rb-4.1.0&q=80&w=1080"
-                alt="Organizational Plan Illustration"
-                width={600}
-                height={400}
-                className="object-cover w-full h-full max-h-[300px] md:max-h-none"
-                data-ai-hint="compliance plan"
-              />
-          </div>
-        </div>
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-headline text-2xl flex items-center">
+            <History className="mr-3 h-7 w-7 text-primary" />
+            Dernières Actions Effectuées
+          </CardTitle>
+          <CardDescription>
+            Un aperçu des modifications et ajouts les plus récents dans l'application.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {lastTwoActions.length > 0 ? (
+            <ul className="space-y-4">
+              {lastTwoActions.map((action) => (
+                <li key={action.id}>
+                  <Link href={action.href} className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="bg-primary/10 p-2 rounded-full">
+                        <action.Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{action.description}</p>
+                      <p className="text-xs text-muted-foreground">{format(action.date, "d MMMM yyyy 'à' HH:mm", { locale: fr })}</p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">Aucune action récente à afficher.</p>
+          )}
+        </CardContent>
       </Card>
+
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <QuickAccessCard
