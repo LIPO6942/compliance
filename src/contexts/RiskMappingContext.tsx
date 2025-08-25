@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import type { RiskMappingItem } from '@/types/compliance';
 import { initialMockRiskMapping } from '@/data/mockRiskMapping';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, writeBatch, getDocs } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const risksCollectionName = "riskMapping";
@@ -36,21 +36,30 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const q = query(collection(db, risksCollectionName), orderBy("lastUpdated", "desc"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      if (querySnapshot.empty && loading) {
-        console.log(`[${risksCollectionName}] collection is empty. Seeding with mock data.`);
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      const dbRisks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RiskMappingItem));
+      
+      // Simple check to see if re-seeding is needed. Can be made more robust.
+      if (querySnapshot.empty || dbRisks.length < initialMockRiskMapping.length) {
+        console.log(`[${risksCollectionName}] collection requires seeding/reseeding.`);
         const batch = writeBatch(db!);
+        
+        // Delete existing docs to prevent duplicates if re-seeding
+        const existingDocs = await getDocs(q);
+        existingDocs.forEach(doc => batch.delete(doc.ref));
+
+        // Add mock data
         initialMockRiskMapping.forEach((mockRisk) => {
-          const { id, ...data } = mockRisk;
-          const docRef = doc(collection(db!, risksCollectionName));
+          const { id, ...data } = mockRisk; // Exclude mock ID
+          const docRef = doc(collection(db!, risksCollectionName)); // Let Firestore generate ID
           batch.set(docRef, data);
         });
-        batch.commit().catch(e => console.error(`Failed to seed ${risksCollectionName}:`, e));
-        return;
+        
+        await batch.commit().catch(e => console.error(`Failed to seed ${risksCollectionName}:`, e));
+        return; // Snapshot listener will re-run with new data
       }
 
-      const risksData: RiskMappingItem[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RiskMappingItem));
-      setRisks(risksData);
+      setRisks(dbRisks);
       setLoading(false);
     }, (error) => {
       console.error("Error fetching risks, falling back to mock data: ", error);
@@ -59,7 +68,7 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [isLoaded, loading]);
+  }, [isLoaded]);
 
   const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => {
     if (!isFirebaseConfigured || !db) return;

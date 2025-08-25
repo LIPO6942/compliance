@@ -25,13 +25,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import type { RiskMappingItem, RiskLikelihood, RiskImpact, RiskLevel } from '@/types/compliance';
+import type { RiskMappingItem, RiskLikelihood, RiskImpact, RiskLevel, RiskCategory } from '@/types/compliance';
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 
 const riskSchema = z.object({
   department: z.string().min(1, "La direction est requise."),
-  monitoringSubject: z.string().min(1, "Le sujet de veille est requis."),
+  category: z.enum(["Clients", "Produits et Services", "Pays et Zones Géographiques", "Canaux de Distribution"]),
   regulatoryContent: z.string().min(1, "Le contenu réglementaire est requis."),
   riskDescription: z.string().min(1, "La description du risque est requise."),
   likelihood: z.enum(["Faible", "Modérée", "Élevée", "Très élevée"]),
@@ -61,11 +61,13 @@ const riskLevelColors: Record<RiskLevel, string> = {
 };
 
 const departmentOptions = ["Toutes", "Juridiques", "Finances", "Comptabilité", "Sinistres matériels", "Sinistre corporel", "Equipements", "RH", "DSI", "Audit", "Organisation", "Qualité Vie", "Commercial", "Recouvrement", "Inspection"];
+const categoryOptions: RiskCategory[] = ["Clients", "Produits et Services", "Pays et Zones Géographiques", "Canaux de Distribution"];
 const likelihoodOptions: RiskLikelihood[] = ["Faible", "Modérée", "Élevée", "Très élevée"];
 const impactOptions: RiskImpact[] = ["Faible", "Modéré", "Élevé", "Très élevé"];
 const riskLevelOptions: RiskLevel[] = ["Faible", "Modéré", "Élevé", "Très élevé"];
 const allRiskLevels = ["all", ...riskLevelOptions];
 const allDepartments = ["all", ...departmentOptions];
+const allCategories = ["all", ...categoryOptions];
 
 export default function RiskMappingPage() {
   const { risks, addRisk, editRisk, removeRisk } = useRiskMapping();
@@ -80,13 +82,14 @@ export default function RiskMappingPage() {
   
   const [filterRiskLevel, setFilterRiskLevel] = React.useState<string>("all");
   const [filterDepartment, setFilterDepartment] = React.useState<string>("all");
+  const [filterCategory, setFilterCategory] = React.useState<string>("all");
 
   const openDialog = (mode: "add" | "edit", data?: RiskMappingItem) => {
     setDialogState({ mode, data });
     if (mode === "edit" && data) {
       form.reset(data);
     } else {
-      form.reset({ department: '', monitoringSubject: '', regulatoryContent: '', riskDescription: '', likelihood: 'Faible', impact: 'Faible', expectedAction: '', owner: '' });
+      form.reset({ department: '', category: 'Clients', regulatoryContent: '', riskDescription: '', likelihood: 'Faible', impact: 'Faible', expectedAction: '', owner: '' });
     }
   };
 
@@ -132,8 +135,9 @@ export default function RiskMappingPage() {
   const filteredRisks = React.useMemo(() => risks.filter(risk => {
     if (filterRiskLevel !== "all" && risk.riskLevel !== filterRiskLevel) return false;
     if (filterDepartment !== "all" && risk.department !== filterDepartment) return false;
+    if (filterCategory !== "all" && risk.category !== filterCategory) return false;
     return true;
-  }), [risks, filterRiskLevel, filterDepartment]);
+  }), [risks, filterRiskLevel, filterDepartment, filterCategory]);
 
 
   return (
@@ -157,10 +161,10 @@ export default function RiskMappingPage() {
                 <CardTitle>Liste des Risques</CardTitle>
             </div>
             {isClient && (
-              <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto flex-wrap justify-end">
                  <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
-                    <SelectTrigger className="w-full sm:w-[200px]">
-                      <SelectValue placeholder="Filtrer par niveau de risque" />
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Niveau de risque" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Tous les niveaux</SelectItem>
@@ -168,12 +172,21 @@ export default function RiskMappingPage() {
                     </SelectContent>
                   </Select>
                  <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                    <SelectTrigger className="w-full sm:w-[200px]">
-                      <SelectValue placeholder="Filtrer par direction" />
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Direction" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Toutes les directions</SelectItem>
                       {departmentOptions.slice(1).map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                 <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Catégorie de risque" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes les catégories</SelectItem>
+                      {categoryOptions.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => openDialog('add')}>
@@ -188,8 +201,8 @@ export default function RiskMappingPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead>Direction</TableHead>
-                  <TableHead>Sujet de Veille</TableHead>
+                  <TableHead>Catégorie de Risque</TableHead>
+                  <TableHead>Description</TableHead>
                   <TableHead>Probabilité</TableHead>
                   <TableHead>Impact</TableHead>
                   <TableHead>Niveau de Risque</TableHead>
@@ -204,8 +217,8 @@ export default function RiskMappingPage() {
                       const existingAlert = findAlertByRiskId(risk.id);
                       return (
                         <TableRow key={risk.id} className="hover:bg-muted/30 transition-colors">
-                          <TableCell className="font-medium">{risk.department}</TableCell>
-                          <TableCell className="text-muted-foreground">{risk.monitoringSubject}</TableCell>
+                          <TableCell className="font-medium">{risk.category}</TableCell>
+                          <TableCell className="text-muted-foreground max-w-xs truncate">{risk.riskDescription}</TableCell>
                           <TableCell>{risk.likelihood}</TableCell>
                           <TableCell>{risk.impact}</TableCell>
                           <TableCell>
@@ -291,6 +304,12 @@ export default function RiskMappingPage() {
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-6 pl-1">
+               <FormField control={form.control} name="category" render={({ field }) => (
+                  <FormItem><FormLabel>Catégorie de Risque</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Choisir une catégorie"/></SelectTrigger></FormControl>
+                    <SelectContent>{categoryOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                  </Select><FormMessage /></FormItem>
+                )} />
                <FormField control={form.control} name="department" render={({ field }) => (
                   <FormItem><FormLabel>Direction Concernée</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Choisir une direction"/></SelectTrigger></FormControl>
@@ -299,9 +318,6 @@ export default function RiskMappingPage() {
                 )} />
               <FormField control={form.control} name="owner" render={({ field }) => (
                 <FormItem><FormLabel>Propriétaire / Pilote</FormLabel><FormControl><Input {...field} placeholder="Ex: Direction Commerciale" /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="monitoringSubject" render={({ field }) => (
-                <FormItem><FormLabel>Sujet de Veille</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="regulatoryContent" render={({ field }) => (
                 <FormItem><FormLabel>Contenu Réglementaire Associé</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>

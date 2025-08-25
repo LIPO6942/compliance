@@ -120,11 +120,12 @@ export interface SensitizationCampaign {
 export type RiskLikelihood = "Faible" | "Modérée" | "Élevée" | "Très élevée";
 export type RiskImpact = "Faible" | "Modéré" | "Élevé" | "Très élevé";
 export type RiskLevel = "Faible" | "Modéré" | "Élevé" | "Très élevé";
+export type RiskCategory = "Clients" | "Produits et Services" | "Pays et Zones Géographiques" | "Canaux de Distribution";
 
 export interface RiskMappingItem {
   id: string;
   department: string;
-  monitoringSubject: string;
+  category: RiskCategory;
   regulatoryContent: string;
   riskDescription: string;
   likelihood: RiskLikelihood;
