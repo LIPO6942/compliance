@@ -105,8 +105,7 @@ const FlowRenderer = ({ tasks, onToggleTask, categoryId, subCategoryId }: { task
       {tasks.map((task, index) => {
         const nextTask = tasks[index + 1];
         const hasBranches = task.branches && task.branches.length > 0;
-        const taskToToggle = planData.find(c => c.id === categoryId)?.subCategories.find(sc => sc.id === subCategoryId)?.tasks.find(t => t.id === task.id);
-        const handleToggle = () => onToggleTask(categoryId, subCategoryId, task.id, !(taskToToggle?.completed));
+        const handleToggle = () => onToggleTask(categoryId, subCategoryId, task.id, !task.completed);
 
         if (!hasBranches) {
           return (
