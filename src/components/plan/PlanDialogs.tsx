@@ -44,10 +44,12 @@ const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => (iconNam
 const categorySchema = z.object({ name: z.string().min(1, "Le nom de la catégorie est requis."), icon: z.string().min(1, "L'icône de la catégorie est requise.") });
 const subCategorySchema = z.object({ name: z.string().min(1, "Le nom de la sous-catégorie est requis."), icon: z.string().optional() });
 const taskSchema = z.object({ 
-    name: z.string().min(1, "Le nom de la tâche est requis."), 
-    description: z.string().optional(), 
-    deadline: z.string().optional(),
-    documentIds: z.array(z.string()).optional(),
+  name: z.string().min(1, "Le nom de la tâche est requis."), 
+  description: z.string().optional(), 
+  deadline: z.string().optional(),
+  documentIds: z.array(z.string()).optional(),
+  // branches are represented as an array of branch labels (strings)
+  branches: z.array(z.string()).optional(),
 });
 
 
@@ -67,6 +69,7 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
   const categoryForm = useForm<CategoryFormValues>({ resolver: zodResolver(categorySchema) });
   const subCategoryForm = useForm<SubCategoryFormValues>({ resolver: zodResolver(subCategorySchema) });
   const taskForm = useForm<TaskFormValues>({ resolver: zodResolver(taskSchema) });
+  const [branchInput, setBranchInput] = React.useState("");
 
   const { documents } = useDocuments();
 
@@ -75,15 +78,16 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
         if (dialogState.type === 'category') categoryForm.reset(dialogState.data);
         if (dialogState.type === 'subCategory') subCategoryForm.reset(dialogState.data);
         if (dialogState.type === 'task') taskForm.reset({
-            name: dialogState.data.name,
-            description: dialogState.data.description,
-            deadline: dialogState.data.deadline ? new Date(dialogState.data.deadline).toISOString().split('T')[0] : "",
-            documentIds: dialogState.data.documentIds || [],
+          name: dialogState.data.name,
+          description: dialogState.data.description,
+          deadline: dialogState.data.deadline ? new Date(dialogState.data.deadline).toISOString().split('T')[0] : "",
+          documentIds: dialogState.data.documentIds || [],
+          branches: dialogState.data.branches ? dialogState.data.branches.map((b: any) => b.label) : [],
         });
     } else {
         if (dialogState.type === 'category') categoryForm.reset({ name: "", icon: availableIcons[0] });
         if (dialogState.type === 'subCategory') subCategoryForm.reset({ name: "", icon: availableIcons[0] });
-        if (dialogState.type === 'task') taskForm.reset({ name: "", description: "", deadline: "", documentIds: [] });
+        if (dialogState.type === 'task') taskForm.reset({ name: "", description: "", deadline: "", documentIds: [], branches: [] });
     }
   }, [dialogState, categoryForm, subCategoryForm, taskForm]);
 
@@ -124,7 +128,7 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
               <FormField control={taskForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description (Optionnel)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={taskForm.control} name="deadline" render={({ field }) => (<FormItem><FormLabel>Échéance (Optionnel)</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
               
-               <FormField
+              <FormField
                 control={taskForm.control}
                 name="documentIds"
                 render={({ field }) => (
@@ -170,9 +174,8 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                                     }}
                                 >
                                     <Checkbox
-                                        id={`doc-${doc.id}`}
-                                        checked={isSelected}
-                                        readOnly
+                                      id={`doc-${doc.id}`}
+                                      checked={isSelected}
                                     />
                                     <label htmlFor={`doc-${doc.id}`} className="text-sm font-medium leading-none cursor-pointer">
                                         {doc.name}
@@ -187,6 +190,43 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                     <FormDescription>
                       Liez des preuves documentaires à cette tâche.
                     </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Branches editor (labels) */}
+              <FormField
+                control={taskForm.control}
+                name="branches"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Branches / Liaisons (labels)</FormLabel>
+                    <div className="flex gap-2 items-center">
+                      <Input placeholder="Nouvelle branche (ex: Oui, Non)" value={branchInput} onChange={(e) => setBranchInput(e.target.value)} />
+                      <Button type="button" variant="outline" onClick={() => {
+                        const current = field.value || [];
+                        const trimmed = (branchInput || '').trim();
+                        if (trimmed && !current.includes(trimmed)) {
+                          field.onChange([...current, trimmed]);
+                        }
+                        setBranchInput("");
+                      }}>Ajouter</Button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(field.value || []).map((label: string, idx: number) => (
+                        <Badge key={label + idx} className="flex items-center gap-2">
+                          <span>{label}</span>
+                          <Button size="sm" variant="ghost" onClick={() => {
+                            const newVals = (field.value || []).filter((l: string) => l !== label);
+                            field.onChange(newVals);
+                          }}>
+                            <LucideIcons.X className="h-3 w-3" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                    <FormDescription>Ajoutez des labels de branches pour les noeuds décisionnels. Les tâches cibles peuvent ensuite être ajoutées via l'interface.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

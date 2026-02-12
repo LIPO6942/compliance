@@ -24,6 +24,10 @@ import { Logo } from "@/components/icons/Logo";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import ConnectorDialog from "@/components/plan/ConnectorDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+// react-hook-form and zod already imported at top
 import { cn } from "@/lib/utils";
 
 const categorySchema = z.object({ name: z.string().min(1, "Le nom de la catégorie est requis."), icon: z.string().min(1, "L'icône de la catégorie est requise.") });
@@ -33,6 +37,7 @@ const taskSchema = z.object({
   description: z.string().optional(),
   deadline: z.string().optional(),
   documentIds: z.array(z.string()).optional(),
+  branches: z.array(z.string()).optional(),
 });
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
@@ -74,7 +79,7 @@ const flowTypeStyles: Record<string, string> = {
   urgent: 'bg-red-50 border-red-500 text-red-700 font-bold border-2 animate-pulse dark:bg-red-900/40 dark:border-red-400 dark:text-red-100 shadow-red-200',
 };
 
-const FlowStep = ({ task, onToggle }: { task: ComplianceTask; onToggle: () => void; }) => {
+const FlowStep = ({ task, onToggle, onEdit }: { task: ComplianceTask; onToggle: () => void; onEdit?: (task: ComplianceTask) => void; }) => {
   const styleClass = flowTypeStyles[task.flow_type || 'process'];
   const isDecision = task.flow_type === 'decision';
   const isStartEnd = task.flow_type === 'start' || task.flow_type === 'end';
@@ -82,7 +87,7 @@ const FlowStep = ({ task, onToggle }: { task: ComplianceTask; onToggle: () => vo
   if (isDecision) {
     return (
       <div className="relative flex items-center justify-center p-4 group">
-        <div
+          <div
           className={cn(
             "w-[110px] h-[110px] border-2 cursor-pointer transition-all duration-300 relative",
             "shadow-sm group-hover:shadow-md group-hover:scale-[1.03]",
@@ -91,6 +96,7 @@ const FlowStep = ({ task, onToggle }: { task: ComplianceTask; onToggle: () => vo
           )}
           style={{ clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }}
           onClick={onToggle}
+          onDoubleClick={() => onEdit && onEdit(task)}
         >
           <div className="absolute inset-0 flex items-center justify-center p-3">
             <span
@@ -120,6 +126,7 @@ const FlowStep = ({ task, onToggle }: { task: ComplianceTask; onToggle: () => vo
         task.completed && "opacity-60 grayscale-[0.2]"
       )}
       onClick={onToggle}
+      onDoubleClick={() => onEdit && onEdit(task)}
     >
       <div className="absolute top-[-8px] right-2 p-1 bg-white dark:bg-background rounded-full border shadow-sm z-10 opacity-0 group-hover/card:opacity-100 transition-opacity">
         <Checkbox checked={task.completed} className="h-3.5 w-3.5 border-primary text-primary" />
@@ -138,10 +145,17 @@ const FlowConnector = ({
   label,
   variant = 'vertical',
   active = false
+  ,
+  onAddBranch,
+  onRename,
+  onAddTask
 }: {
   label?: string;
   variant?: 'vertical' | 'side-right' | 'side-left';
-  active?: boolean
+  active?: boolean,
+  onAddBranch?: () => void,
+  onRename?: () => void,
+  onAddTask?: () => void,
 }) => {
   const colorClass = active ? "stroke-primary" : "stroke-slate-300 dark:stroke-slate-600";
   const arrowClass = active ? "fill-primary" : "fill-slate-300 dark:fill-slate-600";
@@ -151,7 +165,7 @@ const FlowConnector = ({
 
   if (variant === 'side-right') {
     return (
-      <div className="absolute left-1/2 top-1/2 -translate-y-1/2 flex items-center" style={{ width: '100px' }}>
+      <div className="relative absolute left-1/2 top-1/2 -translate-y-1/2 flex items-center" style={{ width: '160px' }}>
         <svg width="100" height="20" className="overflow-visible">
           <path d="M 0 10 L 80 10" className={cn(colorClass, "stroke-2")} fill="none" />
           <path d="M 80 5 L 90 10 L 80 15 Z" className={arrowClass} />
@@ -161,12 +175,17 @@ const FlowConnector = ({
             {label}
           </Badge>
         )}
+        <div className="absolute right-[-150px] top-[-6px] flex gap-2">
+          <Button size="sm" variant="ghost" onClick={() => onAddBranch && onAddBranch()} title="Ajouter une branche"><PlusCircle className="h-4 w-4" /></Button>
+          <Button size="sm" variant="ghost" onClick={() => onAddTask && onAddTask()} title="Ajouter tâche cible"><Edit2 className="h-4 w-4" /></Button>
+          <Button size="sm" variant="ghost" onClick={() => onRename && onRename()} title="Renommer la branche"><ArrowDown className="h-4 w-4" /></Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center py-4 relative min-h-[40px]">
+    <div className="flex flex-col items-center py-4 relative min-h-[40px] group/connector">
       <svg width="20" height="40" className="overflow-visible">
         <path d="M 10 0 L 10 30" className={cn(colorClass, "stroke-2")} fill="none" />
         <path d="M 5 30 L 10 40 L 15 30 Z" className={arrowClass} />
@@ -176,6 +195,11 @@ const FlowConnector = ({
           {label}
         </Badge>
       )}
+      <div className="absolute left-1/2 -translate-x-1/2 top-0 mt-1 hidden group-hover/connector:flex gap-2">
+        <Button size="sm" variant="ghost" onClick={() => onAddBranch && onAddBranch()} title="Ajouter une branche"><PlusCircle className="h-4 w-4" /></Button>
+        <Button size="sm" variant="ghost" onClick={() => onAddTask && onAddTask()} title="Ajouter tâche cible"><Edit2 className="h-4 w-4" /></Button>
+        <Button size="sm" variant="ghost" onClick={() => onRename && onRename()} title="Renommer la branche"><ArrowDown className="h-4 w-4" /></Button>
+      </div>
     </div>
   );
 };
@@ -183,11 +207,19 @@ const FlowConnector = ({
 const FlowRenderer = ({
   tasks,
   onToggleTask,
+  onEditTask,
+  onAddBranch,
+  onRenameBranch,
+  onAddTaskToBranch,
   categoryId,
   subCategoryId
 }: {
   tasks: ComplianceTask[],
   onToggleTask: (catId: string, subCatId: string, taskId: string, completed: boolean) => void,
+  onEditTask?: (task: ComplianceTask) => void,
+  onAddBranch?: (taskId: string) => void,
+  onRenameBranch?: (taskId: string, branchLabel?: string) => void,
+  onAddTaskToBranch?: (taskId: string, branchLabel?: string) => void,
   categoryId: string,
   subCategoryId: string
 }) => {
@@ -207,7 +239,7 @@ const FlowRenderer = ({
           <React.Fragment key={task.id}>
             <div className="relative flex flex-col items-center w-full">
               <div className="relative z-20">
-                <FlowStep task={task} onToggle={handleToggle} />
+                <FlowStep task={task} onToggle={handleToggle} onEdit={onEditTask} />
               </div>
 
               {(yesBranch || noBranch || otherBranches?.length) ? (
@@ -216,8 +248,8 @@ const FlowRenderer = ({
                   <div className="flex flex-col items-center min-w-[240px]">
                     {noBranch ? (
                       <>
-                        <FlowConnector label={noBranch.label} active={task.completed} />
-                        <FlowRenderer tasks={noBranch.tasks} onToggleTask={onToggleTask} categoryId={categoryId} subCategoryId={subCategoryId} />
+                          <FlowConnector label={noBranch.label} active={task.completed} onAddBranch={() => onAddBranch && onAddBranch(task.id)} onAddTask={() => onAddTaskToBranch && onAddTaskToBranch(task.id, noBranch.label)} onRename={() => onRenameBranch && onRenameBranch(task.id, noBranch.label)} />
+                          <FlowRenderer tasks={noBranch.tasks} onToggleTask={onToggleTask} onEditTask={onEditTask} onAddBranch={onAddBranch} onRenameBranch={onRenameBranch} onAddTaskToBranch={onAddTaskToBranch} categoryId={categoryId} subCategoryId={subCategoryId} />
                       </>
                     ) : nextTask ? (
                       <FlowConnector active={task.completed} />
@@ -229,17 +261,17 @@ const FlowRenderer = ({
                     <div className="absolute left-[calc(50%+60px)] top-[20px] pt-[20px] flex flex-col gap-8">
                       {yesBranch && (
                         <div className="relative flex items-center">
-                          <FlowConnector variant="side-right" label={yesBranch.label} active={task.completed} />
+                          <FlowConnector variant="side-right" label={yesBranch.label} active={task.completed} onAddBranch={() => onAddBranch && onAddBranch(task.id)} onAddTask={() => onAddTaskToBranch && onAddTaskToBranch(task.id, yesBranch.label)} onRename={() => onRenameBranch && onRenameBranch(task.id, yesBranch.label)} />
                           <div className="ml-24">
-                            <FlowRenderer tasks={yesBranch.tasks} onToggleTask={onToggleTask} categoryId={categoryId} subCategoryId={subCategoryId} />
+                            <FlowRenderer tasks={yesBranch.tasks} onToggleTask={onToggleTask} onEditTask={onEditTask} onAddBranch={onAddBranch} onRenameBranch={onRenameBranch} onAddTaskToBranch={onAddTaskToBranch} categoryId={categoryId} subCategoryId={subCategoryId} />
                           </div>
                         </div>
                       )}
                       {otherBranches?.map(branch => (
                         <div key={branch.label} className="relative flex items-center">
-                          <FlowConnector variant="side-right" label={branch.label} active={task.completed} />
+                          <FlowConnector variant="side-right" label={branch.label} active={task.completed} onAddBranch={() => onAddBranch && onAddBranch(task.id)} onAddTask={() => onAddTaskToBranch && onAddTaskToBranch(task.id, branch.label)} onRename={() => onRenameBranch && onRenameBranch(task.id, branch.label)} />
                           <div className="ml-24">
-                            <FlowRenderer tasks={branch.tasks} onToggleTask={onToggleTask} categoryId={categoryId} subCategoryId={subCategoryId} />
+                            <FlowRenderer tasks={branch.tasks} onToggleTask={onToggleTask} onEditTask={onEditTask} onAddBranch={onAddBranch} onRenameBranch={onRenameBranch} onAddTaskToBranch={onAddTaskToBranch} categoryId={categoryId} subCategoryId={subCategoryId} />
                           </div>
                         </div>
                       ))}
@@ -272,6 +304,10 @@ export default function PlanPage() {
     addTask: addTaskContext,
     editTask: editTaskContext,
     removeTask: removeTaskContext,
+    addBranch,
+    removeBranch,
+    renameBranch,
+    addTaskToBranch,
   } = usePlanData();
   const { documents, loading: docsLoading } = useDocuments();
 
@@ -285,6 +321,55 @@ export default function PlanPage() {
 
 
   const [dialogState, setDialogState] = React.useState<DialogState>({ type: null, mode: null });
+
+  const [connectorDialog, setConnectorDialog] = React.useState<{
+    open: boolean;
+    mode: 'addBranch' | 'renameBranch' | 'addTask' | null;
+    categoryId?: string;
+    subCategoryId?: string;
+    taskId?: string;
+    branchLabel?: string;
+    value?: string; // for label or new label
+    taskName?: string;
+  }>({ open: false, mode: null });
+
+  const openConnectorDialog = (mode: 'addBranch' | 'renameBranch' | 'addTask', categoryId: string, subCategoryId: string, taskId: string, branchLabel?: string) => {
+    setConnectorDialog({ open: true, mode, categoryId, subCategoryId, taskId, branchLabel, value: branchLabel || '', taskName: '' });
+  };
+
+  const closeConnectorDialog = () => setConnectorDialog({ open: false, mode: null });
+
+  const handleConnectorSubmit = async (values: { value: string; taskName?: string }) => {
+    try {
+      if (!connectorDialog.mode || !connectorDialog.categoryId || !connectorDialog.subCategoryId || !connectorDialog.taskId) return closeConnectorDialog();
+      if (connectorDialog.mode === 'addBranch') {
+        const label = (values.value || '').trim();
+        if (!label) return;
+        await addBranch(connectorDialog.categoryId, connectorDialog.subCategoryId, connectorDialog.taskId, label);
+        toast({ title: 'Branche ajoutée', description: `Branche "${label}" ajoutée.` });
+      }
+      if (connectorDialog.mode === 'renameBranch') {
+        const oldLabel = connectorDialog.branchLabel;
+        const newLabel = (values.value || '').trim();
+        if (!oldLabel || !newLabel) return;
+        await renameBranch(connectorDialog.categoryId, connectorDialog.subCategoryId, connectorDialog.taskId, oldLabel, newLabel);
+        toast({ title: 'Branche renommée', description: `"${oldLabel}" → "${newLabel}"` });
+      }
+      if (connectorDialog.mode === 'addTask') {
+        const label = (connectorDialog.branchLabel || values.value || '').trim();
+        const name = (values.taskName || '').trim();
+        if (!label || !name) return;
+        await addTaskToBranch(connectorDialog.categoryId, connectorDialog.subCategoryId, connectorDialog.taskId, label, { name });
+        toast({ title: 'Tâche cible ajoutée', description: `"${name}" ajoutée à la branche ${label}.` });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      closeConnectorDialog();
+    }
+  };
+
+  
 
   const openDialog = (type: "category" | "subCategory" | "task", mode: "add" | "edit", data?: any, parentId?: string, grandParentId?: string) => {
     setDialogState({ type, mode, data, parentId, grandParentId });
@@ -350,7 +435,8 @@ export default function PlanPage() {
 
   const handleAddTask = async (values: TaskFormValues) => {
     if (dialogState.grandParentId && dialogState.parentId) {
-      const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined };
+      const branchObjs = (values.branches || []).map(label => ({ label, tasks: [] }));
+      const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined, branches: branchObjs };
       await addTaskContext(dialogState.grandParentId, dialogState.parentId, taskData);
       toast({ title: "Tâche ajoutée", description: `La tâche "${values.name}" a été ajoutée.` });
     }
@@ -359,7 +445,12 @@ export default function PlanPage() {
 
   const handleEditTask = async (values: TaskFormValues) => {
     if (dialogState.grandParentId && dialogState.parentId && dialogState.data?.id) {
-      const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined };
+      const existingBranches = dialogState.data?.branches || [];
+      const branchObjs = (values.branches || []).map(label => {
+        const found = existingBranches.find((b: any) => b.label === label);
+        return found ? found : { label, tasks: [] };
+      });
+      const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined, branches: branchObjs };
       await editTaskContext(dialogState.grandParentId, dialogState.parentId, dialogState.data.id, taskData);
       toast({ title: "Tâche modifiée", description: `La tâche "${values.name}" a été modifiée.` });
     }
@@ -468,6 +559,10 @@ export default function PlanPage() {
                               <FlowRenderer
                                 tasks={subCategory.tasks}
                                 onToggleTask={handleToggleTaskCompletion}
+                                onEditTask={(task) => openDialog("task", "edit", task, subCategory.id, category.id)}
+                                onAddBranch={(taskId: string) => openConnectorDialog('addBranch', category.id, subCategory.id, taskId)}
+                                onRenameBranch={(taskId: string, branchLabel?: string) => openConnectorDialog('renameBranch', category.id, subCategory.id, taskId, branchLabel)}
+                                onAddTaskToBranch={(taskId: string, branchLabel?: string) => openConnectorDialog('addTask', category.id, subCategory.id, taskId, branchLabel)}
                                 categoryId={category.id}
                                 subCategoryId={subCategory.id}
                               />
@@ -585,6 +680,16 @@ export default function PlanPage() {
         onSubmitCategory={onSubmitCategory}
         onSubmitSubCategory={onSubmitSubCategory}
         onSubmitTask={onSubmitTask}
+      />
+      <ConnectorDialog
+        open={connectorDialog.open}
+        onOpenChange={(isOpen) => !isOpen && closeConnectorDialog()}
+        mode={connectorDialog.mode}
+        initialValue={connectorDialog.value}
+        initialTaskName={connectorDialog.taskName}
+        branchLabel={connectorDialog.branchLabel}
+        onCancel={closeConnectorDialog}
+        onSubmit={handleConnectorSubmit}
       />
     </div>
   );

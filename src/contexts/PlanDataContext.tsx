@@ -22,6 +22,12 @@ interface PlanDataContextType {
   addTask: (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed' | 'year'>) => Promise<void>;
   editTask: (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed' | 'year'>>) => Promise<void>;
   removeTask: (categoryId: string, subCategoryId: string, taskId: string) => Promise<void>;
+  // Branch / liaison helpers
+  addBranch: (categoryId: string, subCategoryId: string, taskId: string, label: string) => Promise<void>;
+  removeBranch: (categoryId: string, subCategoryId: string, taskId: string, label: string) => Promise<void>;
+  renameBranch: (categoryId: string, subCategoryId: string, taskId: string, oldLabel: string, newLabel: string) => Promise<void>;
+  addTaskToBranch: (categoryId: string, subCategoryId: string, taskId: string, branchLabel: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => Promise<void>;
+  moveTaskIntoBranch: (categoryId: string, subCategoryId: string, sourceTaskId: string, destParentTaskId: string, destBranchLabel: string) => Promise<void>;
   resetToInitialData: () => Promise<void>;
 }
 
@@ -250,6 +256,177 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Helper: remove a task by id anywhere inside a list of tasks (recursively)
+  const removeTaskById = (tasks: ComplianceTask[], taskId: string): { tasks: ComplianceTask[]; removed?: ComplianceTask } => {
+    let removed: ComplianceTask | undefined;
+    const recurse = (list: ComplianceTask[]): ComplianceTask[] => {
+      return list.reduce<ComplianceTask[]>((acc, t) => {
+        if (t.id === taskId) {
+          removed = t;
+          return acc;
+        }
+        let newTask = { ...t } as ComplianceTask;
+        if (t.branches) {
+          newTask.branches = t.branches.map(b => ({ ...b, tasks: recurse(b.tasks) }));
+        }
+        acc.push(newTask);
+        return acc;
+      }, []);
+    };
+    return { tasks: recurse(tasks), removed };
+  };
+
+  const addBranch = async (categoryId: string, subCategoryId: string, taskId: string, label: string) => {
+    try {
+      const newPlanData = planData.map(cat => cat.id === categoryId ? {
+        ...cat,
+        subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
+          ...sub,
+          tasks: sub.tasks.map(function recurse(task) {
+            if (task.id === taskId) {
+              const existing = task.branches || [];
+              // avoid duplicate labels
+              if (existing.find(b => b.label === label)) return { ...task };
+              return { ...task, branches: [...existing, { label, tasks: [] }] } as ComplianceTask;
+            }
+            if (task.branches) {
+              return { ...task, branches: task.branches.map(b => ({ ...b, tasks: b.tasks.map(recurse) })) };
+            }
+            return task;
+          })
+        } : sub)
+      } : cat);
+      await updatePlanInFirestore(newPlanData);
+    } catch (err) {
+      console.error("Erreur addBranch:", err);
+    }
+  };
+
+  const removeBranch = async (categoryId: string, subCategoryId: string, taskId: string, label: string) => {
+    try {
+      const newPlanData = planData.map(cat => cat.id === categoryId ? {
+        ...cat,
+        subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
+          ...sub,
+          tasks: sub.tasks.map(function recurse(task) {
+            if (task.id === taskId) {
+              return { ...task, branches: (task.branches || []).filter(b => b.label !== label) } as ComplianceTask;
+            }
+            if (task.branches) {
+              return { ...task, branches: task.branches.map(b => ({ ...b, tasks: b.tasks.map(recurse) })) };
+            }
+            return task;
+          })
+        } : sub)
+      } : cat);
+      await updatePlanInFirestore(newPlanData);
+    } catch (err) {
+      console.error("Erreur removeBranch:", err);
+    }
+  };
+
+  const renameBranch = async (categoryId: string, subCategoryId: string, taskId: string, oldLabel: string, newLabel: string) => {
+    try {
+      const newPlanData = planData.map(cat => cat.id === categoryId ? {
+        ...cat,
+        subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
+          ...sub,
+          tasks: sub.tasks.map(function recurse(task) {
+            if (task.id === taskId) {
+              return { ...task, branches: (task.branches || []).map(b => b.label === oldLabel ? { ...b, label: newLabel } : b) } as ComplianceTask;
+            }
+            if (task.branches) {
+              return { ...task, branches: task.branches.map(b => ({ ...b, tasks: b.tasks.map(recurse) })) };
+            }
+            return task;
+          })
+        } : sub)
+      } : cat);
+      await updatePlanInFirestore(newPlanData);
+    } catch (err) {
+      console.error("Erreur renameBranch:", err);
+    }
+  };
+
+  const addTaskToBranch = async (categoryId: string, subCategoryId: string, taskId: string, branchLabel: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => {
+    const newTask: ComplianceTask = { ...task, id: Date.now().toString(), completed: false } as ComplianceTask;
+    try {
+      const newPlanData = planData.map(cat => cat.id === categoryId ? {
+        ...cat,
+        subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
+          ...sub,
+          tasks: sub.tasks.map(function recurse(t) {
+            if (t.id === taskId) {
+              const branches = t.branches || [];
+              const idx = branches.findIndex(b => b.label === branchLabel);
+              if (idx === -1) {
+                return { ...t, branches: [...branches, { label: branchLabel, tasks: [newTask] }] } as ComplianceTask;
+              }
+              const newBranches = branches.map((b, i) => i === idx ? { ...b, tasks: [...b.tasks, newTask] } : b);
+              return { ...t, branches: newBranches } as ComplianceTask;
+            }
+            if (t.branches) return { ...t, branches: t.branches.map(b => ({ ...b, tasks: b.tasks.map(recurse) })) };
+            return t;
+          })
+        } : sub)
+      } : cat);
+      await updatePlanInFirestore(newPlanData);
+    } catch (err) {
+      console.error("Erreur addTaskToBranch:", err);
+    }
+  };
+
+  const moveTaskIntoBranch = async (categoryId: string, subCategoryId: string, sourceTaskId: string, destParentTaskId: string, destBranchLabel: string) => {
+    try {
+      // First remove the source task from wherever it is inside the subcategory
+      let removed: ComplianceTask | undefined;
+      const newPlanData = planData.map(cat => {
+        if (cat.id !== categoryId) return cat;
+        return {
+          ...cat,
+          subCategories: cat.subCategories.map(sub => {
+            if (sub.id !== subCategoryId) return sub;
+            // remove the source task
+            const { tasks: cleanedTasks, removed: r } = removeTaskById(sub.tasks, sourceTaskId);
+            removed = r;
+            // if nothing removed, we still continue
+            return { ...sub, tasks: cleanedTasks } as ComplianceSubCategory;
+          })
+        };
+      });
+
+      if (!removed) {
+        console.warn('moveTaskIntoBranch: source task not found', sourceTaskId);
+        return;
+      }
+
+      // Then insert removed task into destination branch
+      const finalPlan = newPlanData.map(cat => cat.id === categoryId ? {
+        ...cat,
+        subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
+          ...sub,
+          tasks: sub.tasks.map(function recurse(t) {
+            if (t.id === destParentTaskId) {
+              const branches = t.branches || [];
+              const idx = branches.findIndex(b => b.label === destBranchLabel);
+              if (idx === -1) {
+                return { ...t, branches: [...branches, { label: destBranchLabel, tasks: [removed!] }] } as ComplianceTask;
+              }
+              const newBranches = branches.map((b, i) => i === idx ? { ...b, tasks: [...b.tasks, removed!] } : b);
+              return { ...t, branches: newBranches } as ComplianceTask;
+            }
+            if (t.branches) return { ...t, branches: t.branches.map(b => ({ ...b, tasks: b.tasks.map(recurse) })) };
+            return t;
+          })
+        } : sub)
+      } : cat);
+
+      await updatePlanInFirestore(finalPlan);
+    } catch (err) {
+      console.error('Erreur moveTaskIntoBranch:', err);
+    }
+  };
+
   const resetToInitialData = async () => {
     try {
       setLoading(true);
@@ -277,6 +454,11 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       addTask,
       editTask,
       removeTask,
+      addBranch,
+      removeBranch,
+      renameBranch,
+      addTaskToBranch,
+      moveTaskIntoBranch,
       resetToInitialData
     }}>
       {children}
