@@ -74,29 +74,89 @@ const flowTypeStyles: Record<string, string> = {
   urgent: 'bg-red-200 border-red-700 text-red-900 font-bold dark:bg-red-800/60 dark:border-red-500 dark:text-red-200',
 };
 
-const FlowStep = ({ task, onToggle, categoryId, subCategoryId }: { task: ComplianceTask; onToggle: () => void; categoryId: string; subCategoryId: string; }) => {
+const FlowStep = ({ task, onToggle }: { task: ComplianceTask; onToggle: () => void; }) => {
   const styleClass = flowTypeStyles[task.flow_type || 'process'];
   const isDecision = task.flow_type === 'decision';
 
   return (
-    <div className="w-full flex justify-center group/flow">
-      <div
-        className={cn(
-          "relative w-full max-w-md p-3 text-sm font-medium text-center border-2 rounded-lg shadow-sm cursor-pointer transition-transform hover:scale-105",
-          styleClass,
-          isDecision && "rounded-xl",
-          task.completed && "opacity-60"
-        )}
-        onClick={onToggle}
-      >
-        <div className="absolute top-2 left-2">
-            <Checkbox checked={task.completed} className="border-current text-current" />
-        </div>
-        <span className={cn(task.completed && "line-through")}>{task.name}</span>
+    <div
+      className={cn(
+        "relative w-full max-w-sm p-3 text-sm font-medium text-center border-2 shadow-sm cursor-pointer transition-transform hover:scale-105",
+        styleClass,
+        isDecision ? "rounded-xl" : "rounded-lg",
+        task.completed && "opacity-60"
+      )}
+      onClick={onToggle}
+    >
+      <div className="absolute top-2 left-2">
+          <Checkbox checked={task.completed} className="border-current text-current" />
       </div>
+      <span className={cn(task.completed && "line-through")}>{task.name}</span>
     </div>
   );
 };
+
+
+const FlowRenderer = ({ tasks, onToggleTask, categoryId, subCategoryId }: { tasks: ComplianceTask[], onToggleTask: (catId: string, subCatId: string, taskId: string, completed: boolean) => void, categoryId: string, subCategoryId: string }) => {
+  if (!tasks || tasks.length === 0) return null;
+
+  return (
+    <>
+      {tasks.map((task, index) => {
+        const nextTask = tasks[index + 1];
+        const hasBranches = task.branches && task.branches.length > 0;
+        const taskToToggle = planData.find(c => c.id === categoryId)?.subCategories.find(sc => sc.id === subCategoryId)?.tasks.find(t => t.id === task.id);
+        const handleToggle = () => onToggleTask(categoryId, subCategoryId, task.id, !(taskToToggle?.completed));
+
+        if (!hasBranches) {
+          return (
+            <React.Fragment key={task.id}>
+              <FlowStep task={task} onToggle={handleToggle} />
+              {nextTask && <ArrowDown className="h-6 w-6 text-muted-foreground" />}
+            </React.Fragment>
+          );
+        }
+
+        return (
+          <div key={task.id} className="w-full flex flex-col items-center">
+            {/* Decision Step */}
+            <FlowStep task={task} onToggle={handleToggle} />
+
+            {/* Branching Lines and Container */}
+            <div className="w-full max-w-xl mx-auto relative pt-10 pb-6">
+              {/* Top T-bar */}
+              <div className="absolute top-4 left-1/4 right-1/4 h-0.5 bg-gray-400" />
+              {/* Vertical line from decision to T-bar */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-4 bg-gray-400" />
+
+              <div className="flex justify-around items-start">
+                {task.branches?.map((branch) => (
+                  <div key={branch.label} className="relative flex-1 flex flex-col items-center space-y-2">
+                    {/* Vertical line from T-bar to branch content */}
+                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-0.5 h-6 bg-gray-400" />
+                    <Badge variant="outline" className="absolute -top-7 bg-background px-2">
+                      {branch.label}
+                    </Badge>
+                    
+                    {/* Recursive call for tasks within the branch */}
+                    <FlowRenderer
+                      tasks={branch.tasks}
+                      onToggleTask={onToggleTask}
+                      categoryId={categoryId}
+                      subCategoryId={subCategoryId}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {nextTask && <ArrowDown className="h-6 w-6 text-muted-foreground -mt-4" />}
+          </div>
+        );
+      })}
+    </>
+  );
+};
+
 
 export default function PlanPage() {
   const { 
@@ -219,15 +279,11 @@ export default function PlanPage() {
     toast({ title: "Tâche supprimée", description: `La tâche a été supprimée.` });
   };
 
-  const handleToggleTaskCompletion = async (categoryId: string, subCategoryId: string, taskId: string) => {
-    const task = planData.find(c => c.id === categoryId)?.subCategories.find(sc => sc.id === subCategoryId)?.tasks.find(t => t.id === taskId);
-    if (task) {
-        await updateTaskCompletion(categoryId, subCategoryId, taskId, !task.completed);
-        toast({
-            title: "Statut de la tâche modifié",
-            description: `La tâche "${task.name}" est maintenant ${!task.completed ? "complétée" : "non complétée"}.`,
-        });
-    }
+  const handleToggleTaskCompletion = async (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => {
+    await updateTaskCompletion(categoryId, subCategoryId, taskId, completed);
+    toast({
+        title: "Statut de la tâche modifié",
+    });
   };
 
   const getLinkedDocuments = (task: ComplianceTask): Document[] => {
@@ -306,16 +362,12 @@ export default function PlanPage() {
                                                 </div>
                                             </CardHeader>
                                             <CardContent className="px-4 pb-4">
-                                                <div className="flex flex-col items-center w-full space-y-2">
-                                                    {subCategory.tasks.map((task, index) => (
-                                                        <React.Fragment key={task.id}>
-                                                            <FlowStep task={task} onToggle={() => handleToggleTaskCompletion(category.id, subCategory.id, task.id)} categoryId={category.id} subCategoryId={subCategory.id} />
-                                                            {index < subCategory.tasks.length - 1 && (
-                                                                <ArrowDown className="h-6 w-6 text-muted-foreground" />
-                                                            )}
-                                                        </React.Fragment>
-                                                    ))}
-                                                </div>
+                                                <FlowRenderer
+                                                    tasks={subCategory.tasks}
+                                                    onToggleTask={handleToggleTaskCompletion}
+                                                    categoryId={category.id}
+                                                    subCategoryId={subCategory.id}
+                                                />
                                             </CardContent>
                                         </Card>
                                     )
@@ -355,7 +407,7 @@ export default function PlanPage() {
                                           const linkedDocs = getLinkedDocuments(task);
                                           return (
                                             <li key={task.id} className="flex items-start text-sm text-muted-foreground group/task relative pr-10">
-                                                <Checkbox id={`task-${task.id}`} checked={task.completed} onCheckedChange={() => handleToggleTaskCompletion(category.id, subCategory.id, task.id)} className="mr-2.5 mt-1 flex-shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" aria-labelledby={`task-label-${task.id}`}/>
+                                                <Checkbox id={`task-${task.id}`} checked={task.completed} onCheckedChange={() => handleToggleTaskCompletion(category.id, subCategory.id, task.id, !task.completed)} className="mr-2.5 mt-1 flex-shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" aria-labelledby={`task-label-${task.id}`}/>
                                                 <label htmlFor={`task-${task.id}`} id={`task-label-${task.id}`} className="cursor-pointer flex-grow">
                                                 <div>
                                                     <span className={`${task.completed ? 'line-through text-muted-foreground/70' : ''} ${isClient && isTaskOverdue(task) ? "text-destructive font-medium" : "text-foreground"}`}>{task.name}</span>

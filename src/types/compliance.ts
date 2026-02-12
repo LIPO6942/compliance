@@ -9,6 +9,10 @@ export interface ComplianceTask {
   deadline?: string; // ISO date string
   documentIds?: string[];
   flow_type?: 'start' | 'process' | 'decision' | 'action' | 'alert' | 'urgent' | 'end';
+  branches?: Array<{
+    label: string;
+    tasks: ComplianceTask[];
+  }>;
 }
 
 export interface ComplianceSubCategory {

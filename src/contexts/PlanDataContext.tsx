@@ -209,6 +209,24 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   };
   
   const updateTaskCompletion = async (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => {
+    const recursiveUpdate = (tasks: ComplianceTask[]): ComplianceTask[] => {
+      return tasks.map(task => {
+        if (task.id === taskId) {
+          return { ...task, completed };
+        }
+        if (task.branches) {
+          return {
+            ...task,
+            branches: task.branches.map(branch => ({
+              ...branch,
+              tasks: recursiveUpdate(branch.tasks)
+            }))
+          };
+        }
+        return task;
+      });
+    };
+
     try {
       const newPlanData = planData.map(cat =>
         cat.id === categoryId
@@ -218,9 +236,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
                 sub.id === subCategoryId
                   ? {
                       ...sub,
-                      tasks: sub.tasks.map(task =>
-                        task.id === taskId ? { ...task, completed } : task
-                      ),
+                      tasks: recursiveUpdate(sub.tasks),
                     }
                   : sub
               ),
@@ -228,7 +244,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
           : cat
       );
       await updatePlanInFirestore(newPlanData);
-    } catch(error) {
+    } catch (error) {
       console.error("Erreur mise à jour statut tâche:", error);
     }
   };

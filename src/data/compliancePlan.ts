@@ -1,5 +1,5 @@
 
-import type { ComplianceCategory } from '@/types/compliance';
+import type { ComplianceCategory, ComplianceTask } from '@/types/compliance';
 
 // Icons are now string names from lucide-react
 export const initialCompliancePlanData: ComplianceCategory[] = [
@@ -235,16 +235,52 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         tasks: [
           { id: 'p1-1', name: 'Debut : Demande', flow_type: 'start', completed: false },
           { id: 'p1-2', name: 'Collecte Documents', flow_type: 'process', completed: false },
-          { id: 'p1-3', name: 'Identification du client', flow_type: 'process', completed: false },
-          { id: 'p1-4', name: 'Identification du Bénéficiaire Effectif (UBO)', flow_type: 'process', completed: false },
-          { id: 'p1-5', name: 'Screening sur les listes de sanctions (CNLCT/NU) ?', flow_type: 'decision', completed: false },
-          { id: 'p1-6', name: 'Si sanctionné : REFUS EER', flow_type: 'alert', completed: false },
-          { id: 'p1-7', name: 'Vérifier le statut de Personne Politiquement Exposée (PPE) ?', flow_type: 'decision', completed: false },
-          { id: 'p1-8', name: 'Si PPE : Demande Autorisation DG', flow_type: 'action', completed: false },
-          { id: 'p1-9', name: 'Si PPE & Autorisé : Vigilance Renforcée + Origine Fonds', flow_type: 'action', completed: false },
-          { id: 'p1-10', name: 'Effectuer le profilage du risque client', flow_type: 'process', completed: false },
-          { id: 'p1-11', name: 'Constituer et archiver le dossier client complet', flow_type: 'process', completed: false },
-          { id: 'p1-12', name: 'FIN : Relation Etablie', flow_type: 'end', completed: false },
+          { id: 'p1-3', name: 'Identif. UBO', flow_type: 'process', completed: false },
+          {
+            id: 'p1-4', name: 'Screening CNLCT/NU ?', flow_type: 'decision', completed: false,
+            branches: [
+              {
+                label: 'Oui',
+                tasks: [{ id: 'p1-5', name: 'REFUS EER', flow_type: 'alert', completed: false }]
+              },
+              {
+                label: 'Non',
+                tasks: [
+                  {
+                    id: 'p1-6', name: 'Est PPE ?', flow_type: 'decision', completed: false,
+                    branches: [
+                      {
+                        label: 'Oui',
+                        tasks: [
+                          { id: 'p1-7', name: 'Demande Autorisation DG', flow_type: 'action', completed: false },
+                          {
+                            id: 'p1-8', name: 'DG Accepte ?', flow_type: 'decision', completed: false,
+                            branches: [
+                              {
+                                label: 'Non',
+                                tasks: [{ id: 'p1-9', name: 'REFUS EER', flow_type: 'alert', completed: false }]
+                              },
+                              {
+                                label: 'Oui',
+                                tasks: [{ id: 'p1-10', name: 'Vigilance Renforcee + Origine Fonds', flow_type: 'action', completed: false }]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        label: 'Non',
+                        tasks: []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          { id: 'p1-11', name: 'Profilage Risque', flow_type: 'process', completed: false },
+          { id: 'p1-12', name: 'Constitution Dossier', flow_type: 'process', completed: false },
+          { id: 'p1-13', name: 'FIN : Relation Etablie', flow_type: 'end', completed: false },
         ]
       },
       {
@@ -252,27 +288,112 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
         name: '2. Gel des Avoirs',
         icon: 'Lock',
         tasks: [
-          { id: 'p2-1', name: 'Publication Liste Sanctions (CNLCT, NU)', flow_type: 'start', completed: false },
-          { id: 'p2-2', name: 'Recherche Automatique dans la Base Clients', flow_type: 'process', completed: false },
-          { id: 'p2-3', name: 'Correspondance Trouvée ?', flow_type: 'decision', completed: false },
-          { id: 'p2-4', name: 'Si OUI & confirmée : GEL IMMEDIAT des avoirs (< 8h)', flow_type: 'urgent', completed: false },
-          { id: 'p2-5', name: 'INFORMATION CNLCT du gel (< 24h)', flow_type: 'urgent', completed: false },
-          { id: 'p2-6', name: 'FIN : Maintien du Gel', flow_type: 'end', completed: false },
+          { id: 'p2-1', name: 'Publication Liste CNLCT ou NU', flow_type: 'start', completed: false },
+          { id: 'p2-2', name: 'Recherche Auto Base Clients', flow_type: 'process', completed: false },
+          {
+            id: 'p2-3', name: 'Correspondance Trouvee ?', flow_type: 'decision', completed: false,
+            branches: [
+              {
+                label: 'Non',
+                tasks: [{ id: 'p2-4', name: 'Fin : Aucune action', flow_type: 'end', completed: false }]
+              },
+              {
+                label: 'Oui',
+                tasks: [
+                  {
+                    id: 'p2-5', name: 'Homonymie / Faux Positif ?', flow_type: 'decision', completed: false,
+                    branches: [
+                      {
+                        label: 'Oui',
+                        tasks: [
+                          { id: 'p2-6', name: 'Client saisit la CNLCT par ecrit', flow_type: 'process', completed: false },
+                          {
+                            id: 'p2-7', name: 'CNLCT confirme l erreur ?', flow_type: 'decision', completed: false,
+                            branches: [
+                              {
+                                label: 'Oui',
+                                tasks: [
+                                  { id: 'p2-8', name: 'Levee du Gel Max 3 jours', flow_type: 'process', completed: false },
+                                  { id: 'p2-9', name: 'Fin : Aucune action', flow_type: 'end', completed: false }
+                                ]
+                              },
+                              {
+                                label: 'Non',
+                                tasks: []
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        label: 'Non',
+                        tasks: [
+                            { id: 'p2-10', name: 'ACTION : GEL IMMEDIAT DE TOUS LES AVOIRS DELAI < 8 HEURES', flow_type: 'urgent', completed: false },
+                            { id: 'p2-11', name: 'Interdiction de mise a disposition des fonds', flow_type: 'alert', completed: false },
+                            { id: 'p2-12', name: 'INFORMATION CNLCT Valeur avoirs + Heure gel DELAI < 24 HEURES', flow_type: 'urgent', completed: false },
+                            { id: 'p2-13', name: 'FIN : Maintien du Gel Jusqu a radiation liste', flow_type: 'end', completed: false }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
         ]
       },
       {
         id: 'processus-monitoring',
-        name: '3. Monitoring des Transactions',
+        name: '3. Monitoring',
         icon: 'Monitor',
         tasks: [
-          { id: 'p3-1', name: 'Début : Opération entrante', flow_type: 'start', completed: false },
-          { id: 'p3-2', name: 'Monitoring Automatique des Transactions', flow_type: 'process', completed: false },
-          { id: 'p3-3', name: 'Alerte Opération Inhabituelle ?', flow_type: 'decision', completed: false },
-          { id: 'p3-4', name: 'Si OUI : Analyse par le Service Conformité', flow_type: 'process', completed: false },
-          { id: 'p3-5', name: 'Soupçon confirmé ?', flow_type: 'decision', completed: false },
-          { id: 'p3-6', name: 'Si OUI : Déclaration de Soupçon à la CTAF (goAML)', flow_type: 'action', completed: false },
-          { id: 'p3-7', name: 'Si lien avec terrorisme : Déclaration à la CNLCT', flow_type: 'alert', completed: false },
-          { id: 'p3-8', name: 'FIN : Archivage du dossier', flow_type: 'end', completed: false },
+          { id: 'p3-1', name: 'Operation', flow_type: 'start', completed: false },
+          {
+            id: 'p3-2', name: 'Monitoring Auto', flow_type: 'decision', completed: false,
+            branches: [
+              {
+                label: 'Inhabituel',
+                tasks: [
+                  { id: 'p3-3', name: 'Analyse Conformite', flow_type: 'process', completed: false },
+                  {
+                    id: 'p3-4', name: 'Justif. ?', flow_type: 'decision', completed: false,
+                    branches: [
+                      {
+                        label: 'Non',
+                        tasks: [
+                          { id: 'p3-5', name: 'Decl. goAML', flow_type: 'action', completed: false },
+                          {
+                            id: 'p3-6', name: 'Terrorisme ?', flow_type: 'decision', completed: false,
+                            branches: [
+                              {
+                                label: 'Oui',
+                                tasks: [{ id: 'p3-7', name: 'Decl. CNLCT', flow_type: 'alert', completed: false }]
+                              },
+                              {
+                                label: 'Non',
+                                tasks: []
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        label: 'Oui',
+                        tasks: []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                label: 'Normal',
+                tasks: []
+              }
+            ]
+          },
+          { id: 'p3-8', name: 'Classer', flow_type: 'process', completed: false },
+          { id: 'p3-9', name: 'Archivage', flow_type: 'process', completed: false },
+          { id: 'p3-10', name: 'FIN', flow_type: 'end', completed: false }
         ]
       }
     ]
