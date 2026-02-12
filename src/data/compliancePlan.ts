@@ -223,4 +223,53 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
       },
     ],
   },
+  {
+    id: 'processus-metiers',
+    name: 'Processus Métiers Clés',
+    icon: 'Workflow',
+    subCategories: [
+      {
+        id: 'processus-eer',
+        name: '1. Entrée en Relation',
+        icon: 'UserPlus',
+        tasks: [
+          { id: 'proc-eer-1', name: 'Collecter les documents d\'identification du client.', completed: false },
+          { id: 'proc-eer-2', name: 'Identifier le(s) Bénéficiaire(s) Effectif(s) (UBO).', completed: false },
+          { id: 'proc-eer-3', name: 'Effectuer le screening sur les listes de sanctions (CNLCT/NU).', completed: false },
+          { id: 'proc-eer-4', name: 'Vérifier le statut de Personne Politiquement Exposée (PPE).', completed: false },
+          { id: 'proc-eer-5', name: 'Si PPE : obtenir l\'autorisation de la DG avant de poursuivre.', completed: false },
+          { id: 'proc-eer-6', name: 'Si PPE : appliquer une vigilance renforcée et vérifier l\'origine des fonds.', completed: false },
+          { id: 'proc-eer-7', name: 'Effectuer le profilage du risque client.', completed: false },
+          { id: 'proc-eer-8', name: 'Constituer et archiver le dossier client complet.', completed: false },
+        ]
+      },
+      {
+        id: 'processus-gel',
+        name: '2. Gel des Avoirs',
+        icon: 'Lock',
+        tasks: [
+          { id: 'proc-gel-1', name: 'Surveiller la publication des listes de sanctions (CNLCT, NU).', completed: false },
+          { id: 'proc-gel-2', name: 'Lancer la recherche automatique dans la base clients après mise à jour des listes.', completed: false },
+          { id: 'proc-gel-3', name: 'Analyser les correspondances pour écarter les faux positifs.', completed: false },
+          { id: 'proc-gel-4', name: 'Si correspondance avérée : Geler immédiatement les avoirs (< 8h).', completed: false },
+          { id: 'proc-gel-5', name: 'Informer la CNLCT du gel (< 24h) avec détails.', completed: false },
+          { id: 'proc-gel-6', name: 'Maintenir le gel jusqu\'à radiation de la liste.', completed: false },
+        ]
+      },
+      {
+        id: 'processus-monitoring',
+        name: '3. Monitoring des Transactions',
+        icon: 'Monitor',
+        tasks: [
+          { id: 'proc-mon-1', name: 'Surveiller les transactions via l\'outil de monitoring automatique.', completed: false },
+          { id: 'proc-mon-2', name: 'Analyser les alertes d\'opérations inhabituelles.', completed: false },
+          { id: 'proc-mon-3', name: 'Demander des justifications au client si nécessaire.', completed: false },
+          { id: 'proc-mon-4', name: 'Si le soupçon est confirmé, préparer une déclaration de soupçon (DS).', completed: false },
+          { id: 'proc-mon-5', name: 'Envoyer la DS à la CTAF via la plateforme goAML.', completed: false },
+          { id: 'proc-mon-6', name: 'Si lié au terrorisme, envoyer une déclaration à la CNLCT.', completed: false },
+          { id: 'proc-mon-7', name: 'Archiver la déclaration et les pièces justificatives.', completed: false },
+        ]
+      }
+    ]
+  },
 ];
