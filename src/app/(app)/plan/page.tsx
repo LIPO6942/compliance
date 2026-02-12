@@ -65,25 +65,24 @@ const isTaskOverdue = (task: ComplianceTask) => {
 };
 
 const flowTypeStyles: Record<string, string> = {
-  start: 'bg-green-50 border-green-600 text-green-900 dark:bg-green-900/30 dark:border-green-500 dark:text-green-200',
-  end: 'bg-green-50 border-green-600 text-green-900 dark:bg-green-900/30 dark:border-green-500 dark:text-green-200',
-  process: 'bg-blue-50 border-blue-600 text-blue-900 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-200',
-  decision: 'bg-yellow-50 border-yellow-600 text-yellow-900 dark:bg-yellow-900/30 dark:border-yellow-600 dark:text-yellow-200',
-  action: 'bg-orange-50 border-orange-600 text-orange-900 dark:bg-orange-900/30 dark:border-orange-500 dark:text-orange-200',
-  alert: 'bg-red-50 border-red-600 text-red-900 dark:bg-red-900/30 dark:border-red-500 dark:text-red-200',
-  urgent: 'bg-red-100 border-red-700 text-red-950 font-bold dark:bg-red-800/40 dark:border-red-500 dark:text-red-100',
+  start: 'bg-[#e8f5e9] border-[#2e7d32] text-[#1b5e20] dark:bg-green-900/40 dark:border-green-500 dark:text-green-100',
+  end: 'bg-[#e8f5e9] border-[#2e7d32] text-[#1b5e20] dark:bg-green-900/40 dark:border-green-500 dark:text-green-100',
+  process: 'bg-[#e1f5fe] border-[#0277bd] text-[#01579b] dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-100',
+  decision: 'bg-[#fff9c4] border-[#fbc02d] text-[#856404] dark:bg-yellow-900/40 dark:border-yellow-600 dark:text-yellow-100',
+  action: 'bg-[#fff3e0] border-[#ef6c00] text-[#e65100] dark:bg-orange-900/40 dark:border-orange-500 dark:text-orange-100',
+  alert: 'bg-[#ffcdd2] border-[#c62828] text-[#721c24] dark:bg-red-900/40 dark:border-red-500 dark:text-red-100',
+  urgent: 'bg-[#ffebee] border-[#b71c1c] text-[#721c24] font-bold border-3 animate-pulse dark:bg-red-800/40 dark:border-red-500 dark:text-red-100',
 };
 
 const FlowStep = ({ task, onToggle }: { task: ComplianceTask; onToggle: () => void; }) => {
   const styleClass = flowTypeStyles[task.flow_type || 'process'];
   const isDecision = task.flow_type === 'decision';
   const isUrgent = task.flow_type === 'urgent';
-  const isAlert = task.flow_type === 'alert';
+  const isStartEnd = task.flow_type === 'start' || task.flow_type === 'end';
 
   if (isDecision) {
-    // Vrai losange pour les décisions
     return (
-      <div className="relative flex items-center justify-center w-full max-w-sm mx-auto" style={{ height: '120px' }}>
+      <div className="relative flex items-center justify-center py-4" style={{ height: '140px', width: '140px' }}>
         <div
           className={cn(
             "absolute w-28 h-28 border-2 cursor-pointer transition-all duration-300",
@@ -95,15 +94,15 @@ const FlowStep = ({ task, onToggle }: { task: ComplianceTask; onToggle: () => vo
           style={{ transform: 'rotate(45deg)' }}
           onClick={onToggle}
         >
-          <div className="absolute -top-3 -left-3" style={{ transform: 'rotate(-45deg)' }}>
-            <Checkbox checked={task.completed} className="border-current text-current" />
+          <div className="absolute top-0 left-0 p-1" style={{ transform: 'rotate(-45deg)' }}>
+            <Checkbox checked={task.completed} className="h-3 w-3 border-current text-current" />
           </div>
           <span
             className={cn(
-              "text-xs font-semibold text-center px-2 leading-tight",
+              "text-[10px] sm:text-[11px] font-bold text-center px-3 leading-tight",
               task.completed && "line-through"
             )}
-            style={{ transform: 'rotate(-45deg)', maxWidth: '80px' }}
+            style={{ transform: 'rotate(-45deg)', maxWidth: '95px' }}
           >
             {task.name}
           </span>
@@ -112,32 +111,31 @@ const FlowStep = ({ task, onToggle }: { task: ComplianceTask; onToggle: () => vo
     );
   }
 
-  // Rectangles arrondis pour les autres types
   return (
     <div
       className={cn(
-        "relative w-full max-w-sm p-4 text-sm font-medium text-center border-2 cursor-pointer transition-all duration-300",
-        "shadow-md hover:shadow-xl hover:scale-[1.03] rounded-lg",
+        "relative w-[180px] sm:w-[220px] min-h-[45px] p-2 text-[11px] sm:text-xs font-bold text-center border-2 cursor-pointer transition-all duration-300 flex items-center justify-center",
+        "shadow-md hover:shadow-xl hover:scale-[1.03]",
+        isStartEnd ? "rounded-full" : "rounded-md",
         styleClass,
-        (isUrgent || isAlert) && "animate-pulse hover:animate-none",
         task.completed && "opacity-60"
       )}
       onClick={onToggle}
     >
-      <div className="absolute top-2 left-2">
-        <Checkbox checked={task.completed} className="border-current text-current" />
+      <div className="absolute top-1 left-1">
+        <Checkbox checked={task.completed} className="h-3 w-3 border-current text-current" />
       </div>
-      <span className={cn(task.completed && "line-through")}>{task.name}</span>
+      <span className={cn("px-4", task.completed && "line-through")}>{task.name}</span>
     </div>
   );
 };
 
 
-const FlowRenderer = ({ tasks, onToggleTask, categoryId, subCategoryId }: { tasks: ComplianceTask[], onToggleTask: (catId: string, subCatId: string, taskId: string, completed: boolean) => void, categoryId: string, subCategoryId: string }) => {
+const FlowRenderer = ({ tasks, onToggleTask, categoryId, subCategoryId, isBranch = false }: { tasks: ComplianceTask[], onToggleTask: (catId: string, subCatId: string, taskId: string, completed: boolean) => void, categoryId: string, subCategoryId: string, isBranch?: boolean }) => {
   if (!tasks || tasks.length === 0) return null;
 
   return (
-    <>
+    <div className={cn("flex flex-col items-center w-full", isBranch ? "mt-4" : "")}>
       {tasks.map((task, index) => {
         const nextTask = tasks[index + 1];
         const hasBranches = task.branches && task.branches.length > 0;
@@ -147,48 +145,81 @@ const FlowRenderer = ({ tasks, onToggleTask, categoryId, subCategoryId }: { task
           return (
             <React.Fragment key={task.id}>
               <FlowStep task={task} onToggle={handleToggle} />
-              {nextTask && <ArrowDown className="h-6 w-6 text-muted-foreground" />}
+              {nextTask && (
+                <div className="flex flex-col items-center py-2">
+                  <svg width="20" height="40" viewBox="0 0 20 40" className="text-[#8B7355]/40 fill-none stroke-current stroke-2">
+                    <path d="M10 0 L10 30 M5 25 L10 35 L15 25" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
             </React.Fragment>
           );
         }
 
+        // Decision Step with Branching
         return (
           <div key={task.id} className="w-full flex flex-col items-center">
-            {/* Decision Step */}
             <FlowStep task={task} onToggle={handleToggle} />
 
-            {/* Branching Lines and Container */}
-            <div className="w-full max-w-xl mx-auto relative pt-10 pb-6">
-              {/* Top T-bar */}
-              <div className="absolute top-4 left-1/4 right-1/4 h-0.5 bg-gray-400" />
-              {/* Vertical line from decision to T-bar */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-4 bg-gray-400" />
+            <div className="w-full flex justify-center mt-4">
+              <div className="flex w-full items-start justify-center gap-x-8 lg:gap-x-16">
+                {task.branches?.map((branch, branchIndex) => {
+                  const isFirst = branchIndex === 0;
+                  const isLast = branchIndex === (task.branches?.length || 0) - 1;
+                  const label = branch.label;
 
-              <div className="flex justify-around items-start">
-                {task.branches?.map((branch) => (
-                  <div key={branch.label} className="relative flex-1 flex flex-col items-center space-y-2">
-                    {/* Vertical line from T-bar to branch content */}
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-0.5 h-6 bg-gray-400" />
-                    <Badge variant="outline" className="absolute -top-7 bg-background px-2">
-                      {branch.label}
-                    </Badge>
+                  return (
+                    <div key={branch.label} className="relative flex flex-col items-center">
+                      {/* Branch Label & Connections */}
+                      <div className="h-12 w-32 relative flex items-center justify-center">
+                        {/* SVG Connection from decision to branch */}
+                        <svg className="absolute inset-0 w-full h-full overflow-visible text-[#8B7355]/40 fill-none stroke-current stroke-2">
+                          {/* Horizontal connection line if multiple branches */}
+                          {task.branches!.length > 1 && (
+                            <path d={isFirst ? "M50% 0 L50% 10 M50% 10 L100% 10" : isLast ? "M50% 0 L50% 10 M50% 10 L0 10" : "M50% 0 L50% 10 M0 10 L100% 10"} strokeLinecap="round" />
+                          )}
+                          {/* Vertical drop and arrowhead */}
+                          <path d="M50% 10 L50% 35 M45% 30 L50% 40 L55% 30" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
 
-                    {/* Recursive call for tasks within the branch */}
-                    <FlowRenderer
-                      tasks={branch.tasks}
-                      onToggleTask={onToggleTask}
-                      categoryId={categoryId}
-                      subCategoryId={subCategoryId}
-                    />
-                  </div>
-                ))}
+                        <Badge
+                          variant="secondary"
+                          className={cn(
+                            "z-10 text-[10px] font-bold px-2 py-0 h-5 border shadow-sm",
+                            label === "Oui" ? "bg-green-100 text-green-700 border-green-200" : "bg-red-100 text-red-700 border-red-200",
+                            "absolute top-0 transform translate-y-2"
+                          )}
+                        >
+                          {label}
+                        </Badge>
+                      </div>
+
+                      {/* Branch Content */}
+                      <div className="flex flex-col items-center">
+                        <FlowRenderer
+                          tasks={branch.tasks}
+                          onToggleTask={onToggleTask}
+                          categoryId={categoryId}
+                          subCategoryId={subCategoryId}
+                          isBranch={true}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            {nextTask && <ArrowDown className="h-6 w-6 text-muted-foreground -mt-4" />}
+            {nextTask && (
+              <div className="flex flex-col items-center py-4">
+                <svg width="20" height="40" viewBox="0 0 20 40" className="text-[#8B7355]/40 fill-none stroke-current stroke-2">
+                  <path d="M10 0 L10 30 M5 25 L10 35 L15 25" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            )}
           </div>
         );
       })}
-    </>
+    </div>
   );
 };
 
