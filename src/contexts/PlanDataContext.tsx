@@ -75,8 +75,9 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     const planDocRef = doc(db, "plan", "main");
   
     const unsubscribe = onSnapshot(planDocRef, async (docSnap) => {
-        // This logic forces a one-time overwrite with the detailed plan.
-        if (!docSnap.exists() || docSnap.data()?.plan?.[0]?.id !== 'cadre-reglementaire') {
+        const existingPlan = docSnap.data()?.plan;
+        // This logic forces a one-time overwrite if the plan in DB is missing or has fewer categories than the mock data.
+        if (!docSnap.exists() || !existingPlan || existingPlan.length < initialCompliancePlanData.length) {
             console.log("Plan document is missing or outdated. Force-seeding with detailed data.");
             try {
                 await updatePlanInFirestore(initialCompliancePlanData);
@@ -87,8 +88,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
                 setLoading(false);
             }
         } else {
-            const data = docSnap.data();
-            setPlanData(data?.plan ?? []);
+            setPlanData(existingPlan);
             setLoading(false);
         }
     }, (error) => {
