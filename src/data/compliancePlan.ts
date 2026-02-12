@@ -230,12 +230,12 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
     subCategories: [
       {
         id: 'processus-eer',
-        name: '1. Entrée en Relation',
+        name: '1. ENTREE EN RELATION',
         icon: 'UserPlus',
         tasks: [
           { id: 'p1-1', name: 'Debut : Demande', flow_type: 'start', completed: false },
           { id: 'p1-2', name: 'Collecte Documents', flow_type: 'process', completed: false },
-          { id: 'p1-3', name: 'Identif. Bénéficiaires', flow_type: 'process', completed: false },
+          { id: 'p1-3', name: 'Identif. UBO', flow_type: 'process', completed: false },
           {
             id: 'p1-4', name: 'Screening CNLCT/NU ?', flow_type: 'decision', completed: false,
             branches: [
@@ -262,7 +262,12 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
                               },
                               {
                                 label: 'Oui',
-                                tasks: [{ id: 'p1-10', name: 'Vigilance Renforcee + Origine Fonds', flow_type: 'action', completed: false }]
+                                tasks: [
+                                  { id: 'p1-10', name: 'Vigilance Renforcee + Origine Fonds', flow_type: 'action', completed: false },
+                                  { id: 'p1-11', name: 'Profilage Risque', flow_type: 'process', completed: false },
+                                  { id: 'p1-12', name: 'Constitution Dossier', flow_type: 'process', completed: false },
+                                  { id: 'p1-13', name: 'FIN : Relation Etablie', flow_type: 'end', completed: false }
+                                ]
                               }
                             ]
                           }
@@ -270,21 +275,23 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
                       },
                       {
                         label: 'Non',
-                        tasks: [{ id: 'p1-11', name: 'Profilage Risque', flow_type: 'process', completed: false }]
+                        tasks: [
+                          { id: 'p1-11-non', name: 'Profilage Risque', flow_type: 'process', completed: false },
+                          { id: 'p1-12-non', name: 'Constitution Dossier', flow_type: 'process', completed: false },
+                          { id: 'p1-13-non', name: 'FIN : Relation Etablie', flow_type: 'end', completed: false }
+                        ]
                       }
                     ]
                   }
                 ]
               }
             ]
-          },
-          { id: 'p1-12', name: 'Constitution Dossier', flow_type: 'process', completed: false },
-          { id: 'p1-13', name: 'FIN : Relation Etablie', flow_type: 'end', completed: false },
+          }
         ]
       },
       {
         id: 'processus-gel',
-        name: '2. Gel des Avoirs',
+        name: '2. GEL DES AVOIRS',
         icon: 'Lock',
         tasks: [
           { id: 'p2-1', name: 'Publication Liste CNLCT ou NU', flow_type: 'start', completed: false },
@@ -313,12 +320,17 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
                                 label: 'Oui',
                                 tasks: [
                                   { id: 'p2-8', name: 'Levee du Gel Max 3 jours', flow_type: 'process', completed: false },
-                                  { id: 'p2-9', name: 'Fin : Aucune action', flow_type: 'end', completed: false }
+                                  { id: 'p2-4-error', name: 'Fin : Aucune action', flow_type: 'end', completed: false }
                                 ]
                               },
                               {
                                 label: 'Non',
-                                tasks: []
+                                tasks: [
+                                  { id: 'p2-10-err', name: 'ACTION : GEL IMMEDIAT DE TOUS LES AVOIRS DELAI < 8 HEURES', flow_type: 'urgent', completed: false },
+                                  { id: 'p2-11-err', name: 'Interdiction de mise a disposition des fonds', flow_type: 'alert', completed: false },
+                                  { id: 'p2-12-err', name: 'INFORMATION CNLCT Valeur avoirs + Heure gel DELAI < 24 HEURES', flow_type: 'urgent', completed: false },
+                                  { id: 'p2-13-err', name: 'FIN : Maintien du Gel Jusqu a radiation liste', flow_type: 'end', completed: false }
+                                ]
                               }
                             ]
                           }
@@ -343,7 +355,7 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
       },
       {
         id: 'processus-monitoring',
-        name: '3. Monitoring',
+        name: '3. MONITORING',
         icon: 'Monitor',
         tasks: [
           { id: 'p3-1', name: 'Operation', flow_type: 'start', completed: false },
@@ -366,11 +378,16 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
                             branches: [
                               {
                                 label: 'Oui',
-                                tasks: [{ id: 'p3-7', name: 'Decl. CNLCT', flow_type: 'alert', completed: false }]
+                                tasks: [
+                                  { id: 'p3-7', name: 'Decl. CNLCT', flow_type: 'alert', completed: false },
+                                  { id: 'p3-9', name: 'Archivage', flow_type: 'process', completed: false }
+                                ]
                               },
                               {
                                 label: 'Non',
-                                tasks: []
+                                tasks: [
+                                  { id: 'p3-9-non', name: 'Archivage', flow_type: 'process', completed: false }
+                                ]
                               }
                             ]
                           }
@@ -386,14 +403,13 @@ export const initialCompliancePlanData: ComplianceCategory[] = [
               },
               {
                 label: 'Normal',
-                tasks: [{ id: 'p3-8', name: 'Classer', flow_type: 'process', completed: false }]
+                tasks: [{ id: 'p3-8-normal', name: 'Classer', flow_type: 'process', completed: false }]
               }
             ]
-          },
-          { id: 'p3-9', name: 'Archivage', flow_type: 'process', completed: false },
-          { id: 'p3-10', name: 'FIN', flow_type: 'end', completed: false }
+          }
         ]
       }
+
     ]
   },
 ];
