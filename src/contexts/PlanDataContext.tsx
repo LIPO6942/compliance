@@ -22,6 +22,7 @@ interface PlanDataContextType {
   addTask: (categoryId: string, subCategoryId: string, task: Omit<ComplianceTask, 'id' | 'completed' | 'year'>) => Promise<void>;
   editTask: (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed' | 'year'>>) => Promise<void>;
   removeTask: (categoryId: string, subCategoryId: string, taskId: string) => Promise<void>;
+  resetToInitialData: () => Promise<void>;
 }
 
 const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined);
@@ -61,42 +62,42 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   const [planData, setPlanData] = useState<ComplianceCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const { isLoaded } = useUser();
-  
+
   useEffect(() => {
     if (!isLoaded) return;
-  
+
     if (!isFirebaseConfigured || !db) {
       setPlanData(initialCompliancePlanData);
       setLoading(false);
       console.warn("Firebase is not configured. Plan data will use mock data and not be saved.");
       return;
     }
-  
+
     const planDocRef = doc(db, "plan", "main");
-  
+
     const unsubscribe = onSnapshot(planDocRef, async (docSnap) => {
-        const existingPlan = docSnap.data()?.plan;
-        // This logic forces a one-time overwrite if the plan in DB is missing or has fewer categories than the mock data.
-        if (!docSnap.exists() || !existingPlan || existingPlan.length < initialCompliancePlanData.length) {
-            console.log("Plan document is missing or outdated. Force-seeding with detailed data.");
-            try {
-                await updatePlanInFirestore(initialCompliancePlanData);
-                // No need to setPlanData here, onSnapshot will trigger again with the new data.
-            } catch (e) {
-                console.error("Error creating initial plan document:", e);
-                setPlanData(initialCompliancePlanData);
-                setLoading(false);
-            }
-        } else {
-            setPlanData(existingPlan);
-            setLoading(false);
+      const existingPlan = docSnap.data()?.plan;
+      // This logic forces a one-time overwrite if the plan in DB is missing or has fewer categories than the mock data.
+      if (!docSnap.exists() || !existingPlan || existingPlan.length < initialCompliancePlanData.length) {
+        console.log("Plan document is missing or outdated. Force-seeding with detailed data.");
+        try {
+          await updatePlanInFirestore(initialCompliancePlanData);
+          // No need to setPlanData here, onSnapshot will trigger again with the new data.
+        } catch (e) {
+          console.error("Error creating initial plan document:", e);
+          setPlanData(initialCompliancePlanData);
+          setLoading(false);
         }
-    }, (error) => {
-        console.error("Error fetching plan data, falling back to mock data: ", error);
-        setPlanData(initialCompliancePlanData);
+      } else {
+        setPlanData(existingPlan);
         setLoading(false);
+      }
+    }, (error) => {
+      console.error("Error fetching plan data, falling back to mock data: ", error);
+      setPlanData(initialCompliancePlanData);
+      setLoading(false);
     });
-  
+
     return () => unsubscribe();
   }, [isLoaded]);
 
@@ -114,7 +115,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       console.error("Erreur ajout catégorie:", error);
     }
   };
-  
+
   const editCategory = async (categoryId: string, categoryUpdate: Partial<Omit<ComplianceCategory, 'id' | 'subCategories'>>) => {
     try {
       const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, ...categoryUpdate } : cat);
@@ -151,7 +152,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       } : cat);
       await updatePlanInFirestore(newPlanData);
     } catch (error) {
-       console.error("Erreur modification sous-catégorie:", error);
+      console.error("Erreur modification sous-catégorie:", error);
     }
   };
 
@@ -160,7 +161,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       const newPlanData = planData.map(cat => cat.id === categoryId ? { ...cat, subCategories: cat.subCategories.filter(sub => sub.id !== subCategoryId) } : cat);
       await updatePlanInFirestore(newPlanData);
     } catch (error) {
-       console.error("Erreur suppression sous-catégorie:", error);
+      console.error("Erreur suppression sous-catégorie:", error);
     }
   };
 
@@ -182,18 +183,18 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const editTask = async (categoryId: string, subCategoryId: string, taskId: string, taskUpdate: Partial<Omit<ComplianceTask, 'id' | 'completed'>>) => {
-      try {
-        const newPlanData = planData.map(cat => (cat.id === categoryId ? {
-            ...cat,
-            subCategories: cat.subCategories.map(sub => (sub.id === subCategoryId ? {
-                ...sub,
-                tasks: sub.tasks.map(t => (t.id === taskId ? { ...t, ...taskUpdate } : t))
-            } : sub))
-        } : cat));
-        await updatePlanInFirestore(newPlanData);
-      } catch(error) {
-        console.error("Erreur modification tâche:", error);
-      }
+    try {
+      const newPlanData = planData.map(cat => (cat.id === categoryId ? {
+        ...cat,
+        subCategories: cat.subCategories.map(sub => (sub.id === subCategoryId ? {
+          ...sub,
+          tasks: sub.tasks.map(t => (t.id === taskId ? { ...t, ...taskUpdate } : t))
+        } : sub))
+      } : cat));
+      await updatePlanInFirestore(newPlanData);
+    } catch (error) {
+      console.error("Erreur modification tâche:", error);
+    }
   };
 
   const removeTask = async (categoryId: string, subCategoryId: string, taskId: string) => {
@@ -203,11 +204,11 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? { ...sub, tasks: sub.tasks.filter(t => t.id !== taskId) } : sub)
       } : cat);
       await updatePlanInFirestore(newPlanData);
-    } catch(error) {
+    } catch (error) {
       console.error("Erreur suppression tâche:", error);
     }
   };
-  
+
   const updateTaskCompletion = async (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => {
     const recursiveUpdate = (tasks: ComplianceTask[]): ComplianceTask[] => {
       return tasks.map(task => {
@@ -231,16 +232,16 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       const newPlanData = planData.map(cat =>
         cat.id === categoryId
           ? {
-              ...cat,
-              subCategories: cat.subCategories.map(sub =>
-                sub.id === subCategoryId
-                  ? {
-                      ...sub,
-                      tasks: recursiveUpdate(sub.tasks),
-                    }
-                  : sub
-              ),
-            }
+            ...cat,
+            subCategories: cat.subCategories.map(sub =>
+              sub.id === subCategoryId
+                ? {
+                  ...sub,
+                  tasks: recursiveUpdate(sub.tasks),
+                }
+                : sub
+            ),
+          }
           : cat
       );
       await updatePlanInFirestore(newPlanData);
@@ -249,21 +250,35 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const resetToInitialData = async () => {
+    try {
+      setLoading(true);
+      await updatePlanInFirestore(initialCompliancePlanData);
+      setPlanData(initialCompliancePlanData);
+      setLoading(false);
+    } catch (error) {
+      console.error("Erreur réinitialisation données:", error);
+      setLoading(false);
+      throw error;
+    }
+  };
+
   return (
     <PlanDataContext.Provider value={{
-        planData,
-        loading,
-        updateTaskCompletion,
-        addCategory,
-        editCategory,
-        removeCategory,
-        addSubCategory,
-        editSubCategory,
-        removeSubCategory,
-        addTask,
-        editTask,
-        removeTask
-        }}>
+      planData,
+      loading,
+      updateTaskCompletion,
+      addCategory,
+      editCategory,
+      removeCategory,
+      addSubCategory,
+      editSubCategory,
+      removeSubCategory,
+      addTask,
+      editTask,
+      removeTask,
+      resetToInitialData
+    }}>
       {children}
     </PlanDataContext.Provider>
   );
