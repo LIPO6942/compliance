@@ -65,13 +65,13 @@ const isTaskOverdue = (task: ComplianceTask) => {
 };
 
 const flowTypeStyles: Record<string, string> = {
-  start: 'bg-green-100 border-green-500 text-green-800 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300',
-  end: 'bg-green-100 border-green-500 text-green-800 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300',
-  process: 'bg-blue-100 border-blue-500 text-blue-800 dark:bg-blue-900/50 dark:border-blue-700 dark:text-blue-300',
-  decision: 'bg-yellow-100 border-yellow-500 text-yellow-800 dark:bg-yellow-900/50 dark:border-yellow-600 dark:text-yellow-300',
-  action: 'bg-orange-100 border-orange-500 text-orange-800 dark:bg-orange-900/50 dark:border-orange-600 dark:text-orange-300',
-  alert: 'bg-red-100 border-red-500 text-red-800 dark:bg-red-900/50 dark:border-red-700 dark:text-red-300',
-  urgent: 'bg-red-200 border-red-700 text-red-900 font-bold dark:bg-red-800/60 dark:border-red-500 dark:text-red-200',
+  start: 'bg-green-50 border-green-600 text-green-900 dark:bg-green-900/30 dark:border-green-500 dark:text-green-200',
+  end: 'bg-green-50 border-green-600 text-green-900 dark:bg-green-900/30 dark:border-green-500 dark:text-green-200',
+  process: 'bg-blue-50 border-blue-600 text-blue-900 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-200',
+  decision: 'bg-yellow-50 border-yellow-600 text-yellow-900 dark:bg-yellow-900/30 dark:border-yellow-600 dark:text-yellow-200',
+  action: 'bg-orange-50 border-orange-600 text-orange-900 dark:bg-orange-900/30 dark:border-orange-500 dark:text-orange-200',
+  alert: 'bg-red-50 border-red-600 text-red-900 dark:bg-red-900/30 dark:border-red-500 dark:text-red-200',
+  urgent: 'bg-red-100 border-red-700 text-red-950 font-bold dark:bg-red-800/40 dark:border-red-500 dark:text-red-100',
 };
 
 const FlowStep = ({ task, onToggle }: { task: ComplianceTask; onToggle: () => void; }) => {
@@ -80,13 +80,45 @@ const FlowStep = ({ task, onToggle }: { task: ComplianceTask; onToggle: () => vo
   const isUrgent = task.flow_type === 'urgent';
   const isAlert = task.flow_type === 'alert';
 
+  if (isDecision) {
+    // Vrai losange pour les décisions
+    return (
+      <div className="relative flex items-center justify-center w-full max-w-sm mx-auto" style={{ height: '120px' }}>
+        <div
+          className={cn(
+            "absolute w-28 h-28 border-2 cursor-pointer transition-all duration-300",
+            "shadow-md hover:shadow-xl hover:scale-110",
+            "flex items-center justify-center",
+            styleClass,
+            task.completed && "opacity-60"
+          )}
+          style={{ transform: 'rotate(45deg)' }}
+          onClick={onToggle}
+        >
+          <div className="absolute -top-3 -left-3" style={{ transform: 'rotate(-45deg)' }}>
+            <Checkbox checked={task.completed} className="border-current text-current" />
+          </div>
+          <span
+            className={cn(
+              "text-xs font-semibold text-center px-2 leading-tight",
+              task.completed && "line-through"
+            )}
+            style={{ transform: 'rotate(-45deg)', maxWidth: '80px' }}
+          >
+            {task.name}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Rectangles arrondis pour les autres types
   return (
     <div
       className={cn(
-        "relative w-full max-w-sm p-3 text-sm font-medium text-center border-2 cursor-pointer transition-all duration-300",
-        "shadow-md hover:shadow-xl hover:scale-[1.03]",
+        "relative w-full max-w-sm p-4 text-sm font-medium text-center border-2 cursor-pointer transition-all duration-300",
+        "shadow-md hover:shadow-xl hover:scale-[1.03] rounded-lg",
         styleClass,
-        isDecision ? "rounded-xl" : "rounded-lg",
         (isUrgent || isAlert) && "animate-pulse hover:animate-none",
         task.completed && "opacity-60"
       )}
