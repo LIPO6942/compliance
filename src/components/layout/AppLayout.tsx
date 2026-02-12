@@ -15,6 +15,9 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -32,6 +35,7 @@ import {
   Users,
   Map,
   AlertTriangle,
+  Workflow,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -50,7 +54,15 @@ import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContex
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
-  { href: "/plan", icon: Gavel, label: "Plan d'Organisation", title: "Plan d'Organisation" },
+  { 
+    href: "/plan", 
+    icon: Gavel, 
+    label: "Plan d'Organisation", 
+    title: "Plan d'Organisation",
+    subItems: [
+      { href: "/plan#processus-metiers", icon: Workflow, label: "Processus Métiers" }
+    ]
+  },
   { href: "/regulatory-watch", icon: SearchCheck, label: "Assistance Conformité IA", title: "Assistance Conformité IA" },
   { href: "/risk-mapping", icon: Map, label: "Cartographie des Risques", title: "Cartographie des Risques" },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },
@@ -108,6 +120,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       <span>{item.label}</span>
                     </SidebarMenuButton>
                   </Link>
+                   {item.subItems && (
+                    <SidebarMenuSub>
+                      {item.subItems.map((subItem) => (
+                        <SidebarMenuSubItem key={subItem.href}>
+                          <Link href={subItem.href} legacyBehavior passHref>
+                            <SidebarMenuSubButton>
+                              <subItem.icon />
+                              <span>{subItem.label}</span>
+                            </SidebarMenuSubButton>
+                          </Link>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
