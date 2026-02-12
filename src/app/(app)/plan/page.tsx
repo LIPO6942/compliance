@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { PlusCircle, Edit2, Trash2, MoreVertical, Clock, Link as LinkIcon, FileText } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, MoreVertical, Clock, Link as LinkIcon, FileText, ArrowDown } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -24,6 +24,7 @@ import { Logo } from "@/components/icons/Logo";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const categorySchema = z.object({ name: z.string().min(1, "Le nom de la catégorie est requis."), icon: z.string().min(1, "L'icône de la catégorie est requise.") });
 const subCategorySchema = z.object({ name: z.string().min(1, "Le nom de la sous-catégorie est requis."), icon: z.string().optional() });
@@ -63,6 +64,39 @@ const isTaskOverdue = (task: ComplianceTask) => {
     return task.deadline && !task.completed && new Date(task.deadline) < new Date();
 };
 
+const flowTypeStyles: Record<string, string> = {
+  start: 'bg-green-100 border-green-500 text-green-800 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300',
+  end: 'bg-green-100 border-green-500 text-green-800 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300',
+  process: 'bg-blue-100 border-blue-500 text-blue-800 dark:bg-blue-900/50 dark:border-blue-700 dark:text-blue-300',
+  decision: 'bg-yellow-100 border-yellow-500 text-yellow-800 dark:bg-yellow-900/50 dark:border-yellow-600 dark:text-yellow-300',
+  action: 'bg-orange-100 border-orange-500 text-orange-800 dark:bg-orange-900/50 dark:border-orange-600 dark:text-orange-300',
+  alert: 'bg-red-100 border-red-500 text-red-800 dark:bg-red-900/50 dark:border-red-700 dark:text-red-300',
+  urgent: 'bg-red-200 border-red-700 text-red-900 font-bold dark:bg-red-800/60 dark:border-red-500 dark:text-red-200',
+};
+
+const FlowStep = ({ task, onToggle, categoryId, subCategoryId }: { task: ComplianceTask; onToggle: () => void; categoryId: string; subCategoryId: string; }) => {
+  const styleClass = flowTypeStyles[task.flow_type || 'process'];
+  const isDecision = task.flow_type === 'decision';
+
+  return (
+    <div className="w-full flex justify-center group/flow">
+      <div
+        className={cn(
+          "relative w-full max-w-md p-3 text-sm font-medium text-center border-2 rounded-lg shadow-sm cursor-pointer transition-transform hover:scale-105",
+          styleClass,
+          isDecision && "rounded-xl",
+          task.completed && "opacity-60"
+        )}
+        onClick={onToggle}
+      >
+        <div className="absolute top-2 left-2">
+            <Checkbox checked={task.completed} className="border-current text-current" />
+        </div>
+        <span className={cn(task.completed && "line-through")}>{task.name}</span>
+      </div>
+    </div>
+  );
+};
 
 export default function PlanPage() {
   const { 
@@ -218,6 +252,7 @@ export default function PlanPage() {
         <div className="space-y-6">
             {planData.length > 0 ? planData.map((category: ComplianceCategory) => {
                 const Icon = getIconComponent(category.icon);
+                const isProcessCategory = category.name === "Processus Métiers Clés";
                 return (
                     <Card key={category.id} id={category.id} className="shadow-md overflow-hidden">
                         <CardHeader className="flex flex-row items-center justify-between bg-muted/30 group">
@@ -261,6 +296,30 @@ export default function PlanPage() {
                             <div className="space-y-4">
                                 {category.subCategories.map((subCategory: ComplianceSubCategory) => {
                                 const SubIcon = getIconComponent(subCategory.icon);
+                                if (isProcessCategory) {
+                                    return (
+                                        <Card key={subCategory.id} className="bg-background/50 shadow-sm group">
+                                            <CardHeader className="pb-3 pt-4 px-4 flex flex-row justify-between items-center">
+                                                <div className="flex items-center">
+                                                    <SubIcon className="h-5 w-5 mr-2 text-accent" />
+                                                    <CardTitle className="text-lg font-medium font-headline">{subCategory.name}</CardTitle>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="px-4 pb-4">
+                                                <div className="flex flex-col items-center w-full space-y-2">
+                                                    {subCategory.tasks.map((task, index) => (
+                                                        <React.Fragment key={task.id}>
+                                                            <FlowStep task={task} onToggle={() => handleToggleTaskCompletion(category.id, subCategory.id, task.id)} categoryId={category.id} subCategoryId={subCategory.id} />
+                                                            {index < subCategory.tasks.length - 1 && (
+                                                                <ArrowDown className="h-6 w-6 text-muted-foreground" />
+                                                            )}
+                                                        </React.Fragment>
+                                                    ))}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    )
+                                }
                                 return (
                                 <Card key={subCategory.id} className="bg-background/50 shadow-sm group">
                                     <CardHeader className="pb-3 pt-4 px-4 flex flex-row justify-between items-center">

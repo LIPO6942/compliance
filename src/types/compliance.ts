@@ -8,6 +8,7 @@ export interface ComplianceTask {
   completed: boolean;
   deadline?: string; // ISO date string
   documentIds?: string[];
+  flow_type?: 'start' | 'process' | 'decision' | 'action' | 'alert' | 'urgent' | 'end';
 }
 
 export interface ComplianceSubCategory {
@@ -151,5 +152,3 @@ export interface NewsItem {
   url?: string;
   imageUrl?: string;
 }
-
-    
