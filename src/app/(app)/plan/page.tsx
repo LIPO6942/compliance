@@ -70,13 +70,13 @@ const isTaskOverdue = (task: ComplianceTask) => {
 };
 
 const flowTypeStyles: Record<string, string> = {
-  start: 'bg-emerald-50 border-emerald-500 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-400 dark:text-emerald-100 shadow-emerald-100',
-  end: 'bg-emerald-50 border-emerald-500 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-400 dark:text-emerald-100 shadow-emerald-100',
-  process: 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-900/30 dark:border-blue-400 dark:text-blue-100 shadow-blue-100',
-  decision: 'bg-amber-50 border-amber-400 text-amber-800 dark:bg-amber-900/30 dark:border-amber-400 dark:text-amber-100 shadow-amber-100',
-  action: 'bg-orange-50 border-orange-400 text-orange-700 dark:bg-orange-900/30 dark:border-orange-400 dark:text-orange-100 shadow-orange-100',
-  alert: 'bg-rose-50 border-rose-400 text-rose-700 dark:bg-rose-900/30 dark:border-rose-400 dark:text-rose-100 shadow-rose-100',
-  urgent: 'bg-red-50 border-red-500 text-red-700 font-bold border-2 animate-pulse dark:bg-red-900/40 dark:border-red-400 dark:text-red-100 shadow-red-200',
+  start: 'bg-emerald-50 border-emerald-500 text-emerald-800 dark:bg-emerald-900/40 dark:border-emerald-400 dark:text-emerald-50 shadow-[0_4px_12px_rgba(16,185,129,0.15)]',
+  end: 'bg-emerald-50 border-emerald-500 text-emerald-800 dark:bg-emerald-900/40 dark:border-emerald-400 dark:text-emerald-50 shadow-[0_4px_12px_rgba(16,185,129,0.15)]',
+  process: 'bg-blue-50 border-blue-400 text-blue-800 dark:bg-blue-900/40 dark:border-blue-400 dark:text-blue-50 shadow-[0_4px_12px_rgba(59,130,246,0.15)]',
+  decision: 'bg-[#FFFBEB] border-[#F59E0B] text-[#92400E] dark:bg-amber-900/40 dark:border-amber-500 dark:text-amber-50 shadow-[0_4px_12px_rgba(245,158,11,0.12)]',
+  action: 'bg-orange-50 border-orange-400 text-orange-800 dark:bg-orange-900/40 dark:border-orange-400 dark:text-orange-50 shadow-[0_4px_12px_rgba(249,115,22,0.15)]',
+  alert: 'bg-rose-50 border-rose-400 text-rose-800 dark:bg-rose-900/40 dark:border-rose-400 dark:text-rose-50 shadow-[0_4px_12px_rgba(244,63,94,0.15)]',
+  urgent: 'bg-red-50 border-red-500 text-red-800 font-bold border-2 animate-pulse dark:bg-red-900/50 dark:border-red-400 dark:text-red-50 shadow-[0_0_20px_rgba(239,68,68,0.3)]',
 };
 
 const FlowStep = ({ task, onToggle, onEdit }: { task: ComplianceTask; onToggle: () => void; onEdit?: (task: ComplianceTask) => void; }) => {
@@ -87,21 +87,21 @@ const FlowStep = ({ task, onToggle, onEdit }: { task: ComplianceTask; onToggle: 
   if (isDecision) {
     return (
       <div className="relative flex items-center justify-center p-4 group">
-          <div
+        <div
           className={cn(
-            "w-[110px] h-[110px] border-2 cursor-pointer transition-all duration-300 relative",
-            "shadow-sm group-hover:shadow-md group-hover:scale-[1.03]",
+            "w-[120px] h-[120px] border-2 cursor-pointer transition-all duration-300 relative",
+            "group-hover:shadow-lg group-hover:scale-[1.05] group-active:scale-95",
             styleClass,
-            task.completed && "opacity-60 grayscale-[0.2]"
+            task.completed && "opacity-50 grayscale-[0.3]"
           )}
           style={{ clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }}
           onClick={onToggle}
           onDoubleClick={() => onEdit && onEdit(task)}
         >
-          <div className="absolute inset-0 flex items-center justify-center p-3">
+          <div className="absolute inset-0 flex items-center justify-center p-4">
             <span
               className={cn(
-                "text-[10px] sm:text-[11px] font-bold text-center leading-tight",
+                "text-[10px] sm:text-[12px] font-bold text-center leading-tight tracking-tight",
                 task.completed && "line-through"
               )}
             >
@@ -109,8 +109,8 @@ const FlowStep = ({ task, onToggle, onEdit }: { task: ComplianceTask; onToggle: 
             </span>
           </div>
         </div>
-        <div className="absolute top-0 right-0 p-1 bg-white dark:bg-background rounded-full border shadow-sm z-10">
-          <Checkbox checked={task.completed} className="h-3.5 w-3.5 border-primary text-primary" />
+        <div className="absolute top-1 right-1 p-1.5 bg-white dark:bg-slate-800 rounded-full border shadow-md z-30 transform group-hover:scale-110 transition-transform">
+          <Checkbox checked={task.completed} className="h-4 w-4 border-primary text-primary" />
         </div>
       </div>
     );
@@ -119,24 +119,24 @@ const FlowStep = ({ task, onToggle, onEdit }: { task: ComplianceTask; onToggle: 
   return (
     <div
       className={cn(
-        "relative w-[180px] sm:w-[220px] min-h-[50px] p-3 text-[11px] sm:text-xs font-bold text-center border-2 cursor-pointer transition-all duration-300 flex items-center justify-center group/card",
-        "shadow-sm hover:shadow-md hover:scale-[1.01]",
-        isStartEnd ? "rounded-full px-6" : "rounded-xl",
+        "relative w-[180px] sm:w-[220px] min-h-[56px] p-4 text-xs sm:text-sm font-bold text-center border-2 cursor-pointer transition-all duration-300 flex items-center justify-center group/card",
+        "shadow-sm hover:shadow-lg hover:scale-[1.02] active:scale-95",
+        isStartEnd ? "rounded-full px-8" : "rounded-2xl",
         styleClass,
-        task.completed && "opacity-60 grayscale-[0.2]"
+        task.completed && "opacity-50 grayscale-[0.3]"
       )}
       onClick={onToggle}
       onDoubleClick={() => onEdit && onEdit(task)}
     >
-      <div className="absolute top-[-8px] right-2 p-1 bg-white dark:bg-background rounded-full border shadow-sm z-10 opacity-0 group-hover/card:opacity-100 transition-opacity">
-        <Checkbox checked={task.completed} className="h-3.5 w-3.5 border-primary text-primary" />
+      <div className="absolute -top-2 -right-2 p-1.5 bg-white dark:bg-slate-800 rounded-full border shadow-md z-30 opacity-0 group-hover/card:opacity-100 transition-all duration-300 transform group-hover/card:scale-110">
+        <Checkbox checked={task.completed} className="h-4 w-4 border-primary text-primary" />
       </div>
       {task.completed && (
-        <div className="absolute top-1 right-1">
-          <LucideIcons.CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-50" />
+        <div className="absolute -top-1 -left-1">
+          <LucideIcons.CheckCircle2 className="h-6 w-6 text-emerald-500 fill-white dark:fill-slate-900" />
         </div>
       )}
-      <span className={cn("px-2", task.completed && "line-through opacity-70")}>{task.name}</span>
+      <span className={cn("px-2 leading-tight", task.completed && "line-through opacity-70")}>{task.name}</span>
     </div>
   );
 };
@@ -157,48 +157,56 @@ const FlowConnector = ({
   onRename?: () => void,
   onAddTask?: () => void,
 }) => {
-  const colorClass = active ? "stroke-primary" : "stroke-slate-300 dark:stroke-slate-600";
-  const arrowClass = active ? "fill-primary" : "fill-slate-300 dark:fill-slate-600";
-  const badgeClass = label === 'Oui' || label === 'Normal' ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
-    label === 'Non' || label === 'Inhabituel' ? "bg-rose-100 text-rose-700 border-rose-200" :
-      "bg-blue-100 text-blue-700 border-blue-200";
+  const colorClass = active ? "stroke-primary" : "stroke-slate-400 dark:stroke-slate-500";
+  const arrowClass = active ? "fill-primary" : "fill-slate-400 dark:fill-slate-500";
+  const badgeClass = label === 'Oui' || label === 'Normal' ? "bg-emerald-500 text-white border-none shadow-sm" :
+    label === 'Non' || label === 'Inhabituel' ? "bg-rose-500 text-white border-none shadow-sm" :
+      "bg-primary text-white border-none shadow-sm";
 
   if (variant === 'side-right') {
     return (
-      <div className="relative absolute left-1/2 top-1/2 -translate-y-1/2 flex items-center" style={{ width: '160px' }}>
-        <svg width="100" height="20" className="overflow-visible">
-          <path d="M 0 10 L 80 10" className={cn(colorClass, "stroke-2")} fill="none" />
-          <path d="M 80 5 L 90 10 L 80 15 Z" className={arrowClass} />
+      <div className="relative absolute left-1/2 top-1/2 -translate-y-1/2 flex items-center" style={{ width: '120px' }}>
+        <svg width="80" height="24" className="overflow-visible">
+          <defs>
+            <marker id="arrowhead-right" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orientation="auto">
+              <polygon points="0 0, 10 3.5, 0 7" className={arrowClass} />
+            </marker>
+          </defs>
+          <path d="M 0 12 L 70 12" className={cn(colorClass, "stroke-2")} fill="none" markerEnd="url(#arrowhead-right)" />
         </svg>
         {label && (
-          <Badge className={cn("absolute left-4 -top-3 scale-75 whitespace-nowrap", badgeClass)} variant="outline">
+          <Badge className={cn("absolute left-4 -top-3 scale-90 px-2 py-0.5 font-bold rounded-md", badgeClass)} variant="default">
             {label}
           </Badge>
         )}
-        <div className="absolute right-[-150px] top-[-6px] flex gap-2">
-          <Button size="sm" variant="ghost" onClick={() => onAddBranch && onAddBranch()} title="Ajouter une branche"><PlusCircle className="h-4 w-4" /></Button>
-          <Button size="sm" variant="ghost" onClick={() => onAddTask && onAddTask()} title="Ajouter tâche cible"><Edit2 className="h-4 w-4" /></Button>
-          <Button size="sm" variant="ghost" onClick={() => onRename && onRename()} title="Renommer la branche"><ArrowDown className="h-4 w-4" /></Button>
+        <div className="absolute right-[-40px] top-[-10px] hidden group-hover/connector:flex gap-1 z-40 bg-white/80 dark:bg-slate-800/80 p-1 rounded-lg backdrop-blur-sm border shadow-sm">
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onAddBranch && onAddBranch()} title="Ajouter une branche"><PlusCircle className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onAddTask && onAddTask()} title="Ajouter tâche cible"><Edit2 className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRename && onRename()} title="Renommer la branche"><ArrowDown className="h-4 w-4" /></Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center py-4 relative min-h-[40px] group/connector">
-      <svg width="20" height="40" className="overflow-visible">
-        <path d="M 10 0 L 10 30" className={cn(colorClass, "stroke-2")} fill="none" />
-        <path d="M 5 30 L 10 40 L 15 30 Z" className={arrowClass} />
+    <div className="flex flex-col items-center py-5 relative min-h-[50px] group/connector">
+      <svg width="24" height="50" className="overflow-visible">
+        <defs>
+          <marker id="arrowhead-down" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orientation="90">
+            <polygon points="0 0, 10 3.5, 0 7" className={arrowClass} />
+          </marker>
+        </defs>
+        <path d="M 12 0 L 12 40" className={cn(colorClass, "stroke-2")} fill="none" markerEnd="url(#arrowhead-down)" />
       </svg>
       {label && (
-        <Badge className={cn("absolute top-1/2 -translate-y-1/2 z-10 scale-75", badgeClass)} variant="outline">
+        <Badge className={cn("absolute top-1/2 -translate-y-1/2 z-10 scale-90 px-2 py-0.5 font-bold rounded-md", badgeClass)} variant="default">
           {label}
         </Badge>
       )}
-      <div className="absolute left-1/2 -translate-x-1/2 top-0 mt-1 hidden group-hover/connector:flex gap-2">
-        <Button size="sm" variant="ghost" onClick={() => onAddBranch && onAddBranch()} title="Ajouter une branche"><PlusCircle className="h-4 w-4" /></Button>
-        <Button size="sm" variant="ghost" onClick={() => onAddTask && onAddTask()} title="Ajouter tâche cible"><Edit2 className="h-4 w-4" /></Button>
-        <Button size="sm" variant="ghost" onClick={() => onRename && onRename()} title="Renommer la branche"><ArrowDown className="h-4 w-4" /></Button>
+      <div className="absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 hidden group-hover/connector:flex gap-1 z-40 bg-white/80 dark:bg-slate-800/80 p-1 rounded-lg backdrop-blur-sm border shadow-sm">
+        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onAddBranch && onAddBranch()} title="Ajouter une branche"><PlusCircle className="h-4 w-4" /></Button>
+        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onAddTask && onAddTask()} title="Ajouter tâche cible"><Edit2 className="h-4 w-4" /></Button>
+        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRename && onRename()} title="Renommer la branche"><ArrowDown className="h-4 w-4" /></Button>
       </div>
     </div>
   );
@@ -248,8 +256,8 @@ const FlowRenderer = ({
                   <div className="flex flex-col items-center min-w-[240px]">
                     {noBranch ? (
                       <>
-                          <FlowConnector label={noBranch.label} active={task.completed} onAddBranch={() => onAddBranch && onAddBranch(task.id)} onAddTask={() => onAddTaskToBranch && onAddTaskToBranch(task.id, noBranch.label)} onRename={() => onRenameBranch && onRenameBranch(task.id, noBranch.label)} />
-                          <FlowRenderer tasks={noBranch.tasks} onToggleTask={onToggleTask} onEditTask={onEditTask} onAddBranch={onAddBranch} onRenameBranch={onRenameBranch} onAddTaskToBranch={onAddTaskToBranch} categoryId={categoryId} subCategoryId={subCategoryId} />
+                        <FlowConnector label={noBranch.label} active={task.completed} onAddBranch={() => onAddBranch && onAddBranch(task.id)} onAddTask={() => onAddTaskToBranch && onAddTaskToBranch(task.id, noBranch.label)} onRename={() => onRenameBranch && onRenameBranch(task.id, noBranch.label)} />
+                        <FlowRenderer tasks={noBranch.tasks} onToggleTask={onToggleTask} onEditTask={onEditTask} onAddBranch={onAddBranch} onRenameBranch={onRenameBranch} onAddTaskToBranch={onAddTaskToBranch} categoryId={categoryId} subCategoryId={subCategoryId} />
                       </>
                     ) : nextTask ? (
                       <FlowConnector active={task.completed} />
@@ -369,7 +377,7 @@ export default function PlanPage() {
     }
   };
 
-  
+
 
   const openDialog = (type: "category" | "subCategory" | "task", mode: "add" | "edit", data?: any, parentId?: string, grandParentId?: string) => {
     setDialogState({ type, mode, data, parentId, grandParentId });
