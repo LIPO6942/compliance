@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChevronsUpDown, X, User, Shield, Zap, FileText, Activity, Workflow, CheckCircle2 } from "lucide-react";
 import { usePlanData } from "@/contexts/PlanDataContext";
+import { useRiskMapping } from "@/contexts/RiskMappingContext";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -92,9 +93,11 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
   const categoryForm = useForm<CategoryFormValues>({ resolver: zodResolver(categorySchema) });
   const subCategoryForm = useForm<SubCategoryFormValues>({ resolver: zodResolver(subCategorySchema) });
   const taskForm = useForm<TaskFormValues>({ resolver: zodResolver(taskSchema) });
-  const { availableUsers } = usePlanData();
+  const { availableUsers, activeWorkflows } = usePlanData();
   const { documents } = useDocuments();
+  const { risks } = useRiskMapping();
   const [branchInput, setBranchInput] = React.useState("");
+  const [controlInput, setControlInput] = React.useState("");
 
   React.useEffect(() => {
     if (dialogState.mode === 'edit' && dialogState.data) {
@@ -256,15 +259,20 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Branches / Liaisons (labels)</FormLabel>
-                        <div className="flex gap-2 items-center">
-                          <Input placeholder="Ex: Oui, Non" value={branchInput} onChange={(e) => setBranchInput(e.target.value)} />
-                          <Button type="button" variant="outline" onClick={() => {
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Ex: Oui, Non"
+                            value={branchInput}
+                            onChange={(e) => setBranchInput(e.target.value)}
+                            className="text-xs"
+                          />
+                          <Button type="button" size="sm" variant="outline" onClick={() => {
+                            if (!branchInput.trim()) return;
                             const current = field.value || [];
-                            const trimmed = (branchInput || '').trim();
-                            if (trimmed && !current.includes(trimmed)) {
-                              field.onChange([...current, trimmed]);
-                              setBranchInput("");
+                            if (!current.includes(branchInput.trim())) {
+                              field.onChange([...current, branchInput.trim()]);
                             }
+                            setBranchInput("");
                           }}>Ajouter</Button>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-1">
@@ -351,22 +359,144 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                   <FormField control={taskForm.control} name="risks" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="flex items-center gap-2 font-bold"><Zap className="h-4 w-4 text-amber-500" /> Risques Associés</FormLabel>
-                      <FormControl><Input placeholder="IDs des risques (ex: R1, R2)" className="text-xs" {...field} value={(field.value || []).join(', ')} onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(Boolean))} /></FormControl>
-                      <FormDescription className="text-[10px]">Séparez les IDs par des virgules.</FormDescription>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button variant="outline" className="w-full justify-between h-auto min-h-10 text-xs text-left">
+                              <div className="flex gap-1 flex-wrap">
+                                {field.value && field.value.length > 0
+                                  ? risks.filter(r => field.value?.includes(r.id)).map(risk => <Badge key={risk.id} variant="outline" className="text-[10px] border-amber-500 text-amber-700 bg-amber-50">{risk.riskDescription.substring(0, 20)}...</Badge>)
+                                  : "Sélectionner des risques"}
+                              </div>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                          <ScrollArea className="h-48">
+                            <div className="p-2 space-y-1">
+                              {risks.length > 0 ? risks.map(risk => {
+                                const isSelected = field.value?.includes(risk.id) ?? false;
+                                return (
+                                  <div key={risk.id} className="flex items-start space-x-2 p-2 rounded-md hover:bg-accent cursor-pointer" onClick={() => {
+                                    const current = field.value || [];
+                                    field.onChange(isSelected ? current.filter((id: string) => id !== risk.id) : [...current, risk.id]);
+                                  }}>
+                                    <Checkbox checked={isSelected} className="mt-1" />
+                                    <div className="flex flex-col">
+                                      <label className="text-xs font-medium cursor-pointer">{risk.riskDescription}</label>
+                                      <span className="text-[10px] text-muted-foreground">{risk.category} - {risk.riskLevel}</span>
+                                    </div>
+                                  </div>
+                                );
+                              }) : <div className="p-2 text-xs text-muted-foreground">Aucun risque défini.</div>}
+                            </div>
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
                     </FormItem>
                   )} />
 
                   <FormField control={taskForm.control} name="processes" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="flex items-center gap-2 font-bold"><Workflow className="h-4 w-4 text-purple-500" /> Processus Liés</FormLabel>
-                      <FormControl><Input placeholder="IDs des processus (ex: P1, P2)" className="text-xs" {...field} value={(field.value || []).join(', ')} onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(Boolean))} /></FormControl>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button variant="outline" className="w-full justify-between h-auto min-h-10 text-xs text-left">
+                              <div className="flex gap-1 flex-wrap">
+                                {field.value && field.value.length > 0
+                                  ? (field.value || []).map((pid: string) => <Badge key={pid} variant="outline" className="text-[10px] border-purple-500 text-purple-700 bg-purple-50">{pid.replace('processus-', '').toUpperCase()}</Badge>)
+                                  : "Sélectionner des processus"}
+                              </div>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                          <ScrollArea className="h-48">
+                            <div className="p-2 space-y-1">
+                              {Object.keys(activeWorkflows).length > 0 ? Object.keys(activeWorkflows).map(wfId => {
+                                const isSelected = field.value?.includes(wfId) ?? false;
+                                const label = wfId.replace('processus-', '').toUpperCase();
+                                return (
+                                  <div key={wfId} className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent cursor-pointer" onClick={() => {
+                                    const current = field.value || [];
+                                    field.onChange(isSelected ? current.filter((id: string) => id !== wfId) : [...current, wfId]);
+                                  }}>
+                                    <Checkbox checked={isSelected} />
+                                    <label className="text-xs font-medium cursor-pointer">{label}</label>
+                                  </div>
+                                );
+                              }) : <div className="p-2 text-xs text-muted-foreground">Aucun processus défini.</div>}
+                            </div>
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
                     </FormItem>
                   )} />
 
                   <FormField control={taskForm.control} name="controls" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="flex items-center gap-2 font-bold"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Contrôles de Référence</FormLabel>
-                      <FormControl><Input placeholder="IDs des contrôles (ex: C1, C2)" className="text-xs" {...field} value={(field.value || []).join(', ')} onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(Boolean))} /></FormControl>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Ajouter un contrôle ou sélectionner une suggestion..."
+                            value={controlInput}
+                            onChange={(e) => setControlInput(e.target.value)}
+                            className="text-xs"
+                          />
+                          <Button type="button" size="sm" variant="outline" onClick={() => {
+                            if (!controlInput.trim()) return;
+                            const current = field.value || [];
+                            if (!current.includes(controlInput.trim())) {
+                              field.onChange([...current, controlInput.trim()]);
+                            }
+                            setControlInput("");
+                          }}>Ajouter</Button>
+                        </div>
+
+                        {/* Suggestions based on Risk Actions */}
+                        <div className="text-[10px] text-muted-foreground">
+                          <span className="font-semibold">Suggestions (Actions Risques):</span>
+                          <ScrollArea className="h-24 w-full border rounded-md mt-1 p-2">
+                            <div className="flex flex-wrap gap-1">
+                              {risks.filter(r => r.expectedAction && !(field.value || []).includes(r.expectedAction)).map((r, i) => (
+                                <Badge
+                                  key={i}
+                                  variant="outline"
+                                  className="cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition-colors"
+                                  onClick={() => {
+                                    const current = field.value || [];
+                                    field.onChange([...current, r.expectedAction]);
+                                  }}
+                                >
+                                  + {r.expectedAction.substring(0, 30)}{r.expectedAction.length > 30 ? '...' : ''}
+                                </Badge>
+                              ))}
+                              {risks.length === 0 && <span className="italic">Aucune suggestion disponible.</span>}
+                            </div>
+                          </ScrollArea>
+                        </div>
+
+                        {/* Selected Controls */}
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {(field.value || []).map((control: string, idx: number) => (
+                            <Badge key={idx} variant="secondary" className="flex items-center gap-1 text-[10px]">
+                              {control}
+                              <X
+                                className="h-3 w-3 cursor-pointer opacity-50 hover:opacity-100"
+                                onClick={() => {
+                                  const newVals = (field.value || []).filter((_: string, i: number) => i !== idx);
+                                  field.onChange(newVals);
+                                }}
+                              />
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <FormDescription className="text-[10px]">Définissez les contrôles (ex: "Validation DAF", "Scan Quotidien"). Vous pouvez utiliser les actions d'atténuation des risques comme base.</FormDescription>
                     </FormItem>
                   )} />
 

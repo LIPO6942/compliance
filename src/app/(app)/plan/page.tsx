@@ -466,7 +466,7 @@ export default function PlanPage() {
     if (dialogState.grandParentId && dialogState.parentId) {
       const branchObjs = (values.branches || []).map(label => ({ label, tasks: [] }));
       const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined, branches: branchObjs };
-      await addTaskContext(dialogState.grandParentId, dialogState.parentId, taskData);
+      await addTask(dialogState.grandParentId, dialogState.parentId, taskData);
       toast({ title: "Tâche ajoutée", description: `La tâche "${values.name}" a été ajoutée.` });
     }
     closeDialog();
@@ -480,7 +480,7 @@ export default function PlanPage() {
         return found ? found : { label, tasks: [] };
       });
       const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined, branches: branchObjs };
-      await editTaskContext(dialogState.grandParentId, dialogState.parentId, dialogState.data.id, taskData);
+      await editTask(dialogState.grandParentId, dialogState.parentId, dialogState.data.id, taskData);
       toast({ title: "Tâche modifiée", description: `La tâche "${values.name}" a été modifiée.` });
     }
     closeDialog();
