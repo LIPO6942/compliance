@@ -4,7 +4,7 @@ import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask, Workflo
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, getDoc, collection, query, where, QuerySnapshot, DocumentData } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, getDoc, collection, query, where, orderBy, limit, QuerySnapshot, DocumentData } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
