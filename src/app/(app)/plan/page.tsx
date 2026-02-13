@@ -316,7 +316,7 @@ export default function PlanPage() {
     addBranch,
     removeBranch,
     renameBranch,
-    addTaskToBranch,
+    activeWorkflows,
   } = usePlanData();
   const { documents, loading: docsLoading } = useDocuments();
 
