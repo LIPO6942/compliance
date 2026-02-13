@@ -394,7 +394,7 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                         // Analyse des noeuds Mermaid on the fly
                         const nodes: { id: string, label: string }[] = [];
                         if (mermaidCode) {
-                          const regex = /([a-zA-Z0-9_\-\.]+)\s*([\\[\\(\\{\\>\\\\/]{1,2})(.*?)([\\]\\)\\}]{1,2})/g;
+                          const regex = /([a-zA-Z0-9_\-\.]+)\s*([\[\(\{\>\\\/]{1,2})(.*?)([\]\)\\}]{1,2})/g;
                           let match;
                           while ((match = regex.exec(mermaidCode)) !== null) {
                             const label = match[3].replace(/^"+|"+$/g, '').split('<br')[0].trim();
