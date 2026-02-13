@@ -68,8 +68,8 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     tasks.forEach(t => {
                         if (t.grcWorkflowId === chartId && t.grcNodeId) {
                             found.push({
+                                taskId: t.id,
                                 nodeId: t.grcNodeId,
-                                taskName: t.name,
                                 taskName: t.name,
                                 responsibleUserName: t.raci?.responsible ?
                                     availableUsers.find(u => u.id === t.raci.responsible)?.name || 'Anonyme' : 'Non assigné',
@@ -91,8 +91,16 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     cat.subCategories.flatMap((sub: any) => getGrcTasks(sub.tasks))
                 );
 
-                // Fusion des tâches d'assignation et des tâches de contrôle GRC
-                const allTasksToDisplay = [...workflowTasks.filter(t => t.workflowId === chartId), ...planGrcTasks];
+                // Fusion des tâches d'assignation et des tâches de contrôle GRC avec déduplication stricte par ID
+                const allTasksRaw = [...workflowTasks.filter(t => t.workflowId === chartId), ...planGrcTasks];
+                const uniqueTasksMap = new Map();
+                allTasksRaw.forEach(t => {
+                    const uniqueKey = t.taskId ? `${t.taskId}-${t.nodeId}` : `${t.limitId || Math.random()}-${t.nodeId}`;
+                    if (!uniqueTasksMap.has(uniqueKey)) {
+                        uniqueTasksMap.set(uniqueKey, t);
+                    }
+                });
+                const allTasksToDisplay = Array.from(uniqueTasksMap.values());
 
                 // On regroupe par nodeId pour ne pas dupliquer les boîtes mais cumuler les infos
                 const tasksByNode: Record<string, any[]> = {};
