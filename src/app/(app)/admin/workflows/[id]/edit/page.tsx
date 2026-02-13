@@ -240,34 +240,58 @@ export default function WorkflowEditorPage() {
     return (
         <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
             {/* Tool Bar */}
-            <div className="border-b bg-white dark:bg-slate-900 px-6 py-3 flex justify-between items-center shrink-0 shadow-sm z-10">
-                <div className="flex items-center gap-4">
+            <div className="border-b bg-white/80 backdrop-blur-md dark:bg-slate-900/80 px-6 py-4 flex justify-between items-center shrink-0 shadow-sm z-20 sticky top-0">
+                <div className="flex items-center gap-6">
                     <Link href="/admin/workflows">
-                        <Button variant="ghost" size="icon" className="rounded-full">
+                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100 transition-colors">
                             <LucideIcons.ArrowLeft className="h-5 w-5" />
                         </Button>
                     </Link>
                     <div className="flex flex-col">
-                        <Input
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="h-7 font-bold border-none px-0 focus-visible:ring-0 text-xl w-[350px] bg-transparent"
-                            placeholder="Nom du workflow"
-                        />
                         <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-[10px] h-4 font-mono">ID: {id}</Badge>
+                            <Input
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="h-7 font-bold border-none px-0 focus-visible:ring-0 text-xl w-[300px] bg-transparent text-slate-800 dark:text-white"
+                                placeholder="Nom du workflow"
+                            />
                             {activeWorkflow?.activeVersionId && (
-                                <Badge className="text-[10px] h-4 bg-emerald-500 text-white border-none">Publié: V{activeWorkflow.currentVersion}</Badge>
+                                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 px-2 py-0 h-5 text-[10px] font-bold">
+                                    PUBLIÉ V{activeWorkflow.currentVersion}
+                                </Badge>
                             )}
                         </div>
+                        <p className="text-[10px] text-slate-500 font-medium">ID: {id} • Workflow {id.toUpperCase()}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handleSave('draft')} disabled={saving} className="border-slate-200">
-                        <LucideIcons.Save className="mr-2 h-4 w-4" /> Brouillon
+
+                <div className="flex items-center gap-3">
+                    <Link href="/process">
+                        <Button variant="outline" className="rounded-xl border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold gap-2 transition-all active:scale-95 shadow-sm h-9">
+                            <LucideIcons.ExternalLink className="h-4 w-4" />
+                            Voir Processus
+                        </Button>
+                    </Link>
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSave('draft')}
+                        disabled={saving}
+                        className="rounded-xl border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold gap-2 transition-all active:scale-95 shadow-sm h-9"
+                    >
+                        {saving ? <LucideIcons.Loader2 className="h-4 w-4 animate-spin" /> : <LucideIcons.Save className="h-4 w-4" />}
+                        Brouillon
                     </Button>
-                    <Button size="sm" onClick={() => handleSave('published')} disabled={saving} className="bg-primary hover:bg-primary/90">
-                        <LucideIcons.CloudUpload className="mr-2 h-4 w-4" /> Publier
+
+                    <Button
+                        size="sm"
+                        onClick={() => handleSave('published')}
+                        disabled={saving}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-[0_4px_12px_rgba(79,70,229,0.3)] gap-2 transition-all active:scale-95 px-6 font-bold h-9"
+                    >
+                        {saving ? <LucideIcons.Loader2 className="h-4 w-4 animate-spin" /> : <LucideIcons.CloudUpload className="h-4 w-4" />}
+                        Publier
                     </Button>
                 </div>
             </div>
@@ -409,30 +433,34 @@ export default function WorkflowEditorPage() {
                                     </div>
                                 </div>
 
-                                <div className="grid gap-4">
+                                <div className="grid gap-6">
                                     {detectedNodes.map(node => {
                                         const task = getTaskForNode(node.id);
                                         return (
-                                            <Card key={node.id} className="border-slate-200">
-                                                <CardContent className="pt-4 space-y-4">
-                                                    <div className="flex justify-between items-start">
-                                                        <div>
+                                            <Card key={node.id} className="border-slate-100 shadow-sm overflow-hidden rounded-2xl transition-all hover:shadow-md hover:border-slate-200">
+                                                <CardContent className="p-0">
+                                                    <div className="p-4 bg-slate-50/50 border-b flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
+                                                        <div className="space-y-1">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="font-mono text-xs font-bold px-1 bg-slate-100 rounded">ID: {node.id}</span>
-                                                                <span className="font-semibold">{node.label}</span>
+                                                                <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider font-mono">NODE {node.id}</span>
+                                                                <h4 className="font-bold text-slate-800">{node.label}</h4>
                                                             </div>
-                                                            {task && (
-                                                                <Badge variant="secondary" className="mt-1">
+                                                            {task ? (
+                                                                <Badge variant="secondary" className={`${task.status === 'Terminé' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : task.status === 'En cours' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-slate-100 text-slate-600'} rounded-lg px-2 h-5 text-[10px]`}>
                                                                     {task.status}
                                                                 </Badge>
+                                                            ) : (
+                                                                <Badge variant="outline" className="text-slate-400 border-slate-200 rounded-lg px-2 h-5 text-[10px]">Non assigné</Badge>
                                                             )}
                                                         </div>
-                                                        <LucideIcons.Settings2 className="h-4 w-4 text-slate-300" />
+                                                        <div className="h-8 w-8 rounded-full bg-white border border-slate-100 flex items-center justify-center text-slate-300">
+                                                            <LucideIcons.Settings2 className="h-4 w-4" />
+                                                        </div>
                                                     </div>
 
-                                                    <div className="grid grid-cols-2 gap-4">
+                                                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-white">
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-bold uppercase text-slate-500">Responsable</label>
+                                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Responsable</Label>
                                                             <Select
                                                                 defaultValue={task?.responsibleUserId}
                                                                 onValueChange={(val) => {
@@ -440,12 +468,19 @@ export default function WorkflowEditorPage() {
                                                                     handleAssign(node.id, node.label, val, user?.name || 'Inconnu', task?.roleRequired || 'Standard');
                                                                 }}
                                                             >
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Choisir..." />
+                                                                <SelectTrigger className="rounded-xl border-slate-200 focus:ring-indigo-500 h-11 bg-slate-50/30">
+                                                                    <SelectValue placeholder="Sélectionner..." />
                                                                 </SelectTrigger>
-                                                                <SelectContent>
+                                                                <SelectContent className="rounded-xl shadow-xl border-slate-100">
                                                                     {availableUsers.map(user => (
-                                                                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                                                                        <SelectItem key={user.id} value={user.id} className="rounded-lg my-1">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className="h-6 w-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold">
+                                                                                    {user.name.substring(0, 1).toUpperCase()}
+                                                                                </div>
+                                                                                {user.name}
+                                                                            </div>
+                                                                        </SelectItem>
                                                                     ))}
                                                                     {availableUsers.length === 0 && (
                                                                         <div className="p-2 text-xs text-center text-slate-400 italic">Aucun responsable créé</div>
@@ -454,21 +489,28 @@ export default function WorkflowEditorPage() {
                                                             </Select>
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-bold uppercase text-slate-500">Rôle Requis</label>
+                                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Rôle Requis</Label>
                                                             <Select
                                                                 defaultValue={task?.roleRequired}
                                                                 onValueChange={(val) => {
                                                                     if (task) {
                                                                         handleAssign(node.id, node.label, task.responsibleUserId, task.responsibleUserName || '', val);
+                                                                    } else {
+                                                                        toast({ title: "Note", description: "Veuillez d'abord sélectionner un responsable." });
                                                                     }
                                                                 }}
                                                             >
-                                                                <SelectTrigger>
+                                                                <SelectTrigger className="rounded-xl border-slate-200 focus:ring-indigo-500 h-11 bg-slate-50/30">
                                                                     <SelectValue placeholder="Rôle..." />
                                                                 </SelectTrigger>
-                                                                <SelectContent>
+                                                                <SelectContent className="rounded-xl shadow-xl border-slate-100">
                                                                     {availableRoles.map(role => (
-                                                                        <SelectItem key={role.id} value={role.name}>{role.name}</SelectItem>
+                                                                        <SelectItem key={role.id} value={role.name} className="rounded-lg my-1">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <LucideIcons.ShieldCheck className="h-4 w-4 text-slate-400" />
+                                                                                {role.name}
+                                                                            </div>
+                                                                        </SelectItem>
                                                                     ))}
                                                                     {availableRoles.length === 0 && (
                                                                         <>

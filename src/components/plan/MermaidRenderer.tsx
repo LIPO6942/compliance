@@ -112,9 +112,17 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, onNodeC
     }
 
     return (
-        <div
-            className="w-full overflow-x-auto flex justify-center py-8 bg-white/50 dark:bg-slate-900/50 rounded-3xl border shadow-inner"
-            dangerouslySetInnerHTML={{ __html: svg }}
-        />
+        <div className="w-full h-full relative group">
+            {/* Décoration d'arrière-plan moderne */}
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/20 via-white to-slate-50/20 rounded-[2.5rem] -m-4 blur-3xl opacity-50" />
+
+            <div
+                className="w-full overflow-x-auto flex justify-center py-12 px-6 bg-white/80 backdrop-blur-xl dark:bg-slate-900/80 rounded-[2.5rem] border border-white/50 shadow-[0_8px_32px_rgba(31,38,135,0.07)] relative z-10 min-h-[600px] transition-all duration-500 hover:shadow-[0_12px_48px_rgba(31,38,135,0.1)]"
+                dangerouslySetInnerHTML={{ __html: svg }}
+            />
+
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-100/30 rounded-full blur-3xl -z-10" />
+            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-100/30 rounded-full blur-3xl -z-10" />
+        </div>
     );
 };

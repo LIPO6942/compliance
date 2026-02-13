@@ -554,13 +554,14 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       availableRoles,
       assignTask: async (task) => {
         if (!db) return;
-        const taskId = `task-${Date.now()}`;
+        // Utilisation d'un ID déterministe pour éviter les doublons par noeud et workflow
+        const taskId = `task-${task.workflowId}-${task.nodeId.replace(/\s+/g, '_')}`;
         const newTask: WorkflowTask = {
           ...task,
           id: taskId,
           assignedAt: new Date().toISOString(),
         };
-        await setDoc(doc(db, 'tasks', taskId), newTask);
+        await setDoc(doc(db, 'tasks', taskId), newTask, { merge: true });
         await addAuditLog({
           taskId: taskId,
           workflowId: task.workflowId,
