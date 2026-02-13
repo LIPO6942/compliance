@@ -46,13 +46,28 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, onNodeC
                 // --- Injection des annotations dynamiques ---
                 let annotatedChart = chart;
 
+                // Fonction pour désinfecter les chaînes pour Mermaid
+                const sanitize = (str: string) => {
+                    if (!str) return '';
+                    return str
+                        .replace(/[<>]/g, '') // Supprimer les chevrons pour éviter de casser le HTML
+                        .replace(/[()[\]{}]/g, ' ') // Remplacer les parenthèses/crochets par des espaces
+                        .replace(/[";]/g, ''); // Supprimer quotes et points-virgules
+                };
+
                 workflowTasks.forEach(task => {
-                    const escapedId = task.nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const escapedId = task.nodeId.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
                     const nodeRegex = new RegExp(`(${escapedId})\\s*(\\[|{|\\(|\\(\\(|>|\\[\\/|\\\\|\\[\\[)(.*?)(\\]|} |\\)|\\)\\)|\\s*\\]|\\s*\\]\\/|\\\\|\\s*\\]\\])`, 'g');
 
                     if (nodeRegex.test(annotatedChart)) {
-                        const infoString = `\\n<div style="margin-top:8px; border-top:1px solid rgba(0,0,0,0.1); padding-top:4px; font-family:var(--font-inter);"><div style="font-weight:700; color:#1e293b; font-size:11px;">👤 ${task.responsibleUserName}</div><div style="font-size:9px; background:rgba(0,0,0,0.05); display:inline-block; padding:1px 6px; border-radius:10px; margin-top:2px; color:#64748b; font-weight:600;">${task.roleRequired.toUpperCase()}</div></div>`;
+                        const sName = sanitize(task.responsibleUserName);
+                        const sRole = sanitize(task.roleRequired).toUpperCase();
+
+                        const infoString = `\\n<div style="margin-top:8px; border-top:1px solid rgba(0,0,0,0.1); padding-top:4px; font-family:var(--font-inter);"><div style="font-weight:700; color:#1e293b; font-size:11px;">👤 ${sName}</div><div style="font-size:9px; background:rgba(0,0,0,0.05); display:inline-block; padding:1px 6px; border-radius:10px; margin-top:2px; color:#64748b; font-weight:600;">${sRole}</div></div>`;
+
                         annotatedChart = annotatedChart.replace(nodeRegex, (match, id, open, label, close) => {
+                            // Si le label contient déjà notre injection, on ne l'ajoute pas deux fois
+                            if (label.includes('margin-top:8px')) return match;
                             return `${id}${open}${label}${infoString}${close}`;
                         });
 
