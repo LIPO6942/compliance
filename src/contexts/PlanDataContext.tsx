@@ -4,7 +4,7 @@ import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask, Workflo
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, getDoc, collection, query, where, orderBy, limit, QuerySnapshot, DocumentData } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDoc, collection, query, where, orderBy, limit, QuerySnapshot, DocumentData } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
@@ -153,9 +153,44 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!isLoaded || !isFirebaseConfigured || !db) return;
 
-    const tasksUnsubscribe = onSnapshot(collection(db, 'tasks'), (snapshot) => {
-      const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorkflowTask));
-      setWorkflowTasks(tasks);
+    const tasksUnsubscribe = onSnapshot(collection(db, 'tasks'), async (snapshot) => {
+      const rawTasks = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as WorkflowTask));
+
+      // Déduplication : garder uniquement la tâche la plus récente par workflowId+nodeId
+      const taskMap = new Map<string, WorkflowTask>();
+      const duplicateIds: string[] = [];
+
+      rawTasks.forEach(t => {
+        const key = `${t.workflowId}-${t.nodeId}`;
+        const existing = taskMap.get(key);
+        if (existing) {
+          // Garder la plus récente, supprimer l'ancienne
+          const existingDate = new Date(existing.assignedAt || 0).getTime();
+          const currentDate = new Date(t.assignedAt || 0).getTime();
+          if (currentDate > existingDate) {
+            duplicateIds.push(existing.id);
+            taskMap.set(key, t);
+          } else {
+            duplicateIds.push(t.id);
+          }
+        } else {
+          taskMap.set(key, t);
+        }
+      });
+
+      // Nettoyage automatique des doublons dans Firestore
+      if (duplicateIds.length > 0) {
+        console.log(`[PlanData] Nettoyage de ${duplicateIds.length} tâche(s) dupliquée(s)`);
+        for (const dupId of duplicateIds) {
+          try {
+            await deleteDoc(doc(db, 'tasks', dupId));
+          } catch (e) {
+            console.warn('Erreur suppression doublon:', dupId, e);
+          }
+        }
+      }
+
+      setWorkflowTasks(Array.from(taskMap.values()));
     });
 
     const auditUnsubscribe = onSnapshot(query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(100)), (snapshot) => {
