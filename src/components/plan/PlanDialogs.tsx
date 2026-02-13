@@ -18,6 +18,8 @@ import { ChevronsUpDown, X, User, Shield, Zap, FileText, Activity, Workflow, Che
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const iconMap: Record<string, LucideIcons.LucideIcon> = {
   Gavel: LucideIcons.Gavel, ShieldAlert: LucideIcons.ShieldAlert, SearchCheck: LucideIcons.SearchCheck, ClipboardCheck: LucideIcons.ClipboardCheck,

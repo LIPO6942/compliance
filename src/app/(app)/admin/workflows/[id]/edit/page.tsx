@@ -17,7 +17,7 @@ import { usePlanData } from '@/contexts/PlanDataContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 
 // Declaration pour TypeScript
@@ -342,6 +342,7 @@ export default function WorkflowEditorPage() {
                                             <DialogContent className="max-w-md">
                                                 <DialogHeader>
                                                     <DialogTitle>Gestion des Responsables</DialogTitle>
+                                                    <DialogDescription>Ajoutez ou supprimez des responsables.</DialogDescription>
                                                 </DialogHeader>
                                                 <div className="space-y-4 py-4">
                                                     <div className="space-y-2">
@@ -391,6 +392,7 @@ export default function WorkflowEditorPage() {
                                             <DialogContent className="max-w-md">
                                                 <DialogHeader>
                                                     <DialogTitle>Gestion des Rôles</DialogTitle>
+                                                    <DialogDescription>Ajoutez ou supprimez des rôles.</DialogDescription>
                                                 </DialogHeader>
                                                 <div className="space-y-4 py-4">
                                                     <div className="space-y-2">
