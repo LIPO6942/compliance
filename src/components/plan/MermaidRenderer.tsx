@@ -16,6 +16,7 @@ interface MermaidRendererProps {
     chart: string;
     workflowId?: string;
     onNodeClick?: (id: string) => void;
+    debug?: boolean;
 }
 
 export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflowId, onNodeClick }) => {
@@ -58,13 +59,14 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 // --- Injection des annotations dynamiques ---
                 let annotatedChart = chart;
 
-                // Fonction pour désinfecter les chaînes pour Mermaid
+                // Fonction pour désinfecter les chaînes pour Mermaid (évite de casser les strings Mermaid)
                 const sanitize = (str: string) => {
                     if (!str) return '';
                     return str
-                        .replace(/[<>]/g, '')
-                        .replace(/[()[\]{}]/g, ' ')
-                        .replace(/[";]/g, '');
+                        .replace(/["]/g, '&quot;')
+                        .replace(/[']/g, '&apos;')
+                        .replace(/[<>]/g, (m) => m === '<' ? '&lt;' : '&gt;')
+                        .replace(/[()[\]{}]/g, ' ');
                 };
 
                 // On utilise workflowId passé en prop, sinon on tente de l'extraire du commentaire
@@ -73,7 +75,8 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 workflowTasks.forEach(task => {
                     if (task.workflowId === chartId) {
                         const escapedId = task.nodeId.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
-                        const nodeRegex = new RegExp(`(${escapedId})\\s*(\\[|{|\\(|\\(\\(|>|\\[\\/|\\\\|\\[\\[)(.*?)(\\]|} |\\)|\\)\\)|\\s*\\]|\\s*\\]\\/|\\\\|\\s*\\]\\])`, 'g');
+                        // Regex simplifié pour détecter les formes de noeuds Mermaid ( [ ], ( ), { }, etc. )
+                        const nodeRegex = new RegExp(`(${escapedId})\\s*([\\[\\(\\{\\>\\\\/]{1,2})(.*?)([\\]\\)\\}]{1,2})`, 'g');
 
                         const sName = sanitize(task.responsibleUserName);
                         const sRole = sanitize(task.roleRequired).toUpperCase();
@@ -108,11 +111,22 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 annotatedChart += `\nclassDef node-start fill:#eef2ff,stroke:#6366f1,stroke-width:2px,color:#1e1b4b,rx:20,ry:20;`;
 
                 const id = `mermaid-svg-${Math.random().toString(36).substring(2, 9)}`;
-                const { svg: generatedSvg } = await window.mermaid.render(id, annotatedChart);
-                setSvg(generatedSvg);
-            } catch (err) {
-                console.error('Mermaid render error:', err);
-                setError('Erreur de rendu. Vérifiez la syntaxe.');
+
+                // Pré-validation simple : si le graphique ne commence pas par graph/flowchart, c'est louche
+                if (!annotatedChart.trim().match(/^(graph|flowchart)/i)) {
+                    throw new Error("Syntaxe Mermaid invalide (doit commencer par graph ou flowchart)");
+                }
+
+                try {
+                    const { svg: generatedSvg } = await window.mermaid.render(id, annotatedChart);
+                    setSvg(generatedSvg);
+                } catch (renderError: any) {
+                    console.error('Mermaid core render error:', renderError);
+                    throw new Error(renderError.message || 'Erreur interne de rendu Mermaid');
+                }
+            } catch (err: any) {
+                console.error('Mermaid transformation error:', err);
+                setError(err.message || 'Erreur de rendu. Vérifiez la syntaxe.');
             }
         };
 
