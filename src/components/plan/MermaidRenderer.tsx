@@ -73,6 +73,8 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                                 taskName: t.name,
                                 responsibleUserName: t.raci?.responsible ?
                                     availableUsers.find(u => u.id === t.raci.responsible)?.name || 'Anonyme' : 'Non assigné',
+                                approverUserName: t.raci?.accountable ?
+                                    availableUsers.find(u => u.id === t.raci.accountable)?.name || 'Anonyme' : null,
                                 roleRequired: 'CONTROLE GRC',
                                 status: t.completed ? 'Terminé' : 'En cours',
                                 isGrcControl: true
@@ -114,29 +116,51 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     const nodeRegex = new RegExp(`(${escapedId})\\s*([\\[\\(\\{\\>\\\\/]{1,2})(.*?)([\\]\\)\\}]{1,2})`, 'g');
 
                     // Construction du bloc HTML d'infos (cumulé si plusieurs tâches sur le même noeud)
-                    // Construction du bloc HTML d'infos (cumulé si plusieurs tâches sur le même noeud)
                     let infoHtml = `<div class='assignee-info-box'>`;
 
-                    // DÉDUPLICATION VISUELLE : On ne montre chaque responsable qu'une seule fois par noeud
+                    // DÉDUPLICATION VISUELLE : On ne montre chaque responsable/approbateur qu'une seule fois par noeud
                     const uniqueAssignees = new Map();
                     tasks.forEach(task => {
                         const sName = cleanForMermaid(task.responsibleUserName);
+                        const sApprover = task.approverUserName ? cleanForMermaid(task.approverUserName) : null;
+                        const sTaskName = cleanForMermaid(task.taskName);
                         const sRole = cleanForMermaid(task.roleRequired).toUpperCase();
                         const isGrc = task.isGrcControl;
+
                         // Clé unique pour dédupliquer l'affichage sur ce noeud
-                        const key = `${sName}-${sRole}-${isGrc}`;
+                        const key = `${sName}-${sApprover}-${sRole}-${isGrc}-${sTaskName}`;
 
                         if (!uniqueAssignees.has(key)) {
-                            uniqueAssignees.set(key, { sName, sRole, isGrc });
+                            uniqueAssignees.set(key, { sName, sApprover, sRole, isGrc, sTaskName });
                         }
                     });
 
                     // On itère sur les responsables uniques pour construire le HTML
-                    Array.from(uniqueAssignees.values()).forEach(({ sName, sRole, isGrc }) => {
-                        infoHtml += `<div class='assignee-row ${isGrc ? 'grc-row' : ''}'>` +
-                            `<div class='assignee-name'>${isGrc ? '🛡️' : '👤'} ${sName}</div>` +
-                            `<div class='assignee-role-badge'>${sRole}</div>` +
+                    Array.from(uniqueAssignees.values()).forEach(({ sName, sApprover, sRole, isGrc, sTaskName }) => {
+                        infoHtml += `<div class='assignee-row ${isGrc ? 'grc-row' : ''}'>`;
+
+                        // Nom de la tâche liée (si GRC)
+                        if (isGrc && sTaskName) {
+                            infoHtml += `<div class='linked-task-name'>Task: ${sTaskName}</div>`;
+                        }
+
+                        // Responsable
+                        infoHtml += `<div class='assignee-group'>` +
+                            `<span class='icon'>${isGrc ? '🛡️' : '👤'}</span>` +
+                            `<span class='assignee-name'>${sName}</span>` +
+                            `<span class='assignee-role-badge'>${sRole}</span>` +
                             `</div>`;
+
+                        // Approbateur (si présent)
+                        if (sApprover) {
+                            infoHtml += `<div class='approver-row'>` +
+                                `<span class='icon'>✅</span>` +
+                                `<span class='approver-label'>Approbateur:</span>` +
+                                `<span class='approver-name'>${sApprover}</span>` +
+                                `</div>`;
+                        }
+
+                        infoHtml += `</div>`;
                     });
                     infoHtml += `</div>`;
 
@@ -226,6 +250,14 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     border: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em;
                 }
                 .grc-row .assignee-role-badge { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+
+                .linked-task-name { font-size: 8px; color: #64748b; font-style: italic; margin-bottom: 2px; text-decoration: underline; text-decoration-color: #cbd5e1; }
+                .assignee-group { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; }
+                .icon { font-size: 8px; margin-right: 1px; }
+
+                .approver-row { background: #ecfdf5; border-radius: 4px; padding: 2px 6px; margin-top: 3px; font-size: 9px; display: flex; align-items: center; gap: 4px; border: 1px solid #a7f3d0; width: 90%; justify-content: center; }
+                .approver-label { color: #059669; font-weight: 700; font-size: 7px; text-transform: uppercase; }
+                .approver-name { color: #047857; font-weight: 600; }
 
                 /* Animations & Interactivité */
                 .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { transition: all 0.3s ease !important; }
