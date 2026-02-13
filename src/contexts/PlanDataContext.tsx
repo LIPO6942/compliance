@@ -1,6 +1,6 @@
 
 'use client';
-import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask, WorkflowTask, AuditLog } from '@/types/compliance';
+import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask, WorkflowTask, AuditLog, AvailableUser, AvailableRole } from '@/types/compliance';
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
@@ -32,9 +32,17 @@ interface PlanDataContextType {
   activeWorkflows: Record<string, string>;
   workflowTasks: WorkflowTask[];
   auditLogs: AuditLog[];
+  availableUsers: AvailableUser[];
+  availableRoles: AvailableRole[];
   assignTask: (task: Omit<WorkflowTask, 'id' | 'assignedAt'>) => Promise<void>;
   updateTaskStatus: (taskId: string, status: WorkflowTask['status']) => Promise<void>;
   updateTask: (taskId: string, update: Partial<WorkflowTask>) => Promise<void>;
+  addAvailableUser: (user: Omit<AvailableUser, 'id' | 'createdAt'>) => Promise<void>;
+  updateAvailableUser: (id: string, update: Partial<AvailableUser>) => Promise<void>;
+  removeAvailableUser: (id: string) => Promise<void>;
+  addAvailableRole: (role: Omit<AvailableRole, 'id' | 'createdAt'>) => Promise<void>;
+  updateAvailableRole: (id: string, update: Partial<AvailableRole>) => Promise<void>;
+  removeAvailableRole: (id: string) => Promise<void>;
 }
 
 const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined);
@@ -75,6 +83,8 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   const [activeWorkflows, setActiveWorkflows] = useState<Record<string, string>>({});
   const [workflowTasks, setWorkflowTasks] = useState<WorkflowTask[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<AvailableRole[]>([]);
   const [loading, setLoading] = useState(true);
   const { isLoaded } = useUser();
 
@@ -153,9 +163,21 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       setAuditLogs(logs);
     });
 
+    const usersUnsubscribe = onSnapshot(collection(db, 'available_users'), (snapshot) => {
+      const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AvailableUser));
+      setAvailableUsers(users);
+    });
+
+    const rolesUnsubscribe = onSnapshot(collection(db, 'available_roles'), (snapshot) => {
+      const roles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AvailableRole));
+      setAvailableRoles(roles);
+    });
+
     return () => {
       tasksUnsubscribe();
       auditUnsubscribe();
+      usersUnsubscribe();
+      rolesUnsubscribe();
     };
   }, [isLoaded]);
 
@@ -528,6 +550,8 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       activeWorkflows,
       workflowTasks,
       auditLogs,
+      availableUsers,
+      availableRoles,
       assignTask: async (task) => {
         if (!db) return;
         const taskId = `task-${Date.now()}`;
@@ -575,6 +599,43 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
           action: 'Update',
           details: `Informations de la tâche "${taskData.taskName}" mises à jour.`,
         });
+      },
+      addAvailableUser: async (user) => {
+        if (!db) return;
+        const id = `user-${Date.now()}`;
+        await setDoc(doc(db, 'available_users', id), {
+          ...user,
+          id,
+          createdAt: new Date().toISOString()
+        });
+      },
+      updateAvailableUser: async (id, update) => {
+        if (!db) return;
+        await updateDoc(doc(db, 'available_users', id), update as any);
+      },
+      removeAvailableUser: async (id) => {
+        if (!db) return;
+        // En vrai on devrait utiliser deleteDoc mais let's be consistent with updateDoc for now or use common sense
+        const { deleteDoc } = await import('firebase/firestore');
+        await deleteDoc(doc(db, 'available_users', id));
+      },
+      addAvailableRole: async (role) => {
+        if (!db) return;
+        const id = `role-${Date.now()}`;
+        await setDoc(doc(db, 'available_roles', id), {
+          ...role,
+          id,
+          createdAt: new Date().toISOString()
+        });
+      },
+      updateAvailableRole: async (id, update) => {
+        if (!db) return;
+        await updateDoc(doc(db, 'available_roles', id), update as any);
+      },
+      removeAvailableRole: async (id) => {
+        if (!db) return;
+        const { deleteDoc } = await import('firebase/firestore');
+        await deleteDoc(doc(db, 'available_roles', id));
       }
     }}>
       {children}

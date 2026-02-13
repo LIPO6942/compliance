@@ -17,6 +17,8 @@ import { usePlanData } from '@/contexts/PlanDataContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 // Declaration pour TypeScript
 declare global {
@@ -41,7 +43,17 @@ export default function WorkflowEditorPage() {
     const [activeWorkflow, setActiveWorkflow] = useState<MermaidWorkflow | null>(null);
     const [isMonacoReady, setIsMonacoReady] = useState(false);
 
-    const { workflowTasks, assignTask, auditLogs } = usePlanData();
+    const {
+        workflowTasks,
+        assignTask,
+        auditLogs,
+        availableUsers,
+        availableRoles,
+        addAvailableUser,
+        removeAvailableUser,
+        addAvailableRole,
+        removeAvailableRole
+    } = usePlanData();
     const [activeTab, setActiveTab] = useState('editor');
     const [detectedNodes, setDetectedNodes] = useState<{ id: string, label: string }[]>([]);
 
@@ -291,9 +303,110 @@ export default function WorkflowEditorPage() {
 
                         <TabsContent value="assignments" className="flex-1 m-0 p-6 overflow-auto">
                             <div className="space-y-6">
-                                <div>
-                                    <h3 className="text-lg font-semibold">Attribution des Responsabilités</h3>
-                                    <p className="text-sm text-muted-foreground">Définissez qui est responsable de chaque étape détectée dans le diagramme.</p>
+                                <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                    <div className="flex flex-col">
+                                        <h3 className="text-lg font-semibold">Attribution des Responsabilités</h3>
+                                        <p className="text-sm text-muted-foreground">Définissez qui est responsable de chaque étape détectée.</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" size="sm">
+                                                    <LucideIcons.UserPlus className="mr-2 h-4 w-4" /> Gérer Responsables
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="max-w-md">
+                                                <DialogHeader>
+                                                    <DialogTitle>Gestion des Responsables</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="space-y-4 py-4">
+                                                    <div className="space-y-2">
+                                                        <Label>Ajouter un responsable</Label>
+                                                        <div className="flex gap-2">
+                                                            <Input id="new-user-name" placeholder="Nom..." className="flex-1" />
+                                                            <Button size="sm" onClick={() => {
+                                                                const input = document.getElementById('new-user-name') as HTMLInputElement;
+                                                                if (input.value) {
+                                                                    addAvailableUser({ name: input.value, role: 'Standard' });
+                                                                    input.value = '';
+                                                                }
+                                                            }}>Ajouter</Button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="max-h-[250px] overflow-auto space-y-2 border rounded-md p-2">
+                                                        {availableUsers.map(user => (
+                                                            <div key={user.id} className="flex flex-col gap-2 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 group border border-transparent hover:border-slate-200 transition-all">
+                                                                <div className="flex justify-between items-center">
+                                                                    <Input
+                                                                        className="h-8 text-sm font-medium bg-transparent border-none p-0 focus-visible:ring-0 w-2/3"
+                                                                        defaultValue={user.name}
+                                                                        onBlur={(e) => {
+                                                                            if (e.target.value !== user.name) {
+                                                                                // @ts-ignore
+                                                                                usePlanData().updateAvailableUser(user.id, { name: e.target.value });
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => removeAvailableUser(user.id)}>
+                                                                        <LucideIcons.Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
+
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" size="sm">
+                                                    <LucideIcons.ShieldCheck className="mr-2 h-4 w-4" /> Gérer Rôles
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="max-w-md">
+                                                <DialogHeader>
+                                                    <DialogTitle>Gestion des Rôles</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="space-y-4 py-4">
+                                                    <div className="space-y-2">
+                                                        <Label>Ajouter un rôle</Label>
+                                                        <div className="flex gap-2">
+                                                            <Input id="new-role-name" placeholder="Rôle..." className="flex-1" />
+                                                            <Button size="sm" onClick={() => {
+                                                                const input = document.getElementById('new-role-name') as HTMLInputElement;
+                                                                if (input.value) {
+                                                                    addAvailableRole({ name: input.value });
+                                                                    input.value = '';
+                                                                }
+                                                            }}>Ajouter</Button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="max-h-[250px] overflow-auto space-y-2 border rounded-md p-2">
+                                                        {availableRoles.map(role => (
+                                                            <div key={role.id} className="flex flex-col gap-2 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 group border border-transparent hover:border-slate-200 transition-all">
+                                                                <div className="flex justify-between items-center">
+                                                                    <Input
+                                                                        className="h-8 text-sm font-medium bg-transparent border-none p-0 focus-visible:ring-0 w-2/3"
+                                                                        defaultValue={role.name}
+                                                                        onBlur={(e) => {
+                                                                            if (e.target.value !== role.name) {
+                                                                                // @ts-ignore
+                                                                                usePlanData().updateAvailableRole(role.id, { name: e.target.value });
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => removeAvailableRole(role.id)}>
+                                                                        <LucideIcons.Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
                                 </div>
 
                                 <div className="grid gap-4">
@@ -323,21 +436,20 @@ export default function WorkflowEditorPage() {
                                                             <Select
                                                                 defaultValue={task?.responsibleUserId}
                                                                 onValueChange={(val) => {
-                                                                    const names: Record<string, string> = {
-                                                                        'user-1': 'Jean Dupont',
-                                                                        'user-2': 'Claire Martin',
-                                                                        'user-3': 'Marc Lefebvre'
-                                                                    };
-                                                                    handleAssign(node.id, node.label, val, names[val] || 'Inconnu', task?.roleRequired || 'Standard');
+                                                                    const user = availableUsers.find(u => u.id === val);
+                                                                    handleAssign(node.id, node.label, val, user?.name || 'Inconnu', task?.roleRequired || 'Standard');
                                                                 }}
                                                             >
                                                                 <SelectTrigger>
                                                                     <SelectValue placeholder="Choisir..." />
                                                                 </SelectTrigger>
                                                                 <SelectContent>
-                                                                    <SelectItem value="user-1">Jean Dupont (Compliance)</SelectItem>
-                                                                    <SelectItem value="user-2">Claire Martin (Manager)</SelectItem>
-                                                                    <SelectItem value="user-3">Marc Lefebvre (Risk)</SelectItem>
+                                                                    {availableUsers.map(user => (
+                                                                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                                                                    ))}
+                                                                    {availableUsers.length === 0 && (
+                                                                        <div className="p-2 text-xs text-center text-slate-400 italic">Aucun responsable créé</div>
+                                                                    )}
                                                                 </SelectContent>
                                                             </Select>
                                                         </div>
@@ -355,10 +467,15 @@ export default function WorkflowEditorPage() {
                                                                     <SelectValue placeholder="Rôle..." />
                                                                 </SelectTrigger>
                                                                 <SelectContent>
-                                                                    <SelectItem value="Compliance Officer">Compliance Officer</SelectItem>
-                                                                    <SelectItem value="Manager">Manager</SelectItem>
-                                                                    <SelectItem value="Risk Analyst">Risk Analyst</SelectItem>
-                                                                    <SelectItem value="Admin">Admin</SelectItem>
+                                                                    {availableRoles.map(role => (
+                                                                        <SelectItem key={role.id} value={role.name}>{role.name}</SelectItem>
+                                                                    ))}
+                                                                    {availableRoles.length === 0 && (
+                                                                        <>
+                                                                            <SelectItem value="Compliance Officer">Compliance Officer</SelectItem>
+                                                                            <SelectItem value="Manager">Manager</SelectItem>
+                                                                        </>
+                                                                    )}
                                                                 </SelectContent>
                                                             </Select>
                                                         </div>

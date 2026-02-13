@@ -51,7 +51,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, onNodeC
                     const nodeRegex = new RegExp(`(${escapedId})\\s*(\\[|{|\\(|\\(\\(|>|\\[\\/|\\\\|\\[\\[)(.*?)(\\]|} |\\)|\\)\\)|\\s*\\]|\\s*\\]\\/|\\\\|\\s*\\]\\])`, 'g');
 
                     if (nodeRegex.test(annotatedChart)) {
-                        const infoString = `\\n<hr/><b>${task.responsibleUserName}</b>\\n<small>${task.roleRequired}</small>`;
+                        const infoString = `\\n<div style="margin-top:8px; border-top:1px solid rgba(0,0,0,0.1); padding-top:4px; font-family:var(--font-inter);"><div style="font-weight:700; color:#1e293b; font-size:11px;">👤 ${task.responsibleUserName}</div><div style="font-size:9px; background:rgba(0,0,0,0.05); display:inline-block; padding:1px 6px; border-radius:10px; margin-top:2px; color:#64748b; font-weight:600;">${task.roleRequired.toUpperCase()}</div></div>`;
                         annotatedChart = annotatedChart.replace(nodeRegex, (match, id, open, label, close) => {
                             return `${id}${open}${label}${infoString}${close}`;
                         });
@@ -61,9 +61,9 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, onNodeC
                     }
                 });
 
-                annotatedChart += `\nclassDef node-done fill:#dcfce7,stroke:#16a34a,stroke-width:2px;`;
-                annotatedChart += `\nclassDef node-progress fill:#fef9c3,stroke:#ca8a04,stroke-width:2px;`;
-                annotatedChart += `\nclassDef node-pending fill:#f1f5f9,stroke:#64748b,stroke-width:1px;`;
+                annotatedChart += `\nclassDef node-done fill:#ecfdf5,stroke:#10b981,stroke-width:2px,color:#064e3b,rx:10,ry:10;`;
+                annotatedChart += `\nclassDef node-progress fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#78350f,rx:10,ry:10;`;
+                annotatedChart += `\nclassDef node-pending fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#475569,rx:10,ry:10;`;
 
                 const id = `mermaid-svg-${Math.random().toString(36).substring(2, 9)}`;
                 const { svg: generatedSvg } = await window.mermaid.render(id, annotatedChart);

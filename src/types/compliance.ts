@@ -203,3 +203,18 @@ export interface AuditLog {
   timestamp: string;
   details?: string;
 }
+
+export interface AvailableUser {
+  id: string;
+  name: string;
+  role: string;
+  email?: string;
+  createdAt: string;
+}
+
+export interface AvailableRole {
+  id: string;
+  name: string;
+  color?: string; // Pour un rendu élégant dans le diagramme
+  createdAt: string;
+}
