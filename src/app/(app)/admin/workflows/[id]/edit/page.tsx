@@ -61,8 +61,8 @@ export default function WorkflowEditorPage() {
     useEffect(() => {
         const nodes: { id: string, label: string }[] = [];
         const lines = code.split('\n');
-        // Regex pour capturer ID[Label] ou ID{Label} ou ID(Label) ou ID((Label)) ou ID>Label] ou ID[/Label/] etc.
-        const nodeRegex = /^(\s*)([a-zA-Z0-9_\-]+)\s*(?:\[|{|\(|\(\(|>|\[\/|\\|\[\[)(.*?)(?:\]|}|\)|\)\)|\]|\]\/|\\|\]\])/;
+        // Regex élargie pour capturer des IDs plus complexes (ex: 1.1, Task:1, etc.)
+        const nodeRegex = /^(\s*)([a-zA-Z0-9_\-\.]+)\s*(?:\[|{|\(|\(\(|>|\[\/|\\|\[\[)(.*?)(?:\]|}|\)|\)\)|\]|\]\/|\\|\]\])/;
 
         lines.forEach(line => {
             const match = line.match(nodeRegex);
@@ -579,7 +579,7 @@ export default function WorkflowEditorPage() {
                     <div className="flex-1 overflow-auto bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:20px_20px] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)]">
                         <div className="p-8 min-h-full flex items-center justify-center">
                             <div className="w-full max-w-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800">
-                                <MermaidRenderer chart={code} />
+                                <MermaidRenderer chart={code} workflowId={id} />
                             </div>
                         </div>
                     </div>

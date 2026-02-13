@@ -567,7 +567,10 @@ export default function PlanPage() {
                               {/* Diagramme de flux */}
                               {activeWorkflows[subCategory.id] ? (
                                 <div className="py-4">
-                                  <MermaidRenderer chart={activeWorkflows[subCategory.id]} />
+                                  <MermaidRenderer
+                                    chart={activeWorkflows[subCategory.id]}
+                                    workflowId={subCategory.id}
+                                  />
                                 </div>
                               ) : (
                                 <FlowRenderer
