@@ -63,12 +63,14 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, onNodeC
                         const sName = sanitize(task.responsibleUserName);
                         const sRole = sanitize(task.roleRequired).toUpperCase();
 
-                        const infoString = `\\n<div style="margin-top:8px; border-top:1px solid rgba(0,0,0,0.1); padding-top:4px; font-family:var(--font-inter);"><div style="font-weight:700; color:#1e293b; font-size:11px;">👤 ${sName}</div><div style="font-size:9px; background:rgba(0,0,0,0.05); display:inline-block; padding:1px 6px; border-radius:10px; margin-top:2px; color:#64748b; font-weight:600;">${sRole}</div></div>`;
+                        // Utilisation de guillemets simples pour les styles et <br/> pour Mermaid compatible HTML
+                        const infoString = `<br/><div style='margin-top:8px; border-top:1px solid rgba(0,0,0,0.1); padding-top:4px; font-family:var(--font-inter);'><div style='font-weight:700; color:#1e293b; font-size:11px;'>👤 ${sName}</div><div style='font-size:9px; background:rgba(0,0,0,0.05); display:inline-block; padding:1px 6px; border-radius:10px; margin-top:2px; color:#64748b; font-weight:600;'>${sRole}</div></div>`;
 
                         annotatedChart = annotatedChart.replace(nodeRegex, (match, id, open, label, close) => {
                             // Si le label contient déjà notre injection, on ne l'ajoute pas deux fois
                             if (label.includes('margin-top:8px')) return match;
-                            return `${id}${open}${label}${infoString}${close}`;
+                            // On entoure le nouveau label de guillemets doubles pour protéger le HTML
+                            return `${id}${open}"${label}${infoString}"${close}`;
                         });
 
                         const statusClass = task.status === 'Terminé' ? 'node-done' : task.status === 'En cours' ? 'node-progress' : 'node-pending';
@@ -76,9 +78,9 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, onNodeC
                     }
                 });
 
-                annotatedChart += `\nclassDef node-done fill:#ecfdf5,stroke:#10b981,stroke-width:2px,color:#064e3b,rx:10,ry:10;`;
-                annotatedChart += `\nclassDef node-progress fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#78350f,rx:10,ry:10;`;
-                annotatedChart += `\nclassDef node-pending fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#475569,rx:10,ry:10;`;
+                annotatedChart += `\nclassDef node-done fill:#ecfdf5,stroke:#10b981,stroke-width:2px,color:#064e3b;`;
+                annotatedChart += `\nclassDef node-progress fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#78350f;`;
+                annotatedChart += `\nclassDef node-pending fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#475569;`;
 
                 const id = `mermaid-svg-${Math.random().toString(36).substring(2, 9)}`;
                 const { svg: generatedSvg } = await window.mermaid.render(id, annotatedChart);
