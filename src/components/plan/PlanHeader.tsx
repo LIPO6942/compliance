@@ -2,9 +2,10 @@
 import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, RefreshCw } from "lucide-react";
+import { PlusCircle, RefreshCw, Workflow } from "lucide-react";
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
 
 interface PlanHeaderProps {
   onAddCategory: () => void;
@@ -45,6 +46,12 @@ export function PlanHeader({ onAddCategory }: PlanHeaderProps) {
             </CardDescription>
           </div>
           <div className="flex gap-2">
+            <Link href="/admin/workflows">
+              <Button variant="outline" className="whitespace-nowrap">
+                <Workflow className="mr-2 h-4 w-4" />
+                Workflows Admin
+              </Button>
+            </Link>
             <Button variant="outline" onClick={handleSync} disabled={isSyncing} className="whitespace-nowrap">
               <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
               {isSyncing ? "Synchronisation..." : "Synchroniser"}

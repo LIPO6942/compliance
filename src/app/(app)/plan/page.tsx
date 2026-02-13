@@ -25,6 +25,7 @@ import { useDocuments } from "@/contexts/DocumentsContext";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import ConnectorDialog from "@/components/plan/ConnectorDialog";
+import { MermaidRenderer } from "@/components/plan/MermaidRenderer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 // react-hook-form and zod already imported at top
@@ -304,14 +305,14 @@ export default function PlanPage() {
     loading,
     updateTaskCompletion,
     addCategory,
-    editCategory: editCategoryContext,
-    removeCategory: removeCategoryContext,
-    addSubCategory: addSubCategoryContext,
-    editSubCategory: editSubCategoryContext,
-    removeSubCategory: removeSubCategoryContext,
-    addTask: addTaskContext,
-    editTask: editTaskContext,
-    removeTask: removeTaskContext,
+    editCategory,
+    removeCategory,
+    addSubCategory,
+    editSubCategory,
+    removeSubCategory,
+    addTask,
+    editTask,
+    removeTask,
     addBranch,
     removeBranch,
     renameBranch,
@@ -564,16 +565,22 @@ export default function PlanPage() {
                                 </div>
                               </div>
                               {/* Diagramme de flux */}
-                              <FlowRenderer
-                                tasks={subCategory.tasks}
-                                onToggleTask={handleToggleTaskCompletion}
-                                onEditTask={(task) => openDialog("task", "edit", task, subCategory.id, category.id)}
-                                onAddBranch={(taskId: string) => openConnectorDialog('addBranch', category.id, subCategory.id, taskId)}
-                                onRenameBranch={(taskId: string, branchLabel?: string) => openConnectorDialog('renameBranch', category.id, subCategory.id, taskId, branchLabel)}
-                                onAddTaskToBranch={(taskId: string, branchLabel?: string) => openConnectorDialog('addTask', category.id, subCategory.id, taskId, branchLabel)}
-                                categoryId={category.id}
-                                subCategoryId={subCategory.id}
-                              />
+                              {activeWorkflows[subCategory.id] ? (
+                                <div className="py-4">
+                                  <MermaidRenderer chart={activeWorkflows[subCategory.id]} />
+                                </div>
+                              ) : (
+                                <FlowRenderer
+                                  tasks={subCategory.tasks}
+                                  onToggleTask={handleToggleTaskCompletion}
+                                  onEditTask={(task) => openDialog("task", "edit", task, subCategory.id, category.id)}
+                                  onAddBranch={(taskId: string) => openConnectorDialog('addBranch', category.id, subCategory.id, taskId)}
+                                  onRenameBranch={(taskId: string, branchLabel?: string) => openConnectorDialog('renameBranch', category.id, subCategory.id, taskId, branchLabel)}
+                                  onAddTaskToBranch={(taskId: string, branchLabel?: string) => openConnectorDialog('addTask', category.id, subCategory.id, taskId, branchLabel)}
+                                  categoryId={category.id}
+                                  subCategoryId={subCategory.id}
+                                />
+                              )}
                             </div>
                           </CardContent>
                         </Card>

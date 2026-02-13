@@ -1,10 +1,10 @@
 
 'use client';
-import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask } from '@/types/compliance';
+import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask, WorkflowTask, AuditLog } from '@/types/compliance';
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, getDoc, collection, query, where, QuerySnapshot, DocumentData } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const planDocumentPath = "plan/main";
@@ -29,6 +29,12 @@ interface PlanDataContextType {
   addTaskToBranch: (categoryId: string, subCategoryId: string, taskId: string, branchLabel: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => Promise<void>;
   moveTaskIntoBranch: (categoryId: string, subCategoryId: string, sourceTaskId: string, destParentTaskId: string, destBranchLabel: string) => Promise<void>;
   resetToInitialData: () => Promise<void>;
+  activeWorkflows: Record<string, string>;
+  workflowTasks: WorkflowTask[];
+  auditLogs: AuditLog[];
+  assignTask: (task: Omit<WorkflowTask, 'id' | 'assignedAt'>) => Promise<void>;
+  updateTaskStatus: (taskId: string, status: WorkflowTask['status']) => Promise<void>;
+  updateTask: (taskId: string, update: Partial<WorkflowTask>) => Promise<void>;
 }
 
 const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined);
@@ -66,6 +72,9 @@ const updatePlanInFirestore = async (newPlan: ComplianceCategory[]) => {
 
 export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   const [planData, setPlanData] = useState<ComplianceCategory[]>([]);
+  const [activeWorkflows, setActiveWorkflows] = useState<Record<string, string>>({});
+  const [workflowTasks, setWorkflowTasks] = useState<WorkflowTask[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const { isLoaded } = useUser();
 
@@ -106,6 +115,62 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
 
     return () => unsubscribe();
   }, [isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || !isFirebaseConfigured || !db) return;
+
+    const q = query(collection(db, 'workflows'));
+    const unsubscribe = onSnapshot(q, async (snapshot: QuerySnapshot<DocumentData>) => {
+      const workflows: Record<string, string> = {};
+
+      for (const workflowDoc of snapshot.docs) {
+        const data = workflowDoc.data() as any;
+        if (data.activeVersionId) {
+          const vRef = doc(db, 'workflows', workflowDoc.id, 'versions', data.activeVersionId);
+          const vSnap = await getDoc(vRef);
+          if (vSnap.exists()) {
+            workflows[data.workflowId] = vSnap.data().mermaidCode;
+          }
+        }
+      }
+      setActiveWorkflows(workflows);
+    });
+
+    return () => unsubscribe();
+  }, [isLoaded]);
+
+  // Chargement des tâches et audit logs
+  useEffect(() => {
+    if (!isLoaded || !isFirebaseConfigured || !db) return;
+
+    const tasksUnsubscribe = onSnapshot(collection(db, 'tasks'), (snapshot) => {
+      const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorkflowTask));
+      setWorkflowTasks(tasks);
+    });
+
+    const auditUnsubscribe = onSnapshot(query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(100)), (snapshot) => {
+      const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditLog));
+      setAuditLogs(logs);
+    });
+
+    return () => {
+      tasksUnsubscribe();
+      auditUnsubscribe();
+    };
+  }, [isLoaded]);
+
+  const addAuditLog = async (log: Omit<AuditLog, 'id' | 'timestamp' | 'performedByUserId' | 'performedByUserName'>) => {
+    if (!isFirebaseConfigured || !db) return;
+    const logId = Date.now().toString();
+    const newLog: AuditLog = {
+      ...log,
+      id: logId,
+      timestamp: new Date().toISOString(),
+      performedByUserId: 'main-user',
+      performedByUserName: 'Administrateur',
+    };
+    await setDoc(doc(db, 'audit_logs', logId), newLog);
+  };
 
 
   const addCategory = async (category: Omit<ComplianceCategory, 'id' | 'subCategories'>) => {
@@ -459,7 +524,58 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       renameBranch,
       addTaskToBranch,
       moveTaskIntoBranch,
-      resetToInitialData
+      resetToInitialData,
+      activeWorkflows,
+      workflowTasks,
+      auditLogs,
+      assignTask: async (task) => {
+        if (!db) return;
+        const taskId = `task-${Date.now()}`;
+        const newTask: WorkflowTask = {
+          ...task,
+          id: taskId,
+          assignedAt: new Date().toISOString(),
+        };
+        await setDoc(doc(db, 'tasks', taskId), newTask);
+        await addAuditLog({
+          taskId: taskId,
+          workflowId: task.workflowId,
+          action: 'Assigned',
+          details: `Tâche "${task.taskName}" assignée à ${task.responsibleUserName} (${task.roleRequired})`,
+        });
+      },
+      updateTaskStatus: async (taskId, status) => {
+        if (!db) return;
+        const taskRef = doc(db, 'tasks', taskId);
+        const taskSnap = await getDoc(taskRef);
+        if (taskSnap.exists()) {
+          const taskData = taskSnap.data() as WorkflowTask;
+          await updateDoc(taskRef, {
+            status,
+            completedAt: status === 'Terminé' ? new Date().toISOString() : null
+          });
+          await addAuditLog({
+            taskId,
+            workflowId: taskData.workflowId,
+            action: 'Status Update',
+            details: `Statut de "${taskData.taskName}" mis à jour: ${status}`,
+          });
+        }
+      },
+      updateTask: async (taskId, update) => {
+        if (!db) return;
+        const taskRef = doc(db, 'tasks', taskId);
+        await updateDoc(taskRef, update as any);
+        // Log simple
+        const taskSnap = await getDoc(taskRef);
+        const taskData = taskSnap.data() as WorkflowTask;
+        await addAuditLog({
+          taskId,
+          workflowId: taskData.workflowId,
+          action: 'Update',
+          details: `Informations de la tâche "${taskData.taskName}" mises à jour.`,
+        });
+      }
     }}>
       {children}
     </PlanDataContext.Provider>

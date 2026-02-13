@@ -16,7 +16,7 @@ export interface ComplianceTask {
 }
 
 export interface ComplianceSubCategory {
-  id:string;
+  id: string;
   name: string;
   icon?: string;
   tasks: ComplianceTask[];
@@ -57,14 +57,14 @@ export type AlertType = "Nouvelle loi" | "Modification réglementaire" | "Alerte
 
 export interface IdentifiedRegulation {
   id: string;
-  publicationDate: string; 
+  publicationDate: string;
   source: string;
   type: AlertType;
   summary: string;
   fullText: string;
   status: AlertStatus;
   criticality: AlertCriticality;
-  deadline?: string; 
+  deadline?: string;
   affectedDepartments?: string[];
   requiredActions?: string;
   analysisNotes?: string;
@@ -155,4 +155,51 @@ export interface NewsItem {
   description: string;
   url?: string;
   imageUrl?: string;
+}
+
+// Mermaid Workflow Types
+export interface WorkflowVersion {
+  id: string;
+  mermaidCode: string;
+  version: number;
+  status: 'draft' | 'published';
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+}
+
+export interface MermaidWorkflow {
+  id: string;
+  name: string;
+  workflowId: string; // e.g., 'eer', 'gel'
+  activeVersionId?: string;
+  currentVersion: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WorkflowTaskStatus = "En attente" | "En cours" | "Terminé";
+
+export interface WorkflowTask {
+  id: string;
+  workflowId: string;
+  nodeId: string; // ID du noeud dans le diagramme Mermaid
+  taskName: string;
+  responsibleUserId: string;
+  responsibleUserName?: string;
+  roleRequired: string;
+  status: WorkflowTaskStatus;
+  assignedAt: string;
+  completedAt?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  taskId: string;
+  workflowId: string;
+  action: string; // e.g., "Assigned", "Status Update"
+  performedByUserId: string;
+  performedByUserName?: string;
+  timestamp: string;
+  details?: string;
 }
