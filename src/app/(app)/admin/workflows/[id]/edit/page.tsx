@@ -266,7 +266,7 @@ export default function WorkflowEditorPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <Link href="/process">
+                    <Link href="/plan#processus-metiers">
                         <Button variant="outline" className="rounded-xl border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold gap-2 transition-all active:scale-95 shadow-sm h-9">
                             <LucideIcons.ExternalLink className="h-4 w-4" />
                             Voir Processus
