@@ -39,6 +39,26 @@ const taskSchema = z.object({
   deadline: z.string().optional(),
   documentIds: z.array(z.string()).optional(),
   branches: z.array(z.string()).optional(),
+
+  // GRC Fields
+  processes: z.array(z.string()).optional(),
+  risks: z.array(z.string()).optional(),
+  controls: z.array(z.string()).optional(),
+  raci: z.object({
+    responsible: z.string().optional(),
+    accountable: z.string().optional(),
+    consulted: z.array(z.string()).optional(),
+    informed: z.array(z.string()).optional(),
+  }).optional(),
+  frequency: z.enum(['monthly', 'quarterly', 'annual', 'one_time', 'custom']).optional(),
+  kpi: z.object({
+    name: z.string().optional(),
+    target: z.string().optional(),
+    unit: z.string().optional(),
+    thresholdAlert: z.number().optional(),
+  }).optional(),
+  lastReviewDate: z.string().optional(),
+  nextReviewDate: z.string().optional(),
 });
 
 type CategoryFormValues = z.infer<typeof categorySchema>;

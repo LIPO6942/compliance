@@ -52,52 +52,90 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
             try {
                 setError(null);
                 let annotatedChart = chart;
+                const { planData } = usePlanData();
 
                 // Fonction de nettoyage ultra-stricte pour Mermaid
-                // Mermaid déteste les parenthèses () et les crochets [] dans les chaînes de labels
                 const cleanForMermaid = (str: string) => {
                     if (!str) return '';
-                    return str
-                        .replace(/[()\[\]{}]/g, ' ') // Remplace les délimiteurs par des espaces
-                        .replace(/["]/g, '&quot;')
-                        .replace(/[']/g, '&apos;')
-                        .trim();
+                    return str.replace(/[()\[\]{}]/g, ' ').replace(/["]/g, '&quot;').replace(/[']/g, '&apos;').trim();
                 };
 
                 const chartId = workflowId || chart.match(/graph\s+(?:TD|LR|TB|BT);?\s+%%ID:(\w+)/)?.[1] || '';
 
-                workflowTasks.forEach(task => {
-                    if (task.workflowId === chartId) {
-                        const escapedId = task.nodeId.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
-                        // Regex pour capturer le noeud et son label actuel
-                        const nodeRegex = new RegExp(`(${escapedId})\\s*([\\[\\(\\{\\>\\\\/]{1,2})(.*?)([\\]\\)\\}]{1,2})`, 'g');
+                // Récupération de toutes les tâches GRC liées dans le plan (récursif)
+                const getGrcTasks = (tasks: any[]): any[] => {
+                    let found: any[] = [];
+                    tasks.forEach(t => {
+                        if (t.grcWorkflowId === chartId && t.grcNodeId) {
+                            found.push({
+                                nodeId: t.grcNodeId,
+                                taskName: t.name,
+                                responsibleUserName: t.raci?.responsible ?
+                                    usePlanData().availableUsers.find(u => u.id === t.raci.responsible)?.name || 'Anonyme' : 'Non assigné',
+                                roleRequired: 'CONTROLE GRC',
+                                status: t.completed ? 'Terminé' : 'En cours',
+                                isGrcControl: true
+                            });
+                        }
+                        if (t.branches) {
+                            t.branches.forEach((b: any) => {
+                                found = [...found, ...getGrcTasks(b.tasks)];
+                            });
+                        }
+                    });
+                    return found;
+                };
 
+                const planGrcTasks = planData.flatMap((cat: any) =>
+                    cat.subCategories.flatMap((sub: any) => getGrcTasks(sub.tasks))
+                );
+
+                // Fusion des tâches d'assignation et des tâches de contrôle GRC
+                const allTasksToDisplay = [...workflowTasks.filter(t => t.workflowId === chartId), ...planGrcTasks];
+
+                // On regroupe par nodeId pour ne pas dupliquer les boîtes mais cumuler les infos
+                const tasksByNode: Record<string, any[]> = {};
+                allTasksToDisplay.forEach(t => {
+                    if (!tasksByNode[t.nodeId]) tasksByNode[t.nodeId] = [];
+                    tasksByNode[t.nodeId].push(t);
+                });
+
+                Object.entries(tasksByNode).forEach(([nodeId, tasks]) => {
+                    const escapedId = nodeId.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+                    const nodeRegex = new RegExp(`(${escapedId})\\s*([\\[\\(\\{\\>\\\\/]{1,2})(.*?)([\\]\\)\\}]{1,2})`, 'g');
+
+                    // Construction du bloc HTML d'infos (cumulé si plusieurs tâches sur le même noeud)
+                    let infoHtml = `<div class='assignee-info-box'>`;
+                    tasks.forEach(task => {
                         const sName = cleanForMermaid(task.responsibleUserName);
                         const sRole = cleanForMermaid(task.roleRequired).toUpperCase();
+                        const isGrc = task.isGrcControl;
 
-                        // HTML simplifié SANS styles inline complexes (utilisant uniquement des classes CSS)
-                        const infoHtml = `<div class='assignee-info-box'>` +
-                            `<div class='assignee-name'>👤 ${sName}</div>` +
+                        infoHtml += `<div class='assignee-row ${isGrc ? 'grc-row' : ''}'>` +
+                            `<div class='assignee-name'>${isGrc ? '🛡️' : '👤'} ${sName}</div>` +
                             `<div class='assignee-role-badge'>${sRole}</div>` +
                             `</div>`;
+                    });
+                    infoHtml += `</div>`;
 
-                        if (nodeRegex.test(annotatedChart)) {
-                            annotatedChart = annotatedChart.replace(nodeRegex, (match, id, open, label) => {
-                                // Extraction du texte du label (avant tout HTML existant)
-                                const cleanLabel = label.split('<br')[0].split('<div')[0].replace(/^"+|"+$/g, '').trim();
-                                // Injection avec des guillemets doubles PROTEGÉS
-                                return `${id}${open}"<div class='node-label-main'>${cleanLabel}</div>${infoHtml}"${match.slice(-open.length)}`;
-                            });
-                        } else {
-                            // Support noeuds implicites
-                            if (/^[a-zA-Z0-9_\-\.]+$/.test(task.nodeId)) {
-                                annotatedChart += `\n${task.nodeId}["<div class='node-label-main'>${task.nodeId}</div>${infoHtml}"]`;
-                            }
+                    if (nodeRegex.test(annotatedChart)) {
+                        annotatedChart = annotatedChart.replace(nodeRegex, (match, id, open, label) => {
+                            const cleanLabel = label.split('<br')[0].split('<div')[0].replace(/^"+|"+$/g, '').trim();
+                            return `${id}${open}"<div class='node-label-main'>${cleanLabel}</div>${infoHtml}"${match.slice(-open.length)}`;
+                        });
+                    } else {
+                        if (/^[a-zA-Z0-9_\-\.]+$/.test(nodeId)) {
+                            annotatedChart += `\n${nodeId}["<div class='node-label-main'>${nodeId}</div>${infoHtml}"]`;
                         }
-
-                        const statusClass = task.status === 'Terminé' ? 'node-done' : task.status === 'En cours' ? 'node-progress' : task.status === 'Alerte' ? 'node-alert' : 'node-pending';
-                        annotatedChart += `\nclass ${task.nodeId} ${statusClass};`;
                     }
+
+                    // Statut visuel (Priorité à l'alerte, puis en cours, puis terminé)
+                    const hasAlert = tasks.some(t => t.status === 'Alerte');
+                    const allDone = tasks.every(t => t.status === 'Terminé');
+                    const anyProgress = tasks.some(t => t.status === 'En cours');
+
+                    const statusClass = hasAlert ? 'node-alert' : allDone ? 'node-done' : anyProgress ? 'node-progress' : 'node-pending';
+                    annotatedChart += `\nclass ${nodeId} ${statusClass};`;
                 });
 
                 // Définitions de classes Mermaid
@@ -155,12 +193,17 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 /* Styles des noeuds HTML injectés */
                 .node-label-main { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 13px; color: #1e293b; margin-bottom: 4px; }
                 .assignee-info-box { margin-top: 8px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 6px; text-align: center; width: 100%; }
-                .assignee-name { font-family: 'Outfit', sans-serif; font-weight: 600; color: #475569; font-size: 11px; margin-bottom: 3px; white-space: nowrap; }
+                .assignee-row { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 6px; }
+                .assignee-row:last-child { margin-bottom: 0; }
+                .grc-row { border-top: 1px dashed rgba(0,0,0,0.1); margin-top: 4px; padding-top: 4px; }
+
+                .assignee-name { font-family: 'Outfit', sans-serif; font-weight: 600; color: #475569; font-size: 10px; margin-bottom: 1px; white-space: nowrap; }
                 .assignee-role-badge { 
-                    font-family: 'Outfit', sans-serif; font-size: 9px; background: #ffffff; color: #64748b; 
-                    display: inline-block; padding: 2px 10px; border-radius: 12px; font-weight: 800; 
+                    font-family: 'Outfit', sans-serif; font-size: 8px; background: #ffffff; color: #64748b; 
+                    display: inline-block; padding: 1px 8px; border-radius: 10px; font-weight: 800; 
                     border: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em;
                 }
+                .grc-row .assignee-role-badge { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
 
                 /* Animations & Interactivité */
                 .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { transition: all 0.3s ease !important; }

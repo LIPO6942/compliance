@@ -13,6 +13,33 @@ export interface ComplianceTask {
     label: string;
     tasks: ComplianceTask[];
   }>;
+
+  // GRC Engine Extensions
+  processes?: string[];        // Relation many-to-many (IDs)
+  risks?: string[];            // Relation many-to-many (IDs)
+  controls?: string[];         // Relation many-to-many (IDs)
+  grcWorkflowId?: string;      // Identifiant du processus lié (ex: processus-eer)
+  grcNodeId?: string;          // Identifiant du noeud dans le diagramme Mermaid
+
+  raci?: {
+    responsible?: string;      // User ID (R)
+    accountable?: string;      // User ID (A)
+    consulted?: string[];      // User IDs (C)
+    informed?: string[];       // User IDs (I)
+  };
+
+  frequency?: 'monthly' | 'quarterly' | 'annual' | 'one_time' | 'custom';
+  kpi?: {
+    name: string;
+    target: string;
+    unit: string;
+    thresholdAlert?: number;
+  };
+
+  lastReviewDate?: string;
+  nextReviewDate?: string;
+  createdBy?: string;
+  updatedAt?: string;
 }
 
 export interface ComplianceSubCategory {
