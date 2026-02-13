@@ -114,12 +114,25 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     const nodeRegex = new RegExp(`(${escapedId})\\s*([\\[\\(\\{\\>\\\\/]{1,2})(.*?)([\\]\\)\\}]{1,2})`, 'g');
 
                     // Construction du bloc HTML d'infos (cumulé si plusieurs tâches sur le même noeud)
+                    // Construction du bloc HTML d'infos (cumulé si plusieurs tâches sur le même noeud)
                     let infoHtml = `<div class='assignee-info-box'>`;
+
+                    // DÉDUPLICATION VISUELLE : On ne montre chaque responsable qu'une seule fois par noeud
+                    const uniqueAssignees = new Map();
                     tasks.forEach(task => {
                         const sName = cleanForMermaid(task.responsibleUserName);
                         const sRole = cleanForMermaid(task.roleRequired).toUpperCase();
                         const isGrc = task.isGrcControl;
+                        // Clé unique pour dédupliquer l'affichage sur ce noeud
+                        const key = `${sName}-${sRole}-${isGrc}`;
 
+                        if (!uniqueAssignees.has(key)) {
+                            uniqueAssignees.set(key, { sName, sRole, isGrc });
+                        }
+                    });
+
+                    // On itère sur les responsables uniques pour construire le HTML
+                    Array.from(uniqueAssignees.values()).forEach(({ sName, sRole, isGrc }) => {
                         infoHtml += `<div class='assignee-row ${isGrc ? 'grc-row' : ''}'>` +
                             `<div class='assignee-name'>${isGrc ? '🛡️' : '👤'} ${sName}</div>` +
                             `<div class='assignee-role-badge'>${sRole}</div>` +
