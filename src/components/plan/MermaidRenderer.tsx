@@ -160,30 +160,32 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
             }
         };
 
-    }, 100);
-    return () => clearTimeout(timeoutId);
-}, [chart, workflowTasks, workflowId, planData, availableUsers]);
+        const timeoutId = setTimeout(() => {
+            if (window.mermaid) renderChart();
+        }, 100);
+        return () => clearTimeout(timeoutId);
+    }, [chart, workflowTasks, workflowId, planData, availableUsers]);
 
-if (error) {
-    return (
-        <div className="w-full flex items-center justify-center p-8">
-            <div className="max-w-md w-full bg-rose-50 border border-rose-100 rounded-[2.5rem] p-8 flex flex-col items-center text-center gap-4 shadow-xl">
-                <div className="h-12 w-12 bg-rose-100 rounded-full flex items-center justify-center text-rose-500">
-                    <AlertTriangle className="h-6 w-6" />
-                </div>
-                <div className="space-y-2">
-                    <h3 className="text-lg font-bold text-rose-900">Erreur de diagramme</h3>
-                    <p className="text-[10px] text-rose-700 font-mono bg-white/60 p-4 rounded-2xl border border-rose-200/50 text-left overflow-auto max-h-[120px]">{error}</p>
+    if (error) {
+        return (
+            <div className="w-full flex items-center justify-center p-8">
+                <div className="max-w-md w-full bg-rose-50 border border-rose-100 rounded-[2.5rem] p-8 flex flex-col items-center text-center gap-4 shadow-xl">
+                    <div className="h-12 w-12 bg-rose-100 rounded-full flex items-center justify-center text-rose-500">
+                        <AlertTriangle className="h-6 w-6" />
+                    </div>
+                    <div className="space-y-2">
+                        <h3 className="text-lg font-bold text-rose-900">Erreur de diagramme</h3>
+                        <p className="text-[10px] text-rose-700 font-mono bg-white/60 p-4 rounded-2xl border border-rose-200/50 text-left overflow-auto max-h-[120px]">{error}</p>
+                    </div>
                 </div>
             </div>
-        </div>
-    );
-}
+        );
+    }
 
-return (
-    <div className="w-full h-full relative group p-4">
-        <style dangerouslySetInnerHTML={{
-            __html: `
+    return (
+        <div className="w-full h-full relative group p-4">
+            <style dangerouslySetInnerHTML={{
+                __html: `
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&display=swap');
                 
                 /* Layout global Mermaid */
@@ -211,35 +213,35 @@ return (
                 .mermaid .edgePath:hover path { stroke: #6366f1 !important; stroke-width: 3px !important; }
             ` }} />
 
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[110%] h-[110%] bg-gradient-to-tr from-indigo-500/5 to-emerald-500/5 blur-[100px] opacity-30 pointer-events-none -z-10" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[110%] h-[110%] bg-gradient-to-tr from-indigo-500/5 to-emerald-500/5 blur-[100px] opacity-30 pointer-events-none -z-10" />
 
-        <div className="relative bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3rem] p-8 shadow-2xl overflow-hidden min-h-[400px] flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
-            <div
-                id="mermaid-container"
-                className="mermaid w-full opacity-0 translate-y-4 animate-[fadeIn_0.8s_ease-out_forwards]"
-                dangerouslySetInnerHTML={{ __html: svg }}
-            />
+            <div className="relative bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3rem] p-8 shadow-2xl overflow-hidden min-h-[400px] flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
+                <div
+                    id="mermaid-container"
+                    className="mermaid w-full opacity-0 translate-y-4 animate-[fadeIn_0.8s_ease-out_forwards]"
+                    dangerouslySetInnerHTML={{ __html: svg }}
+                />
 
-            {!svg && !error && (
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-indigo-500/10 border-t-indigo-500 rounded-full animate-spin" />
-                    <div className="bg-indigo-50/50 px-4 py-1.5 rounded-full text-[10px] font-bold text-indigo-400 uppercase tracking-widest animate-pulse">
-                        Génération du flux...
+                {!svg && !error && (
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 border-4 border-indigo-500/10 border-t-indigo-500 rounded-full animate-spin" />
+                        <div className="bg-indigo-50/50 px-4 py-1.5 rounded-full text-[10px] font-bold text-indigo-400 uppercase tracking-widest animate-pulse">
+                            Génération du flux...
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {svg && (
+                <div className="absolute top-10 right-10">
+                    <div className="bg-white/80 backdrop-blur-md border border-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-400 py-2 px-4 rounded-full shadow-sm flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Vue GRC Active
                     </div>
                 </div>
             )}
         </div>
-
-        {svg && (
-            <div className="absolute top-10 right-10">
-                <div className="bg-white/80 backdrop-blur-md border border-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-400 py-2 px-4 rounded-full shadow-sm flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Vue GRC Active
-                </div>
-            </div>
-        )}
-    </div>
-);
+    );
 };
 
 // Animation CSS Additionnelle
