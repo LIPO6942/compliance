@@ -160,10 +160,6 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
             }
         };
 
-        const timeoutId = setTimeout(() => {
-            if (window.mermaid) renderChart();
-        }, 100);
-        return () => clearTimeout(timeoutId);
     }, 100);
     return () => clearTimeout(timeoutId);
 }, [chart, workflowTasks, workflowId, planData, availableUsers]);
