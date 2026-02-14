@@ -1,18 +1,15 @@
-
 "use client";
 
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, CheckCircle, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, XCircle } from "lucide-react";
-import Image from "next/image";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
+import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
-import type { ComplianceCategory, ComplianceTask, Document, DocumentStatus, NewsItem, IdentifiedRegulation, RiskMappingItem } from "@/types/compliance";
+import type { RiskMappingItem, ActivityItem } from "@/types/compliance";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/icons/Logo";
 import { useNews } from "@/contexts/NewsContext";
@@ -20,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
-
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const complianceStatusBaseColors = {
   conforme: "hsl(var(--chart-1))",
@@ -29,63 +26,30 @@ const complianceStatusBaseColors = {
   aucuneDonnee: "hsl(var(--muted))",
 };
 
-const initialChartConfig: ChartConfig = {
-  value: {
-    label: "Pourcentage",
-  },
-  conforme: {
-    label: "Conforme",
-    color: complianceStatusBaseColors.conforme,
-  },
-  enCours: {
-    label: "En Cours",
-    color: complianceStatusBaseColors.enCours,
-  },
-  nonConforme: {
-    label: "Non Conforme",
-    color: complianceStatusBaseColors.nonConforme,
-  },
-  aucuneDonnee: {
-    label: "Aucune Donnée",
-    color: complianceStatusBaseColors.aucuneDonnee,
-  }
-} satisfies ChartConfig
-
-type ActivityItem = {
-  id: string;
-  type: 'document' | 'alert' | 'risk';
-  description: string;
-  date: Date;
-  href: string;
-  Icon: React.ElementType;
-}
-
 export default function DashboardPage() {
-  const { planData } = usePlanData();
+  const { planData, activeWorkflows } = usePlanData();
   const { documents } = useDocuments();
   const { identifiedRegulations } = useIdentifiedRegulations();
   const { risks } = useRiskMapping();
-  const { news, loading: newsLoading, refetchNews, dismissNewsItem } = useNews();
+  const { news, loading: newsLoading, refetchNews } = useNews();
   const [isLoading, setIsLoading] = React.useState(true);
   const router = useRouter();
 
   const [activeTasksCount, setActiveTasksCount] = React.useState(0);
   const [overdueTasksCount, setOverdueTasksCount] = React.useState(0);
   const [overallCompliancePercentage, setOverallCompliancePercentage] = React.useState(0);
-  const [complianceStatusData, setComplianceStatusData] = React.useState<Array<{ status: string; value: number; fill: string, id: DocumentStatus | "none" }>>([]);
-  const [taskProgressData, setTaskProgressData] = React.useState<Array<{ id: string; name: string; completed: number; pending: number; overdue: number }>>([]);
+  const [complianceStatusData, setComplianceStatusData] = React.useState<any[]>([]);
+  const [taskProgressData, setTaskProgressData] = React.useState<any[]>([]);
   const [newAlertsCount, setNewAlertsCount] = React.useState(0);
-  const [lastTwoActions, setLastTwoActions] = React.useState<ActivityItem[]>([]);
+  const [lastActions, setLastActions] = React.useState<any[]>([]);
   const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
     setIsClient(true);
   }, []);
 
-
   React.useEffect(() => {
     if (planData && documents && identifiedRegulations && risks) {
-      // Exclure les processus métiers du comptage des tâches
       const allTasks = planData
         .filter(category => category.name !== "Processus Métiers Clés")
         .flatMap(category => category.subCategories.flatMap(subCategory => subCategory.tasks));
@@ -103,371 +67,338 @@ export default function DashboardPage() {
       const nonConformeCount = documents.filter(d => d.status === "Obsolète").length;
       const totalRelevantDocsForPie = conformeCount + enCoursCount + nonConformeCount;
 
-      let newComplianceStatusData: Array<{ status: string; value: number; fill: string, id: DocumentStatus | "none" }> = [];
+      let newComplianceStatusData: any[] = [];
       if (totalRelevantDocsForPie > 0) {
         newComplianceStatusData = [
-          { status: "Conforme", value: Math.round((conformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.conforme, id: "Validé" },
-          { status: "En Cours", value: Math.round((enCoursCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.enCours, id: "En Révision" },
-          { status: "Non Conforme", value: Math.round((nonConformeCount / totalRelevantDocsForPie) * 100), fill: complianceStatusBaseColors.nonConforme, id: "Obsolète" },
+          { status: "Conforme", value: conformeCount, fill: complianceStatusBaseColors.conforme },
+          { status: "En Cours", value: enCoursCount, fill: complianceStatusBaseColors.enCours },
+          { status: "Non Conforme", value: nonConformeCount, fill: complianceStatusBaseColors.nonConforme },
         ].filter(item => item.value > 0);
-      }
-
-      if (newComplianceStatusData.length === 0) {
-        newComplianceStatusData.push(
-          { status: "Aucune Donnée", value: 100, fill: complianceStatusBaseColors.aucuneDonnee, id: "none" }
-        );
       }
       setComplianceStatusData(newComplianceStatusData);
 
-      // Exclure les processus métiers du graphique de progression
+      // Task Progress
       const newTaskProgressData = planData
         .filter(category => category.name !== "Processus Métiers Clés")
         .map(category => {
           const categoryTasks = category.subCategories.flatMap(sub => sub.tasks);
           const completed = categoryTasks.filter(task => task.completed).length;
           const overdue = categoryTasks.filter(task => !task.completed && task.deadline && new Date(task.deadline) < now).length;
-          const pending = categoryTasks.filter(task => !task.completed).length - overdue;
-
+          const total = categoryTasks.length;
           return {
-            id: category.id,
-            name: category.name.length > 25 ? category.name.substring(0, 22) + "..." : category.name,
-            completed,
-            pending,
-            overdue,
+            name: category.name.substring(0, 15),
+            progress: total > 0 ? Math.round((completed / total) * 100) : 0,
+            overdue
           };
-        });
+        }).filter(c => c.progress > 0 || c.overdue > 0).slice(0, 4);
       setTaskProgressData(newTaskProgressData);
 
       setNewAlertsCount(identifiedRegulations.filter(reg => reg.status === 'Nouveau').length);
 
-      // --- Logic for Last Two Actions ---
-      const documentActions: ActivityItem[] = documents.map(doc => ({
+      // Recent Actions
+      const documentActions = documents.slice(0, 5).map(doc => ({
         id: `doc-${doc.id}`,
-        type: 'document',
-        description: `Document "${doc.name}" mis à jour (Statut: ${doc.status})`,
+        description: `Mise à jour : ${doc.name}`,
         date: parseISO(doc.lastUpdated),
-        href: `/documents?type=${doc.type}`,
         Icon: FileText,
       }));
 
-      const alertActions: ActivityItem[] = identifiedRegulations.map(alert => ({
+      const alertActions = identifiedRegulations.slice(0, 5).map(alert => ({
         id: `alert-${alert.id}`,
-        type: 'alert',
-        description: `Nouvelle alerte "${alert.summary}" ajoutée.`,
+        description: `Nouvelle alerte : ${alert.summary.substring(0, 30)}...`,
         date: parseISO(alert.publicationDate),
-        href: '/alerts',
         Icon: Bell,
       }));
 
-      const riskActions: ActivityItem[] = risks.map(risk => ({
-        id: `risk-${risk.id}`,
-        type: 'risk',
-        description: `Risque "${risk.riskDescription.substring(0, 30)}..." mis à jour.`,
-        date: parseISO(risk.lastUpdated),
-        href: '/risk-mapping',
-        Icon: ShieldAlert,
-      }));
-
-      const allActions = [...documentActions, ...alertActions, ...riskActions];
-      allActions.sort((a, b) => b.date.getTime() - a.date.getTime());
-      setLastTwoActions(allActions.slice(0, 2));
-      // --- End Logic ---
+      const allActions = [...documentActions, ...alertActions].sort((a, b) => b.date.getTime() - a.date.getTime());
+      setLastActions(allActions.slice(0, 5));
 
       setIsLoading(false);
     }
   }, [planData, documents, identifiedRegulations, risks]);
 
-  const handlePieClick = (data: any) => {
-    if (data && data.id && data.id !== 'none') {
-      router.push(`/documents?status=${data.id}`);
-    }
-  };
-
-  const handleBarClick = (data: any) => {
-    if (data && data.activePayload && data.activePayload.length > 0) {
-      const categoryId = data.activePayload[0].payload.id;
-      if (categoryId) {
-        router.push(`/plan#${categoryId}`);
-      }
-    }
-  };
-
-  const newsSourceColors: Record<NewsItem['source'], string> = {
-    CGA: 'bg-blue-600 hover:bg-blue-700',
-    JORT: 'bg-green-600 hover:bg-green-700',
-    GAFI: 'bg-gray-700 hover:bg-gray-800',
-    OFAC: 'bg-red-600 hover:bg-red-700',
-    UE: 'bg-indigo-600 hover:bg-indigo-700',
-    NewsAPI: 'bg-sky-600 hover:bg-sky-700',
-    GNews: 'bg-emerald-600 hover:bg-emerald-700',
-    MarketAux: 'bg-orange-600 hover:bg-orange-700',
-    "Google News": 'bg-blue-500 hover:bg-blue-600',
-    Autre: 'bg-gray-500 hover:bg-gray-600',
-  };
-
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-10rem)]">
         <Logo className="h-12 w-12 animate-spin" />
-        <p className="ml-4 text-lg text-muted-foreground">Chargement du tableau de bord...</p>
+        <p className="ml-4 text-lg text-muted-foreground">Intelligence Dashboard...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Link href="/plan" className="block group">
-          <Card className="shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full overflow-hidden relative group-hover:scale-[1.02]">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 dark:from-blue-500/10 dark:to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-              <CardTitle className="text-sm font-medium">Tâches Actives</CardTitle>
-              <Activity className="h-5 w-5 text-muted-foreground group-hover:text-blue-500 transition-colors duration-300" />
-            </CardHeader>
-            <CardContent className="relative z-10">
-              <div className="text-3xl font-bold font-headline">{activeTasksCount}</div>
-              <p className="text-xs text-muted-foreground pt-1">
-                {overdueTasksCount > 0 ? <span className="text-destructive font-medium">Dont {overdueTasksCount} en retard</span> : "Aucune tâche en retard"}
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/alerts" className="block group">
-          <Card className="shadow-lg hover:shadow-2xl transition-all duration-300 hover:ring-2 hover:ring-primary cursor-pointer h-full overflow-hidden relative group-hover:scale-[1.02]">
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 dark:from-amber-500/10 dark:to-orange-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-              <CardTitle className="text-sm font-medium">Alertes Récentes</CardTitle>
-              <Bell className="h-5 w-5 text-muted-foreground group-hover:text-amber-500 transition-colors duration-300" />
-            </CardHeader>
-            <CardContent className="relative z-10">
-              <div className="text-3xl font-bold font-headline">{newAlertsCount}</div>
-              <p className="text-xs text-muted-foreground pt-1">Nouvelle{newAlertsCount === 1 ? "" : "s"} alerte{newAlertsCount === 1 ? "" : "s"} à analyser</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/documents?status=Validé" className="block group">
-          <Card className="shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full overflow-hidden relative group-hover:scale-[1.02]">
-            <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 dark:from-green-500/10 dark:to-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-              <CardTitle className="text-sm font-medium">Niveau de Conformité Global</CardTitle>
-              <Target className="h-5 w-5 text-muted-foreground group-hover:text-green-500 transition-colors duration-300" />
-            </CardHeader>
-            <CardContent className="relative z-10">
-              <div className={`text-3xl font-bold font-headline ${overallCompliancePercentage >= 80 ? 'text-green-600' : overallCompliancePercentage >= 50 ? 'text-yellow-500' : 'text-red-600'}`}>
-                {overallCompliancePercentage}%
-              </div>
-              <p className="text-xs text-muted-foreground pt-1">Basé sur les documents validés</p>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6">
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="font-headline">Statut de Conformité Documentaire</CardTitle>
-            <CardDescription>Répartition des documents par statut. Cliquez sur une section pour filtrer.</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[250px] w-full">
-            {isClient ? (
-              <ChartContainer config={initialChartConfig} className="mx-auto aspect-square max-h-[250px]">
-                <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="status" />} />
-                  <Pie data={complianceStatusData} dataKey="value" nameKey="status" innerRadius={50} outerRadius={70} cy="50%" onClick={handlePieClick} className="cursor-pointer">
-                    {complianceStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}-${entry.status}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <ChartLegend content={<ChartLegendContent nameKey="status" />} className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center" />
-                </PieChart>
-              </ChartContainer>
-            ) : (
-              <div className="mx-auto flex h-full items-center justify-center">
-                <Logo className="h-10 w-10 animate-spin" />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="font-headline">Progression des Tâches par Domaine</CardTitle>
-            <CardDescription>Suivi des tâches complétées, en attente et en retard. Cliquez sur une barre pour voir les détails.</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[400px]">
-            {isClient ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={taskProgressData} margin={{ top: 5, right: 20, left: 0, bottom: 70 }} onClick={handleBarClick} className="cursor-pointer">
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} angle={-45} textAnchor="end" interval={0} height={80} />
-                  <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: 'var(--radius)', borderColor: 'hsl(var(--border))' }} labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }} />
-                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 20 }} />
-                  <Bar dataKey="completed" stackId="a" fill="hsl(var(--chart-1))" name="Complétées" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="pending" stackId="a" fill="hsl(var(--chart-4))" name="En Attente" />
-                  <Bar dataKey="overdue" stackId="a" fill="hsl(var(--destructive))" name="En Retard" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <Logo className="h-10 w-10 animate-spin" />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline text-2xl flex items-center">
-            <History className="mr-3 h-7 w-7 text-primary" />
-            Dernières Actions Effectuées
-          </CardTitle>
-          <CardDescription>
-            Un aperçu des modifications et ajouts les plus récents dans l'application.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {lastTwoActions.length > 0 ? (
-            <ul className="space-y-4">
-              {lastTwoActions.map((action) => (
-                <li key={action.id}>
-                  <Link href={action.href} className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="bg-primary/10 p-2 rounded-full">
-                      <action.Icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">{action.description}</p>
-                      <p className="text-xs text-muted-foreground">{format(action.date, "d MMMM yyyy 'à' HH:mm", { locale: fr })}</p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">Aucune action récente à afficher.</p>
-          )}
-        </CardContent>
-      </Card>
-
-
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <QuickAccessCard
-          icon={ShieldAlert}
-          title="Assistance Conformité IA"
-          description="Analysez les nouvelles réglementations avec l'IA et gérez leur intégration."
-          href="/regulatory-watch"
-          actionText="Analyser une Réglementation"
-        />
-        <QuickAccessCard
-          icon={FileText}
-          title="Gestion Documentaire"
-          description="Centralisez et gérez tous vos documents de conformité."
-          href="/documents"
-          actionText="Accéder aux Documents"
-        />
-        <QuickAccessCard
-          icon={Map}
-          title="Cartographie des Risques"
-          description="Identifiez, évaluez et suivez les risques de non-conformité au sein de votre organisation."
-          href="/risk-mapping"
-          actionText="Consulter la Cartographie"
-        />
-      </div>
-
-      <Card className="shadow-lg">
-        <CardHeader className="flex flex-row justify-between items-center">
-          <div className="flex-1">
-            <CardTitle className="font-headline flex items-center">
-              <Newspaper className="mr-2 h-6 w-6 text-primary" />
-              Fil d'Actualité Conformité
-            </CardTitle>
-          </div>
-          <Button variant="ghost" size="icon" onClick={refetchNews} disabled={newsLoading}>
-            <RefreshCw className={`h-5 w-5 ${newsLoading ? 'animate-spin' : ''}`} />
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {newsLoading ? (
-            <p className="text-muted-foreground">Chargement des actualités...</p>
-          ) : (
-            <ul className="space-y-4">
-              {news.slice(0, 5).map((item: NewsItem) => (
-                <li key={item.id} className="group flex items-start gap-4">
-                  <div className="flex-shrink-0 pt-1">
-                    <Badge className={`w-[95px] justify-center text-white ${newsSourceColors[item.source]}`}>{item.source}</Badge>
-                  </div>
-                  <div className="flex-grow">
-                    <a href={item.url || '#'} target="_blank" rel="noopener noreferrer" className="font-semibold text-sm leading-tight group-hover:underline">{item.title}</a>
-                    <p className="text-xs text-muted-foreground mt-0.5">{format(parseISO(item.date), "d MMMM yyyy", { locale: fr })}</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                    onClick={() => dismissNewsItem(item.id)}
-                    aria-label="Écarter l'actualité"
-                  >
-                    <XCircle className="h-4 w-4" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline flex items-center">
-            <HelpCircle className="mr-2 h-6 w-6 text-accent" />
-            Besoin d'Aide ?
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <p className="text-muted-foreground flex-1">
-            Consultez notre base de connaissance ou contactez le support pour toute question relative à Compliance Navigator.
+    <div className="space-y-8 pb-10">
+      {/* Header Space */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-black font-headline tracking-tighter text-slate-900 dark:text-white">
+            Dashboard <span className="text-primary">Intelligence</span>
+          </h1>
+          <p className="text-muted-foreground text-lg flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary" /> Analyse GRC • <span className="font-bold text-slate-700 dark:text-slate-300">{format(new Date(), 'dd MMMM yyyy', { locale: fr })}</span>
           </p>
-          <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent/10 hover:text-accent">
-            <a href="mailto:Moslem.gouia@gmail.com">Contacter le Support</a>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => router.push('/regulatory-watch')} className="shadow-sm border-primary/20 hover:bg-primary/5">
+            <Lightbulb className="mr-2 h-4 w-4 text-amber-500" /> Assistant IA
           </Button>
-        </CardContent>
-      </Card>
+          <Button size="sm" onClick={() => router.push('/plan')} className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+            <PlusCircle className="mr-2 h-4 w-4" /> Gérer le Plan
+          </Button>
+        </div>
+      </div>
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+        {/* Left Column: Health Gauge */}
+        <div className="lg:col-span-1 space-y-6">
+          <Card className="border-none shadow-2xl bg-slate-900 text-white overflow-hidden relative min-h-[320px] flex flex-col justify-center">
+            <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl animate-pulse" />
+            <CardHeader className="pb-2 text-center">
+              <CardTitle className="text-[10px] uppercase tracking-[0.3em] font-black opacity-50">Conformité Globale</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center">
+              <div className="relative flex items-center justify-center w-full">
+                {isClient && (
+                  <ResponsiveContainer width="100%" height={120}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { value: overallCompliancePercentage, fill: 'hsl(var(--primary))' },
+                          { value: 100 - overallCompliancePercentage, fill: 'rgba(255,255,255,0.05)' }
+                        ]}
+                        cx="50%" cy="100%"
+                        startAngle={180} endAngle={0}
+                        innerRadius={70} outerRadius={95}
+                        paddingAngle={0} dataKey="value" stroke="none"
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+                <div className="absolute bottom-0 text-center">
+                  <div className="text-6xl font-black tracking-tighter leading-none mb-1">{overallCompliancePercentage}%</div>
+                  <Badge variant="outline" className="text-[10px] border-emerald-500/50 text-emerald-400 bg-emerald-500/10">SANTÉ OPTIMALE</Badge>
+                </div>
+              </div>
+              <div className="mt-10 grid grid-cols-2 gap-8 w-full border-t border-white/5 pt-6">
+                <div className="text-center">
+                  <p className="text-2xl font-black">{activeTasksCount}</p>
+                  <p className="text-[9px] uppercase font-bold opacity-40">Tâches Actives</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-black text-rose-500">{overdueTasksCount}</p>
+                  <p className="text-[9px] uppercase font-bold opacity-40">Retards</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-xl border-primary/5 bg-white/50 backdrop-blur-md">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
+                <TrendingUp className="h-3 w-3 text-emerald-500" />
+                Performance Domaines
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-4">
+              {taskProgressData.map((item, i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-tight">
+                    <span className="truncate max-w-[140px] text-slate-600 dark:text-slate-400">{item.name}</span>
+                    <span className={item.overdue > 0 ? "text-rose-500" : "text-primary"}>{item.progress}%</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-1000 ${item.overdue > 0 ? 'bg-rose-500' : 'bg-primary'}`}
+                      style={{ width: `${item.progress}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Middle Column: 360 View */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="shadow-xl border-none bg-gradient-to-br from-rose-50 via-white to-white dark:from-rose-950/20 dark:to-slate-900 group overflow-hidden border-l-4 border-l-rose-500">
+              <CardHeader className="pb-0">
+                <CardTitle className="text-xs font-black uppercase tracking-widest text-rose-600 flex justify-between">
+                  Urgence
+                  <Badge variant="destructive" className="h-4 text-[9px] animate-pulse">ACTION REQUIS</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 flex items-center gap-5">
+                <div className="p-4 bg-rose-500 text-white rounded-2xl shadow-lg shadow-rose-500/30 group-hover:rotate-6 transition-transform">
+                  <ShieldAlert className="h-7 w-7" />
+                </div>
+                <div>
+                  <p className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white">{newAlertsCount}</p>
+                  <p className="text-[10px] text-rose-600 font-bold uppercase">Nouvelles Alertes GRC</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-xl border-none bg-gradient-to-br from-indigo-50 via-white to-white dark:from-indigo-950/20 dark:to-slate-900 group overflow-hidden border-l-4 border-l-indigo-500">
+              <CardHeader className="pb-0">
+                <CardTitle className="text-xs font-black uppercase tracking-widest text-indigo-600">Structure</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 flex items-center gap-5">
+                <div className="p-4 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/30 group-hover:-rotate-6 transition-transform">
+                  <Workflow className="h-7 w-7" />
+                </div>
+                <div>
+                  <p className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white">{Object.keys(activeWorkflows).length}</p>
+                  <p className="text-[10px] text-indigo-600 font-bold uppercase">Workflows Métiers</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="shadow-2xl border-none">
+            <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+              <div>
+                <CardTitle className="text-lg font-black font-headline tracking-tight">Répartition GRC Documentaire</CardTitle>
+                <p className="text-xs text-muted-foreground">Volume de preuves par état de validation</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => router.push('/documents')} className="h-8 text-xs font-bold border-primary/20 hover:bg-primary/5">
+                Explorer les archives <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="h-[200px]">
+                {isClient && (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={complianceStatusData} layout="vertical" margin={{ left: -20, right: 40 }}>
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="status" type="category" width={120} tick={{ fontSize: 10, fontWeight: 900, fill: 'currentColor' }} />
+                      <Tooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                      <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={30}>
+                        {complianceStatusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {complianceStatusData.map((s, i) => (
+                  <div key={i} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 px-3 py-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.fill }} />
+                    <span className="text-[10px] font-black uppercase opacity-60 truncate">{s.status}:</span>
+                    <span className="text-xs font-black">{s.value}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column: Timeline & News */}
+        <div className="lg:col-span-1 space-y-6">
+          <Card className="shadow-xl border-none border-t-4 border-t-primary">
+            <CardHeader className="pb-3 border-b">
+              <CardTitle className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 text-primary">
+                <History className="h-4 w-4" />
+                Derniers Signaux
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[280px]">
+                <div className="p-5 space-y-7">
+                  {lastActions.map((action, i) => (
+                    <div key={i} className="flex gap-4 items-start relative pb-7 border-l-2 border-slate-100 dark:border-slate-800 ml-2 pl-5 last:border-0 last:pb-0">
+                      <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white dark:bg-slate-950 border-4 border-primary shadow-sm" />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <action.Icon className="h-3 w-3 text-muted-foreground" />
+                          <p className="text-[10px] font-black uppercase text-muted-foreground">
+                            {format(action.date, 'HH:mm • dd MMM', { locale: fr })}
+                          </p>
+                        </div>
+                        <p className="text-[13px] font-bold leading-tight text-slate-800 dark:text-slate-200">
+                          {action.description}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {lastActions.length === 0 && (
+                    <div className="text-center py-10 opacity-30 italic text-sm">Aucun signal récent</div>
+                  )}
+                </div>
+              </ScrollArea>
+              <div className="p-4 border-t bg-slate-50/50 dark:bg-slate-900/50">
+                <Button variant="ghost" className="w-full text-xs font-bold gap-2 text-muted-foreground hover:text-primary">
+                  Voir l'historique complet <ArrowRight className="h-3 w-3" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-xl overflow-hidden border-none bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+            <CardHeader className="pb-3 border-b border-primary/5">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-slate-500">
+                  <Newspaper className="h-3 w-3" />
+                  Intelligence Flux
+                </CardTitle>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={refetchNews}>
+                  <RefreshCw className={`h-3 w-3 ${newsLoading ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              {news.slice(0, 3).map((item, i) => (
+                <a
+                  key={i}
+                  href={item.url}
+                  target="_blank"
+                  className="block p-3 rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm border border-transparent hover:border-slate-200 transition-all group"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <Badge className="text-[8px] h-4 font-black uppercase bg-primary/10 text-primary border-none shadow-none">{item.source}</Badge>
+                    <span className="text-[8px] font-bold opacity-30">{format(parseISO(item.date), 'dd/MM', { locale: fr })}</span>
+                  </div>
+                  <p className="text-[12px] font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors">{item.title}</p>
+                </a>
+              ))}
+              <Button variant="link" className="text-[10px] font-black uppercase p-0 h-auto tracking-widest text-primary/70 hover:text-primary" onClick={() => router.push('/news')}>
+                Flux complet <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+      </div>
+
+      {/* Action shortcuts */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <ModernActionCard icon={ShieldCheck} title="Alertes GRC" href="/alerts" color="bg-rose-500" />
+        <ModernActionCard icon={Map} title="Risques" href="/risk-mapping" color="bg-amber-500" />
+        <ModernActionCard icon={FileText} title="Documents" href="/documents" color="bg-indigo-500" />
+        <ModernActionCard icon={Users} title="Équipe" href="/team" color="bg-emerald-500" />
+      </div>
 
     </div>
   );
 }
 
-interface QuickAccessCardProps {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  href: string;
-  actionText: string;
-}
-
-function QuickAccessCard({ icon: Icon, title, description, href, actionText }: QuickAccessCardProps) {
+function ModernActionCard({ icon: Icon, title, href, color }: { icon: any, title: string, href: string, color: string }) {
   return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col">
-      <CardHeader className="pb-4">
-        <div className="flex items-center gap-3">
-          <Icon className="h-8 w-8 text-primary" />
-          <CardTitle className="font-headline text-xl">{title}</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="flex-grow">
-        <p className="text-sm text-muted-foreground mb-4">{description}</p>
-      </CardContent>
-      <CardContent className="pt-0">
-        <Button asChild variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
-          <Link href={href}>
-            {actionText} <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
-      </CardContent>
-    </Card>
+    <Link href={href}>
+      <Card className="group hover:shadow-2xl transition-all duration-300 border-none bg-white dark:bg-slate-900 shadow-lg hover:-translate-y-1 overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        <CardContent className="p-5 flex items-center gap-4 relative z-10">
+          <div className={`${color} p-3 rounded-2xl text-white shadow-lg shadow-current/20 group-hover:scale-110 group-hover:rotate-6 transition-all`}>
+            <Icon className="h-6 w-6" />
+          </div>
+          <span className="font-black font-headline text-lg tracking-tighter text-slate-800 dark:text-slate-100">{title}</span>
+          <ArrowRight className="ml-auto h-5 w-5 text-muted-foreground opacity-20 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all text-primary" />
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
