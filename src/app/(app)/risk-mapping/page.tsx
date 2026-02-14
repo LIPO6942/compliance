@@ -17,10 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RiskKPIs } from "./RiskKPIs";
 import { RiskHeatmap } from "./RiskHeatmap";
+import { Logo } from "@/components/icons/Logo";
 
 const riskSchema = z.object({
   department: z.string().min(1, "La direction est requise."),
@@ -66,17 +67,16 @@ const calculateRiskLevel = (likelihood: RiskLikelihood, impact: RiskImpact): Ris
 };
 
 const riskLevelColors: Record<RiskLevel, string> = {
-  "Faible": "bg-green-100 text-green-800 border-green-300 dark:bg-green-800/30 dark:text-green-300",
-  "Modéré": "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-800/30 dark:text-yellow-400",
-  "Élevé": "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-800/30 dark:text-orange-400",
-  "Très élevé": "bg-red-100 text-red-800 border-red-300 dark:bg-red-800/30 dark:text-red-400",
+  "Faible": "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-800/20 dark:text-emerald-300 dark:border-emerald-700/50",
+  "Modéré": "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-800/20 dark:text-amber-300 dark:border-amber-700/50",
+  "Élevé": "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-800/20 dark:text-orange-300 dark:border-orange-700/50",
+  "Très élevé": "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-800/20 dark:text-rose-300 dark:border-rose-700/50",
 };
 
-const departmentOptions = ["Toutes", "Juridiques", "Finances", "Comptabilité", "Sinistres matériels", "Sinistre corporel", "Equipements", "RH", "DSI", "Audit", "Organisation", "Qualité Vie", "Commercial", "Recouvrement", "Inspection"];
+const departmentOptions = ["Juridiques", "Finances", "Comptabilité", "Sinistres matériels", "Sinistre corporel", "Equipements", "RH", "DSI", "Audit", "Organisation", "Qualité Vie", "Commercial", "Recouvrement", "Inspection"];
 const categoryOptions: RiskCategory[] = ["Clients", "Produits et Services", "Pays et Zones Géographiques", "Canaux de Distribution"];
 const likelihoodOptions: RiskLikelihood[] = ["Faible", "Modérée", "Élevée", "Très élevée"];
 const impactOptions: RiskImpact[] = ["Faible", "Modéré", "Élevé", "Très élevé"];
-const riskLevelOptions: RiskLevel[] = ["Faible", "Modéré", "Élevé", "Très élevé"];
 
 export default function RiskMappingPage() {
   const { risks, addRisk, editRisk, removeRisk } = useRiskMapping();
@@ -103,253 +103,249 @@ export default function RiskMappingPage() {
         documentIds: data.documentIds || [],
       });
     } else {
-      form.reset({ department: '', category: 'Clients', riskDescription: '', likelihood: 'Faible', impact: 'Faible', expectedAction: '', owner: '', documentIds: [] });
+      form.reset({
+        department: departmentOptions[0],
+        category: categoryOptions[0],
+        likelihood: "Modérée",
+        impact: "Modéré",
+        riskDescription: "",
+        expectedAction: "",
+        owner: "",
+        documentIds: [],
+      });
     }
   };
 
   const closeDialog = () => setDialogState({ mode: null });
 
-  const handleFormSubmit = (values: RiskFormValues) => {
-    const riskLevel = calculateRiskLevel(values.likelihood as RiskLikelihood, values.impact as RiskImpact);
-    const riskData = { ...values, riskLevel };
-
-    if (dialogState.mode === "add") {
-      addRisk(riskData);
-      toast({ title: "Risque ajouté", description: `Le risque a été ajouté à la cartographie.` });
-    } else if (dialogState.mode === "edit" && dialogState.data?.id) {
-      editRisk(dialogState.data.id, riskData);
-      toast({ title: "Risque modifié", description: `Le risque a été mis à jour.` });
+  const handleFormSubmit = async (values: RiskFormValues) => {
+    try {
+      if (dialogState.mode === "add") {
+        await addRisk(values);
+        toast({ title: "Risque identifié", description: "La cartographie a été mise à jour." });
+      } else if (dialogState.mode === "edit" && dialogState.data?.id) {
+        await editRisk(dialogState.data.id, values);
+        toast({ title: "Risque modifié", description: "Les détails du risque ont été actualisés." });
+      }
+      closeDialog();
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer les modifications." });
     }
-    closeDialog();
   };
 
-  const handleRemoveRisk = (riskId: string) => {
-    removeRisk(riskId);
-    toast({ title: "Risque supprimé", description: "Le risque a été supprimé de la cartographie." });
+  const handleDeleteRisk = async (id: string) => {
+    try {
+      const alert = findAlertByRiskId(id);
+      if (alert) await removeAlertByRiskId(id);
+      await removeRisk(id);
+      toast({ title: "Risque supprimé", description: "Le risque a été retiré de la cartographie." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erreur", description: "Action impossible." });
+    }
   };
 
   const handleToggleAlert = async (risk: RiskMappingItem) => {
     const existingAlert = findAlertByRiskId(risk.id);
     if (existingAlert) {
       await removeAlertByRiskId(risk.id);
-      toast({
-        title: "Alerte Retirée",
-        description: "L'alerte associée à ce risque a été supprimée.",
-        variant: "default",
-      });
+      toast({ title: "Alerte désactivée", description: "Le lien entre ce risque et le centre d'alertes est rompu." });
     } else {
-      await createAlertFromRisk(risk);
-      toast({
-        title: "Alerte Créée",
-        description: "Une nouvelle alerte a été créée avec succès dans le Centre d'Alertes.",
-      });
+      createAlertFromRisk(risk);
+      toast({ title: "Alerte générée", description: "Une alerte critique a été envoyée au centre de commande." });
     }
   };
 
   const filteredRisks = React.useMemo(() => risks.filter(risk => {
-    if (filterRiskLevel !== "all" && risk.riskLevel !== filterRiskLevel) return false;
-    if (filterDepartment !== "all" && risk.department !== filterDepartment) return false;
-    if (filterCategory !== "all" && risk.category !== filterCategory) return false;
-    return true;
+    const matchesLevel = filterRiskLevel === "all" || calculateRiskLevel(risk.likelihood, risk.impact) === filterRiskLevel;
+    const matchesDept = filterDepartment === "all" || risk.department === filterDepartment;
+    const matchesCategory = filterCategory === "all" || risk.category === filterCategory;
+    return matchesLevel && matchesDept && matchesCategory;
   }), [risks, filterRiskLevel, filterDepartment, filterCategory]);
 
-  const getLinkedDocuments = (risk: RiskMappingItem): Document[] => {
-    if (!risk.documentIds || risk.documentIds.length === 0) return [];
-    return documents.filter(doc => risk.documentIds!.includes(doc.id));
-  };
-
+  if (!isClient) {
+    return <div className="flex justify-center items-center h-[60vh]"><Logo className="h-10 w-10 animate-spin" /></div>;
+  }
 
   return (
-    <div className="space-y-6">
-      <Card className="shadow-lg border-none bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="font-headline text-3xl flex items-center text-white">
-                <Map className="mr-3 h-8 w-8 text-blue-400" />
-                Cartographie des Risques
-              </CardTitle>
-              <CardDescription className="text-lg text-slate-300 mt-2">
-                Identifiez, évaluez et suivez les risques de non-conformité au sein de votre organisation.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+    <div className="space-y-10 pb-20">
 
-      {/* Résumé Stratégique KPI */}
-      <RiskKPIs risks={filteredRisks} />
+      {/* Header & Vision */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div className="space-y-2">
+          <Badge variant="outline" className="border-primary/50 text-primary bg-primary/5 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+            Module de Surveillance
+          </Badge>
+          <h1 className="text-5xl font-black font-headline tracking-tighter text-slate-900 dark:text-white uppercase italic leading-none">
+            Risk <span className="text-primary">Mapping</span>
+          </h1>
+          <p className="text-muted-foreground text-lg max-w-2xl">
+            Visualisation multidimensionnelle de l'exposition aux risques de conformité.
+          </p>
+        </div>
+        <Button
+          size="lg"
+          onClick={() => openDialog('add')}
+          className="h-14 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black uppercase tracking-widest text-xs shadow-2xl shadow-slate-900/20"
+        >
+          <PlusCircle className="mr-3 h-5 w-5" /> Identifier un Risque
+        </Button>
+      </div>
 
-      <Tabs defaultValue="table" value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full space-y-4">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-          <TabsList className="bg-white border shadow-sm">
-            <TabsTrigger value="table"><List className="h-4 w-4 mr-2" /> Vue Tableau</TabsTrigger>
-            <TabsTrigger value="heatmap"><LayoutGrid className="h-4 w-4 mr-2" /> Vue Heatmap</TabsTrigger>
-            <TabsTrigger value="analysis" disabled><AlertTriangle className="h-4 w-4 mr-2" /> Vue Analyse</TabsTrigger>
+      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+          <TabsList className="bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl h-14 w-full md:w-auto shadow-inner">
+            <TabsTrigger value="table" className="rounded-xl px-6 h-12 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg font-black text-[10px] tracking-widest uppercase">
+              <List className="h-4 w-4 mr-2" /> Inventaire
+            </TabsTrigger>
+            <TabsTrigger value="heatmap" className="rounded-xl px-6 h-12 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg font-black text-[10px] tracking-widest uppercase">
+              <LayoutGrid className="h-4 w-4 mr-2" /> Heatmap
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="rounded-xl px-6 h-12 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg font-black text-[10px] tracking-widest uppercase">
+              <Activity className="h-4 w-4 mr-2" /> Analytics
+            </TabsTrigger>
           </TabsList>
 
-          {isClient && (
-            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto flex-wrap justify-end">
-              <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
-                <SelectTrigger className="w-full sm:w-[150px] bg-white">
-                  <SelectValue placeholder="Niveau" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous niveaux</SelectItem>
-                  {riskLevelOptions.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                <SelectTrigger className="w-full sm:w-[150px] bg-white">
-                  <SelectValue placeholder="Direction" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes directions</SelectItem>
-                  {departmentOptions.slice(1).map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-full sm:w-[180px] bg-white">
-                  <SelectValue placeholder="Catégorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes catégories</SelectItem>
-                  {categoryOptions.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md" onClick={() => openDialog('add')}>
-                <PlusCircle className="mr-2 h-5 w-5" /> Ajouter
-              </Button>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+              <SelectTrigger className="h-12 w-full sm:w-[160px] rounded-xl border-none bg-white dark:bg-slate-900 shadow-xl text-[10px] font-black uppercase tracking-widest">
+                <SelectValue placeholder="DIRECTION" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all" className="text-[10px] font-black uppercase">TOUTES DIRECTIONS</SelectItem>
+                {departmentOptions.map(d => <SelectItem key={d} value={d} className="text-[10px] font-black uppercase">{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
+              <SelectTrigger className="h-12 w-full sm:w-[160px] rounded-xl border-none bg-white dark:bg-slate-900 shadow-xl text-[10px] font-black uppercase tracking-widest">
+                <SelectValue placeholder="NIVEAU" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all" className="text-[10px] font-black uppercase">TOUS NIVEAUX</SelectItem>
+                {["Faible", "Modéré", "Élevé", "Très élevé"].map(l => <SelectItem key={l} value={l} className="text-[10px] font-black uppercase">{l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <TabsContent value="table" className="mt-0">
-          <Card className="shadow-md border-slate-200">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-xl">Liste des Risques</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto rounded-md border">
+        <TabsContent value="analysis" className="mt-0 focus-visible:ring-0">
+          <RiskKPIs risks={filteredRisks} />
+        </TabsContent>
+
+        <TabsContent value="heatmap" className="mt-0 focus-visible:ring-0">
+          <RiskHeatmap risks={filteredRisks} />
+        </TabsContent>
+
+        <TabsContent value="table" className="mt-0 focus-visible:ring-0">
+          <Card className="shadow-2xl border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2.5rem] overflow-hidden">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-slate-50 hover:bg-slate-50">
-                      <TableHead className="w-[300px]">Description du Risque</TableHead>
-                      <TableHead>Catégorie</TableHead>
-                      <TableHead>Score</TableHead>
-                      <TableHead>Niveau</TableHead>
-                      <TableHead>Propriétaire</TableHead>
-                      <TableHead>Contrôles / Docs</TableHead>
-                      <TableHead className="text-right w-[80px]">Actions</TableHead>
+                    <TableRow className="bg-slate-50/50 dark:bg-slate-950/50 border-b border-slate-100 dark:border-slate-800">
+                      <TableHead className="py-6 px-8 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Scénario de Risque</TableHead>
+                      <TableHead className="py-6 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Direction</TableHead>
+                      <TableHead className="py-6 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Paramètres</TableHead>
+                      <TableHead className="py-6 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Niveau</TableHead>
+                      <TableHead className="py-6 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Propriétaire</TableHead>
+                      <TableHead className="py-6 text-right font-black uppercase tracking-widest text-[10px] text-muted-foreground px-8">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {isClient ? (
-                      filteredRisks.length > 0 ? (
-                        filteredRisks.map((risk) => {
-                          const existingAlert = findAlertByRiskId(risk.id);
-                          const linkedDocs = getLinkedDocuments(risk);
-                          const score = calculateRiskScore(risk.likelihood, risk.impact);
-
-                          return (
-                            <TableRow key={risk.id} className="hover:bg-slate-50/50 transition-colors group">
-                              <TableCell className="font-medium align-top">
-                                <div className="line-clamp-2" title={risk.riskDescription}>{risk.riskDescription}</div>
-                                <div className="text-[10px] text-muted-foreground mt-1 line-clamp-1 italic">{risk.expectedAction}</div>
-                              </TableCell>
-                              <TableCell className="align-top text-muted-foreground">{risk.category}</TableCell>
-                              <TableCell className="align-top font-bold text-slate-600">{score}</TableCell>
-                              <TableCell className="align-top">
-                                <Badge variant="outline" className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${riskLevelColors[risk.riskLevel]}`}>
-                                  {risk.riskLevel}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="align-top">
-                                {risk.owner ? (
-                                  <span className="text-sm">{risk.owner}</span>
-                                ) : (
-                                  <div className="flex items-center text-amber-500 text-xs gap-1" title="Aucun propriétaire assigné">
-                                    <UserX className="h-3 w-3" /> <span className="underline decoration-dotted">Non assigné</span>
+                    {filteredRisks.length > 0 ? (
+                      filteredRisks.map((risk) => {
+                        const score = calculateRiskScore(risk.likelihood, risk.impact);
+                        const level = calculateRiskLevel(risk.likelihood, risk.impact);
+                        const hasAlert = !!findAlertByRiskId(risk.id);
+                        return (
+                          <TableRow key={risk.id} className="group hover:bg-slate-50 dark:hover:bg-slate-950/40 transition-all border-b border-slate-50 dark:border-slate-800/50">
+                            <TableCell className="py-8 px-8 max-w-[340px]">
+                              <div className="space-y-1">
+                                <p className="text-[10px] font-black text-primary uppercase tracking-widest opacity-40">{risk.category}</p>
+                                <p className="text-base font-black leading-tight group-hover:underline cursor-pointer" onClick={() => openDialog('edit', risk)}>{risk.riskDescription}</p>
+                                {risk.documentIds && risk.documentIds.length > 0 && (
+                                  <div className="flex items-center gap-2 pt-2">
+                                    < फाइलText className="h-3 w-3 text-emerald-500" />
+                                    <span className="text-[9px] font-black uppercase text-emerald-600">{risk.documentIds.length} Preuves Liées</span>
                                   </div>
                                 )}
-                              </TableCell>
-                              <TableCell className="align-top">
-                                <div className="flex flex-col gap-1">
-                                  {linkedDocs.length > 0 ? (
-                                    <div className="flex gap-1 flex-wrap">
-                                      {linkedDocs.slice(0, 2).map(doc => (
-                                        <Link
-                                          key={doc.id}
-                                          href={doc.url || '#'}
-                                          target="_blank"
-                                          className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 hover:bg-blue-100 flex items-center gap-1 max-w-[120px] truncate"
-                                        >
-                                          <FileText className="h-3 w-3 shrink-0" /> {doc.name}
-                                        </Link>
-                                      ))}
-                                      {linkedDocs.length > 2 && <span className="text-[10px] text-muted-foreground">+ {linkedDocs.length - 2}</span>}
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center text-rose-400 text-xs gap-1" title="Aucun document de preuve">
-                                      <FileWarning className="h-3 w-3" /> <span className="underline decoration-dotted">Aucun doc</span>
-                                    </div>
-                                  )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-8">
+                              <Badge variant="outline" className="border-slate-200 dark:border-slate-800 text-[9px] font-black uppercase px-2 py-1">
+                                {risk.department}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="py-8">
+                              <div className="space-y-1">
+                                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Proba: <span className="text-slate-900 dark:text-white">{risk.likelihood}</span></div>
+                                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Impact: <span className="text-slate-900 dark:text-white">{risk.impact}</span></div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-8">
+                              <Badge className={cn("text-[10px] font-black uppercase px-3 py-1.5 rounded-xl border-2 shadow-sm", riskLevelColors[level])}>
+                                {level} {score >= 12 && '🔥'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="py-8">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[9px] font-black">
+                                  {risk.owner[0].toUpperCase()}
                                 </div>
-                              </TableCell>
-                              <TableCell className="text-right align-top">
-                                <AlertDialog>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <span className="sr-only">Ouvrir menu</span>
-                                        <MoreHorizontal className="h-4 w-4" />
+                                <span className="text-sm font-bold">{risk.owner}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-8 text-right px-8">
+                              <div className="flex justify-end gap-2">
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => handleToggleAlert(risk)}
+                                        className={cn("h-10 w-10 rounded-xl border-slate-100 dark:border-slate-800 transition-all", hasAlert ? "bg-rose-50 border-rose-200 text-rose-500" : "hover:bg-slate-50")}
+                                      >
+                                        {hasAlert ? <Bell className="h-4 w-4 fill-current" /> : <BellOff className="h-4 w-4" />}
                                       </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => openDialog('edit', risk)}>
-                                        <Edit className="mr-2 h-4 w-4" /> Modifier
+                                    </TooltipTrigger>
+                                    <TooltipContent className="rounded-xl px-4 py-2 font-bold text-[10px] uppercase shadow-2xl border-none">
+                                      {hasAlert ? "Désactiver l'alerte" : "Propager en alerte critique"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-10 w-10 p-0 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
+                                      <ChevronsUpDown className="h-5 w-5 opacity-40" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-56 rounded-2xl shadow-2xl p-2 border-none bg-white dark:bg-slate-950">
+                                    <DropdownMenuLabel className="text-[10px] font-black uppercase opacity-30 px-3 py-2">Administration</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => openDialog('edit', risk)} className="rounded-xl cursor-pointer">
+                                      <Edit className="mr-3 h-4 w-4 text-indigo-500" /> Modifier le scénario
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator className="mx-2 my-1" />
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 rounded-xl cursor-pointer">
+                                        <Trash2 className="mr-3 h-4 w-4" /> Supprimer du registre
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleToggleAlert(risk)} className={existingAlert ? "text-amber-600 focus:text-amber-600" : ""}>
-                                        {existingAlert ? <BellOff className="mr-2 h-4 w-4" /> : <Bell className="mr-2 h-4 w-4" />}
-                                        {existingAlert ? "Retirer de l'alerte" : "Créer une alerte"}
-                                      </DropdownMenuItem>
-                                      <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e) => e.preventDefault()}>
-                                          <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-                                        </DropdownMenuItem>
-                                      </AlertDialogTrigger>
-                                    </DropdownMenuContent>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Supprimer ce risque ?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          Cette action est irréversible.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleRemoveRisk(risk.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                          Supprimer
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </DropdownMenu>
-                                </AlertDialog>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                            Aucun risque ne correspond à vos filtres.
-                          </TableCell>
-                        </TableRow>
-                      )
+                                    </AlertDialogTrigger>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                          Chargement de la cartographie...
+                        <TableCell colSpan={6} className="h-96 text-center">
+                          <div className="flex flex-col items-center justify-center space-y-4 opacity-30">
+                            <ShieldAlert className="h-20 w-20" />
+                            <p className="text-2xl font-black italic uppercase tracking-tighter">Niveau Zéro Risque</p>
+                            <p className="text-sm font-bold">Aucun risque ne correspond à vos filtres actuels.</p>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )}
@@ -357,149 +353,169 @@ export default function RiskMappingPage() {
                 </Table>
               </div>
             </CardContent>
-            {isClient && filteredRisks.length > 0 && (
-              <CardFooter className="justify-end text-sm text-muted-foreground pt-4 bg-slate-50/50">
-                {filteredRisks.length} risque{filteredRisks.length > 1 ? 's' : ''} trouvé{filteredRisks.length > 1 ? 's' : ''}.
-              </CardFooter>
-            )}
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="heatmap" className="mt-0">
-          <RiskHeatmap risks={filteredRisks} onEditRisk={(r) => openDialog('edit', r)} />
-        </TabsContent>
-
-        <TabsContent value="analysis">
-          <Card className="h-64 flex items-center justify-center bg-slate-50 border-dashed">
-            <div className="text-center text-muted-foreground">
-              <AlertTriangle className="h-10 w-10 mx-auto mb-2 opacity-20" />
-              <p>Module d'analyse avancée en cours de développement.</p>
-            </div>
+            <CardFooter className="p-8 border-t border-slate-50 dark:border-slate-800 justify-between items-center bg-slate-50/50 dark:bg-slate-950/20">
+              <div className="flex gap-4 items-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground underline decoration-emerald-200 underline-offset-4">Residuel</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-rose-500" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground underline decoration-rose-200 underline-offset-4">Inhérent</span>
+                </div>
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">{filteredRisks.length} Scénarios Monitorés</p>
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
 
+      {/* Modern Dialog Implementation */}
       <Dialog open={!!dialogState.mode} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {dialogState.mode === "add" ? "Ajouter un nouveau risque" : "Modifier le risque"}
+        <DialogContent className="rounded-[3rem] p-10 max-w-2xl border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)]">
+          <DialogHeader className="pb-8">
+            <DialogTitle className="text-4xl font-black font-headline tracking-tighter uppercase italic">
+              Risk <span className="text-primary">Profiling</span>
             </DialogTitle>
+            <DialogDescription className="text-base font-medium pt-1">
+              Évaluez et documentez une exposition potentielle.
+            </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-6 pl-1">
-              <FormField control={form.control} name="category" render={({ field }) => (
-                <FormItem><FormLabel>Catégorie de Risque</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Choisir une catégorie" /></SelectTrigger></FormControl>
-                  <SelectContent>{categoryOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
-                </Select><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="department" render={({ field }) => (
-                <FormItem><FormLabel>Direction Concernée</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Choisir une direction" /></SelectTrigger></FormControl>
-                  <SelectContent>{departmentOptions.slice(1).map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
-                </Select><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="owner" render={({ field }) => (
-                <FormItem><FormLabel>Propriétaire / Pilote</FormLabel><FormControl><Input {...field} placeholder="Ex: Direction Commerciale" /></FormControl><FormMessage /></FormItem>
-              )} />
+            <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8 max-h-[60vh] overflow-y-auto pr-6 custom-scrollbar">
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <FormField control={form.control} name="department" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Direction Affectée</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent className="rounded-2xl border-none shadow-2xl">{departmentOptions.map(d => <SelectItem key={d} value={d} className="font-bold">{d}</SelectItem>)}</SelectContent>
+                      </Select><FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="category" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Classification</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent className="rounded-2xl border-none shadow-2xl">{categoryOptions.map(c => <SelectItem key={c} value={c} className="font-bold">{c}</SelectItem>)}</SelectContent>
+                      </Select><FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
 
-              <FormField
-                control={form.control}
-                name="documentIds"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Documents Liés (Optionnel)</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className={cn(
-                              "w-full justify-between h-auto min-h-10",
-                              !field.value?.length && "text-muted-foreground"
-                            )}
-                          >
-                            <div className="flex gap-1 flex-wrap">
-                              {field.value && field.value.length > 0
-                                ? documents
-                                  .filter((doc) => field.value?.includes(doc.id))
-                                  .map((doc) => <Badge key={doc.id} variant="secondary">{doc.name}</Badge>)
-                                : "Sélectionner des documents"}
-                            </div>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                        <ScrollArea className="h-48">
-                          <div className="p-2 space-y-1">
-                            {documents.map((doc) => {
-                              const isSelected = field.value?.includes(doc.id) ?? false;
-                              return (
-                                <div
-                                  key={doc.id}
-                                  className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent cursor-pointer"
-                                  onClick={() => {
-                                    const selectedDocs = field.value || [];
-                                    const newSelectedDocs = isSelected
-                                      ? selectedDocs.filter((id: string) => id !== doc.id)
-                                      : [...selectedDocs, doc.id];
-                                    field.onChange(newSelectedDocs);
-                                  }}
-                                >
-                                  <Checkbox
-                                    id={`doc-${doc.id}`}
-                                    checked={isSelected}
-                                    readOnly
-                                  />
-                                  <label htmlFor={`doc-${doc.id}`} className="text-sm font-medium leading-none cursor-pointer">
-                                    {doc.name}
-                                  </label>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </ScrollArea>
-                      </PopoverContent>
-                    </Popover>
-                    <FormDescription>
-                      Liez des documents de référence à ce risque.
-                    </FormDescription>
-                    <FormMessage />
+                <FormField control={form.control} name="riskDescription" render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Description du Scénario</FormLabel>
+                    <FormControl><Textarea {...field} className="min-h-[100px] rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold p-6 shadow-inner" placeholder="Ex: Défaillance du processus KYC sur les comptes dormants..." /></FormControl><FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField control={form.control} name="riskDescription" render={({ field }) => (
-                <FormItem><FormLabel>Description du Risque</FormLabel><FormControl><Textarea {...field} placeholder="Description détaillée du risque de non-conformité..." /></FormControl><FormMessage /></FormItem>
-              )} />
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="likelihood" render={({ field }) => (
-                  <FormItem><FormLabel>Probabilité</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>{likelihoodOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
-                  </Select><FormMessage /></FormItem>
+                <div className="grid grid-cols-2 gap-6">
+                  <FormField control={form.control} name="likelihood" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Fréquence / Probabilité</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent className="rounded-2xl border-none shadow-2xl">{likelihoodOptions.map(l => <SelectItem key={l} value={l} className="font-bold">{l}</SelectItem>)}</SelectContent>
+                      </Select><FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="impact" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Gravité / Impact</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent className="rounded-2xl border-none shadow-2xl">{impactOptions.map(i => <SelectItem key={i} value={i} className="font-bold">{i}</SelectItem>)}</SelectContent>
+                      </Select><FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+
+                <FormField control={form.control} name="expectedAction" render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Action Corrective</FormLabel>
+                    <FormControl><Textarea {...field} className="min-h-[80px] rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold p-6 shadow-inner" placeholder="Décrivez les mesures de remédiation..." /></FormControl><FormMessage />
+                  </FormItem>
                 )} />
-                <FormField control={form.control} name="impact" render={({ field }) => (
-                  <FormItem><FormLabel>Impact</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>{impactOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
-                  </Select><FormMessage /></FormItem>
-                )} />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField control={form.control} name="owner" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Chef de File</FormLabel>
+                      <FormControl><Input {...field} className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold" /></FormControl><FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField
+                    control={form.control}
+                    name="documentIds"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Preuves Associées</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="h-14 w-full rounded-2xl bg-slate-50 dark:bg-slate-950 border-none justify-between px-4 font-bold">
+                              {field.value && field.value.length > 0 ? `${field.value.length} fichiers liés` : "Sélectionner des documents"}
+                              <LinkIcon className="h-4 w-4 opacity-30" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[300px] p-0 rounded-2xl border-none shadow-2xl">
+                            <ScrollArea className="h-64 p-4">
+                              {documents.map((doc) => (
+                                <div key={doc.id} className="flex items-center space-x-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors">
+                                  <Checkbox
+                                    checked={field.value?.includes(doc.id)}
+                                    onCheckedChange={(checked) => {
+                                      const cur = field.value || [];
+                                      field.onChange(checked ? [...cur, doc.id] : cur.filter((id) => id !== doc.id));
+                                    }}
+                                  />
+                                  <Label className="text-xs font-bold leading-none cursor-pointer">{doc.name}</Label>
+                                </div>
+                              ))}
+                            </ScrollArea>
+                          </PopoverContent>
+                        </Popover>
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
-              <FormField control={form.control} name="expectedAction" render={({ field }) => (
-                <FormItem><FormLabel>Action Attendue / Plan de Maîtrise</FormLabel><FormControl><Textarea {...field} placeholder="Description du plan d'action pour maîtriser le risque..." /></FormControl><FormMessage /></FormItem>
-              )} />
-              <DialogFooter className="pt-4">
-                <Button type="button" variant="outline" onClick={closeDialog}>Annuler</Button>
-                <Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button>
+
+              <DialogFooter className="pt-6 gap-3">
+                <DialogClose asChild><Button type="button" variant="outline" className="h-14 px-8 rounded-2xl font-black uppercase text-xs tracking-widest border-slate-200">Annuler</Button></DialogClose>
+                <Button type="submit" className="h-14 px-10 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20">
+                  {dialogState.mode === "add" ? "Fixer le Scénario" : "Mettre à jour l'Exposition"}
+                </Button>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Reusable Delete Dialog */}
+      <AlertDialog>
+        <AlertDialogContent className="rounded-[3rem] p-10 border-none shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-3xl font-black tracking-tighter uppercase italic">Effacer le <span className="text-rose-600">Risque</span></AlertDialogTitle>
+            <AlertDialogDescription className="text-base font-medium">
+              Voulez-vous vraiment retirer ce scénario du registre officiel ? Cette action est définitive.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-8 gap-3">
+            <AlertDialogCancel className="h-14 px-8 rounded-2xl font-black uppercase text-xs tracking-widest border-slate-200">Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => dialogState.data && handleDeleteRisk(dialogState.data.id)}
+              className="h-14 px-8 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black uppercase text-xs tracking-widest shadow-xl shadow-rose-600/20"
+            >
+              Supprimer définitivement
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

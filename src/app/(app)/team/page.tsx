@@ -4,7 +4,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Shield, Mail, Phone, ExternalLink, Award, Zap, Users, Globe, Briefcase } from "lucide-react";
+import { Shield, Mail, Phone, ExternalLink, Award, Zap, Users, Globe, Briefcase, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface TeamMember {
