@@ -41,32 +41,39 @@ export function PlanHeader({ onAddCategory }: PlanHeaderProps) {
     <div className="space-y-8">
       {/* Premium Gradient Header */}
       <div className="relative">
-        <div className="absolute -left-20 -top-20 w-80 h-80 bg-indigo-500/10 rounded-full blur-[100px] animate-pulse" />
+        <div className="absolute -left-20 -top-20 w-80 h-80 bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 rounded-full blur-[100px] animate-pulse" />
+        <div className="absolute right-0 top-0 w-64 h-64 bg-gradient-to-tr from-emerald-500/10 to-cyan-500/10 rounded-full blur-[80px]" />
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 relative z-10">
-          <div className="space-y-3">
-            <Badge variant="outline" className="border-indigo-500/50 text-indigo-500 bg-indigo-500/5 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-              Gouvernance Opérationnelle
-            </Badge>
-            <h1 className="text-5xl font-black font-headline tracking-tighter text-slate-900 dark:text-white uppercase italic leading-none">
-              Compliance <span className="text-primary">Architecture</span>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="border-indigo-500/50 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
+                Gouvernance Opérationnelle
+              </Badge>
+              <div className="h-1 w-12 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" />
+            </div>
+
+            <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-400">Compliance</span>{" "}
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 animate-gradient-x">Framework</span>
             </h1>
-            <p className="text-muted-foreground text-xl max-w-2xl leading-relaxed">
-              Plan d'organisation holistique des <span className="text-slate-900 dark:text-white font-bold">processus prioritaires</span> et des responsabilités GRC.
+            <p className="text-slate-500 dark:text-slate-400 text-xl max-w-2xl leading-relaxed font-medium">
+              Plan d'organisation holistique des <span className="text-slate-900 dark:text-white font-bold decoration-indigo-500/30 underline decoration-4 underline-offset-4">processus prioritaires</span> et des responsabilités GRC.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          <div className="flex flex-wrap gap-4 w-full md:w-auto">
             <Link href="/admin/workflows">
-              <Button variant="outline" className="h-14 px-6 rounded-2xl border-slate-200 dark:border-slate-800 font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 transition-all shadow-xl shadow-slate-200/20">
-                <Workflow className="mr-2 h-4 w-4 text-indigo-500" />
+              <Button variant="outline" className="h-14 px-6 rounded-2xl border-2 border-slate-100 dark:border-slate-800 font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 transition-all shadow-xl shadow-slate-200/20 group">
+                <Workflow className="mr-2 h-4 w-4 text-indigo-500 group-hover:rotate-12 transition-transform" />
                 Admin Logic
               </Button>
             </Link>
-            <Button variant="outline" onClick={handleSync} disabled={isSyncing} className="h-14 px-6 rounded-2xl border-slate-200 dark:border-slate-800 font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 transition-all shadow-xl shadow-slate-200/20">
-              <RefreshCw className={cn("mr-2 h-4 w-4 text-emerald-500", isSyncing && "animate-spin")} />
+            <Button variant="outline" onClick={handleSync} disabled={isSyncing} className="h-14 px-6 rounded-2xl border-2 border-slate-100 dark:border-slate-800 font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 transition-all shadow-xl shadow-slate-200/20 group">
+              <RefreshCw className={cn("mr-2 h-4 w-4 text-emerald-500 group-hover:rotate-180 transition-transform duration-500", isSyncing && "animate-spin")} />
               Sync Standards
             </Button>
-            <Button onClick={onAddCategory} className="h-14 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black uppercase text-[10px] tracking-widest shadow-2xl shadow-slate-900/40">
+            <Button onClick={onAddCategory} className="h-14 px-8 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black uppercase text-[10px] tracking-widest shadow-2xl shadow-indigo-600/30 border-none transition-all hover:scale-[1.02] active:scale-95">
               <PlusCircle className="mr-3 h-5 w-5" /> Nouvelle Catégorie
             </Button>
           </div>

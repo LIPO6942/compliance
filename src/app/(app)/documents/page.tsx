@@ -433,14 +433,14 @@ function DocumentsComponent() {
                       <FormField control={form.control} name="name" render={({ field }) => (
                         <FormItem className="space-y-1">
                           <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Titre de l'archive</FormLabel>
-                          <FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                          <FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50" /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
                       <FormField control={form.control} name="url" render={({ field }) => (
                         <FormItem className="space-y-1">
                           <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">URL Source (Cloud/Drive)</FormLabel>
-                          <FormControl><Input {...field} placeholder="https://..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                          <FormControl><Input {...field} placeholder="https://..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50" /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
@@ -456,28 +456,28 @@ function DocumentsComponent() {
                       <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Classification & Versioning</h3>
                     </div>
 
-                    <div className="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-3xl border border-slate-100 dark:border-slate-800/50">
-                      <div className="grid grid-cols-2 gap-6">
-                        <FormField control={form.control} name="type" render={({ field }) => (
-                          <FormItem className="space-y-1">
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Classification</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue /></SelectTrigger></FormControl>
-                              <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-2xl">
-                                {documentTypes.map(type => <SelectItem key={type.id} value={type.id} className="font-bold">{type.label}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )} />
-                        <FormField control={form.control} name="version" render={({ field }) => (
-                          <FormItem className="space-y-1">
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Version du Sprint</FormLabel>
-                            <FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )} />
-                      </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField control={form.control} name="version" render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Version</FormLabel>
+                          <FormControl><Input {...field} placeholder="1.0" className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="type" render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Type de fichier</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50"><SelectValue placeholder="PDF, XLSX..." /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-xl border-none shadow-2xl">
+                              {documentTypes.map(type => (
+                                <SelectItem key={type.id} value={type.id} className="font-bold">{type.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
                     </div>
                   </div>
 
@@ -493,15 +493,15 @@ function DocumentsComponent() {
                     <div className="space-y-4">
                       <FormField control={form.control} name="owner" render={({ field }) => (
                         <FormItem className="space-y-1">
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Responsable / Propriétaire</FormLabel>
-                          <FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Propriétaire / Indexeur</FormLabel>
+                          <FormControl><Input {...field} placeholder="Nom du responsable..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50" /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
                       <FormField control={form.control} name="tags" render={({ field }) => (
                         <FormItem className="space-y-1">
                           <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tags Sémantiques</FormLabel>
-                          <FormControl><Input {...field} placeholder="Garantie, KYC, Rapport..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                          <FormControl><Input {...field} placeholder="Garantie, KYC, Rapport..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50" /></FormControl>
                           <FormDescription className="text-[10px] font-bold mt-1 text-slate-400">Séparez par des virgules pour l'indexation.</FormDescription>
                           <FormMessage />
                         </FormItem>

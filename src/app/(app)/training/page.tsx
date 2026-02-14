@@ -619,7 +619,7 @@ export default function TrainingPage() {
             </DialogHeader>
           </div>
 
-          <div className="p-10 max-h-[60vh] overflow-y-auto custom-scrollbar">
+          <div className="p-10 max-h-[70vh] overflow-y-auto custom-scrollbar">
             {dialogState.type === "registry" && (
               <Form {...registryForm}>
                 <form onSubmit={registryForm.handleSubmit(handleRegistrySubmit)} className="space-y-8">
@@ -630,18 +630,18 @@ export default function TrainingPage() {
                     </div>
 
                     <FormField control={registryForm.control} name="title" render={({ field }) => (
-                      <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Titre du module</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Titre du module</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={registryForm.control} name="objective" render={({ field }) => (
-                      <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Objectif pédagogique</FormLabel><FormControl><Textarea {...field} rows={3} className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Objectif pédagogique</FormLabel><FormControl><Textarea {...field} rows={3} className="rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-semibold shadow-sm focus:border-primary/50" /></FormControl><FormMessage /></FormItem>
                     )} />
 
-                    <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl border border-slate-100 dark:border-slate-800/50">
+                    <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl border-2 border-slate-100 dark:border-slate-800/50 shadow-inner">
                       <FormField control={registryForm.control} name="duration" render={({ field }) => (
-                        <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Durée estimée</FormLabel><FormControl><Input {...field} placeholder="Ex: 2h" className="h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Durée estimée</FormLabel><FormControl><Input {...field} placeholder="Ex: 2h" className="h-10 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={registryForm.control} name="support" render={({ field }) => (
-                        <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Support / Format</FormLabel><FormControl><Input {...field} placeholder="Ex: PPT, Webinar" className="h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Support / Format</FormLabel><FormControl><Input {...field} placeholder="Ex: PPT, Webinar" className="h-10 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm" /></FormControl><FormMessage /></FormItem>
                       )} />
                     </div>
                   </div>
@@ -699,7 +699,7 @@ export default function TrainingPage() {
                     </div>
 
                     <FormField control={sessionForm.control} name="title" render={({ field }) => (
-                      <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Titre de l'intervention</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Titre de l'intervention</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50" /></FormControl><FormMessage /></FormItem>
                     )} />
 
                     <div className="grid grid-cols-2 gap-6">
@@ -709,7 +709,7 @@ export default function TrainingPage() {
                           <Popover>
                             <PopoverTrigger asChild>
                               <FormControl>
-                                <Button variant={"outline"} className={`h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 font-bold text-sm ${!field.value && "text-muted-foreground"}`}>
+                                <Button variant={"outline"} className={`h-12 rounded-xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 font-bold text-sm shadow-sm ${!field.value && "text-muted-foreground"}`}>
                                   {field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}
                                   <LucideIcons.CalendarDays className="ml-auto h-4 w-4 opacity-50 text-primary" />
                                 </Button>
@@ -726,7 +726,7 @@ export default function TrainingPage() {
                         <FormItem>
                           <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Niveau de priorité</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue placeholder="Choisir un type" /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Choisir un type" /></SelectTrigger></FormControl>
                             <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
                               <SelectItem value="Obligatoire" className="font-bold">OBLIGATOIRE</SelectItem>
                               <SelectItem value="Recommandée" className="font-bold">RECOMMANDÉE</SelectItem>
@@ -741,7 +741,7 @@ export default function TrainingPage() {
                       <FormItem>
                         <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Département cible</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue placeholder="Choisir un département" /></SelectTrigger></FormControl>
+                          <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Choisir un département" /></SelectTrigger></FormControl>
                           <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
                             {departmentOptions.map(option => (<SelectItem key={option} value={option} className="font-bold">{option}</SelectItem>))}
                           </SelectContent>
@@ -792,7 +792,7 @@ export default function TrainingPage() {
                     </div>
 
                     <FormField control={campaignForm.control} name="name" render={({ field }) => (
-                      <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Nom de l'opération</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Nom de l'opération</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50" /></FormControl><FormMessage /></FormItem>
                     )} />
 
                     <div className="grid grid-cols-2 gap-6">
@@ -802,7 +802,7 @@ export default function TrainingPage() {
                           <Popover>
                             <PopoverTrigger asChild>
                               <FormControl>
-                                <Button variant={"outline"} className={`h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 font-bold text-sm ${!field.value && "text-muted-foreground"}`}>
+                                <Button variant={"outline"} className={`h-12 rounded-xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 font-bold text-sm shadow-sm ${!field.value && "text-muted-foreground"}`}>
                                   {field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}
                                   <LucideIcons.CalendarDays className="ml-auto h-4 w-4 opacity-50 text-primary" />
                                 </Button>
@@ -819,7 +819,7 @@ export default function TrainingPage() {
                         <FormItem>
                           <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">État initial</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue placeholder="Choisir un statut" /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Choisir un statut" /></SelectTrigger></FormControl>
                             <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
                               <SelectItem value="Planifiée" className="font-bold">PLANIFIÉE</SelectItem>
                               <SelectItem value="En cours" className="font-bold">EN COURS</SelectItem>
@@ -835,7 +835,7 @@ export default function TrainingPage() {
                       <FormItem>
                         <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Audience cible</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue placeholder="Choisir une cible" /></SelectTrigger></FormControl>
+                          <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Choisir une cible" /></SelectTrigger></FormControl>
                           <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
                             {targetOptions.map(option => (<SelectItem key={option} value={option} className="font-bold">{option}</SelectItem>))}
                           </SelectContent>

@@ -418,12 +418,12 @@ export default function RiskMappingPage() {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleFormSubmit)}>
-              <div className="p-10 space-y-10">
+              <div className="p-10 space-y-10 max-h-[70vh] overflow-y-auto custom-scrollbar">
                 {/* SECTION 1: CONTEXTE DU RISQUE */}
                 <div className="space-y-6">
                   <div className="flex items-center gap-2">
                     <div className="h-4 w-1 bg-primary rounded-full" />
-                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Identification & Contexte</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Identification & Contexte</h3>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -435,7 +435,7 @@ export default function RiskMappingPage() {
                           <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Scénario de Risque</FormLabel>
                             <FormControl>
-                              <Textarea {...field} placeholder="Décrivez le scénario redouté..." className="min-h-[120px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all" />
+                              <Textarea {...field} placeholder="Décrivez le scénario redouté..." className="min-h-[120px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all shadow-sm" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -452,7 +452,7 @@ export default function RiskMappingPage() {
                             <FormItem>
                               <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Direction Responsable</FormLabel>
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue /></SelectTrigger></FormControl>
+                                <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm"><SelectValue /></SelectTrigger></FormControl>
                                 <SelectContent className="rounded-xl border-none shadow-2xl">
                                   {departmentOptions.map(d => <SelectItem key={d} value={d} className="font-bold">{d}</SelectItem>)}
                                 </SelectContent>
@@ -469,7 +469,7 @@ export default function RiskMappingPage() {
                             <FormItem>
                               <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Domaine d'Application</FormLabel>
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue /></SelectTrigger></FormControl>
+                                <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm"><SelectValue /></SelectTrigger></FormControl>
                                 <SelectContent className="rounded-xl border-none shadow-2xl">
                                   {categoryOptions.map(c => <SelectItem key={c} value={c} className="font-bold">{c}</SelectItem>)}
                                 </SelectContent>
@@ -489,11 +489,11 @@ export default function RiskMappingPage() {
                 <div className="space-y-6">
                   <div className="flex items-center gap-2">
                     <div className="h-4 w-1 bg-amber-500 rounded-full" />
-                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Analyse de l'Exposition</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Analyse de l'Exposition</h3>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-3xl space-y-6 border border-slate-100 dark:border-slate-800/50">
+                    <div className="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-3xl space-y-6 border-2 border-slate-100 dark:border-slate-800/50 shadow-inner">
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
@@ -502,7 +502,7 @@ export default function RiskMappingPage() {
                             <FormItem>
                               <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Probabilité</FormLabel>
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue /></SelectTrigger></FormControl>
+                                <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm"><SelectValue /></SelectTrigger></FormControl>
                                 <SelectContent className="rounded-xl border-none shadow-2xl">
                                   {likelihoodOptions.map(l => <SelectItem key={l} value={l} className="font-bold">{l}</SelectItem>)}
                                 </SelectContent>
@@ -519,7 +519,7 @@ export default function RiskMappingPage() {
                             <FormItem>
                               <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Impact GRC</FormLabel>
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue /></SelectTrigger></FormControl>
+                                <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm"><SelectValue /></SelectTrigger></FormControl>
                                 <SelectContent className="rounded-xl border-none shadow-2xl">
                                   {impactOptions.map(i => <SelectItem key={i} value={i} className="font-bold">{i}</SelectItem>)}
                                 </SelectContent>
@@ -537,7 +537,7 @@ export default function RiskMappingPage() {
                           <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Action de Mitigation</FormLabel>
                             <FormControl>
-                              <Textarea {...field} placeholder="Mesures prévues pour réduire le risque..." className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-sm" />
+                              <Textarea {...field} placeholder="Mesures prévues pour réduire le risque..." className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-semibold text-sm shadow-sm" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -553,7 +553,7 @@ export default function RiskMappingPage() {
                           <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Propriétaire du Risque</FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="Identité du responsable..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" />
+                              <Input {...field} placeholder="Identité du responsable..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -568,7 +568,7 @@ export default function RiskMappingPage() {
                             <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Evidence Vault (Preuves)</FormLabel>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <Button variant="outline" className="h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 justify-between font-bold text-sm bg-white dark:bg-slate-900 shadow-sm transition-all hover:bg-slate-50">
+                                <Button variant="outline" className="h-12 w-full rounded-xl border-2 border-slate-100 dark:border-slate-800 justify-between font-bold text-sm bg-white dark:bg-slate-900 shadow-sm transition-all hover:bg-slate-50">
                                   <span className="truncate">{field.value && field.value.length > 0 ? `${field.value.length} documents liés` : "Sélectionner des preuves"}</span>
                                   <PlusCircle className="h-4 w-4 text-primary" />
                                 </Button>
