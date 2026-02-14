@@ -136,13 +136,17 @@ export default function DashboardPage() {
     <TooltipProvider delayDuration={300}>
       <div className="space-y-8 pb-10">
         {/* Header Space */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-black font-headline tracking-tighter text-slate-900 dark:text-white">
-              Dashboard <span className="text-primary">Intelligence</span>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">SaaS Compliance Monitor</span>
+            </div>
+            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              Dashboard <span className="text-primary font-bold">Intelligence</span>
             </h1>
-            <p className="text-muted-foreground text-lg flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" /> Analyse GRC • <span className="font-bold text-slate-700 dark:text-slate-300">{format(new Date(), 'dd MMMM yyyy', { locale: fr })}</span>
+            <p className="text-slate-500 text-sm flex items-center gap-2">
+              <Activity className="h-3.5 w-3.5 text-primary" /> Analyse GRC • <span className="font-semibold text-slate-700 dark:text-slate-300">{format(new Date(), 'dd MMMM yyyy', { locale: fr })}</span>
             </p>
           </div>
           <div className="flex gap-2">

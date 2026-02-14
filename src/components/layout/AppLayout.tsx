@@ -54,10 +54,10 @@ import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContex
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
-  { 
-    href: "/plan", 
-    icon: Gavel, 
-    label: "Plan d'Organisation", 
+  {
+    href: "/plan",
+    icon: Gavel,
+    label: "Plan d'Organisation",
     title: "Plan d'Organisation",
     subItems: [
       { href: "/plan#processus-metiers", icon: Workflow, label: "Processus Métiers" }
@@ -89,7 +89,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     }
     return name.substring(0, 2).toUpperCase();
   };
-  
+
   const currentPage = navItems.find((item) => pathname.startsWith(item.href)) || (pathname.startsWith('/alerts') ? { title: "Centre d'Alertes" } : undefined);
 
   const pageTitle = currentPage?.title || (pathname.startsWith('/settings') ? 'Paramètres' : 'Compliance Navigator');
@@ -120,16 +120,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       <span>{item.label}</span>
                     </SidebarMenuButton>
                   </Link>
-                   {item.subItems && (
+                  {item.subItems && (
                     <SidebarMenuSub>
                       {item.subItems.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.href}>
-                           <SidebarMenuSubButton asChild>
-                              <Link href={subItem.href}>
-                                <subItem.icon />
-                                <span>{subItem.label}</span>
-                              </Link>
-                            </SidebarMenuSubButton>
+                          <SidebarMenuSubButton asChild>
+                            <Link href={subItem.href}>
+                              <subItem.icon />
+                              <span>{subItem.label}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       ))}
                     </SidebarMenuSub>
@@ -158,8 +158,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild className="font-body cursor-pointer">
                   <Link href="/settings">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Paramètres</span>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Paramètres</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem className="font-body text-red-600 hover:!text-red-600 focus:!text-red-600 focus:!bg-red-50 dark:text-red-500 dark:hover:!text-red-500 dark:focus:!text-red-500 dark:focus:!bg-red-900/50">
@@ -170,11 +170,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </DropdownMenu>
           ) : (
             <div className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
-                <Skeleton className="h-8 w-8 rounded-full" />
-                <div className="group-data-[collapsible=icon]:hidden space-y-1">
-                    <Skeleton className="h-4 w-20" />
-                    <Skeleton className="h-3 w-24" />
-                </div>
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <div className="group-data-[collapsible=icon]:hidden space-y-1">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-3 w-24" />
+              </div>
             </div>
           )}
         </SidebarFooter>
@@ -186,22 +186,25 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <span>Attention: Connexion à la base de données impossible. Vos modifications ne seront pas sauvegardées.</span>
           </div>
         )}
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-md sm:px-6 md:px-8">
-          <div className="flex items-center gap-2">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-white/50 dark:bg-slate-900/50 backdrop-blur-md px-4 sm:px-6 md:px-8 border-slate-200/60 dark:border-slate-800/60">
+          <div className="flex items-center gap-4">
             <SidebarTrigger className="md:hidden" />
-            <h1 className="font-headline text-2xl font-semibold text-foreground">
-              {pageTitle}
-            </h1>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 leading-none mb-1">Gouvernance & Conformité</span>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">
+                {pageTitle}
+              </h1>
+            </div>
           </div>
           <div className="flex items-center gap-4">
-             <Link href="/alerts">
+            <Link href="/alerts">
               <Button variant="ghost" size="icon" aria-label="Voir les alertes" className="relative">
                 <BellRing className="h-6 w-6" />
                 {newAlertsCount > 0 && (
                   <span className="absolute top-0 right-0 flex h-2.5 w-2.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500">
-                       <span className="absolute -top-4 -right-1.5 text-xs font-bold">{newAlertsCount}</span>
+                      <span className="absolute -top-4 -right-1.5 text-xs font-bold">{newAlertsCount}</span>
                     </span>
                   </span>
                 )}

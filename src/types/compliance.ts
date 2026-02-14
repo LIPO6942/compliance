@@ -245,3 +245,10 @@ export interface AvailableRole {
   color?: string; // Pour un rendu élégant dans le diagramme
   createdAt: string;
 }
+
+export interface ActivityItem {
+  id: string;
+  description: string;
+  date: Date;
+  Icon: React.ComponentType<{ className?: string }>;
+}

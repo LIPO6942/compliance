@@ -85,23 +85,25 @@ export default function TeamPage() {
 
     return (
         <div className="space-y-10 pb-20 overflow-hidden">
-            {/* Dynamic Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 relative">
-                <div className="absolute -left-20 -top-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl animate-pulse" />
-                <div className="relative z-10 space-y-2">
-                    <Badge variant="outline" className="border-primary/50 text-primary bg-primary/5 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                        Human Resources & AI
-                    </Badge>
-                    <h1 className="text-5xl font-black font-headline tracking-tighter text-slate-900 dark:text-white uppercase italic leading-none">
-                        Governance <span className="text-primary">Network</span>
-                    </h1>
-                    <p className="text-muted-foreground text-xl max-w-2xl">
-                        Experts métier et <span className="text-primary font-bold">Intelligence Artificielle</span> en synergie.
-                    </p>
+            {/* Header & Vision */}
+            <div className="relative mb-2">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2 mb-1">
+                            <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                            <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Human Capital & Governance</span>
+                        </div>
+                        <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                            Governance <span className="text-primary">Network</span>
+                        </h1>
+                        <p className="text-slate-500 text-sm max-w-2xl">
+                            Synergie d'experts métier et d'outils d'intelligence décisionnelle.
+                        </p>
+                    </div>
+                    <Button onClick={() => openDialog()} className="h-14 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black uppercase tracking-widest text-xs shadow-2xl shadow-slate-900/40 relative z-10">
+                        <Plus className="mr-3 h-5 w-5" /> Inviter un Expert
+                    </Button>
                 </div>
-                <Button onClick={() => openDialog()} className="h-14 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black uppercase tracking-widest text-xs shadow-2xl shadow-slate-900/40 relative z-10">
-                    <Plus className="mr-3 h-5 w-5" /> Inviter un Expert
-                </Button>
             </div>
 
             {/* Team Grid */}

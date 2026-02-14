@@ -4,41 +4,36 @@
 
 @layer base {
   :root {
-    --background: 220 29% 95%; /* Light Gray #F0F2F5 */
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 240 10% 3.9%;
+    --background: 210 20% 98%; /* Sophisticated off-white/gray */
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%; 
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 231 48% 54%; /* Deep Blue #3F51B5 */
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 180 100% 25%; /* Teal #008080 */
-    --accent-foreground: 0 0% 98%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%; /* Modern Blue */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11.2%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 231 48% 54%; /* Deep Blue for ring */
-    --chart-1: 25 85% 55%; /* Orange */
-    --chart-2: 180 100% 35%; /* Teal variant */
-    --chart-3: 210 40% 50%; /* Another Blue Shade */
-    --chart-4: 250 50% 60%; /* Purplish Blue */
-    --chart-5: 30 80% 60%; /* Orange variant */
-    --radius: 0.5rem;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221 83% 53%;
+    --radius: 1rem; /* More rounded for modern look */
 
     /* Sidebar specific theme */
-    --sidebar-background: 0 0% 100%; /* White */
-    --sidebar-foreground: 240 6% 20%; /* Darker Gray for text */
-    --sidebar-primary: 231 48% 54%; /* Deep Blue for elements needing primary color */
-    --sidebar-primary-foreground: 0 0% 98%; /* Light text for primary bg */
-    --sidebar-accent: 220 29% 92%; /* Very Light Blue/Gray for active/hover bg */
-    --sidebar-accent-foreground: 231 48% 45%; /* Darker Deep Blue for active/hover text */
-    --sidebar-border: 240 5.9% 88%;
-    --sidebar-ring: 231 48% 54%; /* Deep Blue for ring on focus */
+    --sidebar-background: 210 20% 98%;
+    --sidebar-foreground: 215 16% 47%;
+    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 214.3 31.8% 91.4%;
+    --sidebar-accent-foreground: 222 47% 11.2%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 221 83% 53%;
   }
 
   .dark {
