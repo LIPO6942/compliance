@@ -4,69 +4,104 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Shield, Mail, Phone, ExternalLink, Award, Zap, Users, Globe, Briefcase, ArrowRight } from "lucide-react";
+import { Shield, Mail, Phone, ExternalLink, Award, Zap, Users, Globe, Briefcase, ArrowRight, Edit, Plus, Trash2, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTeam, TeamMember } from "@/contexts/TeamContext";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
 
-interface TeamMember {
-    id: string;
-    name: string;
-    role: string;
-    specialty: string;
-    status: "Online" | "Away" | "Offline";
-    expertise: string[];
-    avatarUrl?: string;
-}
+const memberSchema = z.object({
+    name: z.string().min(1, "Le nom est requis."),
+    role: z.string().min(1, "Le rôle est requis."),
+    specialty: z.string().min(1, "La spécialité est requise."),
+    status: z.enum(["Online", "Away", "Offline"]),
+    expertise: z.string().min(1, "Au moins une compétence est requise."),
+    avatarUrl: z.string().optional(),
+});
 
-const teamMembers: TeamMember[] = [
-    {
-        id: "1",
-        name: "Moslem G.",
-        role: "Direction Compliance & GRC",
-        specialty: "Stratégie Réglementaire",
-        status: "Online",
-        expertise: ["Audit", "Anti-Corruption", "Risk Management"],
-    },
-    {
-        id: "2",
-        name: "Sarah L.",
-        role: "Legal Counsel",
-        specialty: "Protection des Données",
-        status: "Online",
-        expertise: ["RGPD", "Privacy by Design", "DPO"],
-    },
-    {
-        id: "3",
-        name: "Compliance AI",
-        role: "Assistant Intelligent",
-        specialty: "Analyse Sémantique",
-        status: "Online",
-        expertise: ["Veille 24/7", "Matching de Preuves", "Scoring"],
-        avatarUrl: "/ai-avatar.png"
-    },
-    {
-        id: "4",
-        name: "Karim B.",
-        role: "Risk Officer",
-        specialty: "Lutte Anti-Blanchiment",
-        status: "Away",
-        expertise: ["LCB-FT", "Due Diligence", "Sanctions"],
-    }
-];
+type MemberFormValues = z.infer<typeof memberSchema>;
 
 export default function TeamPage() {
+    const { teamMembers, updateMember, addMember, removeMember } = useTeam();
+    const { toast } = useToast();
+    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const [editingMember, setEditingMember] = React.useState<TeamMember | null>(null);
+
+    const form = useForm<MemberFormValues>({
+        resolver: zodResolver(memberSchema),
+        defaultValues: {
+            name: "",
+            role: "",
+            specialty: "",
+            status: "Online",
+            expertise: "",
+            avatarUrl: "",
+        }
+    });
+
+    const openDialog = (member?: TeamMember) => {
+        if (member) {
+            setEditingMember(member);
+            form.reset({
+                ...member,
+                expertise: member.expertise.join(", "),
+            });
+        } else {
+            setEditingMember(null);
+            form.reset({
+                name: "",
+                role: "",
+                specialty: "",
+                status: "Online",
+                expertise: "",
+                avatarUrl: "",
+            });
+        }
+        setIsDialogOpen(true);
+    };
+
+    const handleFormSubmit = (values: MemberFormValues) => {
+        const memberData = {
+            ...values,
+            expertise: values.expertise.split(",").map(e => e.trim()).filter(Boolean),
+        };
+
+        if (editingMember) {
+            updateMember(editingMember.id, memberData);
+            toast({ title: "Membre mis à jour", description: `${values.name} a été modifié avec succès.` });
+        } else {
+            addMember(memberData);
+            toast({ title: "Membre ajouté", description: `${values.name} a rejoint l'équipe.` });
+        }
+        setIsDialogOpen(false);
+    };
+
     return (
         <div className="space-y-10 pb-20 overflow-hidden">
             {/* Dynamic Header */}
-            <div className="relative">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 relative">
                 <div className="absolute -left-20 -top-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl animate-pulse" />
-                <div className="relative z-10">
-                    <h1 className="text-5xl font-black font-headline tracking-tighter text-slate-900 dark:text-white uppercase italic">
+                <div className="relative z-10 space-y-2">
+                    <Badge variant="outline" className="border-primary/50 text-primary bg-primary/5 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                        Human Resources & AI
+                    </Badge>
+                    <h1 className="text-5xl font-black font-headline tracking-tighter text-slate-900 dark:text-white uppercase italic leading-none">
                         Governance <span className="text-primary">Network</span>
                     </h1>
-                    <p className="text-muted-foreground text-xl max-w-2xl mt-2">
-                        L'excellence de la conformité repose sur la synergie entre <span className="text-slate-900 dark:text-white font-bold">experts métier</span> et <span className="text-primary font-bold">Intelligence Artificielle</span>.
+                    <p className="text-muted-foreground text-xl max-w-2xl">
+                        Experts métier et <span className="text-primary font-bold">Intelligence Artificielle</span> en synergie.
                     </p>
                 </div>
+                <Button onClick={() => openDialog()} className="h-14 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black uppercase tracking-widest text-xs shadow-2xl shadow-slate-900/40 relative z-10">
+                    <Plus className="mr-3 h-5 w-5" /> Inviter un Expert
+                </Button>
             </div>
 
             {/* Team Grid */}
@@ -77,13 +112,23 @@ export default function TeamPage() {
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-indigo-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
                         <Card className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-slate-100 dark:border-slate-800 rounded-3xl shadow-xl overflow-hidden hover:-translate-y-2 transition-transform duration-500">
+                            {/* Actions Overlay */}
+                            <div className="absolute top-4 left-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                <Button variant="secondary" size="icon" onClick={() => openDialog(member)} className="h-8 w-8 rounded-lg bg-white/90 dark:bg-slate-800/90 shadow-sm border-none">
+                                    <Edit className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button variant="destructive" size="icon" onClick={() => removeMember(member.id)} className="h-8 w-8 rounded-lg shadow-sm border-none">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+
                             {/* Status Indicator */}
-                            <div className="absolute top-4 right-4 flex items-center gap-1.5">
-                                <div className={`w-2 h-2 rounded-full ${member.status === 'Online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                            <div className="absolute top-4 right-4 flex items-center gap-1.5 z-20">
+                                <div className={`w-2 h-2 rounded-full ${member.status === 'Online' ? 'bg-emerald-500 animate-pulse' : member.status === 'Away' ? 'bg-amber-500' : 'bg-slate-300'}`} />
                                 <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{member.status}</span>
                             </div>
 
-                            <CardHeader className="pt-8 pb-4 text-center">
+                            <CardHeader className="pt-12 pb-4 text-center">
                                 <div className="relative mx-auto mb-4">
                                     <div className="absolute inset-0 bg-primary/20 rounded-full blur-lg group-hover:blur-xl transition-all" />
                                     <Avatar className="h-24 w-24 border-4 border-white dark:border-slate-800 shadow-2xl mx-auto relative z-10">
@@ -92,8 +137,8 @@ export default function TeamPage() {
                                             {member.name.split(' ').map(n => n[0]).join('')}
                                         </AvatarFallback>
                                     </Avatar>
-                                    {member.name.includes('AI') && (
-                                        <div className="absolute -bottom-2 -right-2 bg-slate-900 text-white p-1.5 rounded-lg shadow-lg border border-white/20">
+                                    {member.name.toLowerCase().includes('ai') && (
+                                        <div className="absolute -bottom-2 -right-2 bg-slate-900 text-white p-1.5 rounded-lg shadow-lg border border-white/20 z-20">
                                             <Zap className="h-4 w-4 text-amber-500 fill-amber-500" />
                                         </div>
                                     )}
@@ -114,7 +159,7 @@ export default function TeamPage() {
                                     <p className="text-[10px] font-black uppercase text-muted-foreground px-1 tracking-widest">Compétences GRC</p>
                                     <div className="flex flex-wrap gap-1.5">
                                         {member.expertise.map((exp, i) => (
-                                            <Badge key={i} variant="secondary" className="bg-white dark:bg-slate-800 text-[10px] font-bold py-0.5 border-none shadow-sm capitalize">
+                                            <Badge key={i} variant="secondary" className="bg-white dark:bg-slate-800 text-[9px] font-bold py-0.5 px-2 border-none shadow-sm capitalize">
                                                 {exp}
                                             </Badge>
                                         ))}
@@ -152,30 +197,111 @@ export default function TeamPage() {
                             <StatBox label="Risques" value="12" sub="Monitorés" />
                             <StatBox label="Alertes" value="03" sub="Urgences" />
                         </div>
-                        <Button className="mt-8 bg-primary hover:bg-primary/90 text-white font-bold h-12 px-8 rounded-xl shadow-lg shadow-primary/20">
-                            Lancer une Session GRC <ArrowRight className="ml-2 h-4 w-4" />
+                        <Button className="mt-8 bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs tracking-widest h-14 px-10 rounded-2xl shadow-lg shadow-primary/20">
+                            Lancer une Session GRC <ArrowRight className="ml-3 h-4 w-4" />
                         </Button>
                     </CardContent>
                 </Card>
 
-                <Card className="rounded-[2rem] border-slate-200 shadow-xl p-8 flex flex-col justify-between">
-                    <div className="space-y-4">
-                        <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl w-fit">
-                            <Award className="h-8 w-8" />
+                <Card className="rounded-[2.5rem] border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-2xl p-10 flex flex-col justify-between">
+                    <div className="space-y-6">
+                        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 rounded-[2rem] w-fit shadow-inner">
+                            <Award className="h-10 w-10" />
                         </div>
-                        <h3 className="text-2xl font-black tracking-tight">Certification Team</h3>
-                        <p className="text-muted-foreground text-sm">Votre équipe est certifiée <strong>Compliance Expert 2026</strong>. Toutes les formations obligatoires sont à jour.</p>
+                        <h3 className="text-3xl font-black tracking-tighter italic uppercase">Certification <span className="text-emerald-500">2026</span></h3>
+                        <p className="text-muted-foreground text-sm font-medium leading-relaxed">Votre organisation est classée <strong>Compliance Expert Gold</strong>. 100% des modules critiques sont validés.</p>
                     </div>
-                    <div className="space-y-3 mt-8">
-                        <div className="flex items-center gap-3 text-sm font-bold">
-                            <Globe className="h-4 w-4 text-primary" /> ISO 37301 Certified
+                    <div className="space-y-3 mt-10">
+                        <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> ISO 37301 Enterprise
                         </div>
-                        <div className="flex items-center gap-3 text-sm font-bold">
-                            <Briefcase className="h-4 w-4 text-primary" /> SOC2 Compliance
+                        <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> SOC2 Global Compliance
                         </div>
                     </div>
                 </Card>
             </div>
+
+            {/* Member Dialog */}
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="rounded-[3rem] p-10 max-w-2xl border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)]">
+                    <DialogHeader className="pb-8">
+                        <DialogTitle className="text-4xl font-black font-headline tracking-tighter uppercase italic">
+                            {editingMember ? "Expert" : "New"} <span className="text-primary">Profile</span>
+                        </DialogTitle>
+                        <DialogDescription className="text-base font-medium">
+                            {editingMember ? "Modifier les informations de l'expert." : "Ajouter un nouveau membre à la gouvernance."}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6 max-h-[65vh] overflow-y-auto pr-6 custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <FormField control={form.control} name="name" render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Nom Complet</FormLabel>
+                                        <FormControl><Input {...field} className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control} name="role" render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Rôle au Cabinet</FormLabel>
+                                        <FormControl><Input {...field} className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+
+                            <FormField control={form.control} name="specialty" render={({ field }) => (
+                                <FormItem className="space-y-1">
+                                    <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Spécialité Principale</FormLabel>
+                                    <FormControl><Input {...field} placeholder="ex: AML/CFT, RGPD, Audit..." className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <FormField control={form.control} name="status" render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Disponibilité</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
+                                            <SelectContent className="rounded-2xl border-none shadow-2xl">
+                                                <SelectItem value="Online" className="font-bold">EN LIGNE</SelectItem>
+                                                <SelectItem value="Away" className="font-bold">ABSENT</SelectItem>
+                                                <SelectItem value="Offline" className="font-bold">HORS LIGNE</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control} name="avatarUrl" render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Lien Avatar (Optionnel)</FormLabel>
+                                        <FormControl><Input {...field} placeholder="https://..." className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+
+                            <FormField control={form.control} name="expertise" render={({ field }) => (
+                                <FormItem className="space-y-1">
+                                    <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Compétences GRC (séparées par des virgules)</FormLabel>
+                                    <FormControl><Input {...field} placeholder="Audit, LCB-FT, KYC..." className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold shadow-inner" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <DialogFooter className="pt-6 gap-3">
+                                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="h-14 px-8 rounded-2xl font-black uppercase text-[10px] tracking-widest border-slate-200">Annuler</Button>
+                                <Button type="submit" className="h-14 px-10 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
+                                    {editingMember ? "Actualiser l'Expert" : "Confirmer l'Invitation"}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
@@ -183,9 +309,9 @@ export default function TeamPage() {
 function StatBox({ label, value, sub }: { label: string, value: string, sub: string }) {
     return (
         <div className="space-y-1">
-            <p className="text-xs font-black uppercase text-primary tracking-widest">{label}</p>
-            <p className="text-4xl font-black">{value}</p>
-            <p className="text-[10px] font-bold text-slate-500 uppercase">{sub}</p>
+            <p className="text-[9px] font-black uppercase text-primary tracking-widest mb-1">{label}</p>
+            <p className="text-4xl font-black tracking-tighter">{value}</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">{sub}</p>
         </div>
     );
 }

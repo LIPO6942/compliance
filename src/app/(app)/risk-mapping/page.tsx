@@ -36,6 +36,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RiskKPIs } from "./RiskKPIs";
 import { RiskHeatmap } from "./RiskHeatmap";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/icons/Logo";
 
 const riskSchema = z.object({
@@ -121,10 +123,16 @@ export default function RiskMappingPage() {
   const handleFormSubmit = async (values: RiskFormValues) => {
     try {
       if (dialogState.mode === "add") {
-        await addRisk(values);
+        await addRisk({
+          ...values,
+          riskLevel: calculateRiskLevel(values.likelihood, values.impact)
+        });
         toast({ title: "Risque identifié", description: "La cartographie a été mise à jour." });
       } else if (dialogState.mode === "edit" && dialogState.data?.id) {
-        await editRisk(dialogState.data.id, values);
+        await editRisk(dialogState.data.id, {
+          ...values,
+          riskLevel: calculateRiskLevel(values.likelihood, values.impact)
+        });
         toast({ title: "Risque modifié", description: "Les détails du risque ont été actualisés." });
       }
       closeDialog();
@@ -232,7 +240,7 @@ export default function RiskMappingPage() {
         </TabsContent>
 
         <TabsContent value="heatmap" className="mt-0 focus-visible:ring-0">
-          <RiskHeatmap risks={filteredRisks} />
+          <RiskHeatmap risks={filteredRisks} onEditRisk={(risk) => openDialog('edit', risk)} />
         </TabsContent>
 
         <TabsContent value="table" className="mt-0 focus-visible:ring-0">
@@ -264,7 +272,7 @@ export default function RiskMappingPage() {
                                 <p className="text-base font-black leading-tight group-hover:underline cursor-pointer" onClick={() => openDialog('edit', risk)}>{risk.riskDescription}</p>
                                 {risk.documentIds && risk.documentIds.length > 0 && (
                                   <div className="flex items-center gap-2 pt-2">
-                                    < फाइलText className="h-3 w-3 text-emerald-500" />
+                                    <FileText className="h-3 w-3 text-emerald-500" />
                                     <span className="text-[9px] font-black uppercase text-emerald-600">{risk.documentIds.length} Preuves Liées</span>
                                   </div>
                                 )}
