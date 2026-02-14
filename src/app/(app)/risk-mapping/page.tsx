@@ -95,6 +95,7 @@ export default function RiskMappingPage() {
   const [filterRiskLevel, setFilterRiskLevel] = React.useState<string>("all");
   const [filterDepartment, setFilterDepartment] = React.useState<string>("all");
   const [filterCategory, setFilterCategory] = React.useState<string>("all");
+  const [searchQuery, setSearchQuery] = React.useState<string>("");
   const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis">("table");
 
   const openDialog = (mode: "add" | "edit", data?: RiskMappingItem) => {
@@ -164,11 +165,13 @@ export default function RiskMappingPage() {
   };
 
   const filteredRisks = React.useMemo(() => risks.filter(risk => {
+    const matchesSearch = risk.riskDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      risk.department.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesLevel = filterRiskLevel === "all" || calculateRiskLevel(risk.likelihood, risk.impact) === filterRiskLevel;
     const matchesDept = filterDepartment === "all" || risk.department === filterDepartment;
     const matchesCategory = filterCategory === "all" || risk.category === filterCategory;
-    return matchesLevel && matchesDept && matchesCategory;
-  }), [risks, filterRiskLevel, filterDepartment, filterCategory]);
+    return matchesSearch && matchesLevel && matchesDept && matchesCategory;
+  }), [risks, searchQuery, filterRiskLevel, filterDepartment, filterCategory]);
 
   if (!isClient) {
     return <div className="flex justify-center items-center h-[60vh]"><Logo className="h-10 w-10 animate-spin" /></div>;
@@ -176,64 +179,90 @@ export default function RiskMappingPage() {
 
   return (
     <div className="space-y-10 pb-20">
-
       {/* Header & Vision */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-        <div className="space-y-2">
-          <Badge variant="outline" className="border-primary/50 text-primary bg-primary/5 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-            Module de Surveillance
-          </Badge>
-          <h1 className="text-5xl font-black font-headline tracking-tighter text-slate-900 dark:text-white uppercase italic leading-none">
-            Risk <span className="text-primary">Mapping</span>
-          </h1>
-          <p className="text-muted-foreground text-lg max-w-2xl">
-            Visualisation multidimensionnelle de l'exposition aux risques de conformité.
-          </p>
+      <div className="relative">
+        <div className="absolute -right-24 -top-24 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse" />
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 relative z-10">
+          <div className="space-y-3">
+            <Badge variant="outline" className="border-primary/50 text-sky-500 bg-sky-500/5 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+              Gouvernance des Risques
+            </Badge>
+            <h1 className="text-6xl font-black font-headline tracking-tighter text-slate-900 dark:text-white uppercase italic leading-none">
+              Risk <span className="text-primary">Intelligence</span>
+            </h1>
+            <p className="text-muted-foreground text-xl max-w-2xl leading-relaxed">
+              Cartographie dynamique et multidimensionnelle de l'exposition <span className="text-slate-900 dark:text-white font-bold">réglementaire</span> et opérationnelle.
+            </p>
+          </div>
+          <Button
+            size="lg"
+            onClick={() => openDialog('add')}
+            className="h-16 px-10 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black uppercase tracking-widest text-xs shadow-2xl shadow-slate-900/40 group"
+          >
+            <PlusCircle className="mr-3 h-5 w-5 transition-transform group-hover:rotate-90" /> Identifier un Risque
+          </Button>
         </div>
-        <Button
-          size="lg"
-          onClick={() => openDialog('add')}
-          className="h-14 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black uppercase tracking-widest text-xs shadow-2xl shadow-slate-900/20"
-        >
-          <PlusCircle className="mr-3 h-5 w-5" /> Identifier un Risque
-        </Button>
       </div>
 
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
-          <TabsList className="bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl h-14 w-full md:w-auto shadow-inner">
-            <TabsTrigger value="table" className="rounded-xl px-6 h-12 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg font-black text-[10px] tracking-widest uppercase">
-              <List className="h-4 w-4 mr-2" /> Inventaire
-            </TabsTrigger>
-            <TabsTrigger value="heatmap" className="rounded-xl px-6 h-12 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg font-black text-[10px] tracking-widest uppercase">
-              <LayoutGrid className="h-4 w-4 mr-2" /> Heatmap
-            </TabsTrigger>
-            <TabsTrigger value="analysis" className="rounded-xl px-6 h-12 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg font-black text-[10px] tracking-widest uppercase">
-              <Activity className="h-4 w-4 mr-2" /> Analytics
-            </TabsTrigger>
-          </TabsList>
+        {/* Navigation & Advanced Filters */}
+        <Card className="shadow-2xl border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2.5rem] p-6 mb-8">
+          <div className="flex flex-col xl:flex-row justify-between items-center gap-6">
+            <TabsList className="bg-slate-100 dark:bg-slate-800/50 p-1.5 rounded-2xl h-16 w-full xl:w-auto shadow-inner border border-slate-200/50 dark:border-slate-800">
+              <TabsTrigger value="table" className="rounded-xl px-8 h-13 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg font-black text-[11px] tracking-widest uppercase transition-all">
+                <List className="h-4 w-4 mr-2" /> Inventaire
+              </TabsTrigger>
+              <TabsTrigger value="heatmap" className="rounded-xl px-8 h-13 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg font-black text-[11px] tracking-widest uppercase transition-all">
+                <LayoutGrid className="h-4 w-4 mr-2" /> Heatmap
+              </TabsTrigger>
+              <TabsTrigger value="analysis" className="rounded-xl px-8 h-13 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg font-black text-[11px] tracking-widest uppercase transition-all">
+                <Activity className="h-4 w-4 mr-2" /> Analytics
+              </TabsTrigger>
+            </TabsList>
 
-          <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-              <SelectTrigger className="h-12 w-full sm:w-[160px] rounded-xl border-none bg-white dark:bg-slate-900 shadow-xl text-[10px] font-black uppercase tracking-widest">
-                <SelectValue placeholder="DIRECTION" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="all" className="text-[10px] font-black uppercase">TOUTES DIRECTIONS</SelectItem>
-                {departmentOptions.map(d => <SelectItem key={d} value={d} className="text-[10px] font-black uppercase">{d}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
-              <SelectTrigger className="h-12 w-full sm:w-[160px] rounded-xl border-none bg-white dark:bg-slate-900 shadow-xl text-[10px] font-black uppercase tracking-widest">
-                <SelectValue placeholder="NIVEAU" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="all" className="text-[10px] font-black uppercase">TOUS NIVEAUX</SelectItem>
-                {["Faible", "Modéré", "Élevé", "Très élevé"].map(l => <SelectItem key={l} value={l} className="text-[10px] font-black uppercase">{l}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+              <div className="relative flex-1 sm:flex-none sm:min-w-[240px]">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher un risque..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-14 pl-12 pr-4 rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 font-bold text-xs"
+                />
+              </div>
+
+              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+                <SelectTrigger className="h-14 w-full sm:w-[150px] rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest">
+                  <SelectValue placeholder="DIRECTION" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-none shadow-2xl">
+                  <SelectItem value="all" className="text-[10px] font-black uppercase">TOUTES DIRECTIONS</SelectItem>
+                  {departmentOptions.map(d => <SelectItem key={d} value={d} className="text-[10px] font-black uppercase">{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="h-14 w-full sm:w-[150px] rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest">
+                  <SelectValue placeholder="CATÉGORIE" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-none shadow-2xl">
+                  <SelectItem value="all" className="text-[10px] font-black uppercase">TOUTES CATÉGORIES</SelectItem>
+                  {categoryOptions.map(c => <SelectItem key={c} value={c} className="text-[10px] font-black uppercase">{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+
+              <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
+                <SelectTrigger className="h-14 w-full sm:w-[150px] rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest">
+                  <SelectValue placeholder="NIVEAU" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-none shadow-2xl">
+                  <SelectItem value="all" className="text-[10px] font-black uppercase">TOUS NIVEAUX</SelectItem>
+                  {["Faible", "Modéré", "Élevé", "Très élevé"].map(l => <SelectItem key={l} value={l} className="text-[10px] font-black uppercase">{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </div>
+        </Card>
 
         <TabsContent value="analysis" className="mt-0 focus-visible:ring-0">
           <RiskKPIs risks={filteredRisks} />
@@ -369,104 +398,160 @@ export default function RiskMappingPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-rose-500" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground underline decoration-rose-200 underline-offset-4">Inhérent</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground underline decoration-rose-200 underline-offset-4">Critique</span>
                 </div>
               </div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">{filteredRisks.length} Scénarios Monitorés</p>
+              <p className="text-[10px] font-bold text-slate-400">Dernière mise à jour : {new Date().toLocaleDateString()}</p>
             </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Modern Dialog Implementation */}
-      <Dialog open={!!dialogState.mode} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
-        <DialogContent className="rounded-[3rem] p-10 max-w-2xl border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)]">
+      {/* Add/Edit Risk Dialog */}
+      <Dialog open={dialogState.mode !== null} onOpenChange={(open) => !open && closeDialog()}>
+        <DialogContent className="rounded-[3rem] p-10 max-w-4xl border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)]">
           <DialogHeader className="pb-8">
             <DialogTitle className="text-4xl font-black font-headline tracking-tighter uppercase italic">
-              Risk <span className="text-primary">Profiling</span>
+              {dialogState.mode === "add" ? "Fixer un" : "Ajuster l'"} <span className="text-primary">Exposition</span>
             </DialogTitle>
-            <DialogDescription className="text-base font-medium pt-1">
-              Évaluez et documentez une exposition potentielle.
+            <DialogDescription className="text-base font-medium">
+              Paramétrez les détails du scénario pour affiner la cartographie des risques.
             </DialogDescription>
           </DialogHeader>
+
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8 max-h-[60vh] overflow-y-auto pr-6 custom-scrollbar">
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <FormField control={form.control} name="department" render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Direction Affectée</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent className="rounded-2xl border-none shadow-2xl">{departmentOptions.map(d => <SelectItem key={d} value={d} className="font-bold">{d}</SelectItem>)}</SelectContent>
-                      </Select><FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="category" render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Classification</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent className="rounded-2xl border-none shadow-2xl">{categoryOptions.map(c => <SelectItem key={c} value={c} className="font-bold">{c}</SelectItem>)}</SelectContent>
-                      </Select><FormMessage />
-                    </FormItem>
-                  )} />
+            <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                {/* Left Column: Context */}
+                <div className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="riskDescription"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Scénario de Risque</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder="Décrivez le scénario redouté..." className="min-h-[120px] rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold text-sm" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="department"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Direction</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-2xl border-none shadow-2xl">
+                              {departmentOptions.map(d => <SelectItem key={d} value={d} className="font-bold">{d}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Domaine</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-2xl border-none shadow-2xl">
+                              {categoryOptions.map(c => <SelectItem key={c} value={c} className="font-bold">{c}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="owner"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Propriétaire du Risque</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="ex: Jean Dupont" className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
 
-                <FormField control={form.control} name="riskDescription" render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Description du Scénario</FormLabel>
-                    <FormControl><Textarea {...field} className="min-h-[100px] rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold p-6 shadow-inner" placeholder="Ex: Défaillance du processus KYC sur les comptes dormants..." /></FormControl><FormMessage />
-                  </FormItem>
-                )} />
+                {/* Right Column: Scoring & Mitigation */}
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="likelihood"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Probabilité</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-2xl border-none shadow-2xl">
+                              {likelihoodOptions.map(l => <SelectItem key={l} value={l} className="font-bold">{l}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                <div className="grid grid-cols-2 gap-6">
-                  <FormField control={form.control} name="likelihood" render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Fréquence / Probabilité</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent className="rounded-2xl border-none shadow-2xl">{likelihoodOptions.map(l => <SelectItem key={l} value={l} className="font-bold">{l}</SelectItem>)}</SelectContent>
-                      </Select><FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="impact" render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Gravité / Impact</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent className="rounded-2xl border-none shadow-2xl">{impactOptions.map(i => <SelectItem key={i} value={i} className="font-bold">{i}</SelectItem>)}</SelectContent>
-                      </Select><FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
+                    <FormField
+                      control={form.control}
+                      name="impact"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Impact GRC</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-2xl border-none shadow-2xl">
+                              {impactOptions.map(i => <SelectItem key={i} value={i} className="font-bold">{i}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                <FormField control={form.control} name="expectedAction" render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Action Corrective</FormLabel>
-                    <FormControl><Textarea {...field} className="min-h-[80px] rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold p-6 shadow-inner" placeholder="Décrivez les mesures de remédiation..." /></FormControl><FormMessage />
-                  </FormItem>
-                )} />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField control={form.control} name="owner" render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Chef de File</FormLabel>
-                      <FormControl><Input {...field} className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold" /></FormControl><FormMessage />
-                    </FormItem>
-                  )} />
+                  <FormField
+                    control={form.control}
+                    name="expectedAction"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Action de Mitigation</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder="Mesures prévues pour réduire le risque..." className="min-h-[100px] rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold text-sm" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <FormField
                     control={form.control}
                     name="documentIds"
                     render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Preuves Associées</FormLabel>
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Preuves de Contrôle (Evidence Vault)</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="outline" className="h-14 w-full rounded-2xl bg-slate-50 dark:bg-slate-950 border-none justify-between px-4 font-bold">
-                              {field.value && field.value.length > 0 ? `${field.value.length} fichiers liés` : "Sélectionner des documents"}
-                              <LinkIcon className="h-4 w-4 opacity-30" />
+                            <Button variant="outline" className="h-14 w-full rounded-2xl border-slate-200 dark:border-slate-800 justify-between font-bold text-sm bg-slate-50 dark:bg-slate-950">
+                              <span className="truncate">{field.value && field.value.length > 0 ? `${field.value.length} documents sélectionnés` : "Sélectionner des preuves"}</span>
+                              <PlusCircle className="h-4 w-4 opacity-50" />
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-[300px] p-0 rounded-2xl border-none shadow-2xl">
@@ -523,7 +608,6 @@ export default function RiskMappingPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
     </div>
   );
 }
