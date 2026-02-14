@@ -3,7 +3,9 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { usePlanData } from '@/contexts/PlanDataContext';
 import { useRiskMapping } from '@/contexts/RiskMappingContext';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Maximize2, X, Workflow } from 'lucide-react';
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import type { RiskLevel } from '@/types/compliance';
 
 declare global {
@@ -41,6 +43,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
     const uniqueId = useMemo(() => Math.random().toString(36).substring(7), []);
     const [svg, setSvg] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const { workflowTasks, planData, availableUsers } = usePlanData();
     const { risks: allRisks } = useRiskMapping();
 
@@ -479,9 +482,9 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 </div>
             )}
 
-            <div className="relative bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3rem] p-8 shadow-2xl overflow-hidden min-h-[400px] flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
+            <div className="relative bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3rem] p-4 shadow-2xl overflow-hidden min-h-[150px] max-h-[300px] flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
                 <div
-                    className="mermaid w-full flex flex-col items-center justify-center opacity-0 translate-y-4 animate-[fadeIn_0.8s_ease-out_forwards]"
+                    className="mermaid w-full flex flex-col items-center justify-center opacity-0 translate-y-4 animate-[fadeIn_0.8s_ease-out_forwards] scale-[0.85]"
                     dangerouslySetInnerHTML={{ __html: svg }}
                 />
 
@@ -489,17 +492,60 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     <div className="flex flex-col items-center gap-4">
                         <div className="w-12 h-12 border-4 border-indigo-500/10 border-t-indigo-500 rounded-full animate-spin" />
                         <div className="bg-indigo-50/50 px-4 py-1.5 rounded-full text-[10px] font-bold text-indigo-400 uppercase tracking-widest animate-pulse">
-                            Génération du flux...
+                            Génération...
                         </div>
                     </div>
                 )}
+
                 {svg && (
-                    <div className="absolute top-8 right-8">
-                        <div className="bg-white/80 backdrop-blur-md border border-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-400 py-2 px-4 rounded-full shadow-sm flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            Vue GRC Active
-                        </div>
-                    </div>
+                    <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+                        <DialogTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-4 right-4 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full shadow-lg hover:bg-white hover:scale-110 transition-all z-20"
+                            >
+                                <Maximize2 className="h-4 w-4 text-indigo-600" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-[95vw] w-full h-[95vh] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-none shadow-2xl flex flex-col">
+                            <div className="p-6 border-b flex items-center justify-between bg-white/50">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-indigo-500 p-2 rounded-xl">
+                                        <Workflow className="h-5 w-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Aperçu Complet du Processus</h3>
+                                        <p className="text-xs text-slate-500">Visualisation détaillée en plein écran</p>
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setIsFullscreen(false)}
+                                    className="rounded-full hover:bg-red-50 hover:text-red-500 transition-colors"
+                                >
+                                    <X className="h-5 w-5" />
+                                </Button>
+                            </div>
+                            <div className="flex-1 overflow-auto p-8 flex items-start justify-center bg-slate-50/30">
+                                <div
+                                    className="mermaid-fullscreen w-full"
+                                    dangerouslySetInnerHTML={{ __html: svg.replace(/id="mermaid-svg-[^"]+"/, `id="mermaid-svg-fullscreen-${uniqueId}"`) }}
+                                />
+                            </div>
+                            <style dangerouslySetInnerHTML={{
+                                __html: `
+                                .mermaid-fullscreen svg { 
+                                    width: 100% !important; 
+                                    height: auto !important; 
+                                    max-width: 100% !important;
+                                    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.1));
+                                }
+                                .mermaid-fullscreen .node:hover rect { transform: translateY(-5px); }
+                            `}} />
+                        </DialogContent>
+                    </Dialog>
                 )}
             </div>
 

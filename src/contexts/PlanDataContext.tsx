@@ -1,6 +1,6 @@
 
 'use client';
-import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask, WorkflowTask, AuditLog, AvailableUser, AvailableRole } from '@/types/compliance';
+import type { ComplianceCategory, ComplianceSubCategory, ComplianceTask, WorkflowTask, WorkflowTaskStatus, AuditLog, AvailableUser, AvailableRole } from '@/types/compliance';
 import { initialCompliancePlanData } from '@/data/compliancePlan';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
@@ -32,6 +32,17 @@ interface PlanDataContextType {
   updateAvailableRole: (id: string, update: Partial<AvailableRole>) => Promise<void>;
   removeAvailableRole: (id: string) => Promise<void>;
   activeWorkflows: Record<string, { code: string; name: string, order?: number }>;
+  workflowTasks: WorkflowTask[];
+  availableUsers: AvailableUser[];
+  availableRoles: AvailableRole[];
+  auditLogs: AuditLog[];
+  assignTask: (task: Omit<WorkflowTask, 'id' | 'assignedAt'>) => Promise<void>;
+  updateTaskStatus: (taskId: string, status: WorkflowTaskStatus) => Promise<void>;
+  updateTask: (taskId: string, update: Partial<WorkflowTask>) => Promise<void>;
+  addAvailableUser: (user: Omit<AvailableUser, 'id' | 'createdAt'>) => Promise<void>;
+  updateAvailableUser: (id: string, update: Partial<AvailableUser>) => Promise<void>;
+  removeAvailableUser: (id: string) => Promise<void>;
+  addAvailableRole: (role: Omit<AvailableRole, 'id' | 'createdAt'>) => Promise<void>;
   deleteWorkflow: (workflowId: string) => Promise<void>;
   updateWorkflowOrder: (workflowId: string, order: number) => Promise<void>;
 }
