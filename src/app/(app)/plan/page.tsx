@@ -702,6 +702,7 @@ export default function PlanPage() {
                                     <MermaidRenderer
                                       chart={activeWorkflow.code}
                                       workflowId={subCategory.id}
+                                      onEditTask={(task: any) => openDialog("task", "edit", task, task.subCategoryId || subCategory.id, task.categoryId || category.id)}
                                     />
                                   </div>
                                 ) : (

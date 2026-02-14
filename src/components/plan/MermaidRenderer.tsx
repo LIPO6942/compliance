@@ -16,6 +16,7 @@ interface MermaidRendererProps {
     chart: string;
     workflowId?: string;
     onNodeClick?: (id: string) => void;
+    onEditTask?: (task: any) => void;
 }
 
 // Utilitaire: niveau de risque numérique pour comparaison
@@ -36,7 +37,8 @@ const riskLevelConfig: Record<string, { emoji: string; bg: string; border: strin
     'Très élevé': { emoji: '🔴', bg: '#fef2f2', border: '#fca5a5', text: '#991b1b', label: 'Risque Très élevé' },
 };
 
-export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflowId }) => {
+export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflowId, onEditTask }) => {
+    const uniqueId = useMemo(() => Math.random().toString(36).substring(7), []);
     const [svg, setSvg] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
     const { workflowTasks, planData, availableUsers } = usePlanData();
@@ -170,7 +172,10 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 };
 
                 const planGrcTasks = planData.flatMap((cat: any) =>
-                    cat.subCategories.flatMap((sub: any) => getGrcTasks(sub.tasks))
+                    cat.subCategories.flatMap((sub: any) => {
+                        const tasks = getGrcTasks(sub.tasks);
+                        return tasks.map(t => ({ ...t, categoryId: cat.id, subCategoryId: sub.id }));
+                    })
                 );
 
                 // Fusion des tâches d'assignation et des tâches de contrôle GRC avec déduplication stricte par ID
@@ -286,7 +291,24 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
 
                     const statusClass = hasAlert ? 'node-alert' : allDone ? 'node-done' : anyProgress ? 'node-progress' : 'node-pending';
                     annotatedChart += `\nclass ${nodeId} ${statusClass};`;
+
+                    // Interaction: Clic pour éditer
+                    // On rend le noeud cliquable s'il a des tâches associées
+                    if (tasks.length > 0) {
+                        annotatedChart += `\nclick ${nodeId} call mermaidClick_${uniqueId}("${nodeId}") "Modifier cette étape"`;
+                    }
                 });
+
+                // Définition de la fonction globale de callback pour ce diagramme spécifique
+                const callbackName = `mermaidClick_${uniqueId}`;
+                (window as any)[callbackName] = (nodeId: string) => {
+                    const tasks = tasksByNode[nodeId];
+                    if (tasks && tasks.length > 0 && onEditTask) {
+                        // On édite la première tâche trouvée pour ce noeud
+                        // Idéalement on pourrait afficher une liste si plusieurs, mais ici on simplifie
+                        onEditTask(tasks[0]);
+                    }
+                };
 
                 // Définitions de classes Mermaid
                 annotatedChart += `\nclassDef node-done fill:#ecfdf5,stroke:#10b981,stroke-width:2px,rx:12,ry:12;`;
@@ -322,8 +344,13 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
         const timeoutId = setTimeout(() => {
             if (window.mermaid) renderChart();
         }, 500);
-        return () => clearTimeout(timeoutId);
-    }, [chart, workflowTasks, workflowId, planData, availableUsers, allRisks]);
+        return () => {
+            clearTimeout(timeoutId);
+            // Cleanup global callback
+            const callbackName = `mermaidClick_${uniqueId}`;
+            delete (window as any)[callbackName];
+        };
+    }, [chart, workflowTasks, workflowId, planData, availableUsers, allRisks, onEditTask, uniqueId]);
 
     if (error) {
         return (
@@ -348,7 +375,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&display=swap');
                 
                 /* Layout global Mermaid */
-                .mermaid svg { max-width: 100% !important; height: auto !important; filter: drop-shadow(0 15px 30px rgba(0,0,0,0.05)); }
+                .mermaid svg { max-width: 100% !important; height: auto !important; filter: drop-shadow(0 15px 30px rgba(0,0,0,0.05)); margin: 0 auto !important; display: block !important; }
                 
                 /* Styles des noeuds HTML injectés */
                 .node-label-main { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 13px; color: #1e293b; margin-bottom: 4px; }
@@ -398,6 +425,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 /* Animations & Interactivité */
                 .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { transition: all 0.3s ease !important; }
                 .mermaid .node:hover rect, .mermaid .node:hover circle, .mermaid .node:hover polygon { filter: brightness(0.98); transform: translateY(-3px); }
+                .mermaid .node.clickable { cursor: pointer !important; }
                 .mermaid .edgePath path { stroke: #94a3b8 !important; stroke-width: 2px !important; }
                 .mermaid .edgePath:hover path { stroke: #6366f1 !important; stroke-width: 3px !important; }
             ` }} />
@@ -453,7 +481,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
 
             <div className="relative bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3rem] p-8 shadow-2xl overflow-hidden min-h-[400px] flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
                 <div
-                    className="mermaid w-full opacity-0 translate-y-4 animate-[fadeIn_0.8s_ease-out_forwards]"
+                    className="mermaid w-full flex flex-col items-center justify-center opacity-0 translate-y-4 animate-[fadeIn_0.8s_ease-out_forwards]"
                     dangerouslySetInnerHTML={{ __html: svg }}
                 />
 
