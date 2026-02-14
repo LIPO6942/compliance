@@ -240,60 +240,55 @@ function DocumentsComponent() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50/50 dark:bg-slate-950/50 border-b border-slate-100 dark:border-slate-800">
-                    <TableHead className="py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Document / Version</TableHead>
-                    <TableHead className="py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Tags</TableHead>
-                    <TableHead className="py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Classification</TableHead>
-                    <TableHead className="py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">État</TableHead>
-                    <TableHead className="py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Propriétaire</TableHead>
-                    <TableHead className="py-5 text-right font-black uppercase tracking-widest text-[10px] text-muted-foreground px-8">Actions</TableHead>
+                  <TableRow className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+                    <TableHead className="py-3 px-8 font-black uppercase tracking-widest text-[9px] text-muted-foreground border-r border-slate-100 dark:border-slate-800/50">Document / Version</TableHead>
+                    <TableHead className="py-3 px-6 font-black uppercase tracking-widest text-[9px] text-muted-foreground border-r border-slate-100 dark:border-slate-800/50">Tags</TableHead>
+                    <TableHead className="py-3 px-6 font-black uppercase tracking-widest text-[9px] text-muted-foreground border-r border-slate-100 dark:border-slate-800/50">Classification</TableHead>
+                    <TableHead className="py-3 px-6 font-black uppercase tracking-widest text-[9px] text-muted-foreground border-r border-slate-100 dark:border-slate-800/50">État</TableHead>
+                    <TableHead className="py-3 px-6 font-black uppercase tracking-widest text-[9px] text-muted-foreground border-r border-slate-100 dark:border-slate-800/50">Propriétaire</TableHead>
+                    <TableHead className="py-3 text-right font-black uppercase tracking-widest text-[9px] text-muted-foreground px-8">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {!loading ? (
                     filteredDocuments.length > 0 ? (
                       filteredDocuments.map((doc) => (
-                        <TableRow key={doc.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all border-b border-slate-100 dark:border-slate-800/50">
-                          <TableCell className="py-5 px-10">
-                            <div className="flex flex-col gap-1">
-                              <span className="text-[14px] font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors cursor-pointer" onClick={() => openDialog('edit', doc)}>
+                        <TableRow key={doc.id} className="group hover:bg-slate-50/30 dark:hover:bg-slate-800/20 transition-all border-b border-slate-100 dark:border-slate-800/50">
+                          <TableCell className="py-3 px-8 border-r border-slate-100 dark:border-transparent">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[13px] font-bold text-slate-800 dark:text-slate-200 group-hover:text-primary transition-colors cursor-pointer" onClick={() => openDialog('edit', doc)}>
                                 {doc.name}
                               </span>
                               <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 border-none px-0">
-                                  VERSION {doc.version}
-                                </Badge>
+                                <span className="text-[9px] font-black uppercase tracking-tighter text-slate-400">V{doc.version}</span>
                                 {doc.url && (
-                                  <>
-                                    <div className="h-1 w-1 bg-slate-300 rounded-full" />
-                                    <Link href={doc.url} target="_blank" className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1">
-                                      <LinkIcon className="h-3 w-3" /> Archive Cloud
-                                    </Link>
-                                  </>
+                                  <Link href={doc.url} target="_blank" className="text-[9px] font-bold text-indigo-500 hover:underline flex items-center gap-1">
+                                    <LinkIcon className="h-2 w-2" /> SOURCE
+                                  </Link>
                                 )}
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="py-5">
-                            <div className="flex flex-wrap gap-1.5">
+                          <TableCell className="py-3 px-6 border-r border-slate-100 dark:border-transparent">
+                            <div className="flex flex-wrap gap-1">
                               {doc.tags?.length ? doc.tags.map(tag => (
-                                <Badge key={tag} variant="secondary" className="bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border-none">
+                                <Badge key={tag} variant="secondary" className="bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[8px] font-black tracking-widest px-1.5 py-0 rounded border-none">
                                   {tag.toUpperCase()}
                                 </Badge>
                               )) : (
-                                <span className="text-[10px] font-medium italic text-slate-300">Non classifié</span>
+                                <span className="text-[10px] font-medium italic text-slate-300">N/A</span>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="py-5">
-                            <div className="inline-flex items-center px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-xl shadow-sm">
-                              <span className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300">{doc.type}</span>
-                            </div>
+                          <TableCell className="py-3 px-6 border-r border-slate-100 dark:border-transparent text-center">
+                            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-tighter border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 py-0.5 rounded shadow-none text-slate-500">
+                              {doc.type}
+                            </Badge>
                           </TableCell>
-                          <TableCell className="py-5">
+                          <TableCell className="py-3 px-6 border-r border-slate-100 dark:border-transparent">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className={`h-9 rounded-xl border-none shadow-sm font-black text-[10px] tracking-widest px-5 ${statusColors[doc.status]}`}>
+                                <Button variant="outline" size="sm" className={`h-7 rounded-lg border shadow-none font-black text-[8px] tracking-[0.2em] px-3 ${statusColors[doc.status]}`}>
                                   {doc.status.toUpperCase()}
                                 </Button>
                               </DropdownMenuTrigger>
@@ -328,15 +323,15 @@ function DocumentsComponent() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
-                          <TableCell className="py-5">
-                            <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-white dark:border-slate-700 shadow-sm">
-                                <span className="text-[12px] font-black text-slate-400 uppercase">{doc.owner.charAt(0)}</span>
+                          <TableCell className="py-3 px-6 border-r border-slate-100 dark:border-transparent">
+                            <div className="flex items-center gap-2">
+                              <div className="h-6 w-6 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                                <span className="text-[9px] font-black text-slate-400 uppercase">{doc.owner.charAt(0)}</span>
                               </div>
-                              <span className="text-[12px] font-black text-slate-900 dark:text-slate-200">{doc.owner}</span>
+                              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 truncate max-w-[100px]">{doc.owner}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="py-5 text-right px-10">
+                          <TableCell className="py-3 text-right px-8">
                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
                               <Tooltip>
                                 <TooltipTrigger asChild>

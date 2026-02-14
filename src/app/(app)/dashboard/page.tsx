@@ -21,10 +21,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const complianceStatusBaseColors = {
-  conforme: "hsl(var(--chart-1))",
-  enCours: "hsl(var(--chart-4))",
-  nonConforme: "hsl(var(--destructive))",
-  aucuneDonnee: "hsl(var(--muted))",
+  conforme: "#10b981", // emerald-500
+  enCours: "#f59e0b",  // amber-500
+  nonConforme: "#ef4444", // rose-500
+  aucuneDonnee: "#94a3b8", // slate-400
 };
 
 export default function DashboardPage() {
