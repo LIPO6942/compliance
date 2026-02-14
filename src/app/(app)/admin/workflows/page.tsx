@@ -11,6 +11,8 @@ import Link from 'next/link';
 import { collection, query, getDocs, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { MermaidWorkflow } from '@/types/compliance';
+import { doc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 
 // Utilitaire pour le niveau de risque
 const riskLevelToNumber = (level: string): number => {
@@ -35,6 +37,40 @@ export default function AdminWorkflowsPage() {
     const [loading, setLoading] = useState(true);
     const { planData } = usePlanData();
     const { risks: allRisks } = useRiskMapping();
+    const router = useRouter();
+
+    const handleDeleteAll = async () => {
+        if (!db) return;
+        if (!confirm('Êtes-vous sûr de vouloir supprimer TOUS les workflows ? Cette action est irréversible.')) return;
+
+        try {
+            setLoading(true);
+            const batch = writeBatch(db);
+            workflows.forEach(w => {
+                batch.delete(doc(db, 'workflows', w.id));
+            });
+            await batch.commit();
+            setWorkflows([]);
+            alert('Tous les workflows ont été supprimés.');
+            router.refresh();
+        } catch (error) {
+            console.error('Error deleting all workflows:', error);
+            alert('Erreur lors de la suppression.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!db) return;
+        if (!confirm('Supprimer ce workflow ?')) return;
+        try {
+            await deleteDoc(doc(db, 'workflows', id));
+            setWorkflows(prev => prev.filter(w => w.id !== id));
+        } catch (error) {
+            console.error('Error deleting workflow:', error);
+        }
+    };
 
     useEffect(() => {
         const fetchWorkflows = async () => {
@@ -57,11 +93,7 @@ export default function AdminWorkflowsPage() {
         fetchWorkflows();
     }, []);
 
-    const defaultWorkflows = [
-        { id: 'processus-eer', name: 'Entrée en Relation', workflowId: 'processus-eer' },
-        { id: 'processus-gel', name: 'Gel des Avoirs', workflowId: 'processus-gel' },
-        { id: 'processus-monitoring', name: 'Monitoring', workflowId: 'processus-monitoring' },
-    ];
+    const defaultWorkflows: any[] = [];
 
     const getWorkflowRiskInfo = (workflowId: string) => {
         // Collecter toutes les tâches liées à ce workflow
@@ -116,27 +148,37 @@ export default function AdminWorkflowsPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Gestion des Workflows</h1>
                     <p className="text-muted-foreground">Configurez les processus métier via Mermaid.js</p>
                 </div>
-                <Button disabled>
-                    <LucideIcons.Plus className="mr-2 h-4 w-4" /> Nouveau Workflow
-                </Button>
+                <div className="flex gap-4">
+                    <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={handleDeleteAll} disabled={workflows.length === 0}>
+                        <LucideIcons.Trash2 className="mr-2 h-4 w-4" /> Tout supprimer
+                    </Button>
+                    <Link href="/admin/workflows/new">
+                        <Button>
+                            <LucideIcons.Plus className="mr-2 h-4 w-4" /> Nouveau Workflow
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {defaultWorkflows.map((w) => {
-                    const activeW = workflows.find(wf => wf.workflowId === w.workflowId);
+                {(workflows.length > 0 ? workflows : defaultWorkflows).map((w) => {
+                    const activeW = workflows.find(wf => wf.workflowId === w.workflowId) || (w.id ? w : null);
                     const riskInfo = getWorkflowRiskInfo(w.workflowId);
                     const RiskIcon = riskInfo?.config?.icon || LucideIcons.Shield;
 
                     return (
-                        <Card key={w.id} className="group hover:shadow-md transition-all flex flex-col">
+                        <Card key={w.id || w.workflowId} className="group hover:shadow-md transition-all flex flex-col">
                             <CardHeader>
                                 <div className="flex justify-between items-start mb-2">
                                     <Badge variant="outline" className="opacity-50 text-[10px]">ID: {w.workflowId}</Badge>
-                                    {activeW ? (
+                                    {activeW?.currentVersion ? (
                                         <Badge variant="secondary" className="bg-slate-100 text-slate-600">V{activeW.currentVersion}</Badge>
                                     ) : (
                                         <Badge variant="outline" className="opacity-50">Inactif</Badge>
                                     )}
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(w.id)}>
+                                        <LucideIcons.Trash2 className="h-4 w-4" />
+                                    </Button>
                                 </div>
                                 <CardTitle className="text-xl flex items-center justify-between">
                                     {w.name}
@@ -162,9 +204,9 @@ export default function AdminWorkflowsPage() {
                             </CardHeader>
                             <CardContent className="mt-auto">
                                 <Link href={`/admin/workflows/${w.workflowId}/edit`}>
-                                    <Button className="w-full group-hover:bg-primary/90 transition-colors" variant={activeW ? "outline" : "default"}>
+                                    <Button className="w-full group-hover:bg-primary/90 transition-colors" variant={activeW?.currentVersion ? "outline" : "default"}>
                                         <LucideIcons.Edit2 className="mr-2 h-4 w-4" />
-                                        {activeW ? "Modifier le workflow" : "Configurer"}
+                                        {activeW?.currentVersion ? "Modifier le workflow" : "Configurer"}
                                     </Button>
                                 </Link>
                             </CardContent>

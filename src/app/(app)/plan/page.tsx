@@ -15,8 +15,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { PlusCircle, Edit2, Trash2, MoreVertical, Clock, Link as LinkIcon, FileText, ArrowDown, ShieldAlert } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { PlusCircle, Edit2, Trash2, MoreVertical, Clock, Link as LinkIcon, FileText, ArrowDown, ArrowUp, ShieldAlert } from "lucide-react";
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
 import * as LucideIcons from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -24,6 +24,7 @@ import { fr } from "date-fns/locale";
 import { Logo } from "@/components/icons/Logo";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import ConnectorDialog from "@/components/plan/ConnectorDialog";
 import { MermaidRenderer } from "@/components/plan/MermaidRenderer";
@@ -357,7 +358,10 @@ export default function PlanPage() {
     renameBranch,
     addTaskToBranch,
     activeWorkflows,
+    deleteWorkflow,
+    updateWorkflowOrder
   } = usePlanData();
+  const router = useRouter();
   const { documents, loading: docsLoading } = useDocuments();
   const { risks: allRisks } = useRiskMapping();
 
@@ -626,7 +630,12 @@ export default function PlanPage() {
                   <Icon className="h-6 w-6 text-primary" />
                   <span className="text-xl font-headline font-medium">{category.name}</span>
                 </div>
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {isProcessCategory && (
+                    <Button variant="ghost" size="icon" onClick={() => router.push('/admin/workflows/new')} title="Créer un processus" className="h-8 w-8 hover:bg-emerald-50">
+                      <PlusCircle className="h-5 w-5 text-emerald-600" />
+                    </Button>
+                  )}
                   <AlertDialog>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -678,6 +687,13 @@ export default function PlanPage() {
                           icon: 'Workflow'
                         });
                       });
+
+                      // Tri des sous-catégories/workflows selon l'ordre défini
+                      subCategoriesToRender.sort((a, b) => {
+                        const orderA = activeWorkflows[a.id]?.order ?? 999;
+                        const orderB = activeWorkflows[b.id]?.order ?? 999;
+                        return orderA - orderB;
+                      });
                     }
 
                     return subCategoriesToRender.map((subCategory: ComplianceSubCategory) => {
@@ -686,9 +702,38 @@ export default function PlanPage() {
 
                       if (isProcessCategory) {
                         return (
-                          <Card key={subCategory.id} className="bg-background/50 shadow-sm overflow-hidden group hover:shadow-lg transition-all duration-300">
+                          <Card key={subCategory.id} className="bg-background/50 shadow-sm overflow-hidden group hover:shadow-lg transition-all duration-300 relative">
                             <CardContent className="p-6">
-                              <div className="bg-gradient-to-br from-[#FFF9E6] to-[#FFF4D6] dark:from-[#2D2618] dark:to-[#3D3520] border-2 border-[#D4B896] dark:border-[#8B7355] rounded-xl p-6 shadow-inner space-y-6">
+                              <div className="bg-gradient-to-br from-[#FFF9E6] to-[#FFF4D6] dark:from-[#2D2618] dark:to-[#3D3520] border-2 border-[#D4B896] dark:border-[#8B7355] rounded-xl p-6 shadow-inner space-y-6 relative">
+
+                                {/* Menu Actions (Absolute top-right) */}
+                                {activeWorkflow && (
+                                  <div className="absolute right-4 top-4 z-10">
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-[#8B6914] dark:text-[#D4B896] hover:bg-[#8B6914]/10 rounded-full">
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => router.push(`/admin/workflows/${subCategory.id}/edit`)}>
+                                          <Edit2 className="mr-2 h-4 w-4" /> Modifier le diagramme
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleMoveWorkflow(subCategory.id, -1)}>
+                                          <ArrowUp className="mr-2 h-4 w-4" /> Monter
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleMoveWorkflow(subCategory.id, 1)}>
+                                          <ArrowDown className="mr-2 h-4 w-4" /> Descendre
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteWorkflow(subCategory.id)}>
+                                          <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                )}
+
                                 {/* Titre du processus */}
                                 <div className="text-center border-b-2 border-[#D4B896]/50 dark:border-[#8B7355]/50 pb-3">
                                   <div className="flex items-center justify-center gap-2">

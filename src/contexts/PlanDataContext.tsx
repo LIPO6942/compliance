@@ -29,20 +29,11 @@ interface PlanDataContextType {
   addTaskToBranch: (categoryId: string, subCategoryId: string, taskId: string, branchLabel: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => Promise<void>;
   moveTaskIntoBranch: (categoryId: string, subCategoryId: string, sourceTaskId: string, destParentTaskId: string, destBranchLabel: string) => Promise<void>;
   resetToInitialData: () => Promise<void>;
-  activeWorkflows: Record<string, { code: string; name: string }>;
-  workflowTasks: WorkflowTask[];
-  auditLogs: AuditLog[];
-  availableUsers: AvailableUser[];
-  availableRoles: AvailableRole[];
-  assignTask: (task: Omit<WorkflowTask, 'id' | 'assignedAt'>) => Promise<void>;
-  updateTaskStatus: (taskId: string, status: WorkflowTask['status']) => Promise<void>;
-  updateTask: (taskId: string, update: Partial<WorkflowTask>) => Promise<void>;
-  addAvailableUser: (user: Omit<AvailableUser, 'id' | 'createdAt'>) => Promise<void>;
-  updateAvailableUser: (id: string, update: Partial<AvailableUser>) => Promise<void>;
-  removeAvailableUser: (id: string) => Promise<void>;
-  addAvailableRole: (role: Omit<AvailableRole, 'id' | 'createdAt'>) => Promise<void>;
   updateAvailableRole: (id: string, update: Partial<AvailableRole>) => Promise<void>;
   removeAvailableRole: (id: string) => Promise<void>;
+  activeWorkflows: Record<string, { code: string; name: string, order?: number }>;
+  deleteWorkflow: (workflowId: string) => Promise<void>;
+  updateWorkflowOrder: (workflowId: string, order: number) => Promise<void>;
 }
 
 const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined);
@@ -80,7 +71,7 @@ const updatePlanInFirestore = async (newPlan: ComplianceCategory[]) => {
 
 export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   const [planData, setPlanData] = useState<ComplianceCategory[]>([]);
-  const [activeWorkflows, setActiveWorkflows] = useState<Record<string, { code: string; name: string }>>({});
+  const [activeWorkflows, setActiveWorkflows] = useState<Record<string, { code: string; name: string, order?: number }>>({});
   const [workflowTasks, setWorkflowTasks] = useState<WorkflowTask[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([]);
@@ -131,7 +122,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
 
     const q = query(collection(db, 'workflows'));
     const unsubscribe = onSnapshot(q, async (snapshot: QuerySnapshot<DocumentData>) => {
-      const workflows: Record<string, { code: string; name: string }> = {};
+      const workflows: Record<string, { code: string; name: string, order?: number }> = {};
 
       console.log(`[PlanData] Workflows snapshot size: ${snapshot.size}`);
       for (const workflowDoc of snapshot.docs) {
@@ -147,7 +138,8 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
               console.log(`[PlanData] Version found for ${workflowDoc.id}`);
               workflows[data.workflowId] = {
                 code: vSnap.data().mermaidCode,
-                name: data.name || data.workflowId
+                name: data.name || data.workflowId,
+                order: data.order
               };
             } else {
               console.warn(`[PlanData] Version document ${data.activeVersionId} not found for workflow ${workflowDoc.id}`);
@@ -689,6 +681,24 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         if (!db) return;
         const { deleteDoc } = await import('firebase/firestore');
         await deleteDoc(doc(db, 'available_roles', id));
+      },
+      deleteWorkflow: async (workflowId) => {
+        if (!db) return;
+        try {
+          await deleteDoc(doc(db, 'workflows', workflowId));
+        } catch (e) {
+          console.error("Error deleting workflow:", e);
+          throw e;
+        }
+      },
+      updateWorkflowOrder: async (workflowId, order) => {
+        if (!db) return;
+        try {
+          await updateDoc(doc(db, 'workflows', workflowId), { order });
+        } catch (e) {
+          console.error("Error updating workflow order:", e);
+          throw e;
+        }
       }
     }}>
       {children}
