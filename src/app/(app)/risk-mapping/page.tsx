@@ -275,96 +275,94 @@ export default function RiskMappingPage() {
           <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="border-collapse">
                   <TableHeader>
-                    <TableRow className="bg-slate-50/50 dark:bg-slate-950/50 border-b border-slate-100 dark:border-slate-800">
-                      <TableHead className="py-6 px-8 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Scénario de Risque</TableHead>
-                      <TableHead className="py-6 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Direction</TableHead>
-                      <TableHead className="py-6 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Paramètres</TableHead>
-                      <TableHead className="py-6 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Niveau</TableHead>
-                      <TableHead className="py-6 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Propriétaire</TableHead>
-                      <TableHead className="py-6 text-right font-black uppercase tracking-widest text-[10px] text-muted-foreground px-8">Actions</TableHead>
+                    <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[35%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Direction</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Likelihood</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Impact</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Score Brut</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Owner</TableHead>
+                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredRisks.length > 0 ? (
                       filteredRisks.map((risk) => {
-                        const score = calculateRiskScore(risk.likelihood, risk.impact);
                         const level = calculateRiskLevel(risk.likelihood, risk.impact);
                         const hasAlert = !!findAlertByRiskId(risk.id);
                         return (
-                          <TableRow key={risk.id} className="group hover:bg-slate-50 dark:hover:bg-slate-950/40 transition-all border-b border-slate-50 dark:border-slate-800/50">
-                            <TableCell className="py-8 px-8 max-w-[340px]">
-                              <div className="space-y-1">
-                                <p className="text-[10px] font-black text-primary/70 uppercase tracking-[0.2em] mb-1">{risk.category}</p>
-                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-snug hover:text-primary transition-colors cursor-pointer" onClick={() => openDialog('edit', risk)}>{risk.riskDescription}</p>
+                          <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 divide-x divide-slate-100 dark:divide-slate-800">
+                            <TableCell className="py-3 px-4">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest leading-none">{risk.category}</span>
+                                <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 leading-tight group-hover:underline cursor-pointer decoration-primary/30" onClick={() => openDialog('edit', risk)}>
+                                  {risk.riskDescription}
+                                </span>
                                 {risk.documentIds && risk.documentIds.length > 0 && (
-                                  <div className="flex items-center gap-2 pt-2">
+                                  <div className="flex items-center gap-1.5 mt-0.5 opacity-60">
                                     <FileText className="h-3 w-3 text-emerald-500" />
-                                    <span className="text-[9px] font-black uppercase text-emerald-600">{risk.documentIds.length} Preuves Liées</span>
+                                    <span className="text-[9px] font-bold text-emerald-600 uppercase">{risk.documentIds.length} docs</span>
                                   </div>
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="py-8">
-                              <Badge variant="outline" className="border-slate-200 dark:border-slate-800 text-[9px] font-black uppercase px-2 py-1">
+                            <TableCell className="py-3 px-4">
+                              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                                 {risk.department}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{risk.likelihood}</span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{risk.impact}</span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <Badge className={cn(
+                                "text-[9px] font-bold uppercase px-2 py-0.5 rounded border shadow-none",
+                                level === "Faible" && "bg-emerald-50 text-emerald-600 border-emerald-100",
+                                level === "Modéré" && "bg-amber-50 text-amber-600 border-amber-100",
+                                level === "Élevé" && "bg-orange-50 text-orange-600 border-orange-100",
+                                level === "Très élevé" && "bg-rose-50 text-rose-600 border-rose-100"
+                              )}>
+                                {level}
                               </Badge>
                             </TableCell>
-                            <TableCell className="py-8">
-                              <div className="space-y-1">
-                                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Proba: <span className="text-slate-900 dark:text-white">{risk.likelihood}</span></div>
-                                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Impact: <span className="text-slate-900 dark:text-white">{risk.impact}</span></div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-8">
-                              <Badge className={cn("text-[10px] font-black uppercase px-3 py-1.5 rounded-xl border-2 shadow-sm", riskLevelColors[level])}>
-                                {level} {score >= 12 && '🔥'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="py-8">
+                            <TableCell className="py-3 px-4">
                               <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[9px] font-black">
-                                  {risk.owner[0].toUpperCase()}
+                                <div className="h-5 w-5 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center text-[9px] font-black uppercase">
+                                  {risk.owner[0]}
                                 </div>
-                                <span className="text-sm font-bold">{risk.owner}</span>
+                                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{risk.owner}</span>
                               </div>
                             </TableCell>
-                            <TableCell className="py-8 text-right px-8">
-                              <div className="flex justify-end gap-2">
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => handleToggleAlert(risk)}
-                                        className={cn("h-10 w-10 rounded-xl border-slate-100 dark:border-slate-800 transition-all", hasAlert ? "bg-rose-50 border-rose-200 text-rose-500" : "hover:bg-slate-50")}
-                                      >
-                                        {hasAlert ? <Bell className="h-4 w-4 fill-current" /> : <BellOff className="h-4 w-4" />}
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="rounded-xl px-4 py-2 font-bold text-[10px] uppercase shadow-2xl border-none">
-                                      {hasAlert ? "Désactiver l'alerte" : "Propager en alerte critique"}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                            <TableCell className="py-3 px-4 text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleToggleAlert(risk)}
+                                  className={cn("h-7 w-7 rounded transition-all", hasAlert ? "text-rose-500 bg-rose-50" : "text-slate-400 hover:bg-slate-100")}
+                                >
+                                  {hasAlert ? <Bell className="h-4 w-4 fill-current" /> : <BellOff className="h-4 w-4" />}
+                                </Button>
 
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-10 w-10 p-0 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
-                                      <ChevronsUpDown className="h-5 w-5 opacity-40" />
+                                    <Button variant="ghost" className="h-7 w-7 p-0 rounded hover:bg-slate-100">
+                                      <MoreHorizontal className="h-4 w-4 text-slate-400" />
                                     </Button>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-56 rounded-2xl shadow-2xl p-2 border-none bg-white dark:bg-slate-950">
-                                    <DropdownMenuLabel className="text-[10px] font-black uppercase opacity-30 px-3 py-2">Administration</DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => openDialog('edit', risk)} className="rounded-xl cursor-pointer">
-                                      <Edit className="mr-3 h-4 w-4 text-indigo-500" /> Modifier le scénario
+                                  <DropdownMenuContent align="end" className="w-40 rounded-lg shadow-xl">
+                                    <DropdownMenuItem onClick={() => openDialog('edit', risk)} className="text-xs font-bold py-2">
+                                      <Edit className="mr-2 h-3.5 w-3.5 text-indigo-500" /> Modifier
                                     </DropdownMenuItem>
-                                    <DropdownMenuSeparator className="mx-2 my-1" />
+                                    <DropdownMenuSeparator />
                                     <AlertDialogTrigger asChild>
-                                      <DropdownMenuItem className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 rounded-xl cursor-pointer">
-                                        <Trash2 className="mr-3 h-4 w-4" /> Supprimer du registre
+                                      <DropdownMenuItem className="text-rose-600 text-xs font-bold py-2 focus:text-rose-600 focus:bg-rose-50">
+                                        <Trash2 className="mr-2 h-3.5 w-3.5" /> Supprimer
                                       </DropdownMenuItem>
                                     </AlertDialogTrigger>
                                   </DropdownMenuContent>
@@ -376,12 +374,8 @@ export default function RiskMappingPage() {
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="h-96 text-center">
-                          <div className="flex flex-col items-center justify-center space-y-4 opacity-30">
-                            <ShieldAlert className="h-20 w-20" />
-                            <p className="text-2xl font-black italic uppercase tracking-tighter">Niveau Zéro Risque</p>
-                            <p className="text-sm font-bold">Aucun risque ne correspond à vos filtres actuels.</p>
-                          </div>
+                        <TableCell colSpan={7} className="h-40 text-center text-slate-400 text-sm font-bold">
+                          Aucun risque ne correspond aux filtres
                         </TableCell>
                       </TableRow>
                     )}
