@@ -53,12 +53,12 @@ export function PlanHeader({ onAddCategory }: PlanHeaderProps) {
               <div className="h-1 w-12 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" />
             </div>
 
-            <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-400">Compliance</span>{" "}
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 animate-gradient-x">Framework</span>
+            <h1 className="text-4xl font-extrabold tracking-tight">
+              <span className="text-slate-900 dark:text-white">Compliance</span>{" "}
+              <span className="text-primary">Framework</span>
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-xl max-w-2xl leading-relaxed font-medium">
-              Plan d'organisation holistique des <span className="text-slate-900 dark:text-white font-bold decoration-indigo-500/30 underline decoration-4 underline-offset-4">processus prioritaires</span> et des responsabilités GRC.
+            <p className="text-slate-500 text-sm max-w-xl leading-relaxed">
+              Plan d'organisation holistique des <span className="text-slate-900 dark:text-white font-bold">processus prioritaires</span> et des responsabilités GRC.
             </p>
           </div>
 

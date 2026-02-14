@@ -111,13 +111,13 @@ const riskBadgeStyles: Record<string, { bg: string; text: string; border: string
 };
 
 const flowTypeStyles: Record<string, string> = {
-  start: 'bg-emerald-50 border-emerald-500 text-emerald-800 dark:bg-emerald-900/40 dark:border-emerald-400 dark:text-emerald-50 shadow-[0_4px_12px_rgba(16,185,129,0.15)]',
-  end: 'bg-emerald-50 border-emerald-500 text-emerald-800 dark:bg-emerald-900/40 dark:border-emerald-400 dark:text-emerald-50 shadow-[0_4px_12px_rgba(16,185,129,0.15)]',
-  process: 'bg-blue-50 border-blue-400 text-blue-800 dark:bg-blue-900/40 dark:border-blue-400 dark:text-blue-50 shadow-[0_4px_12px_rgba(59,130,246,0.15)]',
-  decision: 'bg-[#FFFBEB] border-[#F59E0B] text-[#92400E] dark:bg-amber-900/40 dark:border-amber-500 dark:text-amber-50 shadow-[0_4px_12px_rgba(245,158,11,0.12)]',
-  action: 'bg-orange-50 border-orange-400 text-orange-800 dark:bg-orange-900/40 dark:border-orange-400 dark:text-orange-50 shadow-[0_4px_12px_rgba(249,115,22,0.15)]',
-  alert: 'bg-rose-50 border-rose-400 text-rose-800 dark:bg-rose-900/40 dark:border-rose-400 dark:text-rose-50 shadow-[0_4px_12px_rgba(244,63,94,0.15)]',
-  urgent: 'bg-red-50 border-red-500 text-red-800 font-bold border-2 animate-pulse dark:bg-red-900/50 dark:border-red-400 dark:text-red-50 shadow-[0_0_20px_rgba(239,68,68,0.3)]',
+  start: 'bg-white dark:bg-slate-900 border-2 border-emerald-500 text-emerald-700 dark:text-emerald-400 shadow-[0_10px_20px_-10px_rgba(16,185,129,0.3)]',
+  end: 'bg-white dark:bg-slate-900 border-2 border-emerald-500 text-emerald-700 dark:text-emerald-400 shadow-[0_10px_20px_-10px_rgba(16,185,129,0.3)]',
+  process: 'bg-white dark:bg-slate-900 border-2 border-indigo-500 text-indigo-700 dark:text-indigo-400 shadow-[0_10px_20px_-10px_rgba(99,102,241,0.3)]',
+  decision: 'bg-[#FFFDF5] dark:bg-amber-950/20 border-2 border-amber-500 text-amber-700 dark:text-amber-400 shadow-[0_10px_20px_-10px_rgba(245,158,11,0.3)]',
+  action: 'bg-white dark:bg-slate-900 border-2 border-orange-500 text-orange-700 dark:text-orange-400 shadow-[0_10px_20px_-10px_rgba(249,115,22,0.3)]',
+  alert: 'bg-white dark:bg-slate-900 border-2 border-rose-500 text-rose-700 dark:text-rose-400 shadow-[0_10px_20px_-10px_rgba(244,63,94,0.3)]',
+  urgent: 'bg-red-50 dark:bg-red-950/30 border-2 border-red-500 text-red-700 font-bold animate-pulse shadow-[0_0_25px_-5px_rgba(239,68,68,0.5)]',
 };
 
 const FlowStep = ({ task, onToggle, onEdit }: { task: ComplianceTask; onToggle: () => void; onEdit?: (task: ComplianceTask) => void; }) => {
@@ -160,11 +160,11 @@ const FlowStep = ({ task, onToggle, onEdit }: { task: ComplianceTask; onToggle: 
   return (
     <div
       className={cn(
-        "relative w-[180px] sm:w-[220px] min-h-[56px] p-4 text-xs sm:text-sm font-bold text-center border-2 cursor-pointer transition-all duration-300 flex items-center justify-center group/card",
-        "shadow-sm hover:shadow-lg hover:scale-[1.02] active:scale-95",
-        isStartEnd ? "rounded-full px-8" : "rounded-2xl",
+        "relative w-[180px] sm:w-[220px] min-h-[56px] p-4 text-xs sm:text-sm font-black text-center border-2 cursor-pointer transition-all duration-500 flex items-center justify-center group/card",
+        "shadow-lg hover:shadow-2xl hover:scale-[1.05] active:scale-95 uppercase tracking-tighter",
+        isStartEnd ? "rounded-full px-8" : "rounded-3xl",
         styleClass,
-        task.completed && "opacity-50 grayscale-[0.3]"
+        task.completed && "opacity-50 grayscale-[0.8]"
       )}
       onClick={onToggle}
       onDoubleClick={() => onEdit && onEdit(task)}
@@ -646,19 +646,21 @@ export default function PlanPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10 bg-slate-50/50 dark:bg-slate-950/20 -m-8 p-8 min-h-screen">
       <PlanHeader onAddCategory={() => openDialog("category", "add")} />
 
-      <div className="space-y-6">
+      <div className="space-y-12">
         {displayPlanData.length > 0 ? displayPlanData.map((category: ComplianceCategory) => {
           const Icon = getIconComponent(category.icon);
           const isProcessCategory = category.name === "Processus Métiers Clés";
           return (
-            <Card key={category.id} id={category.id} className="shadow-md overflow-hidden">
-              <CardHeader className="flex flex-row items-center justify-between bg-muted/30 group">
-                <div className="flex items-center space-x-3">
-                  <Icon className="h-6 w-6 text-primary" />
-                  <span className="text-xl font-headline font-medium">{category.name}</span>
+            <Card key={category.id} id={category.id} className="shadow-2xl border-none overflow-hidden rounded-[2.5rem] bg-white dark:bg-slate-900">
+              <CardHeader className="flex flex-row items-center justify-between bg-slate-50/50 dark:bg-slate-800/50 px-8 py-6 group border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+                    <Icon className="h-6 w-6 text-primary" />
+                  </div>
+                  <span className="text-2xl font-black font-headline uppercase tracking-tight">{category.name}</span>
                 </div>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   {isProcessCategory && (
@@ -732,9 +734,9 @@ export default function PlanPage() {
 
                       if (isProcessCategory) {
                         return (
-                          <Card key={subCategory.id} id={subCategory.id} className="bg-background/50 shadow-sm overflow-hidden group hover:shadow-lg transition-all duration-300 relative">
-                            <CardContent className="p-6">
-                              <div className="bg-gradient-to-br from-[#FFF9E6] to-[#FFF4D6] dark:from-[#2D2618] dark:to-[#3D3520] border-2 border-[#D4B896] dark:border-[#8B7355] rounded-xl p-6 shadow-inner space-y-6 relative">
+                          <Card key={subCategory.id} id={subCategory.id} className="bg-slate-50 border-none shadow-none overflow-hidden group transition-all duration-300 relative rounded-[2rem]">
+                            <CardContent className="p-4">
+                              <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[1.8rem] p-8 shadow-sm space-y-8 relative">
 
                                 {/* Menu Actions (Absolute top-right) */}
                                 {activeWorkflow && (
@@ -798,11 +800,13 @@ export default function PlanPage() {
                         )
                       }
                       return (
-                        <Card key={subCategory.id} id={subCategory.id} className="bg-background/50 shadow-sm group">
-                          <CardHeader className="pb-3 pt-4 px-4 flex flex-row justify-between items-center">
-                            <div className="flex items-center">
-                              <SubIcon className="h-5 w-5 mr-2 text-accent" />
-                              <CardTitle className="text-lg font-medium font-headline">{subCategory.name}</CardTitle>
+                        <Card key={subCategory.id} id={subCategory.id} className="bg-slate-50 dark:bg-slate-800/20 border-none shadow-none group rounded-[1.8rem]">
+                          <CardHeader className="pb-4 pt-6 px-6 flex flex-row justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+                                <SubIcon className="h-5 w-5 text-primary" />
+                              </div>
+                              <CardTitle className="text-lg font-black uppercase tracking-tight font-headline">{subCategory.name}</CardTitle>
                             </div>
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                               <AlertDialog>
@@ -826,14 +830,14 @@ export default function PlanPage() {
                               </AlertDialog>
                             </div>
                           </CardHeader>
-                          <CardContent className="px-4 pb-4">
-                            <ul className="space-y-3 list-inside">
+                          <CardContent className="px-6 pb-6 pt-2">
+                            <ul className="space-y-4">
                               {subCategory.tasks.map((task: ComplianceTask) => {
                                 const linkedDocs = getLinkedDocuments(task);
                                 const taskRiskLevel = getTaskRiskLevel(task);
                                 const riskStyle = taskRiskLevel ? riskBadgeStyles[taskRiskLevel] : null;
                                 return (
-                                  <li key={task.id} className="flex items-start text-sm text-muted-foreground group/task relative pr-10">
+                                  <li key={task.id} className="flex items-start bg-white dark:bg-slate-900/50 p-4 rounded-2xl border-2 border-slate-50 dark:border-slate-800/50 hover:border-primary/20 hover:shadow-xl hover:shadow-slate-200/20 transition-all group/task relative pr-12">
                                     <Checkbox id={`task-${task.id}`} checked={task.completed} onCheckedChange={() => handleToggleTaskCompletion(category.id, subCategory.id, task.id, !task.completed)} className="mr-2.5 mt-1 flex-shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" aria-labelledby={`task-label-${task.id}`} />
                                     <label htmlFor={`task-${task.id}`} id={`task-label-${task.id}`} className="cursor-pointer flex-grow">
                                       <div className="flex items-center gap-2 flex-wrap">
