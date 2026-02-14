@@ -511,7 +511,7 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger className="bg-white"><SelectValue placeholder="Sélectionner un processus" /></SelectTrigger></FormControl>
                             <SelectContent>
-                              {Object.keys(usePlanData().activeWorkflows).map(id => (
+                              {Object.keys(activeWorkflows).map(id => (
                                 <SelectItem key={id} value={id}>{id.replace('processus-', '').toUpperCase()}</SelectItem>
                               ))}
                             </SelectContent>
@@ -521,17 +521,19 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
 
                       <FormField control={taskForm.control} name="grcNodeId" render={({ field }) => {
                         const selectedWorkflowId = taskForm.watch("grcWorkflowId");
-                        const mermaidCode = selectedWorkflowId ? usePlanData().activeWorkflows[selectedWorkflowId] : "";
+                        const activeWorkflow = selectedWorkflowId ? activeWorkflows[selectedWorkflowId] : null;
+                        const mermaidCode = activeWorkflow?.code || "";
 
                         // Analyse des noeuds Mermaid on the fly
                         const nodes: { id: string, label: string }[] = [];
                         if (mermaidCode) {
                           const regex = /([a-zA-Z0-9_\-\.]+)\s*([\[\(\{\>\\\/]{1,2})(.*?)([\]\)\\}]{1,2})/g;
-                          let match;
+                          let match: RegExpExecArray | null;
                           while ((match = regex.exec(mermaidCode)) !== null) {
                             const label = match[3].replace(/^"+|"+$/g, '').split('<br')[0].trim();
-                            if (label && !nodes.find(n => n.id === match[1])) {
-                              nodes.push({ id: match[1], label });
+                            const nodeId = match[1];
+                            if (label && !nodes.find(n => n.id === nodeId)) {
+                              nodes.push({ id: nodeId, label });
                             }
                           }
                         }
