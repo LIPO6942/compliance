@@ -154,20 +154,21 @@ function DocumentsComponent() {
       <div className="space-y-8 pb-10">
         {/* Modern Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-          <div className="space-y-2">
-            <h1 className="text-5xl font-black font-headline tracking-tighter text-slate-900 dark:text-white uppercase italic">
-              Evidence <span className="text-primary">Vault</span>
+          <div className="space-y-3">
+            <h1 className="text-4xl font-extrabold tracking-tight">
+              <span className="text-slate-900 dark:text-white">Gestion</span>{" "}
+              <span className="text-primary">Documentaire</span>
             </h1>
-            <p className="text-muted-foreground text-lg max-w-2xl">
-              Indexation et gestion sécurisée de vos preuves de conformité.
+            <p className="text-muted-foreground text-sm max-w-2xl leading-relaxed">
+              Indexation et gestion sécurisée de vos preuves de conformité et archives GRC.
             </p>
           </div>
           <Button
             size="lg"
-            className="bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 h-12 px-8 rounded-xl"
+            className="bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-2xl shadow-primary/20 h-14 px-10 rounded-2xl transition-all hover:scale-[1.02] active:scale-95 border-none"
             onClick={() => openDialog('add')}
           >
-            <PlusCircle className="mr-2 h-4 w-4" /> Nouveau Document
+            <PlusCircle className="mr-3 h-5 w-5" /> NOUVEAU DOCUMENT
           </Button>
         </div>
 
@@ -177,55 +178,55 @@ function DocumentsComponent() {
             icon={FileStack}
             label="Total Documents"
             value={documents.length.toString()}
-            color="bg-indigo-500"
+            color="bg-indigo-600"
             description="Actifs dans le système"
           />
           <StatCard
             icon={ShieldCheck}
             label="Validés"
             value={documents.filter(d => d.status === "Validé").length.toString()}
-            color="bg-emerald-500"
+            color="bg-emerald-600"
             description="Preuves de conformité OK"
           />
           <StatCard
             icon={AlertCircle}
             label="En Retard / Révision"
             value={documents.filter(d => d.status === "En Révision").length.toString()}
-            color="bg-amber-500"
+            color="bg-amber-600"
             description="Nécessite votre attention"
           />
         </div>
 
         {/* Action Bar & Table */}
-        <Card className="shadow-2xl border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2rem] overflow-hidden">
-          <CardHeader className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 dark:border-slate-800 p-8">
+        <Card className="shadow-2xl border-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden">
+          <CardHeader className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 dark:border-slate-800 p-10 bg-slate-50/50 dark:bg-slate-800/50">
             <div className="relative w-full md:max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
               <Input
                 placeholder="Scanner l'index par nom, propriétaire ou tag..."
-                className="pl-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-950 border-none shadow-inner text-sm font-medium"
+                className="pl-12 h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50 transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
 
             {isClient && (
-              <div className="flex flex-wrap gap-3 w-full md:w-auto">
+              <div className="flex flex-wrap gap-4 w-full md:w-auto">
                 <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="h-10 w-full sm:w-[180px] rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-black uppercase tracking-tighter">
+                  <SelectTrigger className="h-12 w-full sm:w-[180px] rounded-xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-[10px] font-black uppercase tracking-widest shadow-sm">
                     <SelectValue placeholder="TYPE" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl">
+                  <SelectContent className="rounded-xl border-none shadow-2xl">
                     {allFilterableTypes.map(type => (
                       <SelectItem key={type} value={type} className="text-xs font-bold">{type === "all" ? "TOUS LES TYPES" : type.toUpperCase()}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="h-10 w-full sm:w-[180px] rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-black uppercase tracking-tighter">
+                  <SelectTrigger className="h-12 w-full sm:w-[180px] rounded-xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-[10px] font-black uppercase tracking-widest shadow-sm">
                     <SelectValue placeholder="STATUT" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl">
+                  <SelectContent className="rounded-xl border-none shadow-2xl">
                     {documentStatuses.map(status => (
                       <SelectItem key={status} value={status} className="text-xs font-bold">{status === "all" ? "TOUS LES STATUTS" : status.toUpperCase()}</SelectItem>
                     ))}
@@ -252,19 +253,21 @@ function DocumentsComponent() {
                   {!loading ? (
                     filteredDocuments.length > 0 ? (
                       filteredDocuments.map((doc) => (
-                        <TableRow key={doc.id} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors border-b border-slate-100 dark:border-slate-800/50">
-                          <TableCell className="py-5 px-8">
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-[13px] font-bold text-slate-800 dark:text-slate-200 group-hover:text-primary transition-colors cursor-pointer" onClick={() => openDialog('edit', doc)}>
+                        <TableRow key={doc.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all border-b border-slate-100 dark:border-slate-800/50">
+                          <TableCell className="py-5 px-10">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[14px] font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors cursor-pointer" onClick={() => openDialog('edit', doc)}>
                                 {doc.name}
                               </span>
-                              <div className="flex items-center gap-1.5 opacity-60">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ver. {doc.version}</span>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 border-none px-0">
+                                  VERSION {doc.version}
+                                </Badge>
                                 {doc.url && (
                                   <>
-                                    <span className="text-slate-300">•</span>
-                                    <Link href={doc.url} target="_blank" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5">
-                                      <LinkIcon className="h-2.5 w-2.5" /> Source
+                                    <div className="h-1 w-1 bg-slate-300 rounded-full" />
+                                    <Link href={doc.url} target="_blank" className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1">
+                                      <LinkIcon className="h-3 w-3" /> Archive Cloud
                                     </Link>
                                   </>
                                 )}
@@ -272,72 +275,69 @@ function DocumentsComponent() {
                             </div>
                           </TableCell>
                           <TableCell className="py-5">
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap gap-1.5">
                               {doc.tags?.length ? doc.tags.map(tag => (
-                                <Badge key={tag} variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-black tracking-widest px-2 py-0.5 rounded-md border-none">
+                                <Badge key={tag} variant="secondary" className="bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border-none">
                                   {tag.toUpperCase()}
                                 </Badge>
                               )) : (
-                                <span className="text-[10px] italic text-slate-300">Aucun tag</span>
+                                <span className="text-[10px] font-medium italic text-slate-300">Non classifié</span>
                               )}
                             </div>
                           </TableCell>
                           <TableCell className="py-5">
-                            <Badge variant="outline" className="text-[10px] font-extrabold tracking-tight border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1 rounded-full shadow-sm">
-                              {doc.type}
-                            </Badge>
+                            <div className="inline-flex items-center px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-xl shadow-sm">
+                              <span className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300">{doc.type}</span>
+                            </div>
                           </TableCell>
                           <TableCell className="py-5">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className={`h-8 rounded-full border-none shadow-sm font-black text-[9px] tracking-widest px-4 ${statusColors[doc.status]}`}>
+                                <Button variant="outline" size="sm" className={`h-9 rounded-xl border-none shadow-sm font-black text-[10px] tracking-widest px-5 ${statusColors[doc.status]}`}>
                                   {doc.status.toUpperCase()}
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent className="rounded-xl border-none shadow-2xl p-2">
-                                <DropdownMenuLabel className="text-[10px] font-black uppercase opacity-30 px-3 py-2">Fichier</DropdownMenuLabel>
-                                {doc.url ? (
-                                  <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
-                                    <Link href={doc.url} target="_blank" rel="noopener noreferrer">
-                                      <Download className="mr-3 h-4 w-4 text-emerald-500" /> Télécharger
-                                    </Link>
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem disabled className="opacity-50"><Download className="mr-3 h-4 w-4" /> Aucun fichier</DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem onClick={() => openDialog('edit', doc)} className="rounded-xl cursor-pointer">
-                                  <Edit className="mr-3 h-4 w-4 text-indigo-500" /> Modifier
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator className="mx-2 my-1" />
-                                <DropdownMenuLabel className="text-[10px] font-black uppercase opacity-30 px-3 py-2">Validation</DropdownMenuLabel>
+                              <DropdownMenuContent className="rounded-[1.5rem] border-none shadow-2xl p-3 bg-white dark:bg-slate-900">
+                                <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-3 py-2">Flux de Validation</DropdownMenuLabel>
                                 {allPossibleStatuses.map(statusValue => (
                                   doc.status !== statusValue && (
                                     <DropdownMenuItem
                                       key={statusValue}
                                       onClick={() => handleChangeDocumentStatus(doc.id, statusValue)}
-                                      className="rounded-xl cursor-pointer"
+                                      className="rounded-xl cursor-pointer font-bold text-xs py-2.5"
                                     >
                                       {statusValue === "Validé" && <CheckCircle className="mr-3 h-4 w-4 text-emerald-500" />}
                                       {statusValue === "En Révision" && <Edit3 className="mr-3 h-4 w-4 text-amber-500" />}
                                       {statusValue === "Archivé" && <Archive className="mr-3 h-4 w-4 text-indigo-500" />}
                                       {statusValue === "Obsolète" && <FileX className="mr-3 h-4 w-4 text-rose-500" />}
-                                      Marquer {statusValue}
+                                      Marquer comme {statusValue}
                                     </DropdownMenuItem>
                                   )
                                 ))}
+                                <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800 my-2" />
+                                <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-3 py-2">Actions Fichier</DropdownMenuLabel>
+                                {doc.url ? (
+                                  <DropdownMenuItem asChild className="rounded-xl cursor-pointer font-bold text-xs py-2.5 text-indigo-500">
+                                    <Link href={doc.url} target="_blank" rel="noopener noreferrer">
+                                      <Download className="mr-3 h-4 w-4" /> Download Source
+                                    </Link>
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem disabled className="opacity-50 font-bold text-xs py-2.5"><Download className="mr-3 h-4 w-4" /> Aucun fichier</DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
                           <TableCell className="py-5">
-                            <div className="flex items-center gap-2">
-                              <div className="h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700">
-                                <span className="text-[10px] font-black text-slate-400">{doc.owner.charAt(0)}</span>
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-white dark:border-slate-700 shadow-sm">
+                                <span className="text-[12px] font-black text-slate-400 uppercase">{doc.owner.charAt(0)}</span>
                               </div>
-                              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">{doc.owner}</span>
+                              <span className="text-[12px] font-black text-slate-900 dark:text-slate-200">{doc.owner}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="py-5 text-right px-8">
-                            <div className="flex items-center justify-end gap-1 opacity-10 group-hover:opacity-100 transition-opacity">
+                          <TableCell className="py-5 text-right px-10">
+                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm" onClick={() => openDialog('edit', doc)}>
