@@ -216,8 +216,8 @@ export default function RiskMappingPage() {
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 flex flex-wrap items-center gap-3 w-full xl:w-auto bg-white/50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
-            <div className="relative flex-1 min-w-[200px]">
+          <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto bg-white/50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="relative w-full sm:w-[240px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               <Input
                 placeholder="Rechercher..."
@@ -227,32 +227,34 @@ export default function RiskMappingPage() {
               />
             </div>
 
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block" />
+
             <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-              <SelectTrigger className="h-9 w-[130px] rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
-                <SelectValue placeholder="DIRECTION" />
+              <SelectTrigger className="h-9 w-[150px] rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
+                <SelectValue placeholder="Ttes Directions" />
               </SelectTrigger>
               <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
-                <SelectItem value="all" className="text-[10px] font-bold uppercase">TOUTES DIRECTIONS</SelectItem>
+                <SelectItem value="all" className="text-[10px] font-bold uppercase">Ttes Directions</SelectItem>
                 {departmentOptions.map(d => <SelectItem key={d} value={d} className="text-[10px] font-bold uppercase">{d}</SelectItem>)}
               </SelectContent>
             </Select>
 
             <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="h-9 w-[130px] rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
-                <SelectValue placeholder="CATÉGORIE" />
+              <SelectTrigger className="h-9 w-[150px] rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
+                <SelectValue placeholder="Ttes Catégories" />
               </SelectTrigger>
               <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
-                <SelectItem value="all" className="text-[10px] font-bold uppercase">TOUTES CATÉGORIES</SelectItem>
+                <SelectItem value="all" className="text-[10px] font-bold uppercase">Ttes Catégories</SelectItem>
                 {categoryOptions.map(c => <SelectItem key={c} value={c} className="text-[10px] font-bold uppercase">{c}</SelectItem>)}
               </SelectContent>
             </Select>
 
             <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
-              <SelectTrigger className="h-9 w-[130px] rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
-                <SelectValue placeholder="NIVEAU" />
+              <SelectTrigger className="h-9 w-[150px] rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
+                <SelectValue placeholder="Ts Niveaux" />
               </SelectTrigger>
               <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
-                <SelectItem value="all" className="text-[10px] font-bold uppercase">TOUS NIVEAUX</SelectItem>
+                <SelectItem value="all" className="text-[10px] font-bold uppercase">Ts Niveaux</SelectItem>
                 <SelectItem value="Faible" className="text-[10px] font-bold uppercase text-emerald-600">Faible</SelectItem>
                 <SelectItem value="Modéré" className="text-[10px] font-bold uppercase text-amber-600">Modéré</SelectItem>
                 <SelectItem value="Élevé" className="text-[10px] font-bold uppercase text-orange-600">Élevé</SelectItem>
