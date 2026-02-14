@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
@@ -18,6 +18,7 @@ import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const complianceStatusBaseColors = {
   conforme: "hsl(var(--chart-1))",
@@ -86,6 +87,7 @@ export default function DashboardPage() {
           const overdue = categoryTasks.filter(task => !task.completed && task.deadline && new Date(task.deadline) < now).length;
           const total = categoryTasks.length;
           return {
+            id: category.id,
             name: category.name.substring(0, 15),
             progress: total > 0 ? Math.round((completed / total) * 100) : 0,
             overdue
@@ -126,263 +128,345 @@ export default function DashboardPage() {
     );
   }
 
+  const handleCardClick = (path: string) => {
+    router.push(path);
+  };
+
   return (
-    <div className="space-y-8 pb-10">
-      {/* Header Space */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-black font-headline tracking-tighter text-slate-900 dark:text-white">
-            Dashboard <span className="text-primary">Intelligence</span>
-          </h1>
-          <p className="text-muted-foreground text-lg flex items-center gap-2">
-            <Activity className="h-4 w-4 text-primary" /> Analyse GRC • <span className="font-bold text-slate-700 dark:text-slate-300">{format(new Date(), 'dd MMMM yyyy', { locale: fr })}</span>
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => router.push('/regulatory-watch')} className="shadow-sm border-primary/20 hover:bg-primary/5">
-            <Lightbulb className="mr-2 h-4 w-4 text-amber-500" /> Assistant IA
-          </Button>
-          <Button size="sm" onClick={() => router.push('/plan')} className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
-            <PlusCircle className="mr-2 h-4 w-4" /> Gérer le Plan
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-
-        {/* Left Column: Health Gauge */}
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="border-none shadow-2xl bg-slate-900 text-white overflow-hidden relative min-h-[320px] flex flex-col justify-center">
-            <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl animate-pulse" />
-            <CardHeader className="pb-2 text-center">
-              <CardTitle className="text-[10px] uppercase tracking-[0.3em] font-black opacity-50">Conformité Globale</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center">
-              <div className="relative flex items-center justify-center w-full">
-                {isClient && (
-                  <ResponsiveContainer width="100%" height={120}>
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { value: overallCompliancePercentage, fill: 'hsl(var(--primary))' },
-                          { value: 100 - overallCompliancePercentage, fill: 'rgba(255,255,255,0.05)' }
-                        ]}
-                        cx="50%" cy="100%"
-                        startAngle={180} endAngle={0}
-                        innerRadius={70} outerRadius={95}
-                        paddingAngle={0} dataKey="value" stroke="none"
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-                <div className="absolute bottom-0 text-center">
-                  <div className="text-6xl font-black tracking-tighter leading-none mb-1">{overallCompliancePercentage}%</div>
-                  <Badge variant="outline" className="text-[10px] border-emerald-500/50 text-emerald-400 bg-emerald-500/10">SANTÉ OPTIMALE</Badge>
-                </div>
-              </div>
-              <div className="mt-10 grid grid-cols-2 gap-8 w-full border-t border-white/5 pt-6">
-                <div className="text-center">
-                  <p className="text-2xl font-black">{activeTasksCount}</p>
-                  <p className="text-[9px] uppercase font-bold opacity-40">Tâches Actives</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-black text-rose-500">{overdueTasksCount}</p>
-                  <p className="text-[9px] uppercase font-bold opacity-40">Retards</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-xl border-primary/5 bg-white/50 backdrop-blur-md">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
-                <TrendingUp className="h-3 w-3 text-emerald-500" />
-                Performance Domaines
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              {taskProgressData.map((item, i) => (
-                <div key={i} className="space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-black uppercase tracking-tight">
-                    <span className="truncate max-w-[140px] text-slate-600 dark:text-slate-400">{item.name}</span>
-                    <span className={item.overdue > 0 ? "text-rose-500" : "text-primary"}>{item.progress}%</span>
-                  </div>
-                  <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-1000 ${item.overdue > 0 ? 'bg-rose-500' : 'bg-primary'}`}
-                      style={{ width: `${item.progress}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Middle Column: 360 View */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="shadow-xl border-none bg-gradient-to-br from-rose-50 via-white to-white dark:from-rose-950/20 dark:to-slate-900 group overflow-hidden border-l-4 border-l-rose-500">
-              <CardHeader className="pb-0">
-                <CardTitle className="text-xs font-black uppercase tracking-widest text-rose-600 flex justify-between">
-                  Urgence
-                  <Badge variant="destructive" className="h-4 text-[9px] animate-pulse">ACTION REQUIS</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 flex items-center gap-5">
-                <div className="p-4 bg-rose-500 text-white rounded-2xl shadow-lg shadow-rose-500/30 group-hover:rotate-6 transition-transform">
-                  <ShieldAlert className="h-7 w-7" />
-                </div>
-                <div>
-                  <p className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white">{newAlertsCount}</p>
-                  <p className="text-[10px] text-rose-600 font-bold uppercase">Nouvelles Alertes GRC</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-xl border-none bg-gradient-to-br from-indigo-50 via-white to-white dark:from-indigo-950/20 dark:to-slate-900 group overflow-hidden border-l-4 border-l-indigo-500">
-              <CardHeader className="pb-0">
-                <CardTitle className="text-xs font-black uppercase tracking-widest text-indigo-600">Structure</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 flex items-center gap-5">
-                <div className="p-4 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/30 group-hover:-rotate-6 transition-transform">
-                  <Workflow className="h-7 w-7" />
-                </div>
-                <div>
-                  <p className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white">{Object.keys(activeWorkflows).length}</p>
-                  <p className="text-[10px] text-indigo-600 font-bold uppercase">Workflows Métiers</p>
-                </div>
-              </CardContent>
-            </Card>
+    <TooltipProvider delayDuration={300}>
+      <div className="space-y-8 pb-10">
+        {/* Header Space */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-black font-headline tracking-tighter text-slate-900 dark:text-white">
+              Dashboard <span className="text-primary">Intelligence</span>
+            </h1>
+            <p className="text-muted-foreground text-lg flex items-center gap-2">
+              <Activity className="h-4 w-4 text-primary" /> Analyse GRC • <span className="font-bold text-slate-700 dark:text-slate-300">{format(new Date(), 'dd MMMM yyyy', { locale: fr })}</span>
+            </p>
           </div>
-
-          <Card className="shadow-2xl border-none">
-            <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-              <div>
-                <CardTitle className="text-lg font-black font-headline tracking-tight">Répartition GRC Documentaire</CardTitle>
-                <p className="text-xs text-muted-foreground">Volume de preuves par état de validation</p>
-              </div>
-              <Button size="sm" variant="outline" onClick={() => router.push('/documents')} className="h-8 text-xs font-bold border-primary/20 hover:bg-primary/5">
-                Explorer les archives <ArrowRight className="ml-1 h-3 w-3" />
-              </Button>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="h-[200px]">
-                {isClient && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={complianceStatusData} layout="vertical" margin={{ left: -20, right: 40 }}>
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="status" type="category" width={120} tick={{ fontSize: 10, fontWeight: 900, fill: 'currentColor' }} />
-                      <Tooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                      <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={30}>
-                        {complianceStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {complianceStatusData.map((s, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 px-3 py-2 rounded-lg border border-slate-100 dark:border-slate-800">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.fill }} />
-                    <span className="text-[10px] font-black uppercase opacity-60 truncate">{s.status}:</span>
-                    <span className="text-xs font-black">{s.value}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => router.push('/regulatory-watch')} className="shadow-sm border-primary/20 hover:bg-primary/5">
+              <Lightbulb className="mr-2 h-4 w-4 text-amber-500" /> Assistant IA
+            </Button>
+            <Button size="sm" onClick={() => router.push('/plan')} className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+              <PlusCircle className="mr-2 h-4 w-4" /> Gérer le Plan
+            </Button>
+          </div>
         </div>
 
-        {/* Right Column: Timeline & News */}
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="shadow-xl border-none border-t-4 border-t-primary">
-            <CardHeader className="pb-3 border-b">
-              <CardTitle className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 text-primary">
-                <History className="h-4 w-4" />
-                Derniers Signaux
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ScrollArea className="h-[280px]">
-                <div className="p-5 space-y-7">
-                  {lastActions.map((action, i) => (
-                    <div key={i} className="flex gap-4 items-start relative pb-7 border-l-2 border-slate-100 dark:border-slate-800 ml-2 pl-5 last:border-0 last:pb-0">
-                      <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white dark:bg-slate-950 border-4 border-primary shadow-sm" />
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <action.Icon className="h-3 w-3 text-muted-foreground" />
-                          <p className="text-[10px] font-black uppercase text-muted-foreground">
-                            {format(action.date, 'HH:mm • dd MMM', { locale: fr })}
-                          </p>
-                        </div>
-                        <p className="text-[13px] font-bold leading-tight text-slate-800 dark:text-slate-200">
-                          {action.description}
-                        </p>
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+          {/* Left Column: Health Gauge */}
+          <div className="lg:col-span-1 space-y-6">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card
+                  className="border-none shadow-2xl bg-slate-900 text-white overflow-hidden relative min-h-[320px] flex flex-col justify-center cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                  onClick={() => handleCardClick('/documents')}
+                >
+                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl animate-pulse" />
+                  <CardHeader className="pb-2 text-center">
+                    <CardTitle className="text-[10px] uppercase tracking-[0.3em] font-black opacity-50">Conformité Globale</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center">
+                    <div className="relative flex items-center justify-center w-full">
+                      {isClient && (
+                        <ResponsiveContainer width="100%" height={120}>
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { value: overallCompliancePercentage, fill: 'hsl(var(--primary))' },
+                                { value: 100 - overallCompliancePercentage, fill: 'rgba(255,255,255,0.05)' }
+                              ]}
+                              cx="50%" cy="100%"
+                              startAngle={180} endAngle={0}
+                              innerRadius={70} outerRadius={95}
+                              paddingAngle={0} dataKey="value" stroke="none"
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                      <div className="absolute bottom-0 text-center">
+                        <div className="text-6xl font-black tracking-tighter leading-none mb-1">{overallCompliancePercentage}%</div>
+                        <Badge variant="outline" className="text-[10px] border-emerald-500/50 text-emerald-400 bg-emerald-500/10">SANTÉ OPTIMALE</Badge>
                       </div>
                     </div>
-                  ))}
-                  {lastActions.length === 0 && (
-                    <div className="text-center py-10 opacity-30 italic text-sm">Aucun signal récent</div>
-                  )}
-                </div>
-              </ScrollArea>
-              <div className="p-4 border-t bg-slate-50/50 dark:bg-slate-900/50">
-                <Button variant="ghost" className="w-full text-xs font-bold gap-2 text-muted-foreground hover:text-primary">
-                  Voir l'historique complet <ArrowRight className="h-3 w-3" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                    <div className="mt-10 grid grid-cols-2 gap-8 w-full border-t border-white/5 pt-6">
+                      <div className="text-center">
+                        <p className="text-2xl font-black">{activeTasksCount}</p>
+                        <p className="text-[9px] uppercase font-bold opacity-40">Tâches Actives</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-black text-rose-500">{overdueTasksCount}</p>
+                        <p className="text-[9px] uppercase font-bold opacity-40">Retards</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[200px]">
+                <p className="font-bold mb-1">Score de Conformité</p>
+                <p className="text-xs">Vue d'ensemble de la santé réglementaire basée sur vos documents et tâches.</p>
+              </TooltipContent>
+            </Tooltip>
 
-          <Card className="shadow-xl overflow-hidden border-none bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
-            <CardHeader className="pb-3 border-b border-primary/5">
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-slate-500">
-                  <Newspaper className="h-3 w-3" />
-                  Intelligence Flux
-                </CardTitle>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={refetchNews}>
-                  <RefreshCw className={`h-3 w-3 ${newsLoading ? 'animate-spin' : ''}`} />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 space-y-4">
-              {news.slice(0, 3).map((item, i) => (
-                <a
-                  key={i}
-                  href={item.url}
-                  target="_blank"
-                  className="block p-3 rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm border border-transparent hover:border-slate-200 transition-all group"
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card
+                  className="shadow-xl border-primary/5 bg-white/50 backdrop-blur-md cursor-pointer hover:bg-white transition-all"
+                  onClick={() => handleCardClick('/plan')}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <Badge className="text-[8px] h-4 font-black uppercase bg-primary/10 text-primary border-none shadow-none">{item.source}</Badge>
-                    <span className="text-[8px] font-bold opacity-30">{format(parseISO(item.date), 'dd/MM', { locale: fr })}</span>
-                  </div>
-                  <p className="text-[12px] font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors">{item.title}</p>
-                </a>
-              ))}
-              <Button variant="link" className="text-[10px] font-black uppercase p-0 h-auto tracking-widest text-primary/70 hover:text-primary" onClick={() => router.push('/news')}>
-                Flux complet <ArrowRight className="ml-1 h-3 w-3" />
-              </Button>
-            </CardContent>
-          </Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
+                      <TrendingUp className="h-3 w-3 text-emerald-500" />
+                      Performance Domaines
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-4">
+                    {taskProgressData.map((item, i) => (
+                      <div key={i} className="space-y-1.5">
+                        <div className="flex justify-between text-[10px] font-black uppercase tracking-tight">
+                          <span className="truncate max-w-[140px] text-slate-600 dark:text-slate-400">{item.name}</span>
+                          <span className={item.overdue > 0 ? "text-rose-500" : "text-primary"}>{item.progress}%</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-1000 ${item.overdue > 0 ? 'bg-rose-500' : 'bg-primary'}`}
+                            style={{ width: `${item.progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p className="font-bold mb-1">Progrès par Catégorie</p>
+                <p className="text-xs">Avancement des tâches dans chaque pôle de conformité.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Middle Column: 360 View */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card
+                    className="shadow-xl border-none bg-gradient-to-br from-rose-50 via-white to-white dark:from-rose-950/20 dark:to-slate-900 group overflow-hidden border-l-4 border-l-rose-500 cursor-pointer hover:scale-[1.02] transition-all"
+                    onClick={() => handleCardClick('/alerts')}
+                  >
+                    <CardHeader className="pb-0">
+                      <CardTitle className="text-xs font-black uppercase tracking-widest text-rose-600 flex justify-between">
+                        Urgence
+                        <Badge variant="destructive" className="h-4 text-[9px] animate-pulse">ACTION REQUIS</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4 flex items-center gap-5">
+                      <div className="p-4 bg-rose-500 text-white rounded-2xl shadow-lg shadow-rose-500/30 group-hover:rotate-6 transition-transform">
+                        <ShieldAlert className="h-7 w-7" />
+                      </div>
+                      <div>
+                        <p className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white">{newAlertsCount}</p>
+                        <p className="text-[10px] text-rose-600 font-bold uppercase">Nouvelles Alertes GRC</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="font-bold mb-1">Réglementations à traiter</p>
+                  <p className="text-xs">Alertes de veille nécessitant une analyse ou une action immédiate.</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card
+                    className="shadow-xl border-none bg-gradient-to-br from-indigo-50 via-white to-white dark:from-indigo-950/20 dark:to-slate-900 group overflow-hidden border-l-4 border-l-indigo-500 cursor-pointer hover:scale-[1.02] transition-all"
+                    onClick={() => handleCardClick('/plan')}
+                  >
+                    <CardHeader className="pb-0">
+                      <CardTitle className="text-xs font-black uppercase tracking-widest text-indigo-600">Structure</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4 flex items-center gap-5">
+                      <div className="p-4 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/30 group-hover:-rotate-6 transition-transform">
+                        <Workflow className="h-7 w-7" />
+                      </div>
+                      <div>
+                        <p className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white">{Object.keys(activeWorkflows).length}</p>
+                        <p className="text-[10px] text-indigo-600 font-bold uppercase">Workflows Métiers</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="font-bold mb-1">Processus Opérationnels</p>
+                  <p className="text-xs">Nombre de diagrammes de flux actifs liant les tâches au métier.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card
+                  className="shadow-2xl border-none cursor-pointer hover:shadow-primary/5 transition-all"
+                  onClick={() => handleCardClick('/documents')}
+                >
+                  <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+                    <div>
+                      <CardTitle className="text-lg font-black font-headline tracking-tight">Répartition GRC Documentaire</CardTitle>
+                      <p className="text-xs text-muted-foreground">Volume de preuves par état de validation</p>
+                    </div>
+                    <Button size="sm" variant="outline" className="h-8 text-xs font-bold border-primary/20 hover:bg-primary/5 pointer-events-none">
+                      Explorer les archives <ArrowRight className="ml-1 h-3 w-3" />
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="h-[200px]">
+                      {isClient && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={complianceStatusData} layout="vertical" margin={{ left: -20, right: 40 }}>
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="status" type="category" width={120} tick={{ fontSize: 10, fontWeight: 900, fill: 'currentColor' }} />
+                            <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={30}>
+                              {complianceStatusData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      {complianceStatusData.map((s, i) => (
+                        <div key={i} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 px-3 py-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.fill }} />
+                          <span className="text-[10px] font-black uppercase opacity-60 truncate">{s.status}:</span>
+                          <span className="text-xs font-black">{s.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="font-bold mb-1">Moteur Documentaire</p>
+                <p className="text-xs">Visualisation de la validité de vos documents de preuve GRC.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Right Column: Timeline & News */}
+          <div className="lg:col-span-1 space-y-6">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card
+                  className="shadow-xl border-none border-t-4 border-t-primary cursor-pointer hover:bg-slate-50/50 transition-all"
+                  onClick={() => handleCardClick('/history')}
+                >
+                  <CardHeader className="pb-3 border-b">
+                    <CardTitle className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 text-primary">
+                      <History className="h-4 w-4" />
+                      Derniers Signaux
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[280px]">
+                      <div className="p-5 space-y-7">
+                        {lastActions.map((action, i) => (
+                          <div key={i} className="flex gap-4 items-start relative pb-7 border-l-2 border-slate-100 dark:border-slate-800 ml-2 pl-5 last:border-0 last:pb-0">
+                            <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white dark:bg-slate-950 border-4 border-primary shadow-sm" />
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <action.Icon className="h-3 w-3 text-muted-foreground" />
+                                <p className="text-[10px] font-black uppercase text-muted-foreground">
+                                  {format(action.date, 'HH:mm • dd MMM', { locale: fr })}
+                                </p>
+                              </div>
+                              <p className="text-[13px] font-bold leading-tight text-slate-800 dark:text-slate-200">
+                                {action.description}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                        {lastActions.length === 0 && (
+                          <div className="text-center py-10 opacity-30 italic text-sm">Aucun signal récent</div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                    <div className="p-4 border-t bg-slate-50/50 dark:bg-slate-900/50 pointer-events-none">
+                      <Button variant="ghost" className="w-full text-xs font-bold gap-2 text-muted-foreground hover:text-primary">
+                        Voir l'historique complet <ArrowRight className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <p className="font-bold mb-1">Journal d'Audit</p>
+                <p className="text-xs">Flux d'activité récent sur les documents, alertes et risques.</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card
+                  className="shadow-xl overflow-hidden border-none bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 cursor-pointer hover:shadow-primary/10 transition-all"
+                  onClick={() => handleCardClick('/news')}
+                >
+                  <CardHeader className="pb-3 border-b border-primary/5">
+                    <div className="flex justify-between items-center">
+                      <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-slate-500">
+                        <Newspaper className="h-3 w-3" />
+                        Intelligence Flux
+                      </CardTitle>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={(e) => { e.stopPropagation(); refetchNews(); }}>
+                        <RefreshCw className={`h-3 w-3 ${newsLoading ? 'animate-spin' : ''}`} />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-4">
+                    {news.slice(0, 3).map((item, i) => (
+                      <div
+                        key={i}
+                        onClick={(e) => { e.stopPropagation(); window.open(item.url, '_blank'); }}
+                        className="block p-3 rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm border border-transparent hover:border-slate-200 transition-all group cursor-pointer"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <Badge className="text-[8px] h-4 font-black uppercase bg-primary/10 text-primary border-none shadow-none">{item.source}</Badge>
+                          <span className="text-[8px] font-bold opacity-30">{format(parseISO(item.date), 'dd/MM', { locale: fr })}</span>
+                        </div>
+                        <p className="text-[12px] font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors">{item.title}</p>
+                      </div>
+                    ))}
+                    <div className="flex items-center text-[10px] font-black uppercase p-0 h-auto tracking-widest text-primary/70 group pointer-events-none">
+                      Flux complet <ArrowRight className="ml-1 h-3 w-3 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <p className="font-bold mb-1">Veille Réglementaire</p>
+                <p className="text-xs">Flux d'actualités mondiales sur la conformité et la finance.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+        </div>
+
+        {/* Action shortcuts */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <ModernActionCard icon={ShieldCheck} title="Alertes GRC" href="/alerts" color="bg-rose-500" />
+          <ModernActionCard icon={Map} title="Risques" href="/risk-mapping" color="bg-amber-500" />
+          <ModernActionCard icon={FileText} title="Documents" href="/documents" color="bg-indigo-500" />
+          <ModernActionCard icon={Users} title="Équipe" href="/team" color="bg-emerald-500" />
         </div>
 
       </div>
-
-      {/* Action shortcuts */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <ModernActionCard icon={ShieldCheck} title="Alertes GRC" href="/alerts" color="bg-rose-500" />
-        <ModernActionCard icon={Map} title="Risques" href="/risk-mapping" color="bg-amber-500" />
-        <ModernActionCard icon={FileText} title="Documents" href="/documents" color="bg-indigo-500" />
-        <ModernActionCard icon={Users} title="Équipe" href="/team" color="bg-emerald-500" />
-      </div>
-
-    </div>
+    </TooltipProvider>
   );
 }
 
