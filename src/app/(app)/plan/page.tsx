@@ -445,6 +445,36 @@ export default function PlanPage() {
 
   const closeDialog = () => setDialogState({ type: null, mode: null });
 
+  const handleMoveWorkflow = async (id: string, direction: number) => {
+    const sortedWorkflows = Object.entries(activeWorkflows).sort(([, a], [, b]) => (a.order ?? 0) - (b.order ?? 0));
+    const index = sortedWorkflows.findIndex(([wfId]) => wfId === id);
+    if (index === -1) return;
+
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= sortedWorkflows.length) return;
+
+    // Swap orders
+    const currentWf = sortedWorkflows[index];
+    const targetWf = sortedWorkflows[newIndex];
+
+    const currentOrder = currentWf[1].order ?? index;
+    const targetOrder = targetWf[1].order ?? newIndex;
+
+    await updateWorkflowOrder(currentWf[0], targetOrder);
+    await updateWorkflowOrder(targetWf[0], currentOrder);
+    toast({ title: "Ordre mis à jour" });
+  };
+
+  const handleDeleteWorkflow = async (id: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce workflow ?')) return;
+    try {
+      await deleteWorkflow(id);
+      toast({ title: "Workflow supprimé" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erreur lors de la suppression" });
+    }
+  };
+
   const handleAddCategory = async (values: CategoryFormValues) => {
     await addCategory(values);
     toast({ title: "Catégorie ajoutée", description: `La catégorie "${values.name}" a été ajoutée.` });
@@ -702,7 +732,7 @@ export default function PlanPage() {
 
                       if (isProcessCategory) {
                         return (
-                          <Card key={subCategory.id} className="bg-background/50 shadow-sm overflow-hidden group hover:shadow-lg transition-all duration-300 relative">
+                          <Card key={subCategory.id} id={subCategory.id} className="bg-background/50 shadow-sm overflow-hidden group hover:shadow-lg transition-all duration-300 relative">
                             <CardContent className="p-6">
                               <div className="bg-gradient-to-br from-[#FFF9E6] to-[#FFF4D6] dark:from-[#2D2618] dark:to-[#3D3520] border-2 border-[#D4B896] dark:border-[#8B7355] rounded-xl p-6 shadow-inner space-y-6 relative">
 
@@ -768,7 +798,7 @@ export default function PlanPage() {
                         )
                       }
                       return (
-                        <Card key={subCategory.id} className="bg-background/50 shadow-sm group">
+                        <Card key={subCategory.id} id={subCategory.id} className="bg-background/50 shadow-sm group">
                           <CardHeader className="pb-3 pt-4 px-4 flex flex-row justify-between items-center">
                             <div className="flex items-center">
                               <SubIcon className="h-5 w-5 mr-2 text-accent" />

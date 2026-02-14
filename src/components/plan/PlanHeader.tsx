@@ -62,10 +62,34 @@ export function PlanHeader({ onAddCategory }: PlanHeaderProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <p className="text-muted-foreground">
+      <CardContent className="space-y-4">
+        <p className="text-muted-foreground text-sm">
           Ce plan sert de référence pour l'organisation des activités de conformité. Vous pouvez ajouter, modifier ou supprimer des éléments.
         </p>
+
+        {/* Shortcuts Section */}
+        {Object.keys(usePlanData().activeWorkflows).length > 0 && (
+          <div className="pt-2 border-t flex flex-wrap gap-2 items-center">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mr-1">Raccourcis Processus :</span>
+            {Object.entries(usePlanData().activeWorkflows)
+              .sort(([, a], [, b]) => (a.order ?? 999) - (b.order ?? 999))
+              .map(([id, wf]) => (
+                <Button
+                  key={id}
+                  variant="secondary"
+                  size="sm"
+                  className="h-7 px-3 text-[10px] font-bold rounded-full bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 transition-all hover:scale-105"
+                  onClick={() => {
+                    const el = document.getElementById(id);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }}
+                >
+                  <Workflow className="mr-1.5 h-3 w-3" />
+                  {wf.name?.toUpperCase() || id.toUpperCase()}
+                </Button>
+              ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
