@@ -57,6 +57,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 import { Logo } from "@/components/icons/Logo";
 
 const kpiThemes = [
@@ -599,255 +600,294 @@ export default function TrainingPage() {
       </Card>
 
       <Dialog open={!!dialogState.type} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {dialogState.mode === "add" ? "Ajouter " : "Modifier "}
-              {dialogState.type === "registry" ? "une formation au registre" :
-                dialogState.type === "session" ? "une session de formation" :
-                  dialogState.type === "campaign" ? "une campagne de sensibilisation" : ""}
-            </DialogTitle>
-            <DialogDescription>
-              Remplissez les détails ci-dessous.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="rounded-[2.5rem] p-0 max-w-2xl border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] overflow-hidden bg-white dark:bg-slate-950">
+          <div className="bg-slate-50/50 dark:bg-slate-900/50 p-10 border-b border-slate-100 dark:border-slate-800">
+            <DialogHeader>
+              <DialogTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                {dialogState.mode === "add" ? "Ajouter " : "Modifier "}
+                <span className="text-primary italic">
+                  {dialogState.type === "registry" ? "une Formation" :
+                    dialogState.type === "session" ? "une Session" :
+                      dialogState.type === "campaign" ? "une Campagne" : ""}
+                </span>
+              </DialogTitle>
+              <DialogDescription className="text-slate-500 font-medium italic">
+                {dialogState.type === "registry" ? "Enregistrement d'un nouveau module dans le catalogue officiel." :
+                  dialogState.type === "session" ? "Planification d'une intervention pédagogique ciblée." :
+                    dialogState.type === "campaign" ? "Lancement d'une opération de culture de conformité." : ""}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          {dialogState.type === "registry" && (
-            <Form {...registryForm}>
-              <form onSubmit={registryForm.handleSubmit(handleRegistrySubmit)} className="space-y-4">
-                <FormField control={registryForm.control} name="title" render={({ field }) => (
-                  <FormItem><FormLabel>Titre de la formation</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={registryForm.control} name="objective" render={({ field }) => (
-                  <FormItem><FormLabel>Objectif</FormLabel><FormControl><Textarea {...field} rows={2} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField control={registryForm.control} name="duration" render={({ field }) => (
-                    <FormItem><FormLabel>Durée</FormLabel><FormControl><Input {...field} placeholder="Ex: 2h" /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={registryForm.control} name="support" render={({ field }) => (
-                    <FormItem><FormLabel>Support</FormLabel><FormControl><Input {...field} placeholder="Ex: PPT" /></FormControl><FormMessage /></FormItem>
-                  )} />
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  <FormLabel>Critères de complétude</FormLabel>
-                  {registryCriteriaFields.map((field, index) => (
-                    <div key={field.id} className="flex items-center gap-2">
-                      <FormField
-                        control={registryForm.control}
-                        name={`completionCriteria.${index}.isCompleted`}
-                        render={({ field: checkboxField }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Checkbox
-                                checked={checkboxField.value}
-                                onCheckedChange={checkboxField.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={registryForm.control}
-                        name={`completionCriteria.${index}.text`}
-                        render={({ field: inputField }) => (
-                          <FormItem className="flex-grow">
-                            <FormControl><Input {...inputField} placeholder="Description du critère..." /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="shrink-0"
-                        onClick={() => removeRegistryCriterion(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+          <div className="p-10 max-h-[60vh] overflow-y-auto custom-scrollbar">
+            {dialogState.type === "registry" && (
+              <Form {...registryForm}>
+                <form onSubmit={registryForm.handleSubmit(handleRegistrySubmit)} className="space-y-8">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-1 bg-primary rounded-full" />
+                      <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Détails de la Formation</h3>
                     </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => appendRegistryCriterion({ id: `new-${Date.now()}`, text: '', isCompleted: false })}
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un critère
-                  </Button>
-                </div>
 
-                <FormField control={registryForm.control} name="successRate" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Taux de réussite aux évaluations (%) (Optionnel)</FormLabel>
-                    <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                    <FormField control={registryForm.control} name="title" render={({ field }) => (
+                      <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Titre du module</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={registryForm.control} name="objective" render={({ field }) => (
+                      <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Objectif pédagogique</FormLabel><FormControl><Textarea {...field} rows={3} className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold" /></FormControl><FormMessage /></FormItem>
+                    )} />
 
-                <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
-              </form>
-            </Form>
-          )}
-
-          {dialogState.type === "session" && (
-            <Form {...sessionForm}>
-              <form onSubmit={sessionForm.handleSubmit(handleSessionSubmit)} className="space-y-4">
-                <FormField control={sessionForm.control} name="title" render={({ field }) => (
-                  <FormItem><FormLabel>Titre de la session</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField control={sessionForm.control} name="date" render={({ field }) => (
-                    <FormItem className="flex flex-col"><FormLabel>Date</FormLabel><Popover><PopoverTrigger asChild><FormControl>
-                      <Button variant={"outline"} className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}>{field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}<LucideIcons.CalendarDays className="ml-auto h-4 w-4 opacity-50" /></Button>
-                    </FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date("1900-01-01")} initialFocus locale={fr} /></PopoverContent></Popover><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={sessionForm.control} name="type" render={({ field }) => (
-                    <FormItem><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir un type" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Obligatoire">Obligatoire</SelectItem><SelectItem value="Recommandée">Recommandée</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                  )} />
-                </div>
-                <FormField control={sessionForm.control} name="department" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Département(s) cible(s)</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choisir un département" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {departmentOptions.map(option => (
-                          <SelectItem key={option} value={option}>{option}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <div className="space-y-3 pt-2">
-                  <FormLabel className="text-sm font-medium">Critères de préparation</FormLabel>
-                  <FormField control={sessionForm.control} name="logisticsConfirmed" render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal flex items-center text-sm"><BookMarked className="w-4 h-4 mr-2 text-muted-foreground" />Logistique confirmée</FormLabel></FormItem>
-                  )} />
-                  <FormField control={sessionForm.control} name="materialsPrepared" render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal flex items-center text-sm"><ClipboardCheck className="w-4 h-4 mr-2 text-muted-foreground" />Supports prêts</FormLabel></FormItem>
-                  )} />
-                  <FormField control={sessionForm.control} name="invitationsSent" render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal flex items-center text-sm"><MailCheck className="w-4 h-4 mr-2 text-muted-foreground" />Invitations envoyées</FormLabel></FormItem>
-                  )} />
-                </div>
-                <div className="space-y-3 pt-2">
-                  <FormLabel className="text-sm font-medium">Suivi post-session</FormLabel>
-                  <FormField control={sessionForm.control} name="isCompleted" render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal flex items-center text-sm"><CheckCircle className="w-4 h-4 mr-2 text-muted-foreground" />Session réalisée</FormLabel></FormItem>
-                  )} />
-                  {sessionForm.watch("isCompleted") && (
-                    <div className="grid grid-cols-2 gap-4 pl-9">
-                      <FormField control={sessionForm.control} name="participants" render={({ field }) => (
-                        <FormItem><FormLabel>Participants</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-8" /></FormControl><FormMessage /></FormItem>
+                    <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl border border-slate-100 dark:border-slate-800/50">
+                      <FormField control={registryForm.control} name="duration" render={({ field }) => (
+                        <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Durée estimée</FormLabel><FormControl><Input {...field} placeholder="Ex: 2h" className="h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl><FormMessage /></FormItem>
                       )} />
-                      <FormField control={sessionForm.control} name="totalInvitees" render={({ field }) => (
-                        <FormItem><FormLabel>Invités</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-8" /></FormControl><FormMessage /></FormItem>
+                      <FormField control={registryForm.control} name="support" render={({ field }) => (
+                        <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Support / Format</FormLabel><FormControl><Input {...field} placeholder="Ex: PPT, Webinar" className="h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl><FormMessage /></FormItem>
                       )} />
                     </div>
-                  )}
-                </div>
-                <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
-              </form>
-            </Form>
-          )}
+                  </div>
 
-          {dialogState.type === "campaign" && (
-            <Form {...campaignForm}>
-              <form onSubmit={campaignForm.handleSubmit(handleCampaignSubmit)} className="space-y-4">
-                <FormField control={campaignForm.control} name="name" render={({ field }) => (
-                  <FormItem><FormLabel>Nom de la campagne</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={campaignForm.control} name="launchDate" render={({ field }) => (
-                  <FormItem className="flex flex-col"><FormLabel>Date de lancement</FormLabel><Popover><PopoverTrigger asChild><FormControl>
-                    <Button variant={"outline"} className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}>{field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}<LucideIcons.CalendarDays className="ml-auto h-4 w-4 opacity-50" /></Button>
-                  </FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={fr} /></PopoverContent></Popover><FormMessage /></FormItem>
-                )} />
-                <FormField control={campaignForm.control} name="status" render={({ field }) => (
-                  <FormItem><FormLabel>Statut</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir un statut" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Planifiée">Planifiée</SelectItem><SelectItem value="En cours">En cours</SelectItem><SelectItem value="Terminée">Terminée</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                )} />
-                <FormField control={campaignForm.control} name="target" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cible</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choisir une cible" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {targetOptions.map(option => (
-                          <SelectItem key={option} value={option}>{option}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                  <Separator />
 
-                <div className="space-y-3 pt-2">
-                  <FormLabel>Critères de complétude</FormLabel>
-                  {campaignCriteriaFields.map((field, index) => (
-                    <div key={field.id} className="flex items-center gap-2">
-                      <FormField
-                        control={campaignForm.control}
-                        name={`completionCriteria.${index}.isCompleted`}
-                        render={({ field: checkboxField }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Checkbox
-                                checked={checkboxField.value}
-                                onCheckedChange={checkboxField.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={campaignForm.control}
-                        name={`completionCriteria.${index}.text`}
-                        render={({ field: inputField }) => (
-                          <FormItem className="flex-grow">
-                            <FormControl><Input {...inputField} placeholder="Description du critère..." /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="shrink-0"
-                        onClick={() => removeCampaignCriterion(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-1 bg-amber-500 rounded-full" />
+                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Critères de validation</h3>
+                      </div>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => appendRegistryCriterion({ id: `new-${Date.now()}`, text: '', isCompleted: false })} className="text-primary font-bold text-[10px] tracking-widest uppercase">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Ajouter
                       </Button>
                     </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => appendCampaignCriterion({ id: `new-${Date.now()}`, text: '', isCompleted: false })}
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un critère
-                  </Button>
-                </div>
 
-                <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Annuler</Button></DialogClose><Button type="submit">{dialogState.mode === "add" ? "Ajouter" : "Enregistrer"}</Button></DialogFooter>
-              </form>
-            </Form>
-          )}
+                    <div className="space-y-3">
+                      {registryCriteriaFields.map((field, index) => (
+                        <div key={field.id} className="flex items-center gap-3 p-3 bg-slate-50/30 dark:bg-slate-800/20 rounded-xl border border-slate-100 dark:border-slate-800">
+                          <FormField
+                            control={registryForm.control}
+                            name={`completionCriteria.${index}.text`}
+                            render={({ field: inputField }) => (
+                              <FormItem className="flex-grow">
+                                <FormControl><Input {...inputField} placeholder="Description du critère..." className="h-9 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-medium text-xs" /></FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <Button type="button" variant="ghost" size="icon" onClick={() => removeRegistryCriterion(index)} className="text-rose-500 hover:bg-rose-50 transition-colors">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
+                  <div className="flex justify-end gap-3 pt-4">
+                    <DialogClose asChild><Button type="button" variant="ghost" className="h-12 px-8 rounded-xl font-bold uppercase text-[10px] tracking-widest text-slate-500">Annuler</Button></DialogClose>
+                    <Button type="submit" className="h-12 px-10 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-primary dark:hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-xl">
+                      {dialogState.mode === "add" ? "Fixer le Module" : "Actualiser"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            )}
+
+            {dialogState.type === "session" && (
+              <Form {...sessionForm}>
+                <form onSubmit={sessionForm.handleSubmit(handleSessionSubmit)} className="space-y-8">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-1 bg-primary rounded-full" />
+                      <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Paramètres de la Session</h3>
+                    </div>
+
+                    <FormField control={sessionForm.control} name="title" render={({ field }) => (
+                      <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Titre de l'intervention</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl><FormMessage /></FormItem>
+                    )} />
+
+                    <div className="grid grid-cols-2 gap-6">
+                      <FormField control={sessionForm.control} name="date" render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Date prévue</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button variant={"outline"} className={`h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 font-bold text-sm ${!field.value && "text-muted-foreground"}`}>
+                                  {field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}
+                                  <LucideIcons.CalendarDays className="ml-auto h-4 w-4 opacity-50 text-primary" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="start">
+                              <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date("1900-01-01")} initialFocus locale={fr} />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={sessionForm.control} name="type" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Niveau de priorité</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue placeholder="Choisir un type" /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
+                              <SelectItem value="Obligatoire" className="font-bold">OBLIGATOIRE</SelectItem>
+                              <SelectItem value="Recommandée" className="font-bold">RECOMMANDÉE</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+
+                    <FormField control={sessionForm.control} name="department" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Département cible</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue placeholder="Choisir un département" /></SelectTrigger></FormControl>
+                          <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
+                            {departmentOptions.map(option => (<SelectItem key={option} value={option} className="font-bold">{option}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-1 bg-emerald-500 rounded-full" />
+                      <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Logistique & Suivi</h3>
+                    </div>
+
+                    <div className="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-3xl border border-slate-100 dark:border-slate-800/50 space-y-4">
+                      <FormField control={sessionForm.control} name="logisticsConfirmed" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-2 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-colors"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-bold flex items-center text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400 cursor-pointer">Logistique confirmée</FormLabel></FormItem>
+                      )} />
+                      <FormField control={sessionForm.control} name="materialsPrepared" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-2 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-colors"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-bold flex items-center text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400 cursor-pointer">Supports pédagogiques prêts</FormLabel></FormItem>
+                      )} />
+                      <FormField control={sessionForm.control} name="invitationsSent" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-2 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-colors"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-bold flex items-center text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400 cursor-pointer">Invitations envoyées</FormLabel></FormItem>
+                      )} />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4">
+                    <DialogClose asChild><Button type="button" variant="ghost" className="h-12 px-8 rounded-xl font-bold uppercase text-[10px] tracking-widest text-slate-500">Annuler</Button></DialogClose>
+                    <Button type="submit" className="h-12 px-10 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-primary dark:hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-xl">
+                      {dialogState.mode === "add" ? "Fixer la Session" : "Actualiser"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            )}
+
+            {dialogState.type === "campaign" && (
+              <Form {...campaignForm}>
+                <form onSubmit={campaignForm.handleSubmit(handleCampaignSubmit)} className="space-y-8">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-1 bg-primary rounded-full" />
+                      <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Définition de la Campagne</h3>
+                    </div>
+
+                    <FormField control={campaignForm.control} name="name" render={({ field }) => (
+                      <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Nom de l'opération</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl><FormMessage /></FormItem>
+                    )} />
+
+                    <div className="grid grid-cols-2 gap-6">
+                      <FormField control={campaignForm.control} name="launchDate" render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Lancement</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button variant={"outline"} className={`h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 font-bold text-sm ${!field.value && "text-muted-foreground"}`}>
+                                  {field.value ? format(field.value, "PPP", { locale: fr }) : <span>Choisir une date</span>}
+                                  <LucideIcons.CalendarDays className="ml-auto h-4 w-4 opacity-50 text-primary" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="start">
+                              <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={fr} />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={campaignForm.control} name="status" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">État initial</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue placeholder="Choisir un statut" /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
+                              <SelectItem value="Planifiée" className="font-bold">PLANIFIÉE</SelectItem>
+                              <SelectItem value="En cours" className="font-bold">EN COURS</SelectItem>
+                              <SelectItem value="Terminée" className="font-bold">TERMINÉE</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+
+                    <FormField control={campaignForm.control} name="target" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Audience cible</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue placeholder="Choisir une cible" /></SelectTrigger></FormControl>
+                          <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
+                            {targetOptions.map(option => (<SelectItem key={option} value={option} className="font-bold">{option}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-1 bg-amber-500 rounded-full" />
+                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Objectifs de Sensibilisation</h3>
+                      </div>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => appendCampaignCriterion({ id: `new-${Date.now()}`, text: '', isCompleted: false })} className="text-primary font-bold text-[10px] tracking-widest uppercase">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Ajouter
+                      </Button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {campaignCriteriaFields.map((field, index) => (
+                        <div key={field.id} className="flex items-center gap-3 p-3 bg-slate-50/30 dark:bg-slate-800/20 rounded-xl border border-slate-100 dark:border-slate-800">
+                          <FormField
+                            control={campaignForm.control}
+                            name={`completionCriteria.${index}.text`}
+                            render={({ field: inputField }) => (
+                              <FormItem className="flex-grow">
+                                <FormControl><Input {...inputField} placeholder="Description du critère..." className="h-9 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-medium text-xs" /></FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <Button type="button" variant="ghost" size="icon" onClick={() => removeCampaignCriterion(index)} className="text-rose-500 hover:bg-rose-50 transition-colors">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4">
+                    <DialogClose asChild><Button type="button" variant="ghost" className="h-12 px-8 rounded-xl font-bold uppercase text-[10px] tracking-widest text-slate-500">Annuler</Button></DialogClose>
+                    <Button type="submit" className="h-12 px-10 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-primary dark:hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-xl">
+                      {dialogState.mode === "add" ? "Lancer la Campagne" : "Actualiser"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 

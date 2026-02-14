@@ -7,9 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Shield, Mail, Phone, ExternalLink, Award, Zap, Users, Globe, Briefcase, ArrowRight, Edit, Plus, Trash2, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTeam, TeamMember } from "@/contexts/TeamContext";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -226,80 +227,117 @@ export default function TeamPage() {
 
             {/* Member Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="rounded-[3rem] p-10 max-w-2xl border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)]">
-                    <DialogHeader className="pb-8">
-                        <DialogTitle className="text-4xl font-black font-headline tracking-tighter uppercase italic">
-                            {editingMember ? "Expert" : "New"} <span className="text-primary">Profile</span>
-                        </DialogTitle>
-                        <DialogDescription className="text-base font-medium">
-                            {editingMember ? "Modifier les informations de l'expert." : "Ajouter un nouveau membre à la gouvernance."}
-                        </DialogDescription>
-                    </DialogHeader>
+                <DialogContent className="rounded-[2.5rem] p-0 max-w-2xl border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] overflow-hidden bg-white dark:bg-slate-950">
+                    <div className="bg-slate-50/50 dark:bg-slate-900/50 p-10 border-b border-slate-100 dark:border-slate-800">
+                        <DialogHeader>
+                            <DialogTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                                {editingMember ? "Ajuster le" : "Nouveau"} <span className="text-primary italic">Profil Expert</span>
+                            </DialogTitle>
+                            <DialogDescription className="text-slate-500 font-medium italic">
+                                {editingMember ? "Mise à jour des habilitations et compétences de l'expert GRC." : "Enregistrement d'un nouvel intervenant dans la gouvernance."}
+                            </DialogDescription>
+                        </DialogHeader>
+                    </div>
+
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6 max-h-[65vh] overflow-y-auto pr-6 custom-scrollbar">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <FormField control={form.control} name="name" render={({ field }) => (
-                                    <FormItem className="space-y-1">
-                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Nom Complet</FormLabel>
-                                        <FormControl><Input {...field} className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold" /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <FormField control={form.control} name="role" render={({ field }) => (
-                                    <FormItem className="space-y-1">
-                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Rôle au Cabinet</FormLabel>
-                                        <FormControl><Input {...field} className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold" /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
+                        <form onSubmit={form.handleSubmit(handleFormSubmit)}>
+                            <div className="p-10 space-y-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                {/* Section: Identité */}
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-4 w-1 bg-primary rounded-full" />
+                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Identité & Rôle</h3>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <FormField control={form.control} name="name" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Nom Complet</FormLabel>
+                                                <FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="role" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Fonction officielle</FormLabel>
+                                                <FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
+                                </div>
+
+                                <Separator className="bg-slate-100 dark:bg-slate-800" />
+
+                                {/* Section: Expertise */}
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-4 w-1 bg-amber-500 rounded-full" />
+                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Expertise Métier</h3>
+                                    </div>
+
+                                    <div className="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-3xl border border-slate-100 dark:border-slate-800/50 space-y-6">
+                                        <FormField control={form.control} name="specialty" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Spécialité Maîtresse</FormLabel>
+                                                <FormControl><Input {...field} placeholder="ex: AML/CFT, RGPD, Audit..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+
+                                        <FormField control={form.control} name="expertise" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Compétences GRC (virgules)</FormLabel>
+                                                <FormControl><Input {...field} placeholder="Audit, LCB-FT, KYC..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
+                                </div>
+
+                                <Separator className="bg-slate-100 dark:bg-slate-800" />
+
+                                {/* Section: Paramètres */}
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-4 w-1 bg-emerald-500 rounded-full" />
+                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Disponibilité & Image</h3>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <FormField control={form.control} name="status" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Statut actuel</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold"><SelectValue /></SelectTrigger></FormControl>
+                                                    <SelectContent className="rounded-xl border-none shadow-2xl">
+                                                        <SelectItem value="Online" className="font-bold">EN LIGNE</SelectItem>
+                                                        <SelectItem value="Away" className="font-bold">ABSENT</SelectItem>
+                                                        <SelectItem value="Offline" className="font-bold">HORS LIGNE</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="avatarUrl" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">URL Avatar</FormLabel>
+                                                <FormControl><Input {...field} placeholder="https://..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
+                                </div>
                             </div>
 
-                            <FormField control={form.control} name="specialty" render={({ field }) => (
-                                <FormItem className="space-y-1">
-                                    <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Spécialité Principale</FormLabel>
-                                    <FormControl><Input {...field} placeholder="ex: AML/CFT, RGPD, Audit..." className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold" /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <FormField control={form.control} name="status" render={({ field }) => (
-                                    <FormItem className="space-y-1">
-                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Disponibilité</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl><SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold"><SelectValue /></SelectTrigger></FormControl>
-                                            <SelectContent className="rounded-2xl border-none shadow-2xl">
-                                                <SelectItem value="Online" className="font-bold">EN LIGNE</SelectItem>
-                                                <SelectItem value="Away" className="font-bold">ABSENT</SelectItem>
-                                                <SelectItem value="Offline" className="font-bold">HORS LIGNE</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <FormField control={form.control} name="avatarUrl" render={({ field }) => (
-                                    <FormItem className="space-y-1">
-                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Lien Avatar (Optionnel)</FormLabel>
-                                        <FormControl><Input {...field} placeholder="https://..." className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold" /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                            </div>
-
-                            <FormField control={form.control} name="expertise" render={({ field }) => (
-                                <FormItem className="space-y-1">
-                                    <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-40">Compétences GRC (séparées par des virgules)</FormLabel>
-                                    <FormControl><Input {...field} placeholder="Audit, LCB-FT, KYC..." className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold shadow-inner" /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            <DialogFooter className="pt-6 gap-3">
-                                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="h-14 px-8 rounded-2xl font-black uppercase text-[10px] tracking-widest border-slate-200">Annuler</Button>
-                                <Button type="submit" className="h-14 px-10 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
-                                    {editingMember ? "Actualiser l'Expert" : "Confirmer l'Invitation"}
+                            <div className="bg-slate-50 dark:bg-slate-900/50 p-8 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
+                                <DialogClose asChild>
+                                    <Button type="button" variant="ghost" className="h-12 px-8 rounded-xl font-bold uppercase text-[10px] tracking-widest text-slate-500">Annuler</Button>
+                                </DialogClose>
+                                <Button type="submit" className="h-12 px-10 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-primary dark:hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-xl transition-all active:scale-95">
+                                    {editingMember ? "Réactualiser le Profil" : "Inscrire dans l'Annuaire"}
                                 </Button>
-                            </DialogFooter>
+                            </div>
                         </form>
                     </Form>
                 </DialogContent>
