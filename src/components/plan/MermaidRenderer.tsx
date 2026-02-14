@@ -113,11 +113,15 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 securityLevel: 'loose',
                 flowchart: {
                     htmlLabels: true,
-                    curve: 'basis',
-                    useMaxWidth: true,
+                    curve: 'stepAfter',
+                    useMaxWidth: false,
                     padding: 20
                 },
             });
+            // Surcharge de la gestion d'erreur pour éviter l'affichage "Syntax error" en bas de page
+            window.mermaid.parseError = (err: any) => {
+                console.error('Mermaid Parse Error (Suppressed from UI):', err);
+            };
         }
     }, []);
 
@@ -296,8 +300,18 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     const { svg: generatedSvg } = await window.mermaid.render(id, annotatedChart);
                     setSvg(generatedSvg);
                 } catch (renderError: any) {
-                    console.error('Mermaid core render error:', renderError);
-                    throw new Error(renderError.message || 'Erreur de syntaxe Mermaid');
+                    console.error('Mermaid core render error, attempting fallback:', renderError);
+                    try {
+                        const simpleId = `mermaid-simple-${Math.random().toString(36).substring(2, 9)}`;
+                        // On force un layout 'base' plus robuste avec linear et SANS htmlLabels pour éviter tout conflit
+                        const simpleChart = `%%{init: {"flowchart": {"curve": "linear", "htmlLabels": false}} }%%\n${chart}`;
+                        console.warn("Utilisation du rendu simplifié (fallback) pour", simpleId);
+                        const { svg: simpleSvg } = await window.mermaid.render(simpleId, simpleChart);
+                        setSvg(simpleSvg);
+                    } catch (fallbackError: any) {
+                        console.error("Échec du fallback Mermaid:", fallbackError);
+                        setError(`Erreur de rendu Mermaid: ${renderError.message}. Le code est peut-être invalide.`);
+                    }
                 }
             } catch (err: any) {
                 console.error('Mermaid transformation error:', err);
@@ -307,7 +321,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
 
         const timeoutId = setTimeout(() => {
             if (window.mermaid) renderChart();
-        }, 100);
+        }, 500);
         return () => clearTimeout(timeoutId);
     }, [chart, workflowTasks, workflowId, planData, availableUsers, allRisks]);
 
@@ -341,6 +355,12 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 .assignee-info-box { margin-top: 8px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 6px; text-align: center; width: 100%; }
                 .assignee-row { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 6px; }
                 .assignee-row:last-child { margin-bottom: 0; }
+                
+                /* Masquer les erreurs brutes injectées par Mermaid en bas de page */
+                /* Positionnement hors écran au lieu de display:none pour ne pas casser les calculs de taille lors du rendu */
+                body > div[id^="dmermaid"] { visibility: hidden !important; position: absolute !important; left: -10000px !important; top: 0 !important; }
+                body > div[id^="mermaid-error"] { display: none !important; }
+                
                 .grc-row { border-top: 1px dashed rgba(0,0,0,0.1); margin-top: 4px; padding-top: 4px; }
 
                 .assignee-name { font-family: 'Outfit', sans-serif; font-weight: 600; color: #475569; font-size: 10px; margin-bottom: 1px; white-space: nowrap; }
@@ -433,7 +453,6 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
 
             <div className="relative bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3rem] p-8 shadow-2xl overflow-hidden min-h-[400px] flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
                 <div
-                    id="mermaid-container"
                     className="mermaid w-full opacity-0 translate-y-4 animate-[fadeIn_0.8s_ease-out_forwards]"
                     dangerouslySetInnerHTML={{ __html: svg }}
                 />
@@ -446,16 +465,17 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                         </div>
                     </div>
                 )}
+                {svg && (
+                    <div className="absolute top-8 right-8">
+                        <div className="bg-white/80 backdrop-blur-md border border-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-400 py-2 px-4 rounded-full shadow-sm flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Vue GRC Active
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {svg && (
-                <div className="absolute top-10 right-10">
-                    <div className="bg-white/80 backdrop-blur-md border border-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-400 py-2 px-4 rounded-full shadow-sm flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Vue GRC Active
-                    </div>
-                </div>
-            )}
+
         </div>
     );
 };

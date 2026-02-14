@@ -29,7 +29,7 @@ interface PlanDataContextType {
   addTaskToBranch: (categoryId: string, subCategoryId: string, taskId: string, branchLabel: string, task: Omit<ComplianceTask, 'id' | 'completed'>) => Promise<void>;
   moveTaskIntoBranch: (categoryId: string, subCategoryId: string, sourceTaskId: string, destParentTaskId: string, destBranchLabel: string) => Promise<void>;
   resetToInitialData: () => Promise<void>;
-  activeWorkflows: Record<string, string>;
+  activeWorkflows: Record<string, { code: string; name: string }>;
   workflowTasks: WorkflowTask[];
   auditLogs: AuditLog[];
   availableUsers: AvailableUser[];
@@ -80,7 +80,7 @@ const updatePlanInFirestore = async (newPlan: ComplianceCategory[]) => {
 
 export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
   const [planData, setPlanData] = useState<ComplianceCategory[]>([]);
-  const [activeWorkflows, setActiveWorkflows] = useState<Record<string, string>>({});
+  const [activeWorkflows, setActiveWorkflows] = useState<Record<string, { code: string; name: string }>>({});
   const [workflowTasks, setWorkflowTasks] = useState<WorkflowTask[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([]);
@@ -131,18 +131,35 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
 
     const q = query(collection(db, 'workflows'));
     const unsubscribe = onSnapshot(q, async (snapshot: QuerySnapshot<DocumentData>) => {
-      const workflows: Record<string, string> = {};
+      const workflows: Record<string, { code: string; name: string }> = {};
 
+      console.log(`[PlanData] Workflows snapshot size: ${snapshot.size}`);
       for (const workflowDoc of snapshot.docs) {
         const data = workflowDoc.data() as any;
+        console.log(`[PlanData] Workflow ${workflowDoc.id} data:`, data);
+
         if (data.activeVersionId) {
-          const vRef = doc(db, 'workflows', workflowDoc.id, 'versions', data.activeVersionId);
-          const vSnap = await getDoc(vRef);
-          if (vSnap.exists()) {
-            workflows[data.workflowId] = vSnap.data().mermaidCode;
+          console.log(`[PlanData] Fetching active version ${data.activeVersionId} for ${workflowDoc.id}`);
+          try {
+            const vRef = doc(db as any, 'workflows', workflowDoc.id, 'versions', data.activeVersionId);
+            const vSnap = await getDoc(vRef);
+            if (vSnap.exists()) {
+              console.log(`[PlanData] Version found for ${workflowDoc.id}`);
+              workflows[data.workflowId] = {
+                code: vSnap.data().mermaidCode,
+                name: data.name || data.workflowId
+              };
+            } else {
+              console.warn(`[PlanData] Version document ${data.activeVersionId} not found for workflow ${workflowDoc.id}`);
+            }
+          } catch (e) {
+            console.error(`[PlanData] Error fetching version for ${workflowDoc.id}:`, e);
           }
+        } else {
+          console.log(`[PlanData] Workflow ${workflowDoc.id} has no activeVersionId`);
         }
       }
+      console.log(`[PlanData] Final active workflows:`, Object.keys(workflows));
       setActiveWorkflows(workflows);
     });
 

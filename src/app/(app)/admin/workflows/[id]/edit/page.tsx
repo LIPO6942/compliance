@@ -99,11 +99,26 @@ export default function WorkflowEditorPage() {
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
+        let isMounted = true;
+        let timeoutId: NodeJS.Timeout;
+
         const initMonaco = () => {
+            if (!isMounted) return;
+
+            // Si l'éditeur est déjà initialisé, ne rien faire
+            if (editorRef.current) return;
+
             if (window.require && monacoContainerRef.current) {
+                // Vérifier une dernière fois si un éditeur n'a pas été créé entre temps
+                if (monacoContainerRef.current.hasAttribute('data-keybinding-context')) {
+                    return;
+                }
+
                 window.require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
                 window.require(['vs/editor/editor.main'], function () {
-                    if (monacoContainerRef.current) {
+                    if (!isMounted || !monacoContainerRef.current || editorRef.current) return;
+
+                    try {
                         editorRef.current = window.monaco.editor.create(monacoContainerRef.current, {
                             value: code,
                             language: 'mermaid',
@@ -117,22 +132,29 @@ export default function WorkflowEditorPage() {
                         });
 
                         editorRef.current.onDidChangeModelContent(() => {
-                            setCode(editorRef.current.getValue());
+                            if (isMounted) {
+                                setCode(editorRef.current.getValue());
+                            }
                         });
 
                         setIsMonacoReady(true);
+                    } catch (e) {
+                        console.error("Monaco init error:", e);
                     }
                 });
             } else {
-                setTimeout(initMonaco, 100);
+                timeoutId = setTimeout(initMonaco, 100);
             }
         };
 
         initMonaco();
 
         return () => {
+            isMounted = false;
+            clearTimeout(timeoutId);
             if (editorRef.current) {
                 editorRef.current.dispose();
+                editorRef.current = null;
             }
         };
     }, []);
@@ -146,7 +168,7 @@ export default function WorkflowEditorPage() {
 
     useEffect(() => {
         const loadWorkflow = async () => {
-            if (!id) return;
+            if (!id || !db) return;
 
             try {
                 setLoading(true);
@@ -183,6 +205,14 @@ export default function WorkflowEditorPage() {
 
     const handleSave = async (status: 'draft' | 'published') => {
         if (!id) return;
+        if (!db) {
+            toast({
+                title: "Erreur",
+                description: "La base de données n'est pas initialisée.",
+                variant: "destructive",
+            });
+            return;
+        }
         setSaving(true);
 
         try {
