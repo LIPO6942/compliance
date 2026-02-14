@@ -26,54 +26,74 @@ export const RiskKPIs: React.FC<RiskKPIsProps> = ({ risks }) => {
     const avgScore = totalRisks > 0 ? (totalScore / totalRisks).toFixed(1) : "0.0";
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card className="bg-white/50 backdrop-blur-sm border-slate-200/60 shadow-sm">
-                <CardContent className="p-4 flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                        <ShieldCheck className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Risques</p>
-                        <p className="text-2xl font-bold text-slate-700">{totalRisks}</p>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card className="bg-white/50 backdrop-blur-sm border-slate-200/60 shadow-sm">
-                <CardContent className="p-4 flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-600">
-                        <AlertTriangle className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Risques Critiques</p>
-                        <div className="flex items-baseline gap-2">
-                            <p className="text-2xl font-bold text-rose-700">{criticalPercentage}%</p>
-                            <span className="text-xs text-slate-400">({criticalRisks})</span>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+            <Card className="border-none shadow-xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-md overflow-hidden relative group transition-all hover:scale-[1.02]">
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <ShieldCheck className="h-16 w-16" />
+                </div>
+                <CardContent className="p-6">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 shadow-inner">
+                            <ShieldCheck className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Total Risques</p>
+                            <p className="text-3xl font-black font-headline tracking-tighter text-slate-900 dark:text-white">{totalRisks}</p>
                         </div>
                     </div>
                 </CardContent>
             </Card>
 
-            <Card className="bg-white/50 backdrop-blur-sm border-slate-200/60 shadow-sm">
-                <CardContent className="p-4 flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
-                        <TrendingUp className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Score Moyen</p>
-                        <p className="text-2xl font-bold text-amber-700">{avgScore}</p>
+            <Card className="border-none shadow-xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-md overflow-hidden relative group transition-all hover:scale-[1.02]">
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <AlertTriangle className="h-16 w-16" />
+                </div>
+                <CardContent className="p-6">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-600 shadow-inner">
+                            <AlertTriangle className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Risques Critiques</p>
+                            <div className="flex items-baseline gap-2">
+                                <p className="text-3xl font-black font-headline tracking-tighter text-rose-600">{criticalPercentage}%</p>
+                                <span className="text-xs font-bold text-slate-400">({criticalRisks})</span>
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
 
-            <Card className="bg-white/50 backdrop-blur-sm border-slate-200/60 shadow-sm">
-                <CardContent className="p-4 flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-                        <AlertCircle className="h-5 w-5" />
+            <Card className="border-none shadow-xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-md overflow-hidden relative group transition-all hover:scale-[1.02]">
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <TrendingUp className="h-16 w-16" />
+                </div>
+                <CardContent className="p-6">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 shadow-inner">
+                            <TrendingUp className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Score Moyen</p>
+                            <p className="text-3xl font-black font-headline tracking-tighter text-amber-600">{avgScore}</p>
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sans Document</p>
-                        <p className="text-2xl font-bold text-slate-700">{risksWithoutDocs}</p>
+                </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-md overflow-hidden relative group transition-all hover:scale-[1.02]">
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <AlertCircle className="h-16 w-16" />
+                </div>
+                <CardContent className="p-6">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-2xl bg-slate-500/10 flex items-center justify-center text-slate-500 shadow-inner">
+                            <AlertCircle className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Sans Document</p>
+                            <p className="text-3xl font-black font-headline tracking-tighter text-slate-900 dark:text-white">{risksWithoutDocs}</p>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

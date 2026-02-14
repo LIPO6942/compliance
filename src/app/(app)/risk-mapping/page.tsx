@@ -206,60 +206,79 @@ export default function RiskMappingPage() {
 
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full">
         {/* Navigation & Advanced Filters */}
-        <Card className="shadow-2xl border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2.5rem] p-6 mb-8">
-          <div className="flex flex-col xl:flex-row justify-between items-center gap-6">
+        <Card className="shadow-2xl border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2.5rem] p-8 mb-8 border border-white/20">
+          <div className="flex flex-col xl:flex-row justify-between items-center gap-8">
             <TabsList className="bg-slate-100 dark:bg-slate-800/50 p-1.5 rounded-2xl h-16 w-full xl:w-auto shadow-inner border border-slate-200/50 dark:border-slate-800">
-              <TabsTrigger value="table" className="rounded-xl px-8 h-13 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg font-black text-[11px] tracking-widest uppercase transition-all">
+              <TabsTrigger value="table" className="rounded-xl px-8 h-13 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg font-black text-[11px] tracking-[0.2em] uppercase transition-all">
                 <List className="h-4 w-4 mr-2" /> Inventaire
               </TabsTrigger>
-              <TabsTrigger value="heatmap" className="rounded-xl px-8 h-13 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg font-black text-[11px] tracking-widest uppercase transition-all">
+              <TabsTrigger value="heatmap" className="rounded-xl px-8 h-13 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg font-black text-[11px] tracking-[0.2em] uppercase transition-all">
                 <LayoutGrid className="h-4 w-4 mr-2" /> Heatmap
               </TabsTrigger>
-              <TabsTrigger value="analysis" className="rounded-xl px-8 h-13 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg font-black text-[11px] tracking-widest uppercase transition-all">
+              <TabsTrigger value="analysis" className="rounded-xl px-8 h-13 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg font-black text-[11px] tracking-[0.2em] uppercase transition-all">
                 <Activity className="h-4 w-4 mr-2" /> Analytics
               </TabsTrigger>
             </TabsList>
 
-            <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-              <div className="relative flex-1 sm:flex-none sm:min-w-[240px]">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher un risque..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-14 pl-12 pr-4 rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 font-bold text-xs"
-                />
+            <div className="flex flex-wrap items-end gap-4 w-full xl:w-auto">
+              {/* Search Bar with Label */}
+              <div className="flex flex-col gap-2 flex-1 sm:flex-none sm:min-w-[280px]">
+                <Label className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-400 pl-1">Recherche</Label>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Filtrer par description..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-14 pl-12 pr-4 rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 font-bold text-xs shadow-inner"
+                  />
+                </div>
               </div>
 
-              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                <SelectTrigger className="h-14 w-full sm:w-[150px] rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest">
-                  <SelectValue placeholder="DIRECTION" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-none shadow-2xl">
-                  <SelectItem value="all" className="text-[10px] font-black uppercase">TOUTES DIRECTIONS</SelectItem>
-                  {departmentOptions.map(d => <SelectItem key={d} value={d} className="text-[10px] font-black uppercase">{d}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              {/* Department Select with Label */}
+              <div className="flex flex-col gap-2 w-full sm:w-[150px]">
+                <Label className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-400 pl-1">Direction</Label>
+                <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+                  <SelectTrigger className="h-14 rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest shadow-inner">
+                    <SelectValue placeholder="DIRECTION" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-none shadow-2xl">
+                    <SelectItem value="all" className="text-[10px] font-black uppercase">TOUTES DIRECTIONS</SelectItem>
+                    {departmentOptions.map(d => <SelectItem key={d} value={d} className="text-[10px] font-black uppercase">{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="h-14 w-full sm:w-[150px] rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest">
-                  <SelectValue placeholder="CATÉGORIE" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-none shadow-2xl">
-                  <SelectItem value="all" className="text-[10px] font-black uppercase">TOUTES CATÉGORIES</SelectItem>
-                  {categoryOptions.map(c => <SelectItem key={c} value={c} className="text-[10px] font-black uppercase">{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              {/* Category Select with Label */}
+              <div className="flex flex-col gap-2 w-full sm:w-[150px]">
+                <Label className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-400 pl-1">Catégorie</Label>
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="h-14 rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest shadow-inner">
+                    <SelectValue placeholder="CATÉGORIE" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-none shadow-2xl">
+                    <SelectItem value="all" className="text-[10px] font-black uppercase">TOUTES CATÉGORIES</SelectItem>
+                    {categoryOptions.map(c => <SelectItem key={c} value={c} className="text-[10px] font-black uppercase">{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
-                <SelectTrigger className="h-14 w-full sm:w-[150px] rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest">
-                  <SelectValue placeholder="NIVEAU" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-none shadow-2xl">
-                  <SelectItem value="all" className="text-[10px] font-black uppercase">TOUS NIVEAUX</SelectItem>
-                  {["Faible", "Modéré", "Élevé", "Très élevé"].map(l => <SelectItem key={l} value={l} className="text-[10px] font-black uppercase">{l}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              {/* Risk Level Select with Label */}
+              <div className="flex flex-col gap-2 w-full sm:w-[150px]">
+                <Label className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-400 pl-1">Niveau</Label>
+                <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
+                  <SelectTrigger className="h-14 rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest shadow-inner">
+                    <SelectValue placeholder="NIVEAU" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-none shadow-2xl">
+                    <SelectItem value="all" className="text-[10px] font-black uppercase">TOUS NIVEAUX</SelectItem>
+                    <SelectItem value="Faible" className="text-[10px] font-black uppercase text-emerald-600">Faible</SelectItem>
+                    <SelectItem value="Modéré" className="text-[10px] font-black uppercase text-amber-600">Modéré</SelectItem>
+                    <SelectItem value="Élevé" className="text-[10px] font-black uppercase text-orange-600">Élevé</SelectItem>
+                    <SelectItem value="Très élevé" className="text-[10px] font-black uppercase text-rose-600">Très élevé</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </Card>
@@ -297,8 +316,8 @@ export default function RiskMappingPage() {
                           <TableRow key={risk.id} className="group hover:bg-slate-50 dark:hover:bg-slate-950/40 transition-all border-b border-slate-50 dark:border-slate-800/50">
                             <TableCell className="py-8 px-8 max-w-[340px]">
                               <div className="space-y-1">
-                                <p className="text-[10px] font-black text-primary uppercase tracking-widest opacity-40">{risk.category}</p>
-                                <p className="text-base font-black leading-tight group-hover:underline cursor-pointer" onClick={() => openDialog('edit', risk)}>{risk.riskDescription}</p>
+                                <p className="text-[10px] font-black text-primary/70 uppercase tracking-[0.2em] mb-1">{risk.category}</p>
+                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-snug hover:text-primary transition-colors cursor-pointer" onClick={() => openDialog('edit', risk)}>{risk.riskDescription}</p>
                                 {risk.documentIds && risk.documentIds.length > 0 && (
                                   <div className="flex items-center gap-2 pt-2">
                                     <FileText className="h-3 w-3 text-emerald-500" />
