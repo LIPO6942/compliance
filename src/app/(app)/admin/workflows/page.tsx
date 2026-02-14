@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { usePlanData } from '@/contexts/PlanDataContext';
+import { useRiskMapping } from '@/contexts/RiskMappingContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,12 +12,36 @@ import { collection, query, getDocs, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { MermaidWorkflow } from '@/types/compliance';
 
+// Utilitaire pour le niveau de risque
+const riskLevelToNumber = (level: string): number => {
+    switch (level) {
+        case 'Faible': return 1;
+        case 'Modéré': return 2;
+        case 'Élevé': return 3;
+        case 'Très élevé': return 4;
+        default: return 0;
+    }
+};
+
+const riskBadgeConfig: Record<string, { bg: string; text: string; border: string; icon: any }> = {
+    'Faible': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: LucideIcons.ShieldCheck },
+    'Modéré': { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', icon: LucideIcons.ShieldAlert },
+    'Élevé': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', icon: LucideIcons.AlertTriangle },
+    'Très élevé': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', icon: LucideIcons.Flame },
+};
+
 export default function AdminWorkflowsPage() {
     const [workflows, setWorkflows] = useState<MermaidWorkflow[]>([]);
     const [loading, setLoading] = useState(true);
+    const { planData } = usePlanData();
+    const { risks: allRisks } = useRiskMapping();
 
     useEffect(() => {
         const fetchWorkflows = async () => {
+            if (!db) {
+                setLoading(false);
+                return;
+            }
             try {
                 const q = query(collection(db, 'workflows'), orderBy('updatedAt', 'desc'));
                 const querySnapshot = await getDocs(q);
@@ -38,6 +63,52 @@ export default function AdminWorkflowsPage() {
         { id: 'processus-monitoring', name: 'Monitoring', workflowId: 'processus-monitoring' },
     ];
 
+    const getWorkflowRiskInfo = (workflowId: string) => {
+        // Collecter toutes les tâches liées à ce workflow
+        const collectLinkedTasks = (tasks: any[]): any[] => {
+            let found: any[] = [];
+            tasks.forEach(t => {
+                if (t.grcWorkflowId === workflowId && t.risks && t.risks.length > 0) {
+                    found.push(t);
+                }
+                if (t.branches) {
+                    t.branches.forEach((b: any) => {
+                        found = [...found, ...collectLinkedTasks(b.tasks)];
+                    });
+                }
+            });
+            return found;
+        };
+
+        const linkedTasks = planData.flatMap((cat: any) =>
+            cat.subCategories.flatMap((sub: any) => collectLinkedTasks(sub.tasks))
+        );
+
+        if (linkedTasks.length === 0) return null;
+
+        const allRiskIds = [...new Set(linkedTasks.flatMap((t: any) => t.risks || []))];
+        const linkedRisks = allRisks.filter(r => allRiskIds.includes(r.id));
+
+        if (linkedRisks.length === 0) return null;
+
+        let maxLevel = 0;
+        let maxLevelLabel = '';
+
+        linkedRisks.forEach(r => {
+            const lvl = riskLevelToNumber(r.riskLevel);
+            if (lvl > maxLevel) {
+                maxLevel = lvl;
+                maxLevelLabel = r.riskLevel;
+            }
+        });
+
+        return {
+            maxLevel: maxLevelLabel,
+            count: linkedRisks.length,
+            config: riskBadgeConfig[maxLevelLabel]
+        };
+    };
+
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-8">
             <div className="flex justify-between items-center">
@@ -53,24 +124,47 @@ export default function AdminWorkflowsPage() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {defaultWorkflows.map((w) => {
                     const activeW = workflows.find(wf => wf.workflowId === w.workflowId);
+                    const riskInfo = getWorkflowRiskInfo(w.workflowId);
+                    const RiskIcon = riskInfo?.config?.icon || LucideIcons.Shield;
+
                     return (
-                        <Card key={w.id} className="group hover:shadow-md transition-all">
+                        <Card key={w.id} className="group hover:shadow-md transition-all flex flex-col">
                             <CardHeader>
-                                <div className="flex justify-between items-start">
-                                    <CardTitle className="text-xl">{w.name}</CardTitle>
+                                <div className="flex justify-between items-start mb-2">
+                                    <Badge variant="outline" className="opacity-50 text-[10px]">ID: {w.workflowId}</Badge>
                                     {activeW ? (
-                                        <Badge variant="secondary">V{activeW.currentVersion}</Badge>
+                                        <Badge variant="secondary" className="bg-slate-100 text-slate-600">V{activeW.currentVersion}</Badge>
                                     ) : (
-                                        <Badge variant="outline" className="opacity-50">Non configuré</Badge>
+                                        <Badge variant="outline" className="opacity-50">Inactif</Badge>
                                     )}
                                 </div>
-                                <CardDescription>ID: {w.workflowId}</CardDescription>
+                                <CardTitle className="text-xl flex items-center justify-between">
+                                    {w.name}
+                                </CardTitle>
+                                {riskInfo ? (
+                                    <div className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-lg border ${riskInfo.config.bg} ${riskInfo.config.border}`}>
+                                        <RiskIcon className={`h-4 w-4 ${riskInfo.config.text}`} />
+                                        <div className="flex flex-col">
+                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${riskInfo.config.text}`}>
+                                                Risque {riskInfo.maxLevel}
+                                            </span>
+                                            <span className={`text-[10px] opacity-80 ${riskInfo.config.text}`}>
+                                                {riskInfo.count} risque{riskInfo.count > 1 ? 's' : ''} détecté{riskInfo.count > 1 ? 's' : ''}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="mt-3 px-3 py-2 rounded-lg border border-slate-100 bg-slate-50/50 flex items-center gap-2 text-slate-400">
+                                        <LucideIcons.ShieldCheck className="h-4 w-4" />
+                                        <span className="text-xs font-medium">Aucun risque détecté</span>
+                                    </div>
+                                )}
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="mt-auto">
                                 <Link href={`/admin/workflows/${w.workflowId}/edit`}>
-                                    <Button className="w-full" variant={activeW ? "outline" : "default"}>
+                                    <Button className="w-full group-hover:bg-primary/90 transition-colors" variant={activeW ? "outline" : "default"}>
                                         <LucideIcons.Edit2 className="mr-2 h-4 w-4" />
-                                        {activeW ? "Modifier" : "Configurer"}
+                                        {activeW ? "Modifier le workflow" : "Configurer"}
                                     </Button>
                                 </Link>
                             </CardContent>
@@ -84,7 +178,7 @@ export default function AdminWorkflowsPage() {
                     <LucideIcons.Info className="h-5 w-5 text-blue-500 shrink-0" />
                     <div className="text-sm text-blue-800">
                         <p className="font-semibold mb-1">Comment ça marche ?</p>
-                        <p>Sélectionnez un processus pour accéder à l'éditeur Mermaid. Vous pourrez définir les étapes, les branchements et l'interactivité. Chaque publication crée une nouvelle version archivée.</p>
+                        <p>Sélectionnez un processus pour accéder à l'éditeur Mermaid. Le score de risque est calculé automatiquement en fonction des risques associés aux tâches liées à ce workflow dans le Plan de Conformité.</p>
                     </div>
                 </CardContent>
             </Card>

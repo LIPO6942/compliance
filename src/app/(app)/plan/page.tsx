@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { PlusCircle, Edit2, Trash2, MoreVertical, Clock, Link as LinkIcon, FileText, ArrowDown } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, MoreVertical, Clock, Link as LinkIcon, FileText, ArrowDown, ShieldAlert } from "lucide-react";
+import { useRiskMapping } from "@/contexts/RiskMappingContext";
 import * as LucideIcons from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -88,6 +89,24 @@ const getIconComponent = (iconName?: string): LucideIcons.LucideIcon => (iconNam
 
 const isTaskOverdue = (task: ComplianceTask) => {
   return task.deadline && !task.completed && new Date(task.deadline) < new Date();
+};
+
+// Utilitaires risques
+const riskLevelToNumber = (level: string): number => {
+  switch (level) {
+    case 'Faible': return 1;
+    case 'Modéré': return 2;
+    case 'Élevé': return 3;
+    case 'Très élevé': return 4;
+    default: return 0;
+  }
+};
+
+const riskBadgeStyles: Record<string, { bg: string; text: string; border: string; emoji: string }> = {
+  'Faible': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', emoji: '🟢' },
+  'Modéré': { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', emoji: '🟡' },
+  'Élevé': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', emoji: '🟠' },
+  'Très élevé': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', emoji: '🔴' },
 };
 
 const flowTypeStyles: Record<string, string> = {
@@ -336,9 +355,25 @@ export default function PlanPage() {
     addBranch,
     removeBranch,
     renameBranch,
+    addTaskToBranch,
     activeWorkflows,
   } = usePlanData();
   const { documents, loading: docsLoading } = useDocuments();
+  const { risks: allRisks } = useRiskMapping();
+
+  // Helper: get highest risk level for a task
+  const getTaskRiskLevel = (task: ComplianceTask): string | null => {
+    if (!task.risks || task.risks.length === 0) return null;
+    const linkedRisks = allRisks.filter(r => task.risks!.includes(r.id));
+    if (linkedRisks.length === 0) return null;
+    let maxLevel = 0;
+    let maxLabel = '';
+    linkedRisks.forEach(r => {
+      const lvl = riskLevelToNumber(r.riskLevel);
+      if (lvl > maxLevel) { maxLevel = lvl; maxLabel = r.riskLevel; }
+    });
+    return maxLabel;
+  };
 
   const { toast } = useToast();
 
@@ -414,7 +449,7 @@ export default function PlanPage() {
 
   const handleEditCategory = async (values: CategoryFormValues) => {
     if (dialogState.data?.id) {
-      await editCategoryContext(dialogState.data.id, values);
+      await editCategory(dialogState.data.id, values);
       toast({ title: "Catégorie modifiée", description: `La catégorie "${values.name}" a été modifiée.` });
     }
     closeDialog();
@@ -429,13 +464,13 @@ export default function PlanPage() {
   };
 
   const handleRemoveCategory = async (categoryId: string) => {
-    await removeCategoryContext(categoryId);
+    await removeCategory(categoryId);
     toast({ title: "Catégorie supprimée", description: `La catégorie a été supprimée.` });
   };
 
   const handleAddSubCategory = async (values: SubCategoryFormValues) => {
     if (dialogState.parentId) {
-      await addSubCategoryContext(dialogState.parentId, values);
+      await addSubCategory(dialogState.parentId, values);
       toast({ title: "Sous-catégorie ajoutée", description: `La sous-catégorie "${values.name}" a été ajoutée.` });
     }
     closeDialog();
@@ -443,7 +478,7 @@ export default function PlanPage() {
 
   const handleEditSubCategory = async (values: SubCategoryFormValues) => {
     if (dialogState.grandParentId && dialogState.data?.id) {
-      await editSubCategoryContext(dialogState.grandParentId, dialogState.data.id, values);
+      await editSubCategory(dialogState.grandParentId, dialogState.data.id, values);
       toast({ title: "Sous-catégorie modifiée", description: `La sous-catégorie "${values.name}" a été modifiée.` });
     }
     closeDialog();
@@ -458,14 +493,24 @@ export default function PlanPage() {
   };
 
   const handleRemoveSubCategory = async (categoryId: string, subCategoryId: string) => {
-    await removeSubCategoryContext(categoryId, subCategoryId);
+    await removeSubCategory(categoryId, subCategoryId);
     toast({ title: "Sous-catégorie supprimée", description: `La sous-catégorie a été supprimée.` });
   };
 
   const handleAddTask = async (values: TaskFormValues) => {
     if (dialogState.grandParentId && dialogState.parentId) {
       const branchObjs = (values.branches || []).map(label => ({ label, tasks: [] }));
-      const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined, branches: branchObjs };
+      const taskData = {
+        ...values,
+        deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined,
+        branches: branchObjs,
+        kpi: values.kpi?.name ? {
+          name: values.kpi.name,
+          target: values.kpi.target || '',
+          unit: values.kpi.unit || '',
+          thresholdAlert: values.kpi.thresholdAlert
+        } : undefined
+      };
       await addTask(dialogState.grandParentId, dialogState.parentId, taskData);
       toast({ title: "Tâche ajoutée", description: `La tâche "${values.name}" a été ajoutée.` });
     }
@@ -479,7 +524,17 @@ export default function PlanPage() {
         const found = existingBranches.find((b: any) => b.label === label);
         return found ? found : { label, tasks: [] };
       });
-      const taskData = { ...values, deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined, branches: branchObjs };
+      const taskData = {
+        ...values,
+        deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined,
+        branches: branchObjs,
+        kpi: values.kpi?.name ? {
+          name: values.kpi.name,
+          target: values.kpi.target || '',
+          unit: values.kpi.unit || '',
+          thresholdAlert: values.kpi.thresholdAlert
+        } : undefined
+      };
       await editTask(dialogState.grandParentId, dialogState.parentId, dialogState.data.id, taskData);
       toast({ title: "Tâche modifiée", description: `La tâche "${values.name}" a été modifiée.` });
     }
@@ -495,7 +550,7 @@ export default function PlanPage() {
   };
 
   const handleRemoveTask = async (categoryId: string, subCategoryId: string, taskId: string) => {
-    await removeTaskContext(categoryId, subCategoryId, taskId);
+    await removeTask(categoryId, subCategoryId, taskId);
     toast({ title: "Tâche supprimée", description: `La tâche a été supprimée.` });
   };
 
@@ -642,12 +697,21 @@ export default function PlanPage() {
                           <ul className="space-y-3 list-inside">
                             {subCategory.tasks.map((task: ComplianceTask) => {
                               const linkedDocs = getLinkedDocuments(task);
+                              const taskRiskLevel = getTaskRiskLevel(task);
+                              const riskStyle = taskRiskLevel ? riskBadgeStyles[taskRiskLevel] : null;
                               return (
                                 <li key={task.id} className="flex items-start text-sm text-muted-foreground group/task relative pr-10">
                                   <Checkbox id={`task-${task.id}`} checked={task.completed} onCheckedChange={() => handleToggleTaskCompletion(category.id, subCategory.id, task.id, !task.completed)} className="mr-2.5 mt-1 flex-shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" aria-labelledby={`task-label-${task.id}`} />
                                   <label htmlFor={`task-${task.id}`} id={`task-label-${task.id}`} className="cursor-pointer flex-grow">
-                                    <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
                                       <span className={`${task.completed ? 'line-through text-muted-foreground/70' : ''} ${isClient && isTaskOverdue(task) ? "text-destructive font-medium" : "text-foreground"}`}>{task.name}</span>
+                                      {riskStyle && (
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${riskStyle.bg} ${riskStyle.text} ${riskStyle.border}`}>
+                                          <span>{riskStyle.emoji}</span>
+                                          <ShieldAlert className="h-3 w-3" />
+                                          <span>{taskRiskLevel}</span>
+                                        </span>
+                                      )}
                                       {task.description && <span className="text-xs text-muted-foreground italic"> - {task.description}</span>}
                                     </div>
                                     {task.deadline && (isClient ? (<div className={`text-xs mt-0.5 flex items-center ${isTaskOverdue(task) ? 'text-destructive' : 'text-muted-foreground'}`}><Clock className="h-3 w-3 mr-1" /><span>Échéance: {format(parseISO(task.deadline), 'dd/MM/yyyy', { locale: fr })}</span></div>) : (<div className="text-xs mt-0.5 flex items-center text-muted-foreground"><Clock className="h-3 w-3 mr-1" /><span>Échéance: ...</span></div>))}

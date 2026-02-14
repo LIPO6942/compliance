@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { usePlanData } from '@/contexts/PlanDataContext';
+import { useRiskMapping } from '@/contexts/RiskMappingContext';
 import { AlertTriangle } from 'lucide-react';
+import type { RiskLevel } from '@/types/compliance';
 
 declare global {
     interface Window {
@@ -16,10 +18,84 @@ interface MermaidRendererProps {
     onNodeClick?: (id: string) => void;
 }
 
+// Utilitaire: niveau de risque numérique pour comparaison
+const riskLevelToNumber = (level: string): number => {
+    switch (level) {
+        case 'Faible': return 1;
+        case 'Modéré': return 2;
+        case 'Élevé': return 3;
+        case 'Très élevé': return 4;
+        default: return 0;
+    }
+};
+
+const riskLevelConfig: Record<string, { emoji: string; bg: string; border: string; text: string; label: string }> = {
+    'Faible': { emoji: '🟢', bg: '#ecfdf5', border: '#86efac', text: '#166534', label: 'Risque Faible' },
+    'Modéré': { emoji: '🟡', bg: '#fefce8', border: '#fde047', text: '#854d0e', label: 'Risque Modéré' },
+    'Élevé': { emoji: '🟠', bg: '#fff7ed', border: '#fdba74', text: '#9a3412', label: 'Risque Élevé' },
+    'Très élevé': { emoji: '🔴', bg: '#fef2f2', border: '#fca5a5', text: '#991b1b', label: 'Risque Très élevé' },
+};
+
 export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflowId }) => {
     const [svg, setSvg] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
     const { workflowTasks, planData, availableUsers } = usePlanData();
+    const { risks: allRisks } = useRiskMapping();
+
+    // Calcul du score de risque global pour ce workflow
+    const workflowRiskInfo = useMemo(() => {
+        const chartId = workflowId || '';
+        if (!chartId) return null;
+
+        // Collecte récursive de toutes les tâches GRC liées à ce workflow
+        const collectLinkedTasks = (tasks: any[]): any[] => {
+            let found: any[] = [];
+            tasks.forEach(t => {
+                if (t.grcWorkflowId === chartId && t.risks && t.risks.length > 0) {
+                    found.push(t);
+                }
+                if (t.branches) {
+                    t.branches.forEach((b: any) => {
+                        found = [...found, ...collectLinkedTasks(b.tasks)];
+                    });
+                }
+            });
+            return found;
+        };
+
+        const linkedTasks = planData.flatMap((cat: any) =>
+            cat.subCategories.flatMap((sub: any) => collectLinkedTasks(sub.tasks))
+        );
+
+        if (linkedTasks.length === 0) return null;
+
+        // Collecter tous les IDs de risques uniques
+        const allRiskIds = [...new Set(linkedTasks.flatMap((t: any) => t.risks || []))];
+        const linkedRisks = allRisks.filter(r => allRiskIds.includes(r.id));
+
+        if (linkedRisks.length === 0) return null;
+
+        // Calcul du niveau max
+        let maxLevel = 0;
+        let maxLevelLabel = '';
+        linkedRisks.forEach(r => {
+            const lvl = riskLevelToNumber(r.riskLevel);
+            if (lvl > maxLevel) {
+                maxLevel = lvl;
+                maxLevelLabel = r.riskLevel;
+            }
+        });
+
+        // Score moyen (sur 4)
+        const avgScore = linkedRisks.reduce((sum, r) => sum + riskLevelToNumber(r.riskLevel), 0) / linkedRisks.length;
+
+        return {
+            totalRisks: linkedRisks.length,
+            maxLevel: maxLevelLabel,
+            avgScore: Math.round(avgScore * 10) / 10,
+            config: riskLevelConfig[maxLevelLabel] || riskLevelConfig['Faible'],
+        };
+    }, [workflowId, planData, allRisks]);
 
     useEffect(() => {
         if (typeof window !== 'undefined' && window.mermaid) {
@@ -52,12 +128,11 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
             try {
                 setError(null);
                 let annotatedChart = chart;
-                // usePlanData hook call removed from here
 
                 // Fonction de nettoyage ultra-stricte pour Mermaid
                 const cleanForMermaid = (str: string) => {
                     if (!str) return '';
-                    return str.replace(/[()\[\]{}]/g, ' ').replace(/["]/g, '&quot;').replace(/[']/g, '&apos;').trim();
+                    return str.replace(/[()[\]{}]/g, ' ').replace(/["]/g, '&quot;').replace(/[']/g, '&apos;').trim();
                 };
 
                 const chartId = workflowId || chart.match(/graph\s+(?:TD|LR|TB|BT);?\s+%%ID:(\w+)/)?.[1] || '';
@@ -71,6 +146,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                                 taskId: t.id,
                                 nodeId: t.grcNodeId,
                                 taskName: t.name,
+                                riskIds: t.risks || [],
                                 responsibleUserName: t.raci?.responsible ?
                                     availableUsers.find(u => u.id === t.raci.responsible)?.name || 'Anonyme' : 'Non assigné',
                                 approverUserName: t.raci?.accountable ?
@@ -113,7 +189,21 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
 
                 Object.entries(tasksByNode).forEach(([nodeId, tasks]) => {
                     const escapedId = nodeId.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
-                    const nodeRegex = new RegExp(`(${escapedId})\\s*([\\[\\(\\{\\>\\\\/]{1,2})(.*?)([\\]\\)\\}]{1,2})`, 'g');
+                    const nodeRegex = new RegExp(`(${escapedId})\\s*([\\[\\(\\{\\>\\\\\/]{1,2})(.*?)([\\]\\)\\}]{1,2})`, 'g');
+
+                    // === RISQUES : Déterminer le niveau de risque le plus élevé pour ce nœud ===
+                    const nodeRiskIds = [...new Set(tasks.flatMap((t: any) => t.riskIds || []))];
+                    const nodeRisks = allRisks.filter(r => nodeRiskIds.includes(r.id));
+                    let nodeMaxRiskLevel = '';
+                    let nodeMaxRiskNum = 0;
+                    nodeRisks.forEach(r => {
+                        const lvl = riskLevelToNumber(r.riskLevel);
+                        if (lvl > nodeMaxRiskNum) {
+                            nodeMaxRiskNum = lvl;
+                            nodeMaxRiskLevel = r.riskLevel;
+                        }
+                    });
+                    const nodeRiskConfig = nodeMaxRiskLevel ? riskLevelConfig[nodeMaxRiskLevel] : null;
 
                     // Construction du bloc HTML d'infos (cumulé si plusieurs tâches sur le même noeud)
                     let infoHtml = `<div class='assignee-info-box'>`;
@@ -162,6 +252,16 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
 
                         infoHtml += `</div>`;
                     });
+
+                    // === BADGE DE RISQUE sur le noeud ===
+                    if (nodeRiskConfig && nodeMaxRiskLevel) {
+                        infoHtml += `<div class='risk-badge-node' style='background:${nodeRiskConfig.bg};border:1.5px solid ${nodeRiskConfig.border};color:${nodeRiskConfig.text};'>` +
+                            `<span class='risk-badge-emoji'>${nodeRiskConfig.emoji}</span>` +
+                            `<span class='risk-badge-label'>${nodeRiskConfig.label}</span>` +
+                            `<span class='risk-badge-count'>${nodeRisks.length} risque${nodeRisks.length > 1 ? 's' : ''}</span>` +
+                            `</div>`;
+                    }
+
                     infoHtml += `</div>`;
 
                     if (nodeRegex.test(annotatedChart)) {
@@ -209,7 +309,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
             if (window.mermaid) renderChart();
         }, 100);
         return () => clearTimeout(timeoutId);
-    }, [chart, workflowTasks, workflowId, planData, availableUsers]);
+    }, [chart, workflowTasks, workflowId, planData, availableUsers, allRisks]);
 
     if (error) {
         return (
@@ -259,6 +359,22 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 .approver-label { color: #059669; font-weight: 700; font-size: 7px; text-transform: uppercase; }
                 .approver-name { color: #047857; font-weight: 600; }
 
+                /* === RISK BADGE STYLES === */
+                .risk-badge-node {
+                    display: flex; align-items: center; justify-content: center; gap: 4px;
+                    margin-top: 6px; padding: 3px 10px; border-radius: 12px;
+                    font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 700;
+                    animation: riskPulse 2s ease-in-out infinite;
+                }
+                .risk-badge-emoji { font-size: 10px; }
+                .risk-badge-label { text-transform: uppercase; letter-spacing: 0.03em; }
+                .risk-badge-count { opacity: 0.7; font-weight: 500; font-size: 8px; }
+
+                @keyframes riskPulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.85; }
+                }
+
                 /* Animations & Interactivité */
                 .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { transition: all 0.3s ease !important; }
                 .mermaid .node:hover rect, .mermaid .node:hover circle, .mermaid .node:hover polygon { filter: brightness(0.98); transform: translateY(-3px); }
@@ -267,6 +383,53 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
             ` }} />
 
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[110%] h-[110%] bg-gradient-to-tr from-indigo-500/5 to-emerald-500/5 blur-[100px] opacity-30 pointer-events-none -z-10" />
+
+            {/* === BANNIÈRE DE SCORE DE RISQUE GLOBAL DU PROCESSUS === */}
+            {workflowRiskInfo && (
+                <div
+                    className="mb-4 flex items-center justify-between gap-4 px-6 py-3 rounded-2xl border-2 shadow-sm transition-all duration-500 animate-[fadeIn_0.5s_ease-out_forwards]"
+                    style={{
+                        background: workflowRiskInfo.config.bg,
+                        borderColor: workflowRiskInfo.config.border,
+                    }}
+                >
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl">{workflowRiskInfo.config.emoji}</span>
+                        <div>
+                            <div className="text-xs font-black uppercase tracking-wider" style={{ color: workflowRiskInfo.config.text }}>
+                                Indice de Risque Global
+                            </div>
+                            <div className="text-[10px] font-medium opacity-70" style={{ color: workflowRiskInfo.config.text }}>
+                                Niveau max: {workflowRiskInfo.maxLevel} • Score moyen: {workflowRiskInfo.avgScore}/4
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="flex flex-col items-center px-4 py-1.5 rounded-xl border"
+                            style={{ background: 'rgba(255,255,255,0.6)', borderColor: workflowRiskInfo.config.border }}
+                        >
+                            <span className="text-lg font-black" style={{ color: workflowRiskInfo.config.text }}>
+                                {workflowRiskInfo.totalRisks}
+                            </span>
+                            <span className="text-[8px] font-bold uppercase tracking-widest opacity-60" style={{ color: workflowRiskInfo.config.text }}>
+                                Risque{workflowRiskInfo.totalRisks > 1 ? 's' : ''}
+                            </span>
+                        </div>
+                        <div
+                            className="flex flex-col items-center px-4 py-1.5 rounded-xl border"
+                            style={{ background: 'rgba(255,255,255,0.6)', borderColor: workflowRiskInfo.config.border }}
+                        >
+                            <span className="text-lg font-black" style={{ color: workflowRiskInfo.config.text }}>
+                                {workflowRiskInfo.avgScore}
+                            </span>
+                            <span className="text-[8px] font-bold uppercase tracking-widest opacity-60" style={{ color: workflowRiskInfo.config.text }}>
+                                Score /4
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="relative bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3rem] p-8 shadow-2xl overflow-hidden min-h-[400px] flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
                 <div
