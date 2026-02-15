@@ -142,12 +142,19 @@ export default function DashboardPage() {
               <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
               <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">SaaS Compliance Monitor</span>
             </div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              Dashboard <span className="text-primary font-bold">Intelligence</span>
+            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase italic">
+              Dashboard <span className="text-primary font-black">Conformité MAE</span>
             </h1>
-            <p className="text-slate-500 text-sm flex items-center gap-2">
-              <Activity className="h-3.5 w-3.5 text-primary" /> Analyse GRC • <span className="font-semibold text-slate-700 dark:text-slate-300">{format(new Date(), 'dd MMMM yyyy', { locale: fr })}</span>
-            </p>
+            <div className="flex items-center gap-4 mt-1">
+              <p className="text-slate-500 text-xs flex items-center gap-2 font-medium">
+                <Activity className="h-3.5 w-3.5 text-primary" /> Analyse GRC • <span className="font-bold text-slate-700 dark:text-slate-300">{format(new Date(), 'dd MMMM yyyy', { locale: fr })}</span>
+              </p>
+              <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800" />
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Système Live</span>
+              </div>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => router.push('/regulatory-watch')} className="shadow-sm border-primary/20 hover:bg-primary/5">
@@ -155,6 +162,28 @@ export default function DashboardPage() {
             </Button>
             <Button size="sm" onClick={() => router.push('/plan')} className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
               <PlusCircle className="mr-2 h-4 w-4" /> Gérer le Plan
+            </Button>
+          </div>
+        </div>
+
+        {/* AI Insight Banner - Creative Addition */}
+        <div className="relative overflow-hidden rounded-[2rem] bg-indigo-600 p-8 text-white shadow-2xl shadow-indigo-500/20 group">
+          <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-white/10 to-transparent pointer-events-none" />
+          <div className="absolute -left-10 -bottom-10 h-32 w-32 bg-indigo-400/20 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+            <div className="p-5 bg-white/10 backdrop-blur-xl rounded-[2rem] border border-white/20 group-hover:scale-110 transition-transform duration-500">
+              <Lightbulb className="h-10 w-10 text-amber-300 fill-amber-300/20" />
+            </div>
+            <div className="space-y-2 flex-1 text-center md:text-left">
+              <Badge className="bg-white/20 hover:bg-white/30 text-white border-none text-[10px] font-black uppercase tracking-widest mb-2 px-3">Conseil IA du Jour</Badge>
+              <h3 className="text-2xl font-black font-headline tracking-tighter uppercase italic">Optimisation du Vault</h3>
+              <p className="text-indigo-100/80 text-sm font-medium leading-relaxed max-w-3xl lowercase">
+                L'ANALYSE SÉMANTIQUE DÉTECTE UNE CONCENTRATION DE DOCUMENTS OBSOLÈTES DANS LE PÔLE "RGPD". UN NETTOYAGE DES PREUVES DE PLUS DE 2 ANS AMÉLIORERAIT VOTRE SCORE DE CONFORMITÉ DE <span className="text-white font-bold text-lg">+12%</span>.
+              </p>
+            </div>
+            <Button className="bg-white text-indigo-600 hover:bg-indigo-50 font-black uppercase tracking-widest text-[10px] h-12 px-8 rounded-xl shadow-xl">
+              Lancer le Nettoyage
             </Button>
           </div>
         </div>
@@ -249,6 +278,33 @@ export default function DashboardPage() {
               <TooltipContent side="right">
                 <p className="font-bold mb-1">Progrès par Catégorie</p>
                 <p className="text-xs">Avancement des tâches dans chaque pôle de conformité.</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="rounded-[2rem] border-none bg-gradient-to-br from-slate-900 to-indigo-950 p-6 text-white overflow-hidden relative group">
+                  <div className="absolute right-2 top-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <Target className="h-24 w-24" />
+                  </div>
+                  <div className="space-y-4 relative z-10">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-emerald-400" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Objectif Annuel</span>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-3xl font-black font-headline tracking-tighter italic text-emerald-400">95%</p>
+                      <p className="text-xs font-medium text-slate-400">Cible de validation Q4 2026</p>
+                    </div>
+                    <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 w-[60%] transition-all duration-1000 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                    </div>
+                    <p className="text-[9px] font-black uppercase text-center text-slate-500 tracking-widest">+15% vs mois dernier</p>
+                  </div>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p className="font-bold mb-1">Objectifs Stratégiques</p>
+                <p className="text-xs">Progression vers la certification Gold 2027.</p>
               </TooltipContent>
             </Tooltip>
           </div>
