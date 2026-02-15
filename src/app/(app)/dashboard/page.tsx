@@ -146,7 +146,7 @@ export default function DashboardPage() {
               <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">SaaS Compliance Monitor</span>
             </div>
             <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase italic">
-              Dashboard <span className="text-primary font-black">Conformité MAE</span>
+              Dashboard <span className="text-primary font-black">Conformité</span> <span className="text-emerald-700 dark:text-emerald-500 font-black">MAE</span>
             </h1>
             <div className="flex items-center gap-4 mt-1">
               <p className="text-slate-500 text-xs flex items-center gap-2 font-medium">
@@ -384,23 +384,24 @@ export default function DashboardPage() {
                   onClick={() => handleCardClick('/documents')}
                 >
                   <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                    <div>
+                    <div className="space-y-1">
                       <CardTitle className="text-lg font-black font-headline tracking-tight">Répartition GRC Documentaire</CardTitle>
-                      <p className="text-xs text-muted-foreground">Volume de preuves par état de validation</p>
+                      <p className="text-xs text-muted-foreground italic font-medium">Analyse du volume de preuves par état de validation</p>
                     </div>
-                    <Button size="sm" variant="outline" className="h-8 text-xs font-bold border-primary/20 hover:bg-primary/5 pointer-events-none">
-                      Explorer les archives <ArrowRight className="ml-1 h-3 w-3" />
-                    </Button>
+                    <div className="flex flex-col items-end">
+                      <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[8px] font-black uppercase mb-1">Audit OK</Badge>
+                      <span className="text-[10px] font-bold text-slate-400">Total: {documents.length} docs</span>
+                    </div>
                   </CardHeader>
-                  <CardContent className="p-6">
+                  <CardContent className="p-6 space-y-6">
                     <div className="h-[200px]">
                       {isClient && (
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={complianceStatusData} layout="vertical" margin={{ left: -20, right: 40 }}>
                             <XAxis type="number" hide />
                             <YAxis dataKey="status" type="category" width={120} tick={{ fontSize: 10, fontWeight: 900, fill: 'currentColor' }} />
-                            <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={30}>
+                            <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }} />
+                            <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={24}>
                               {complianceStatusData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={entry.fill} />
                               ))}
@@ -409,14 +410,47 @@ export default function DashboardPage() {
                         </ResponsiveContainer>
                       )}
                     </div>
-                    <div className="mt-4 grid grid-cols-3 gap-2">
+
+                    <div className="grid grid-cols-3 gap-3">
                       {complianceStatusData.map((s, i) => (
-                        <div key={i} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 px-3 py-2 rounded-lg border border-slate-100 dark:border-slate-800">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.fill }} />
-                          <span className="text-[10px] font-black uppercase opacity-60 truncate">{s.status}:</span>
-                          <span className="text-xs font-black">{s.value}</span>
+                        <div key={i} className="flex flex-col gap-1 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 transition-hover hover:bg-slate-100">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: s.fill }} />
+                            <span className="text-[9px] font-black uppercase opacity-60 truncate">{s.status}</span>
+                          </div>
+                          <span className="text-lg font-black">{s.value}</span>
                         </div>
                       ))}
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <div className="space-y-0.5">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Taux d'Efficacité</p>
+                          <p className="text-sm font-bold">Traitement des preuves</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-black text-primary">84%</p>
+                          <p className="text-[8px] font-bold text-emerald-500 flex items-center gap-0.5 justify-end"><TrendingUp className="h-2 w-2" /> +4.2%</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-[9px] font-black uppercase">
+                          <span className="text-slate-500">Intégrité des Données</span>
+                          <span className="text-primary">Stabilité Haute</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-primary w-[92%] rounded-full shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-2xl border border-indigo-100/50 dark:border-indigo-900/50">
+                        <FileText className="h-4 w-4 text-indigo-500" />
+                        <p className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 leading-tight">
+                          <span className="font-black uppercase">Insight :</span> 12 nouveaux documents attendent une révision complexe.
+                        </p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

@@ -28,6 +28,17 @@ const availableRoles = [
     "Equipe Conformité",
 ];
 
+const availableTimelineColors = [
+    { name: "Bleu", class: "bg-blue-500" },
+    { name: "Émeraude", class: "bg-emerald-500" },
+    { name: "Ambre", class: "bg-amber-500" },
+    { name: "Rose", class: "bg-rose-500" },
+    { name: "Indigo", class: "bg-indigo-500" },
+    { name: "Violet", class: "bg-violet-500" },
+    { name: "Ardoise", class: "bg-slate-500" },
+    { name: "Orange", class: "bg-orange-500" },
+];
+
 export default function SettingsPage() {
     const { toast } = useToast();
     const { user, updateUser, isLoaded } = useUser();
@@ -175,23 +186,31 @@ export default function SettingsPage() {
                                         className="h-9 text-xs font-bold"
                                     />
                                 </div>
-                                <div className="space-y-1 flex gap-2 items-end">
-                                    <div className="flex-1">
-                                        <Label className="text-[10px] font-black uppercase opacity-50">Couleur (Tailwind bg-*)</Label>
-                                        <div className="flex gap-2">
-                                            <div className={cn("w-9 h-9 rounded-lg shrink-0 border", event.color)} />
-                                            <Input
-                                                value={event.color}
-                                                onChange={(e) => updateEvent({ ...event, color: e.target.value })}
-                                                className="h-9 text-xs font-mono"
+                                <div className="space-y-2 flex-1">
+                                    <Label className="text-[10px] font-black uppercase opacity-50">Couleur d'identification</Label>
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        {availableTimelineColors.map((color) => (
+                                            <button
+                                                key={color.class}
+                                                onClick={() => updateEvent({ ...event, color: color.class })}
+                                                className={cn(
+                                                    "w-8 h-8 rounded-full border-2 transition-all",
+                                                    event.color === color.class
+                                                        ? "border-slate-900 dark:border-white scale-110 shadow-md"
+                                                        : "border-transparent hover:scale-105",
+                                                    color.class
+                                                )}
+                                                title={color.name}
                                             />
-                                        </div>
+                                        ))}
                                     </div>
+                                </div>
+                                <div className="flex items-end pb-1">
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => deleteEvent(event.id)}
-                                        className="h-9 w-9 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                                        className="h-9 w-9 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-full"
                                     >
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
