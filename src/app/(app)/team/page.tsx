@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useTeam, TeamMember } from "@/contexts/TeamContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,6 +26,8 @@ const memberSchema = z.object({
     status: z.enum(["Online", "Away", "Offline"]),
     expertise: z.string().min(1, "Au moins une compétence est requise."),
     avatarUrl: z.string().optional(),
+    email: z.string().email("Veuillez entrer une adresse email valide.").optional().or(z.literal('')),
+    phone: z.string().optional(),
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
@@ -44,8 +47,13 @@ export default function TeamPage() {
             status: "Online",
             expertise: "",
             avatarUrl: "",
+            email: "",
+            phone: "",
         }
     });
+
+    const [certYear, setCertYear] = React.useState("2026");
+    const [certDesc, setCertDesc] = React.useState("Votre organisation est classée Compliance Expert Gold. 100% des modules critiques sont validés.");
 
     const openDialog = (member?: TeamMember) => {
         if (member) {
@@ -53,6 +61,8 @@ export default function TeamPage() {
             form.reset({
                 ...member,
                 expertise: member.expertise.join(", "),
+                email: member.email || "",
+                phone: member.phone || "",
             });
         } else {
             setEditingMember(null);
@@ -63,6 +73,8 @@ export default function TeamPage() {
                 status: "Online",
                 expertise: "",
                 avatarUrl: "",
+                email: "",
+                phone: "",
             });
         }
         setIsDialogOpen(true);
@@ -170,12 +182,20 @@ export default function TeamPage() {
                                 </div>
 
                                 <div className="flex gap-2 pt-2">
-                                    <Button variant="outline" size="icon" className="flex-1 h-10 rounded-xl border-slate-100 dark:border-slate-800 hover:bg-primary hover:text-white transition-all">
-                                        <Mail className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="outline" size="icon" className="flex-1 h-10 rounded-xl border-slate-100 dark:border-slate-800 hover:bg-primary hover:text-white transition-all">
-                                        <Phone className="h-4 w-4" />
-                                    </Button>
+                                    {member.email && (
+                                        <Button asChild variant="outline" size="icon" className="flex-1 h-10 rounded-xl border-slate-100 dark:border-slate-800 hover:bg-primary hover:text-white transition-all">
+                                            <a href={`mailto:${member.email}`}>
+                                                <Mail className="h-4 w-4" />
+                                            </a>
+                                        </Button>
+                                    )}
+                                    {member.phone && (
+                                        <Button asChild variant="outline" size="icon" className="flex-1 h-10 rounded-xl border-slate-100 dark:border-slate-800 hover:bg-primary hover:text-white transition-all">
+                                            <a href={`tel:${member.phone}`}>
+                                                <Phone className="h-4 w-4" />
+                                            </a>
+                                        </Button>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
@@ -206,13 +226,49 @@ export default function TeamPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="rounded-[2.5rem] border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-2xl p-10 flex flex-col justify-between">
+                <Card className="rounded-[2.5rem] border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-2xl p-10 flex flex-col justify-between group/cert relative">
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="absolute top-6 right-6 h-10 w-10 rounded-xl opacity-0 group-hover/cert:opacity-100 transition-opacity bg-slate-50 dark:bg-slate-800">
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="rounded-[2rem] p-10 max-w-lg">
+                            <DialogHeader>
+                                <DialogTitle className="text-2xl font-black">Modifier Certification</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase">Titre de Certification</Label>
+                                    <Input
+                                        value={certYear}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCertYear(e.target.value)}
+                                        className="rounded-xl"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase">Description</Label>
+                                    <Textarea
+                                        value={certDesc}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCertDesc(e.target.value)}
+                                        className="rounded-xl min-h-[100px]"
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <DialogClose asChild>
+                                    <Button className="rounded-xl bg-slate-900 text-white font-black uppercase tracking-widest text-[10px]">Valider</Button>
+                                </DialogClose>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
                     <div className="space-y-6">
                         <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 rounded-[2rem] w-fit shadow-inner">
                             <Award className="h-10 w-10" />
                         </div>
-                        <h3 className="text-3xl font-black tracking-tighter italic uppercase">Certification <span className="text-emerald-500">2026</span></h3>
-                        <p className="text-muted-foreground text-sm font-medium leading-relaxed">Votre organisation est classée <strong>Compliance Expert Gold</strong>. 100% des modules critiques sont validés.</p>
+                        <h3 className="text-3xl font-black tracking-tighter italic uppercase">Certification <span className="text-emerald-500">{certYear}</span></h3>
+                        <p className="text-muted-foreground text-sm font-medium leading-relaxed">{certDesc}</p>
                     </div>
                     <div className="space-y-3 mt-10">
                         <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest">
@@ -323,6 +379,23 @@ export default function TeamPage() {
                                             <FormItem className="space-y-1">
                                                 <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">URL Avatar</FormLabel>
                                                 <FormControl><Input {...field} placeholder="https://..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <FormField control={form.control} name="email" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Email professionnel</FormLabel>
+                                                <FormControl><Input {...field} placeholder="expert@compliance.com" className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="phone" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Téléphone</FormLabel>
+                                                <FormControl><Input {...field} placeholder="+33 6..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />

@@ -119,14 +119,15 @@ export default function RegulatoryWatchPage() {
       {/* Premium Header */}
       <div className="relative">
         <div className="absolute -left-20 -top-20 w-80 h-80 bg-primary/20 rounded-full blur-[100px] animate-pulse" />
-        <div className="relative z-10 space-y-3">
-          <Badge variant="outline" className="border-primary/50 text-primary bg-primary/5 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-            Module IA Avancé
+        <div className="relative z-10 space-y-2">
+          <Badge variant="outline" className="border-primary/50 text-primary bg-primary/5 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
+            Intelligence Artificielle
           </Badge>
-          <h1 className="text-5xl font-black font-headline tracking-tighter text-slate-900 dark:text-white uppercase italic">
-            Regulatory <span className="text-primary">Intelligence</span>
+          <h1 className="text-4xl font-extrabold tracking-tight">
+            <span className="text-slate-900 dark:text-white uppercase italic">Intelligence</span>{" "}
+            <span className="text-primary uppercase italic">Réglementaire</span>
           </h1>
-          <p className="text-muted-foreground text-xl max-w-2xl leading-relaxed">
+          <p className="text-slate-500 text-sm max-w-2xl leading-relaxed">
             Propulsez votre veille réglementaire grâce au moteur d'analyse <span className="text-slate-900 dark:text-white font-bold underline decoration-primary underline-offset-4">Deep Insights AI</span>.
           </p>
         </div>

@@ -10,6 +10,8 @@ export interface TeamMember {
     status: "Online" | "Away" | "Offline";
     expertise: string[];
     avatarUrl?: string;
+    email?: string;
+    phone?: string;
 }
 
 const initialTeam: TeamMember[] = [
@@ -20,6 +22,8 @@ const initialTeam: TeamMember[] = [
         specialty: "Stratégie Réglementaire",
         status: "Online",
         expertise: ["Audit", "Anti-Corruption", "Risk Management"],
+        email: "moslem@compliancenav.com",
+        phone: "+33 1 23 45 67 89"
     },
     {
         id: "2",
@@ -28,6 +32,8 @@ const initialTeam: TeamMember[] = [
         specialty: "Protection des Données",
         status: "Online",
         expertise: ["RGPD", "Privacy by Design", "DPO"],
+        email: "sarah@compliancenav.com",
+        phone: "+33 1 23 45 67 90"
     },
     {
         id: "3",
@@ -36,7 +42,8 @@ const initialTeam: TeamMember[] = [
         specialty: "Analyse Sémantique",
         status: "Online",
         expertise: ["Veille 24/7", "Matching de Preuves", "Scoring"],
-        avatarUrl: "/ai-avatar.png"
+        avatarUrl: "/ai-avatar.png",
+        email: "ai@compliancenav.ai"
     },
     {
         id: "4",
@@ -45,6 +52,8 @@ const initialTeam: TeamMember[] = [
         specialty: "Lutte Anti-Blanchiment",
         status: "Away",
         expertise: ["LCB-FT", "Due Diligence", "Sanctions"],
+        email: "karim@compliancenav.com",
+        phone: "+33 1 23 45 67 91"
     }
 ];
 
