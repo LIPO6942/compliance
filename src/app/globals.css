@@ -4,13 +4,15 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%; /* Sophisticated off-white/gray */
+    --background: 210 20% 96%;
+    /* Slightly darker off-white/gray */
     --foreground: 222 47% 11%;
-    --card: 0 0% 100%; 
+    --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%; /* Modern Blue */
+    --primary: 221 83% 53%;
+    /* Modern Blue */
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222 47% 11.2%;
@@ -23,7 +25,8 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 221 83% 53%;
-    --radius: 1rem; /* More rounded for modern look */
+    --radius: 1rem;
+    /* More rounded for modern look */
 
     /* Sidebar specific theme */
     --sidebar-background: 210 20% 98%;
@@ -43,19 +46,23 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 231 48% 60%; /* Lighter Deep Blue for dark mode */
+    --primary: 231 48% 60%;
+    /* Lighter Deep Blue for dark mode */
     --primary-foreground: 0 0% 9%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
-    --accent: 180 100% 35%; /* Brighter Teal for dark mode */
+    --accent: 180 100% 35%;
+    /* Brighter Teal for dark mode */
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 70% 45%; /* Adjusted destructive for dark mode */
+    --destructive: 0 70% 45%;
+    /* Adjusted destructive for dark mode */
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 231 48% 60%; /* Lighter Deep Blue for ring */
+    --ring: 231 48% 60%;
+    /* Lighter Deep Blue for ring */
     --chart-1: 25 85% 60%;
     --chart-2: 180 100% 40%;
     --chart-3: 210 50% 60%;
@@ -63,12 +70,18 @@
     --chart-5: 30 90% 70%;
 
     /* Dark Sidebar specific theme */
-    --sidebar-background: 240 6% 10%; /* Dark Charcoal */
-    --sidebar-foreground: 0 0% 95%; /* Light Gray text */
-    --sidebar-primary: 231 48% 60%; /* Lighter Deep Blue */
-    --sidebar-primary-foreground: 0 0% 9%; /* Dark text for primary bg */
-    --sidebar-accent: 240 4% 18%; /* Darker hover for sidebar items */
-    --sidebar-accent-foreground: 231 48% 70%; /* Lighter Deep Blue text on hover/active */
+    --sidebar-background: 240 6% 10%;
+    /* Dark Charcoal */
+    --sidebar-foreground: 0 0% 95%;
+    /* Light Gray text */
+    --sidebar-primary: 231 48% 60%;
+    /* Lighter Deep Blue */
+    --sidebar-primary-foreground: 0 0% 9%;
+    /* Dark text for primary bg */
+    --sidebar-accent: 240 4% 18%;
+    /* Darker hover for sidebar items */
+    --sidebar-accent-foreground: 231 48% 70%;
+    /* Lighter Deep Blue text on hover/active */
     --sidebar-border: 240 3.7% 20%;
     --sidebar-ring: 231 48% 60%;
   }
@@ -78,6 +91,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
