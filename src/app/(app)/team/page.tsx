@@ -388,14 +388,14 @@ export default function TeamPage() {
                                         <FormField control={form.control} name="email" render={({ field }) => (
                                             <FormItem className="space-y-1">
                                                 <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Email professionnel</FormLabel>
-                                                <FormControl><Input {...field} placeholder="expert@compliance.com" className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormControl><Input {...field} placeholder="prenom.nom@mae.tn" className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
                                         <FormField control={form.control} name="phone" render={({ field }) => (
                                             <FormItem className="space-y-1">
                                                 <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Téléphone</FormLabel>
-                                                <FormControl><Input {...field} placeholder="+33 6..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormControl><Input {...field} placeholder="55 555 555" className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
