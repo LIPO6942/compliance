@@ -14,21 +14,21 @@ import Parser from 'rss-parser';
 
 
 const ComplianceNewsOutputSchema = z.array(
-  z.object({
-    id: z.string().describe("Un identifiant unique pour l'actualité."),
-    title: z.string().describe("Le titre de l'article de presse."),
-    date: z.string().describe("La date de publication au format AAAA-MM-JJ."),
-    source: z.enum(["NewsAPI", "GNews", "MarketAux", "Google News", "CGA", "JORT", "GAFI", "OFAC", "UE", "Autre"]).describe("La source de l'information."),
-    description: z.string().describe("Une courte description (1-2 phrases) de l'actualité."),
-    url: z.string().url().optional().describe("L'URL vers l'article complet, si disponible."),
-    imageUrl: z.string().url().optional().describe("L'URL d'une image pour l'article."),
-  })
+    z.object({
+        id: z.string().describe("Un identifiant unique pour l'actualité."),
+        title: z.string().describe("Le titre de l'article de presse."),
+        date: z.string().describe("La date de publication au format AAAA-MM-JJ."),
+        source: z.enum(["NewsAPI", "GNews", "MarketAux", "Google News", "CGA", "JORT", "GAFI", "OFAC", "UE", "Autre"]).describe("La source de l'information."),
+        description: z.string().describe("Une courte description (1-2 phrases) de l'actualité."),
+        url: z.string().url().optional().describe("L'URL vers l'article complet, si disponible."),
+        imageUrl: z.string().url().optional().describe("L'URL d'une image pour l'article."),
+    })
 ).describe("Une liste d'articles d'actualité sur la conformité.");
 
 export type ComplianceNewsOutput = z.infer<typeof ComplianceNewsOutputSchema>;
 
 export async function fetchComplianceNews(): Promise<ComplianceNewsOutput> {
-  return fetchComplianceNewsFlow();
+    return fetchComplianceNewsFlow();
 }
 
 // Fetcher for NewsAPI.org
@@ -37,9 +37,9 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
     if (!NEWS_API_KEY) return [];
 
     try {
-        const query = encodeURIComponent('"conformité financière" OR "réglementation financière" OR "LAB-FT"');
+        const query = encodeURIComponent('"conformité" OR "LCB-FT" OR "anti-corruption" OR "RGPD" OR "audit" OR "risques financiers"');
         const url = `https://newsapi.org/v2/everything?q=${query}&language=fr&sortBy=publishedAt&pageSize=20&apiKey=${NEWS_API_KEY}`;
-        
+
         const response = await fetch(url);
         if (!response.ok) return [];
 
@@ -70,14 +70,14 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
 const fetchFromGNews = async (): Promise<NewsItem[]> => {
     const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
     if (!GNEWS_API_KEY) return [];
-    
+
     try {
-        const query = encodeURIComponent('"conformité financière" OR "réglementation financière" OR "LAB-FT"');
+        const query = encodeURIComponent('"conformité réglementaire" OR "LCB-FT" OR "protection des données" OR "Gouvernance GRC"');
         const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&topic=business&max=20&apikey=${GNEWS_API_KEY}`;
-        
+
         const response = await fetch(url);
         if (!response.ok) return [];
-        
+
         const newsData = await response.json() as { articles?: any[] };
         if (!newsData.articles) return [];
 
@@ -107,7 +107,7 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
     if (!MARKETAUX_API_KEY) return [];
 
     try {
-        const query = encodeURIComponent('("compliance" OR "regulation" OR "LAB-FT") AND (finance OR insurance)');
+        const query = encodeURIComponent('("compliance" OR "regulatory" OR "AML-CFT" OR "Anti-Bribery") AND (finance OR insurance)');
         const url = `https://api.marketaux.com/v1/news/all?search=${query}&language=fr&limit=20&api_token=${MARKETAUX_API_KEY}`;
 
         const response = await fetch(url);
@@ -140,7 +140,7 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
 const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
     try {
         const parser = new Parser();
-        const query = encodeURIComponent('"Conformité" OR "assurance" OR "LAB/FT" OR "Gafi" OR "LCB-FT" OR "Bénéficiaire effectif" OR "juridoc" OR "CTAF" OR "CNLCT" OR "lutte anti blanchiment"');
+        const query = encodeURIComponent('"Conformité" OR "LCB-FT" OR "RGPD" OR "Lutte contre la corruption" OR "Gouvernance d\'entreprise" OR "Contrôle interne" OR "Audit de conformité"');
         const url = `https://news.google.com/rss/search?q=${query}&hl=fr&gl=FR&ceid=FR:fr`;
 
         const feed = await parser.parseURL(url);
@@ -156,7 +156,7 @@ const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
                 source: 'Google News',
                 description: item.contentSnippet || 'Aucune description disponible.',
                 url: item.link,
-                imageUrl: undefined, 
+                imageUrl: undefined,
             };
         }).filter((item: NewsItem | null): item is NewsItem => item !== null);
 
@@ -166,35 +166,35 @@ const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
     }
 };
 async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
-  const allNewsPromises = [
-    fetchFromNewsAPI(),
-    fetchFromGNews(),
-    fetchFromMarketAux(),
-    fetchFromGoogleNewsRSS(),
-  ];
-  const results = await Promise.allSettled(allNewsPromises);
+    const allNewsPromises = [
+        fetchFromNewsAPI(),
+        fetchFromGNews(),
+        fetchFromMarketAux(),
+        fetchFromGoogleNewsRSS(),
+    ];
+    const results = await Promise.allSettled(allNewsPromises);
 
-  let allNews: NewsItem[] = [];
-  results.forEach((result) => {
-    if (result.status === 'fulfilled' && Array.isArray(result.value)) {
-      allNews.push(...result.value);
+    let allNews: NewsItem[] = [];
+    results.forEach((result) => {
+        if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+            allNews.push(...result.value);
+        }
+    });
+
+    console.log(`[NEWS FLOW] Total d'articles reçus de toutes les sources: ${allNews.length}.`);
+
+    const uniqueNewsByUrl = new Map<string, NewsItem>();
+    for (const item of allNews) {
+        if (item.url && !uniqueNewsByUrl.has(item.url)) {
+            uniqueNewsByUrl.set(item.url, item);
+        }
     }
-  });
+    const uniqueNews = Array.from(uniqueNewsByUrl.values());
 
-  console.log(`[NEWS FLOW] Total d'articles reçus de toutes les sources: ${allNews.length}.`);
+    console.log(`[NEWS FLOW] Total d'articles uniques (après déduplication par URL): ${uniqueNews.length}.`);
 
-  const uniqueNewsByUrl = new Map<string, NewsItem>();
-  for (const item of allNews) {
-    if (item.url && !uniqueNewsByUrl.has(item.url)) {
-      uniqueNewsByUrl.set(item.url, item);
-    }
-  }
-  const uniqueNews = Array.from(uniqueNewsByUrl.values());
+    uniqueNews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  console.log(`[NEWS FLOW] Total d'articles uniques (après déduplication par URL): ${uniqueNews.length}.`);
-
-  uniqueNews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  // Increase the final slice to have a larger pool of recent articles
-  return ComplianceNewsOutputSchema.parse(uniqueNews.slice(0, 15));
+    // Increase the final slice to have a larger pool of recent articles
+    return ComplianceNewsOutputSchema.parse(uniqueNews.slice(0, 15));
 }

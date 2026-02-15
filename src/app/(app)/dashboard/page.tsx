@@ -4,7 +4,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck } from "lucide-react";
+import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck, BrainCircuit } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
@@ -19,6 +19,8 @@ import { fr } from "date-fns/locale";
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import { useTimeline } from "@/contexts/TimelineContext";
 
 const complianceStatusBaseColors = {
   conforme: "#10b981", // emerald-500
@@ -33,6 +35,7 @@ export default function DashboardPage() {
   const { identifiedRegulations } = useIdentifiedRegulations();
   const { risks } = useRiskMapping();
   const { news, loading: newsLoading, refetchNews } = useNews();
+  const { events: timelineEvents } = useTimeline();
   const [isLoading, setIsLoading] = React.useState(true);
   const router = useRouter();
 
@@ -166,26 +169,24 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* AI Insight Banner - Creative Addition */}
-        <div className="relative overflow-hidden rounded-[2rem] bg-indigo-600 p-8 text-white shadow-2xl shadow-indigo-500/20 group">
-          <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-white/10 to-transparent pointer-events-none" />
-          <div className="absolute -left-10 -bottom-10 h-32 w-32 bg-indigo-400/20 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-            <div className="p-5 bg-white/10 backdrop-blur-xl rounded-[2rem] border border-white/20 group-hover:scale-110 transition-transform duration-500">
-              <Lightbulb className="h-10 w-10 text-amber-300 fill-amber-300/20" />
+        {/* Regulatory Timeline - Connected to State */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {timelineEvents.map((event, i) => (
+            <div key={i} className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 shadow-lg hover:shadow-xl transition-all">
+              <div className={cn("absolute top-0 right-0 w-16 h-16 opacity-10 rounded-bl-[4rem]", event.color)} />
+              <div className="flex items-center gap-4 relative z-10">
+                <div className={cn("flex flex-col items-center justify-center min-w-[60px] h-[60px] rounded-2xl text-white font-black", event.color)}>
+                  <span className="text-[10px] opacity-70 leading-none">{event.date.split(' ')[1]}</span>
+                  <span className="text-lg">{event.date.split(' ')[0]}</span>
+                </div>
+                <div className="space-y-0.5">
+                  <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest py-0 border-slate-200">{event.category}</Badge>
+                  <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase italic truncate">{event.title}</h4>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Échéance critique</p>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2 flex-1 text-center md:text-left">
-              <Badge className="bg-white/20 hover:bg-white/30 text-white border-none text-[10px] font-black uppercase tracking-widest mb-2 px-3">Conseil IA du Jour</Badge>
-              <h3 className="text-2xl font-black font-headline tracking-tighter uppercase italic">Optimisation du Vault</h3>
-              <p className="text-indigo-100/80 text-sm font-medium leading-relaxed max-w-3xl lowercase">
-                L'ANALYSE SÉMANTIQUE DÉTECTE UNE CONCENTRATION DE DOCUMENTS OBSOLÈTES DANS LE PÔLE "RGPD". UN NETTOYAGE DES PREUVES DE PLUS DE 2 ANS AMÉLIORERAIT VOTRE SCORE DE CONFORMITÉ DE <span className="text-white font-bold text-lg">+12%</span>.
-              </p>
-            </div>
-            <Button className="bg-white text-indigo-600 hover:bg-indigo-50 font-black uppercase tracking-widest text-[10px] h-12 px-8 rounded-xl shadow-xl">
-              Lancer le Nettoyage
-            </Button>
-          </div>
+          ))}
         </div>
 
         {/* Main Grid */}
@@ -282,29 +283,37 @@ export default function DashboardPage() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Card className="rounded-[2rem] border-none bg-gradient-to-br from-slate-900 to-indigo-950 p-6 text-white overflow-hidden relative group">
-                  <div className="absolute right-2 top-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Target className="h-24 w-24" />
+                <Card className="rounded-[2.5rem] border-none bg-indigo-600 text-white p-6 overflow-hidden relative group">
+                  <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-700">
+                    <BrainCircuit className="h-28 w-28" />
                   </div>
-                  <div className="space-y-4 relative z-10">
+                  <CardHeader className="p-0 pb-4">
                     <div className="flex items-center gap-2">
-                      <Target className="h-4 w-4 text-emerald-400" />
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Objectif Annuel</span>
+                      <BrainCircuit className="h-5 w-5 text-indigo-200" />
+                      <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-200">Culture GRC</CardTitle>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-3xl font-black font-headline tracking-tighter italic text-emerald-400">95%</p>
-                      <p className="text-xs font-medium text-slate-400">Cible de validation Q4 2026</p>
+                  </CardHeader>
+                  <CardContent className="p-0 space-y-4">
+                    <div className="flex items-baseline justify-between">
+                      <p className="text-4xl font-black italic tracking-tighter">A-</p>
+                      <Badge className="bg-emerald-500 text-[8px] font-black uppercase">Excellence</Badge>
                     </div>
-                    <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 w-[60%] transition-all duration-1000 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                    <p className="text-[10px] font-medium leading-relaxed opacity-80 uppercase italic">Niveau d'engagement des collaborateurs : <strong>Très élevé</strong>. 88% des formations terminées.</p>
+                    <div className="pt-2">
+                      <div className="flex justify-between text-[8px] font-black uppercase mb-1 opacity-60">
+                        <span>Score de Sensibilisation</span>
+                        <span>88%</span>
+                      </div>
+                      <div className="h-1 bg-white/20 rounded-full">
+                        <div className="h-full bg-white w-[88%] shadow-[0_0_8px_white]" />
+                      </div>
                     </div>
-                    <p className="text-[9px] font-black uppercase text-center text-slate-500 tracking-widest">+15% vs mois dernier</p>
-                  </div>
+                  </CardContent>
                 </Card>
               </TooltipTrigger>
               <TooltipContent side="right">
-                <p className="font-bold mb-1">Objectifs Stratégiques</p>
-                <p className="text-xs">Progression vers la certification Gold 2027.</p>
+                <p className="font-bold mb-1">Indice de Culture Conformité</p>
+                <p className="text-xs">Mesure l'adhésion et la formation du capital humain.</p>
               </TooltipContent>
             </Tooltip>
           </div>

@@ -11,6 +11,7 @@ import { KeywordsProvider } from "@/contexts/KeywordsContext";
 import { DocumentTypesProvider } from "@/contexts/DocumentTypesContext";
 import { NewsProvider } from "@/contexts/NewsContext";
 import { TeamProvider } from "@/contexts/TeamContext";
+import { TimelineProvider } from "@/contexts/TimelineContext";
 
 export default function ApplicationGroupLayout({
   children,
@@ -29,7 +30,9 @@ export default function ApplicationGroupLayout({
                     <KeywordsProvider>
                       <NewsProvider>
                         <TeamProvider>
-                          <AppLayout>{children}</AppLayout>
+                          <TimelineProvider>
+                            <AppLayout>{children}</AppLayout>
+                          </TimelineProvider>
                         </TeamProvider>
                       </NewsProvider>
                     </KeywordsProvider>
