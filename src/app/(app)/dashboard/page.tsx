@@ -4,7 +4,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck, BrainCircuit } from "lucide-react";
+import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { Logo } from "@/components/icons/Logo";
 import { useNews } from "@/contexts/NewsContext";
 import { Badge } from "@/components/ui/badge";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInDays, isBefore, startOfDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -35,7 +35,7 @@ export default function DashboardPage() {
   const { identifiedRegulations } = useIdentifiedRegulations();
   const { risks } = useRiskMapping();
   const { news, loading: newsLoading, refetchNews } = useNews();
-  const { events: timelineEvents } = useTimeline();
+  const { events: timelineEvents, toggleValidation } = useTimeline();
   const [isLoading, setIsLoading] = React.useState(true);
   const router = useRouter();
 
@@ -169,24 +169,80 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Regulatory Timeline - Connected to State */}
+        {/* Regulatory Timeline - Interactive with Alerts */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {timelineEvents.map((event, i) => (
-            <div key={i} className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 shadow-lg hover:shadow-xl transition-all">
-              <div className={cn("absolute top-0 right-0 w-16 h-16 opacity-10 rounded-bl-[4rem]", event.color)} />
-              <div className="flex items-center gap-4 relative z-10">
-                <div className={cn("flex flex-col items-center justify-center min-w-[60px] h-[60px] rounded-2xl text-white font-black", event.color)}>
-                  <span className="text-[10px] opacity-70 leading-none">{event.date.split(' ')[1]}</span>
-                  <span className="text-lg">{event.date.split(' ')[0]}</span>
+          {timelineEvents
+            .filter(event => {
+              const eventDate = parseISO(event.date);
+              return !isBefore(eventDate, startOfDay(new Date()));
+            })
+            .map((event, i) => {
+              const eventDate = parseISO(event.date);
+              const daysLeft = differenceInDays(eventDate, startOfDay(new Date()));
+              const isUrgent = daysLeft <= 3 && !event.validated;
+
+              return (
+                <div
+                  key={event.id}
+                  className={cn(
+                    "group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 shadow-lg transition-all",
+                    isUrgent ? "animate-blink-urgent shadow-rose-500/10" : "hover:shadow-xl hover:-translate-y-1"
+                  )}
+                >
+                  <div className={cn("absolute top-0 right-0 w-16 h-16 opacity-10 rounded-bl-[4rem]", event.color)} />
+
+                  <div className="flex items-center gap-4 relative z-10">
+                    <div className={cn(
+                      "flex flex-col items-center justify-center min-w-[60px] h-[60px] rounded-2xl text-white font-black transition-transform group-hover:scale-105",
+                      event.validated ? "bg-emerald-500 shadow-emerald-500/20" : event.color
+                    )}>
+                      {event.validated ? (
+                        <CheckCircle2 className="h-6 w-6" />
+                      ) : (
+                        <>
+                          <span className="text-[10px] opacity-70 leading-none uppercase">{format(eventDate, "MMM", { locale: fr })}</span>
+                          <span className="text-lg">{format(eventDate, "dd")}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="space-y-0.5 flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className={cn(
+                          "text-[8px] font-black uppercase tracking-widest py-0",
+                          isUrgent ? "bg-rose-50 text-rose-600 border-rose-200" : "border-slate-200"
+                        )}>
+                          {event.category}
+                        </Badge>
+                        <button
+                          onClick={() => toggleValidation(event.id)}
+                          className={cn(
+                            "p-1.5 rounded-full transition-all",
+                            event.validated
+                              ? "bg-emerald-500 text-white"
+                              : "bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
+                          )}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <h4 className={cn(
+                        "text-sm font-black uppercase italic truncate",
+                        event.validated ? "text-slate-400 line-through" : "text-slate-800 dark:text-slate-100"
+                      )}>{event.title}</h4>
+                      <div className="flex items-center gap-1">
+                        {isUrgent && <AlertCircle className="h-3 w-3 text-rose-500 animate-pulse" />}
+                        <p className={cn(
+                          "text-[10px] font-bold uppercase tracking-tighter",
+                          isUrgent ? "text-rose-500" : "text-slate-400"
+                        )}>
+                          {event.validated ? "Complété" : (isUrgent ? "Urgence : < 3 jours" : "Échéance critique")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-0.5">
-                  <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest py-0 border-slate-200">{event.category}</Badge>
-                  <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase italic truncate">{event.title}</h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Échéance critique</p>
-                </div>
-              </div>
-            </div>
-          ))}
+              )
+            })}
         </div>
 
         {/* Main Grid */}

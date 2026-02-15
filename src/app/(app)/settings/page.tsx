@@ -163,8 +163,9 @@ export default function SettingsPage() {
                         {events.map((event) => (
                             <div key={event.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-xl border bg-slate-50/50 dark:bg-slate-900/50 relative group">
                                 <div className="space-y-1">
-                                    <Label className="text-[10px] font-black uppercase opacity-50">Date</Label>
+                                    <Label className="text-[10px] font-black uppercase opacity-50">Échéance</Label>
                                     <Input
+                                        type="date"
                                         value={event.date}
                                         onChange={(e) => updateEvent({ ...event, date: e.target.value })}
                                         className="h-9 text-xs font-bold"

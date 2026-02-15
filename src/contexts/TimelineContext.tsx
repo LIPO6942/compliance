@@ -8,19 +8,21 @@ export interface TimelineEvent {
     title: string;
     category: string;
     color: string;
+    validated?: boolean;
 }
 
 interface TimelineContextType {
     events: TimelineEvent[];
     updateEvent: (updatedEvent: TimelineEvent) => void;
-    addEvent: (event: Omit<TimelineEvent, 'id'>) => void;
+    addEvent: (event: Omit<TimelineEvent, 'id' | 'validated'>) => void;
     deleteEvent: (id: string) => void;
+    toggleValidation: (id: string) => void;
 }
 
 const defaultEvents: TimelineEvent[] = [
-    { id: '1', date: "15 MAR", title: "Rapport Annuel LCB-FT", category: "Réglementaire", color: "bg-blue-500" },
-    { id: '2', date: "01 JUIN", title: "Audit ISO 37301", category: "Certification", color: "bg-emerald-500" },
-    { id: '3', date: "12 OCT", title: "Revue Due Diligence", category: "Tiers", color: "bg-amber-500" }
+    { id: '1', date: "2026-03-15", title: "Rapport Annuel LCB-FT", category: "Réglementaire", color: "bg-blue-500", validated: false },
+    { id: '2', date: "2026-06-01", title: "Audit ISO 37301", category: "Certification", color: "bg-emerald-500", validated: false },
+    { id: '3', date: "2026-10-12", title: "Revue Due Diligence", category: "Tiers", color: "bg-amber-500", validated: false }
 ];
 
 const TimelineContext = createContext<TimelineContextType | undefined>(undefined);
@@ -41,8 +43,12 @@ export const TimelineProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setEvents(prev => prev.filter(e => e.id !== id));
     };
 
+    const toggleValidation = (id: string) => {
+        setEvents(prev => prev.map(e => e.id === id ? { ...e, validated: !e.validated } : e));
+    };
+
     return (
-        <TimelineContext.Provider value={{ events, updateEvent, addEvent, deleteEvent }}>
+        <TimelineContext.Provider value={{ events, updateEvent, addEvent, deleteEvent, toggleValidation }}>
             {children}
         </TimelineContext.Provider>
     );
