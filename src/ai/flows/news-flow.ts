@@ -37,7 +37,7 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
     if (!NEWS_API_KEY) return [];
 
     try {
-        const query = encodeURIComponent('"conformité" OR "LCB-FT" OR "anti-corruption" OR "RGPD" OR "audit" OR "risques financiers"');
+        const query = encodeURIComponent('"conformité GRC" OR "compliance LCB-FT" OR "lutte contre le blanchiment" OR "Sapin II" OR "anti-corruption"');
         const url = `https://newsapi.org/v2/everything?q=${query}&language=fr&sortBy=publishedAt&pageSize=20&apiKey=${NEWS_API_KEY}`;
 
         const response = await fetch(url);
@@ -72,7 +72,7 @@ const fetchFromGNews = async (): Promise<NewsItem[]> => {
     if (!GNEWS_API_KEY) return [];
 
     try {
-        const query = encodeURIComponent('"conformité réglementaire" OR "LCB-FT" OR "protection des données" OR "Gouvernance GRC"');
+        const query = encodeURIComponent('"conformité réglementaire" OR "LCB-FT Tunisie" OR "GAFI" OR "déontologie financière"');
         const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&topic=business&max=20&apikey=${GNEWS_API_KEY}`;
 
         const response = await fetch(url);
@@ -140,7 +140,7 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
 const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
     try {
         const parser = new Parser();
-        const query = encodeURIComponent('"Conformité" OR "LCB-FT" OR "RGPD" OR "Lutte contre la corruption" OR "Gouvernance d\'entreprise" OR "Contrôle interne" OR "Audit de conformité"');
+        const query = encodeURIComponent('"Conformité MAE" OR "LCB-FT Tunisie" OR "Gouvernance et Conformité" OR "Contrôle interne GRC" OR "Audit de conformité bancaire"');
         const url = `https://news.google.com/rss/search?q=${query}&hl=fr&gl=FR&ceid=FR:fr`;
 
         const feed = await parser.parseURL(url);

@@ -484,7 +484,7 @@ export default function DashboardPage() {
               <TooltipTrigger asChild>
                 <Card
                   className="shadow-xl overflow-hidden border-none bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 cursor-pointer hover:shadow-primary/10 transition-all"
-                  onClick={() => handleCardClick('/news')}
+                  onClick={() => handleCardClick('/regulatory-watch')}
                 >
                   <CardHeader className="pb-3 border-b border-primary/5">
                     <div className="flex justify-between items-center">
@@ -511,7 +511,10 @@ export default function DashboardPage() {
                         <p className="text-[12px] font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors">{item.title}</p>
                       </div>
                     ))}
-                    <div className="flex items-center text-[10px] font-black uppercase p-0 h-auto tracking-widest text-primary/70 group pointer-events-none">
+                    <div
+                      onClick={() => router.push('/regulatory-watch')}
+                      className="flex items-center text-[10px] font-black uppercase p-0 h-auto tracking-widest text-primary/70 group cursor-pointer hover:text-primary transition-colors"
+                    >
                       Flux complet <ArrowRight className="ml-1 h-3 w-3 group-hover:translate-x-1 transition-transform" />
                     </div>
                   </CardContent>
