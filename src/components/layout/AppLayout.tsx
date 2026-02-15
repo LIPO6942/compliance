@@ -20,6 +20,7 @@ import {
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Logo } from "@/components/icons/Logo";
 import {
@@ -96,7 +97,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider defaultOpen={!isMobile} open={isMobile ? false : undefined}>
-      <Sidebar collapsible="icon" side="left" variant="sidebar">
+      <Sidebar collapsible="icon" side="left" variant="sidebar" className="border-r border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl">
         <SidebarHeader className="p-4 border-b border-sidebar-border">
           <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
             <Logo className="h-8 w-8" />
@@ -113,21 +114,33 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <Link href={item.href}>
                     <SidebarMenuButton
                       isActive={pathname.startsWith(item.href)}
-                      tooltip={{ children: item.label, className: "font-body" }}
-                      className="font-body"
+                      tooltip={{ children: item.label, className: "font-black uppercase tracking-widest text-[10px]" }}
+                      className={cn(
+                        "h-12 rounded-xl transition-all duration-300 px-4 group/btn",
+                        pathname.startsWith(item.href)
+                          ? "bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-950 shadow-lg shadow-slate-900/10 dark:shadow-slate-50/10"
+                          : "hover:bg-slate-100 dark:hover:bg-slate-800/50"
+                      )}
                     >
-                      <item.icon />
-                      <span>{item.label}</span>
+                      <item.icon className={cn(
+                        "h-5 w-5 transition-transform group-hover/btn:scale-110",
+                        pathname.startsWith(item.href) ? "text-primary" : "text-slate-400"
+                      )} />
+                      <span className="font-extrabold text-[11px] uppercase tracking-tighter italic">
+                        {item.label}
+                      </span>
                     </SidebarMenuButton>
                   </Link>
                   {item.subItems && (
                     <SidebarMenuSub>
                       {item.subItems.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.href}>
-                          <SidebarMenuSubButton asChild>
-                            <Link href={subItem.href}>
-                              <subItem.icon />
-                              <span>{subItem.label}</span>
+                          <SidebarMenuSubButton asChild className="h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/50 group/sub">
+                            <Link href={subItem.href} className="flex items-center gap-3">
+                              <subItem.icon className="h-4 w-4 text-slate-400 group-hover/sub:text-primary transition-colors" />
+                              <span className="font-bold text-[10px] uppercase tracking-tight text-slate-500 group-hover/sub:text-slate-900 dark:group-hover/sub:text-slate-100 transition-colors">
+                                {subItem.label}
+                              </span>
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
@@ -188,7 +201,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         )}
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-white/50 dark:bg-slate-900/50 backdrop-blur-md px-4 sm:px-6 md:px-8 border-slate-200/60 dark:border-slate-800/60">
           <div className="flex items-center gap-4">
-            <SidebarTrigger className="md:hidden" />
+            <SidebarTrigger className="hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all" />
             <div className="flex flex-col">
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 leading-none mb-1">Gouvernance & Conformité</span>
               <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">
