@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
 import { analyzeEcosystemImage } from '@/lib/ecosystemAI';
 import { EcosystemMap } from '@/types/compliance';
-import { toast } from '@/components/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 interface EcosystemUploadProps {
     onValidated: (map: Omit<EcosystemMap, 'id' | 'createdAt' | 'updatedAt'>) => void;
