@@ -195,7 +195,7 @@ export interface WorkflowVersion {
   createdBy?: string;
 }
 
-export type WorkflowDomain = 'Conformité' | 'Commercial' | 'Sinistre' | 'Technique' | 'Autre';
+export type WorkflowDomain = 'Conformité' | 'Commercial' | 'Sinistre' | 'Technique';
 
 export interface MermaidWorkflow {
   id: string;

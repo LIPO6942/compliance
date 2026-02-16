@@ -44,7 +44,7 @@ export default function WorkflowEditorPage() {
     const [activeWorkflow, setActiveWorkflow] = useState<MermaidWorkflow | null>(null);
     const [isMonacoReady, setIsMonacoReady] = useState(false);
 
-    const domains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique', 'Autre'];
+    const domains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique'];
 
     const {
         workflowTasks,

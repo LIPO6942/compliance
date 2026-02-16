@@ -21,7 +21,7 @@ export default function NewWorkflowPage() {
     const [workflowId, setWorkflowId] = useState('');
     const [domain, setDomain] = useState<WorkflowDomain>('Conformité');
 
-    const domains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique', 'Autre'];
+    const domains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique'];
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

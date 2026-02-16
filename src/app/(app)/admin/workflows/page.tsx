@@ -152,23 +152,26 @@ export default function AdminWorkflowsPage() {
             'Conformité': [],
             'Commercial': [],
             'Sinistre': [],
-            'Technique': [],
-            'Autre': []
+            'Technique': []
         };
 
         (workflows.length > 0 ? workflows : defaultWorkflows).forEach(w => {
-            const domain = w.domain && sensitiveDomains.includes(w.domain) ? w.domain : 'Autre';
+            // Si le domaine est valide, on l'utilise. Sinon, on met dans "Conformité" par défaut.
+            // On considère aussi 'Autre' comme devant aller dans 'Conformité' maintenant.
+            const domain = w.domain && sensitiveDomains.includes(w.domain) ? w.domain : 'Conformité';
+
             if (grouped[domain]) {
                 grouped[domain].push(w);
             } else {
-                grouped['Autre'].push(w);
+                // Should not happen based on logic above, but fallback
+                grouped['Conformité'].push(w);
             }
         });
 
         return grouped;
     }, [workflows]);
 
-    const domains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique', 'Autre'];
+    const domains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique'];
 
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-8">
