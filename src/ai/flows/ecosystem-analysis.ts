@@ -29,29 +29,34 @@ export async function analyzeEcosystemImageFlow(base64Image: string): Promise<Om
         throw new Error('GROQ_API_KEY is not configured');
     }
 
-    const model = 'llama-3.2-11b-vision-preview';
+    const model = 'llama-3.2-90b-vision-preview';
 
     const prompt = `
     Tu es un expert en conformité et gestion des risques. 
-    Analyse l'image fournie qui représente une cartographie des acteurs, un écosystème ou un organigramme lié à la conformité (LBA/FT, GRC, etc.).
+    Analyse cette image qui représente une cartographie des acteurs ou un organigramme (LBA/FT, GRC).
     
-    Extrais la structure sous forme de nœuds et de liens (edges).
+    Ta mission est de TRANSCRIRE FIDÈLEMENT le contenu de l'image en une structure de nœuds et de liens.
     
-    Pour chaque nœud :
-    - id : un identifiant unique court (ex: 'cga', 'banque', 'ministere')
-    - label : le nom complet du texte dans l'image
-    - type : 'authority' (pour les régulateurs/autorités), 'entity' (pour les entreprises/banques), 'judicial' (procureur, tribunaux), 'service' (conseils, prestataires), ou 'other'.
-    - position : estime des coordonnées x et y (entre 0 et 800) pour reproduire la disposition visuelle de l'image.
+    Règles d'extraction :
+    1. Lis TOUT le texte visible dans les boîtes/formes.
+    2. Identifie les flèches et les relations entre les boîtes.
+    3. Estime la position relative (x, y) pour garder la même mise en page.
+    
+    Pour chaque nœud (node) :
+    - id : un identifiant unique (ex: 'node1', 'node2')
+    - label : le texte EXACT contenu dans la boîte
+    - type : 'authority' (régulateur), 'entity' (assujetti), 'judicial' (justice), 'service' (tiers), ou 'other'.
+    - position : { x: number, y: number } (échelle approx 0-800)
     
     Pour chaque lien (edge) :
-    - id : un identifiant unique (ex: 'e1', 'e2')
-    - source : l'id du nœud source
-    - target : l'id du nœud cible
-    - label : le texte sur la flèche ou la nature de la relation (ex: 'Rapports', 'Contrôle', 'Signalement').
+    - id : unique (ex: 'edge1')
+    - source : id du nœud de départ
+    - target : id du nœud d'arrivée
+    - label : texte sur la flèche (si présent)
     
-    Réponds EXCLUSIVEMENT au format JSON valide selon cette structure :
+    Réponds UNIQUEMENT avec ce JSON valide :
     {
-      "name": "Titre de la cartographie",
+      "name": "Titre détecté ou Cartographie",
       "nodes": [...],
       "edges": [...]
     }
