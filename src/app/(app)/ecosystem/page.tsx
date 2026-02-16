@@ -5,13 +5,15 @@ import { useEcosystem } from '@/contexts/EcosystemContext';
 import { EcosystemUpload } from '@/components/ecosystem/EcosystemUpload';
 import { EcosystemEditorWrapper, EcosystemEditorRef } from '@/components/ecosystem/EcosystemEditor';
 import { EcosystemMap } from '@/types/compliance';
-import { Loader2, Share2, Plus, ArrowLeft } from 'lucide-react';
+import { Loader2, Share2, Plus, ArrowLeft, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { toPng } from 'html-to-image';
 
 export default function EcosystemPage() {
     const { ecosystemMap, loading, saveEcosystemMap } = useEcosystem();
     const [draftMap, setDraftMap] = useState<Omit<EcosystemMap, 'id' | 'createdAt' | 'updatedAt'> | null>(null);
     const editorRef = useRef<EcosystemEditorRef>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     if (loading) {
         return (
@@ -43,6 +45,26 @@ export default function EcosystemPage() {
         editorRef.current?.addNode();
     };
 
+    const handleExport = async () => {
+        if (containerRef.current === null) return;
+
+        try {
+            const dataUrl = await toPng(containerRef.current, {
+                backgroundColor: '#f8fafc',
+                cacheBust: true,
+                style: {
+                    borderRadius: '0',
+                }
+            });
+            const link = document.createElement('a');
+            link.download = `ecosystem-${new Date().toISOString().split('T')[0]}.png`;
+            link.href = dataUrl;
+            link.click();
+        } catch (err) {
+            console.error('Export failed:', err);
+        }
+    };
+
     const currentMap = ecosystemMap || draftMap;
 
     return (
@@ -66,8 +88,12 @@ export default function EcosystemPage() {
                             <Plus className="h-4 w-4" />
                             Nouveau Nœud
                         </Button>
-                        <Button variant="outline" className="rounded-xl gap-2 font-bold">
-                            <Share2 className="h-4 w-4" />
+                        <Button
+                            variant="outline"
+                            className="rounded-xl gap-2 font-bold"
+                            onClick={handleExport}
+                        >
+                            <Download className="h-4 w-4" />
                             Exporter
                         </Button>
                     </div>
@@ -97,12 +123,14 @@ export default function EcosystemPage() {
                         </div>
                     )}
 
-                    <EcosystemEditorWrapper
-                        ref={editorRef}
-                        initialNodes={currentMap.nodes}
-                        initialEdges={currentMap.edges}
-                        onSave={handleSaveMap}
-                    />
+                    <div ref={containerRef} className="rounded-3xl overflow-hidden border shadow-sm">
+                        <EcosystemEditorWrapper
+                            ref={editorRef}
+                            initialNodes={currentMap.nodes}
+                            initialEdges={currentMap.edges}
+                            onSave={handleSaveMap}
+                        />
+                    </div>
                 </div>
             )}
         </div>

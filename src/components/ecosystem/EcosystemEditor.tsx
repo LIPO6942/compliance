@@ -30,7 +30,8 @@ import {
     TrendingUp,
     Save,
     History,
-    Info
+    Info,
+    Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -86,8 +87,66 @@ function EcosystemNodeComponent({ data, id }: { data: EcosystemNode & { onUpdate
     );
 }
 
+// Custom Edge Component for labels
+function EcosystemEdgeComponent({
+    id,
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    label,
+    data,
+}: any) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [edgeLabel, setEdgeLabel] = useState(label || '');
+
+    const onLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setEdgeLabel(e.target.value);
+        if (data?.onUpdateEdgeLabel) {
+            data.onUpdateEdgeLabel(id, e.target.value);
+        }
+    };
+
+    const edgePath = `M ${sourceX} ${sourceY} C ${sourceX} ${(sourceY + targetY) / 2} ${targetX} ${(sourceY + targetY) / 2} ${targetX} ${targetY}`;
+
+    return (
+        <>
+            <path
+                id={id}
+                className="react-flow__edge-path"
+                d={edgePath}
+                style={{ strokeWidth: 2, stroke: '#94a3b8' }}
+            />
+            <foreignObject
+                width={120}
+                height={40}
+                x={(sourceX + targetX) / 2 - 60}
+                y={(sourceY + targetY) / 2 - 20}
+                className="overflow-visible"
+            >
+                <div className="flex items-center justify-center h-full w-full">
+                    <input
+                        className={cn(
+                            "text-[10px] font-medium bg-white/80 backdrop-blur-sm border border-slate-200 rounded-lg px-2 py-1 text-center outline-none transition-all",
+                            "hover:border-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-200",
+                            !edgeLabel && "opacity-50 italic"
+                        )}
+                        value={edgeLabel}
+                        onChange={onLabelChange}
+                        placeholder="Ajouter une mention..."
+                    />
+                </div>
+            </foreignObject>
+        </>
+    );
+}
+
 const nodeTypes = {
     ecosystemNode: EcosystemNodeComponent,
+};
+
+const edgeTypes = {
+    ecosystemEdge: EcosystemEdgeComponent,
 };
 
 export interface EcosystemEditorRef {
@@ -101,6 +160,8 @@ interface EcosystemEditorProps {
 }
 
 const EcosystemEditor = forwardRef<EcosystemEditorRef, EcosystemEditorProps>(({ initialNodes, initialEdges, onSave }, ref) => {
+    const [showInstructions, setShowInstructions] = useState(true);
+
     const handleUpdateLabel = useCallback((id: string, label: string) => {
         setNodes((nds) =>
             nds.map((node) => {
@@ -118,6 +179,20 @@ const EcosystemEditor = forwardRef<EcosystemEditorRef, EcosystemEditorProps>(({ 
         );
     }, []);
 
+    const handleUpdateEdgeLabel = useCallback((id: string, label: string) => {
+        setEdges((eds) =>
+            eds.map((edge) => {
+                if (edge.id === id) {
+                    return {
+                        ...edge,
+                        label: label,
+                    };
+                }
+                return edge;
+            })
+        );
+    }, []);
+
     const [nodes, setNodes, onNodesChange] = useNodesState(
         initialNodes.map(n => ({
             ...n,
@@ -129,7 +204,9 @@ const EcosystemEditor = forwardRef<EcosystemEditorRef, EcosystemEditorProps>(({ 
     const [edges, setEdges, onEdgesChange] = useEdgesState(
         initialEdges.map(e => ({
             ...e,
+            type: 'ecosystemEdge',
             animated: true,
+            data: { onUpdateEdgeLabel: handleUpdateEdgeLabel },
             style: { strokeWidth: 2, stroke: '#94a3b8' },
         }))
     );
@@ -153,15 +230,24 @@ const EcosystemEditor = forwardRef<EcosystemEditorRef, EcosystemEditorProps>(({ 
     }), [handleUpdateLabel, setNodes]);
 
     const onConnect = useCallback(
-        (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, style: { strokeWidth: 2, stroke: '#94a3b8' } }, eds)),
-        [setEdges]
+        (params: Connection) => setEdges((eds) => addEdge({
+            ...params,
+            type: 'ecosystemEdge',
+            animated: true,
+            data: { onUpdateEdgeLabel: handleUpdateEdgeLabel },
+            style: { strokeWidth: 2, stroke: '#94a3b8' }
+        }, eds)),
+        [setEdges, handleUpdateEdgeLabel]
     );
 
     const handleSave = () => {
-        const rawNodes: EcosystemNode[] = nodes.map(n => ({
-            ...n.data,
-            position: n.position,
-        })) as EcosystemNode[];
+        const rawNodes: EcosystemNode[] = nodes.map(n => {
+            const { onUpdateLabel, ...dataWithoutFn } = n.data;
+            return {
+                ...dataWithoutFn,
+                position: n.position,
+            };
+        }) as EcosystemNode[];
 
         const rawEdges: EcosystemEdge[] = edges.map(e => ({
             id: e.id,
@@ -175,7 +261,7 @@ const EcosystemEditor = forwardRef<EcosystemEditorRef, EcosystemEditorProps>(({ 
     };
 
     return (
-        <div className="w-full h-[600px] border-2 border-slate-100 rounded-3xl overflow-hidden bg-slate-50 relative">
+        <div className="w-full h-[700px] border-2 border-slate-100 rounded-3xl overflow-hidden bg-slate-50 relative">
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -183,6 +269,7 @@ const EcosystemEditor = forwardRef<EcosystemEditorRef, EcosystemEditorProps>(({ 
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
                 fitView
             >
                 <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
@@ -195,16 +282,28 @@ const EcosystemEditor = forwardRef<EcosystemEditorRef, EcosystemEditorProps>(({ 
                     </Button>
                 </Panel>
 
-                <Panel position="bottom-left" className="bg-white/90 backdrop-blur-sm p-3 rounded-2xl border shadow-sm max-w-xs">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Info className="h-4 w-4 text-blue-500" />
-                        <p className="text-xs font-bold">Mode Édition</p>
-                    </div>
-                    <p className="text-[10px] text-slate-500">
-                        Déplacez les bulles pour organiser votre écosystème. Cliquez sur le nom d'une bulle pour le modifier.
-                        Tracez de nouveaux liens en glissant depuis les points gris.
-                    </p>
-                </Panel>
+                {showInstructions && (
+                    <Panel position="bottom-left" className="bg-white/90 backdrop-blur-sm p-3 rounded-2xl border shadow-sm max-w-xs animate-in slide-in-from-left-4 duration-300">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2">
+                                <Info className="h-4 w-4 text-blue-500" />
+                                <p className="text-xs font-bold">Mode Édition</p>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 rounded-full hover:bg-slate-100"
+                                onClick={() => setShowInstructions(false)}
+                            >
+                                <Plus className="h-3 w-3 rotate-45" />
+                            </Button>
+                        </div>
+                        <p className="text-[10px] text-slate-500">
+                            Déplacez les bulles pour organiser votre écosystème. Cliquez sur le nom d'une bulle pour le modifier.
+                            Tracez de nouveaux liens en glissant depuis les points gris. Cliquez sur un lien pour ajouter une mention.
+                        </p>
+                    </Panel>
+                )}
             </ReactFlow>
         </div>
     );
