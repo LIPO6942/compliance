@@ -195,10 +195,13 @@ export interface WorkflowVersion {
   createdBy?: string;
 }
 
+export type WorkflowDomain = 'Conformité' | 'Commercial' | 'Sinistre' | 'Technique' | 'Autre';
+
 export interface MermaidWorkflow {
   id: string;
   name: string;
   workflowId: string; // e.g., 'eer', 'gel'
+  domain?: WorkflowDomain; // Added for grouping
   activeVersionId?: string;
   currentVersion: number;
   createdAt: string;

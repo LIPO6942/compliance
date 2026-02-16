@@ -12,7 +12,7 @@ import * as LucideIcons from 'lucide-react';
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
-import { MermaidWorkflow, WorkflowVersion, WorkflowTask, AuditLog } from '@/types/compliance';
+import { MermaidWorkflow, WorkflowVersion, WorkflowTask, AuditLog, WorkflowDomain } from '@/types/compliance';
 import { usePlanData } from '@/contexts/PlanDataContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -38,10 +38,13 @@ export default function WorkflowEditorPage() {
 
     const [code, setCode] = useState<string>('graph TD\n  A[Début] --> B{Décision}\n  B -- Oui --> C[Fin]\n  B -- Non --> D[Action]');
     const [name, setName] = useState<string>('');
+    const [domain, setDomain] = useState<WorkflowDomain>('Conformité');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [activeWorkflow, setActiveWorkflow] = useState<MermaidWorkflow | null>(null);
     const [isMonacoReady, setIsMonacoReady] = useState(false);
+
+    const domains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique', 'Autre'];
 
     const {
         workflowTasks,
@@ -179,6 +182,7 @@ export default function WorkflowEditorPage() {
                     const data = workflowSnap.data() as MermaidWorkflow;
                     setActiveWorkflow({ ...data, id: workflowSnap.id });
                     setName(data.name);
+                    setDomain(data.domain || 'Conformité');
 
                     const vRef = collection(db, 'workflows', id, 'versions');
                     const q = query(vRef, orderBy('version', 'desc'), limit(1));
@@ -234,6 +238,7 @@ export default function WorkflowEditorPage() {
             const workflowData: Partial<MermaidWorkflow> = {
                 workflowId: id,
                 name: name,
+                domain: domain,
                 currentVersion: nextVersion,
                 updatedAt: now,
                 ...(status === 'published' ? { activeVersionId: versionId } : {}),
@@ -291,7 +296,22 @@ export default function WorkflowEditorPage() {
                                 </Badge>
                             )}
                         </div>
-                        <p className="text-[10px] text-slate-500 font-medium">ID: {id} • Workflow {id.toUpperCase()}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <p className="text-[10px] text-slate-500 font-medium whitespace-nowrap">ID: {id}</p>
+                            <span className="text-slate-300">|</span>
+                            <Select value={domain} onValueChange={(val) => setDomain(val as WorkflowDomain)}>
+                                <SelectTrigger className="h-6 w-[130px] text-[10px] border-none bg-slate-50 shadow-none px-2 focus:ring-0">
+                                    <SelectValue placeholder="Domaine" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {domains.map((d) => (
+                                        <SelectItem key={d} value={d} className="text-xs">
+                                            {d}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </div>
 

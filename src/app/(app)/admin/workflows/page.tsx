@@ -32,6 +32,11 @@ const riskBadgeConfig: Record<string, { bg: string; text: string; border: string
     'Très élevé': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', icon: LucideIcons.Flame },
 };
 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { WorkflowDomain } from '@/types/compliance';
+
+// ... (imports remain the same)
+
 export default function AdminWorkflowsPage() {
     const [workflows, setWorkflows] = useState<MermaidWorkflow[]>([]);
     const [loading, setLoading] = useState(true);
@@ -141,6 +146,30 @@ export default function AdminWorkflowsPage() {
         };
     };
 
+    const groupedWorkflows = useMemo(() => {
+        const sensitiveDomains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique'];
+        const grouped: Record<string, MermaidWorkflow[]> = {
+            'Conformité': [],
+            'Commercial': [],
+            'Sinistre': [],
+            'Technique': [],
+            'Autre': []
+        };
+
+        (workflows.length > 0 ? workflows : defaultWorkflows).forEach(w => {
+            const domain = w.domain && sensitiveDomains.includes(w.domain) ? w.domain : 'Autre';
+            if (grouped[domain]) {
+                grouped[domain].push(w);
+            } else {
+                grouped['Autre'].push(w);
+            }
+        });
+
+        return grouped;
+    }, [workflows]);
+
+    const domains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique', 'Autre'];
+
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-8">
             <div className="flex justify-between items-center">
@@ -160,60 +189,87 @@ export default function AdminWorkflowsPage() {
                 </div>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(workflows.length > 0 ? workflows : defaultWorkflows).map((w) => {
-                    const activeW = workflows.find(wf => wf.workflowId === w.workflowId) || (w.id ? w : null);
-                    const riskInfo = getWorkflowRiskInfo(w.workflowId);
-                    const RiskIcon = riskInfo?.config?.icon || LucideIcons.Shield;
+            <Tabs defaultValue="Conformité" className="w-full">
+                <TabsList className="mb-4">
+                    {domains.map(domain => (
+                        <TabsTrigger key={domain} value={domain} className="px-4">
+                            {domain}
+                            <Badge variant="secondary" className="ml-2 text-[10px] h-5 px-1.5 min-w-[1.25rem]">
+                                {groupedWorkflows[domain]?.length || 0}
+                            </Badge>
+                        </TabsTrigger>
+                    ))}
+                </TabsList>
 
-                    return (
-                        <Card key={w.id || w.workflowId} className="group hover:shadow-md transition-all flex flex-col">
-                            <CardHeader>
-                                <div className="flex justify-between items-start mb-2">
-                                    <Badge variant="outline" className="opacity-50 text-[10px]">ID: {w.workflowId}</Badge>
-                                    {activeW?.currentVersion ? (
-                                        <Badge variant="secondary" className="bg-slate-100 text-slate-600">V{activeW.currentVersion}</Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="opacity-50">Inactif</Badge>
-                                    )}
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(w.id)}>
-                                        <LucideIcons.Trash2 className="h-4 w-4" />
-                                    </Button>
+                {domains.map(domain => (
+                    <TabsContent key={domain} value={domain} className="space-y-4">
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {groupedWorkflows[domain]?.length > 0 ? groupedWorkflows[domain].map((w) => {
+                                const activeW = workflows.find(wf => wf.workflowId === w.workflowId) || (w.id ? w : null);
+                                const riskInfo = getWorkflowRiskInfo(w.workflowId);
+                                const RiskIcon = riskInfo?.config?.icon || LucideIcons.Shield;
+
+                                return (
+                                    <Card key={w.id || w.workflowId} className="group hover:shadow-md transition-all flex flex-col">
+                                        <CardHeader>
+                                            <div className="flex justify-between items-start mb-2">
+                                                <Badge variant="outline" className="opacity-50 text-[10px]">ID: {w.workflowId}</Badge>
+                                                {activeW?.currentVersion ? (
+                                                    <Badge variant="secondary" className="bg-slate-100 text-slate-600">V{activeW.currentVersion}</Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="opacity-50">Inactif</Badge>
+                                                )}
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(w.id)}>
+                                                    <LucideIcons.Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                            <CardTitle className="text-xl flex items-center justify-between">
+                                                {w.name}
+                                            </CardTitle>
+                                            {riskInfo ? (
+                                                <div className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-lg border ${riskInfo.config.bg} ${riskInfo.config.border}`}>
+                                                    <RiskIcon className={`h-4 w-4 ${riskInfo.config.text}`} />
+                                                    <div className="flex flex-col">
+                                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${riskInfo.config.text}`}>
+                                                            Risque {riskInfo.maxLevel}
+                                                        </span>
+                                                        <span className={`text-[10px] opacity-80 ${riskInfo.config.text}`}>
+                                                            {riskInfo.count} risque{riskInfo.count > 1 ? 's' : ''} détecté{riskInfo.count > 1 ? 's' : ''}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="mt-3 px-3 py-2 rounded-lg border border-slate-100 bg-slate-50/50 flex items-center gap-2 text-slate-400">
+                                                    <LucideIcons.ShieldCheck className="h-4 w-4" />
+                                                    <span className="text-xs font-medium">Aucun risque détecté</span>
+                                                </div>
+                                            )}
+                                        </CardHeader>
+                                        <CardContent className="mt-auto">
+                                            <Link href={`/admin/workflows/${w.workflowId}/edit`}>
+                                                <Button className="w-full group-hover:bg-primary/90 transition-colors" variant={activeW?.currentVersion ? "outline" : "default"}>
+                                                    <LucideIcons.Edit2 className="mr-2 h-4 w-4" />
+                                                    {activeW?.currentVersion ? "Modifier le workflow" : "Configurer"}
+                                                </Button>
+                                            </Link>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            }) : (
+                                <div className="col-span-full py-12 text-center text-muted-foreground bg-slate-50 rounded-lg border border-dashed">
+                                    <LucideIcons.FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                                    <p>Aucun workflow dans la catégorie <span className="font-medium text-foreground">{domain}</span>.</p>
+                                    <Link href="/admin/workflows/new" className="mt-4 inline-block">
+                                        <Button variant="outline" size="sm">
+                                            <LucideIcons.Plus className="mr-2 h-3 w-3" /> Créer un workflow
+                                        </Button>
+                                    </Link>
                                 </div>
-                                <CardTitle className="text-xl flex items-center justify-between">
-                                    {w.name}
-                                </CardTitle>
-                                {riskInfo ? (
-                                    <div className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-lg border ${riskInfo.config.bg} ${riskInfo.config.border}`}>
-                                        <RiskIcon className={`h-4 w-4 ${riskInfo.config.text}`} />
-                                        <div className="flex flex-col">
-                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${riskInfo.config.text}`}>
-                                                Risque {riskInfo.maxLevel}
-                                            </span>
-                                            <span className={`text-[10px] opacity-80 ${riskInfo.config.text}`}>
-                                                {riskInfo.count} risque{riskInfo.count > 1 ? 's' : ''} détecté{riskInfo.count > 1 ? 's' : ''}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mt-3 px-3 py-2 rounded-lg border border-slate-100 bg-slate-50/50 flex items-center gap-2 text-slate-400">
-                                        <LucideIcons.ShieldCheck className="h-4 w-4" />
-                                        <span className="text-xs font-medium">Aucun risque détecté</span>
-                                    </div>
-                                )}
-                            </CardHeader>
-                            <CardContent className="mt-auto">
-                                <Link href={`/admin/workflows/${w.workflowId}/edit`}>
-                                    <Button className="w-full group-hover:bg-primary/90 transition-colors" variant={activeW?.currentVersion ? "outline" : "default"}>
-                                        <LucideIcons.Edit2 className="mr-2 h-4 w-4" />
-                                        {activeW?.currentVersion ? "Modifier le workflow" : "Configurer"}
-                                    </Button>
-                                </Link>
-                            </CardContent>
-                        </Card>
-                    );
-                })}
-            </div>
+                            )}
+                        </div>
+                    </TabsContent>
+                ))}
+            </Tabs>
 
             <Card className="bg-blue-50/50 border-blue-100">
                 <CardContent className="pt-6 flex gap-4">
