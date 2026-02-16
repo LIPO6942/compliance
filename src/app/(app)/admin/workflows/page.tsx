@@ -13,6 +13,7 @@ import { db } from '@/lib/firebase';
 import { MermaidWorkflow } from '@/types/compliance';
 import { doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 
 // Utilitaire pour le niveau de risque
 const riskLevelToNumber = (level: string): number => {
@@ -34,8 +35,18 @@ const riskBadgeConfig: Record<string, { bg: string; text: string; border: string
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WorkflowDomain } from '@/types/compliance';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-// ... (imports remain the same)
 
 export default function AdminWorkflowsPage() {
     const [workflows, setWorkflows] = useState<MermaidWorkflow[]>([]);
@@ -43,10 +54,10 @@ export default function AdminWorkflowsPage() {
     const { planData } = usePlanData();
     const { risks: allRisks } = useRiskMapping();
     const router = useRouter();
+    const { toast } = useToast();
 
     const handleDeleteAll = async () => {
         if (!db) return;
-        if (!confirm('Êtes-vous sûr de vouloir supprimer TOUS les workflows ? Cette action est irréversible.')) return;
 
         try {
             setLoading(true);
@@ -56,11 +67,17 @@ export default function AdminWorkflowsPage() {
             });
             await batch.commit();
             setWorkflows([]);
-            alert('Tous les workflows ont été supprimés.');
+            toast({
+                title: "Tous les workflows ont été supprimés.",
+                description: "La base de données a été mise à jour.",
+            });
             router.refresh();
         } catch (error) {
             console.error('Error deleting all workflows:', error);
-            alert('Erreur lors de la suppression.');
+            toast({
+                title: "Erreur lors de la suppression.",
+                variant: "destructive",
+            });
         } finally {
             setLoading(false);
         }
@@ -68,12 +85,18 @@ export default function AdminWorkflowsPage() {
 
     const handleDelete = async (id: string) => {
         if (!db) return;
-        if (!confirm('Supprimer ce workflow ?')) return;
         try {
             await deleteDoc(doc(db, 'workflows', id));
             setWorkflows(prev => prev.filter(w => w.id !== id));
+            toast({
+                title: "Workflow supprimé",
+            });
         } catch (error) {
             console.error('Error deleting workflow:', error);
+            toast({
+                title: "Erreur lors de la suppression",
+                variant: "destructive",
+            });
         }
     };
 
@@ -183,9 +206,27 @@ export default function AdminWorkflowsPage() {
                     <p className="text-muted-foreground">Configurez les processus métier via Mermaid</p>
                 </div>
                 <div className="flex gap-4">
-                    <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={handleDeleteAll} disabled={workflows.length === 0}>
-                        <LucideIcons.Trash2 className="mr-2 h-4 w-4" /> Tout supprimer
-                    </Button>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground" disabled={workflows.length === 0}>
+                                <LucideIcons.Trash2 className="mr-2 h-4 w-4" /> Tout supprimer
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="rounded-[2rem] border-2">
+                            <AlertDialogHeader>
+                                <AlertDialogTitle className="text-2xl font-bold">Tout supprimer ?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Cette action est irréversible. Tous les workflows de la base de données seront définitivement supprimés.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel className="rounded-xl font-bold">Annuler</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-bold">
+                                    Confirmer la suppression
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                     <Link href={`/admin/workflows/new?domain=${activeTab}`}>
                         <Button>
                             <LucideIcons.Plus className="mr-2 h-4 w-4" /> Nouveau Workflow
@@ -224,9 +265,27 @@ export default function AdminWorkflowsPage() {
                                                 ) : (
                                                     <Badge variant="outline" className="opacity-50">Inactif</Badge>
                                                 )}
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(w.id)}>
-                                                    <LucideIcons.Trash2 className="h-4 w-4" />
-                                                </Button>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10">
+                                                            <LucideIcons.Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent className="rounded-[2rem] border-2">
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle className="font-bold">Supprimer ce workflow ?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Voulez-vous vraiment supprimer "{w.name}" ? Cela supprimera également toutes ses versions associées.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel className="rounded-xl font-bold">Annuler</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDelete(w.id)} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-bold">
+                                                                Supprimer
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
                                             </div>
                                             <CardTitle className="text-xl flex items-center justify-between">
                                                 {w.name}

@@ -10,6 +10,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toPng } from 'html-to-image';
 import { cn } from '@/lib/utils';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 export default function EcosystemPage() {
     const {
@@ -19,8 +31,11 @@ export default function EcosystemPage() {
         loading,
         setCurrentMapId,
         saveEcosystemMap,
-        renameEcosystemMap
+        renameEcosystemMap,
+        deleteEcosystemMap
     } = useEcosystem();
+
+    const { toast } = useToast();
 
     const [draftMap, setDraftMap] = useState<Omit<EcosystemMap, 'id' | 'createdAt' | 'updatedAt'> | null>(null);
     const [isCreating, setIsCreating] = useState(false);
@@ -95,10 +110,18 @@ export default function EcosystemPage() {
         setIsEditingName(false);
     };
 
-    const handleDelete = async (e: React.MouseEvent, id: string) => {
-        e.stopPropagation();
-        if (confirm('Êtes-vous sûr de vouloir supprimer cette cartographie ?')) {
+    const handleDelete = async (id: string) => {
+        try {
             await deleteEcosystemMap(id);
+            toast({
+                title: "Cartographie supprimée",
+            });
+        } catch (error) {
+            console.error('Error deleting map:', error);
+            toast({
+                title: "Erreur lors de la suppression",
+                variant: "destructive",
+            });
         }
     };
 
@@ -204,17 +227,35 @@ export default function EcosystemPage() {
                                 <FileText className={cn("h-4 w-4", currentMapId === map.id ? "text-white" : "text-primary")} />
                                 {map.name}
                             </button>
-                            <button
-                                onClick={(e) => handleDelete(e, map.id)}
-                                className={cn(
-                                    "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover/item:opacity-100 transition-all",
-                                    currentMapId === map.id
-                                        ? "hover:bg-white/20 text-white"
-                                        : "hover:bg-rose-50 text-rose-500"
-                                )}
-                            >
-                                <X className="h-3.5 w-3.5" />
-                            </button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <button
+                                        onClick={(e) => e.stopPropagation()}
+                                        className={cn(
+                                            "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover/item:opacity-100 transition-all",
+                                            currentMapId === map.id
+                                                ? "hover:bg-white/20 text-white"
+                                                : "hover:bg-rose-50 text-rose-500"
+                                        )}
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="rounded-[2rem] border-2">
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle className="font-bold whitespace-normal break-words">Supprimer cette cartographie ?</AlertDialogTitle>
+                                        <AlertDialogDescription className="whitespace-normal break-words">
+                                            Voulez-vous vraiment supprimer "{map.name}" ? Cette action est irréversible.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel className="rounded-xl font-bold">Annuler</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(map.id)} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-bold">
+                                            Supprimer
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         </div>
                     ))}
                 </div>
