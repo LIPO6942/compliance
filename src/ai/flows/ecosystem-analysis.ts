@@ -29,7 +29,7 @@ export async function analyzeEcosystemImageFlow(base64Image: string): Promise<Om
         throw new Error('GROQ_API_KEY is not configured');
     }
 
-    const model = 'pixtral-12b-2409';
+    const model = 'meta-llama/llama-4-scout-17b-16e-instruct';
 
     const prompt = `
     Tu es un expert en conformité et gestion des risques. 
