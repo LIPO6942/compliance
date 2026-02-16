@@ -32,7 +32,7 @@ export async function analyzeEcosystemImage(imageUri: string): Promise<Omit<Ecos
     ];
 
     return {
-        name: "Cartographie des Acteurs (Auto-v1)",
+        name: `Cartographie des Acteurs (Auto-${new Date().toLocaleTimeString()})`,
         section: "general",
         nodes,
         edges

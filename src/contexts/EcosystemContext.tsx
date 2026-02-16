@@ -30,6 +30,7 @@ export const EcosystemProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
+        console.log("Setting up ecosystem snapshot listener");
         const ecosystemsRef = collection(db, 'ecosystems');
         const q = query(ecosystemsRef, orderBy('updatedAt', 'desc'));
 
@@ -40,14 +41,17 @@ export const EcosystemProvider = ({ children }: { children: ReactNode }) => {
             });
             setEcosystems(maps);
 
-            // Only set initial current map if not currently in creation mode (currentMapId === null)
-            // and we don't have a map selected yet.
-            if (maps.length > 0 && currentMapId === null && ecosystems.length === 0) {
-                setCurrentMapId(maps[0].id);
-            } else if (currentMapId && !maps.find(m => m.id === currentMapId)) {
-                // If the selected map was deleted, fallback to the first one
-                setCurrentMapId(maps.length > 0 ? maps[0].id : null);
-            }
+            // Set initial map only if we don't have one and not in creation mode
+            setCurrentMapId(prevId => {
+                if (prevId) {
+                    // If current map was deleted, fallback to first one
+                    return maps.find(m => m.id === prevId) ? prevId : (maps.length > 0 ? maps[0].id : null);
+                }
+                // If no prevId, only auto-select if we are not explicitly in "new" mode (null)
+                // However, the component initializes with null. 
+                // We should only auto-select if ecosystems was previously empty and now has data.
+                return maps.length > 0 ? maps[0].id : null;
+            });
 
             setLoading(false);
         }, (error) => {
@@ -55,8 +59,11 @@ export const EcosystemProvider = ({ children }: { children: ReactNode }) => {
             setLoading(false);
         });
 
-        return () => unsubscribe();
-    }, [currentMapId, ecosystems.length]);
+        return () => {
+            console.log("Cleaning up ecosystem snapshot listener");
+            unsubscribe();
+        };
+    }, []); // Only setup once
 
     const currentMap = ecosystems.find(m => m.id === currentMapId) || null;
 

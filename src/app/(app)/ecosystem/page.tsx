@@ -254,6 +254,7 @@ export default function EcosystemPage() {
                     <div ref={containerRef} className="rounded-3xl overflow-hidden border-2 border-slate-100 shadow-xl bg-white min-h-[600px]">
                         {activeMap && (
                             <EcosystemEditorWrapper
+                                key={currentMapId || (draftMap ? `draft-${draftMap.name}` : 'empty')}
                                 ref={editorRef}
                                 initialNodes={activeMap.nodes}
                                 initialEdges={activeMap.edges}

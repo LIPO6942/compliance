@@ -211,6 +211,22 @@ const EcosystemEditor = forwardRef<EcosystemEditorRef, EcosystemEditorProps>(({ 
         }))
     );
 
+    // Sync state when initial props change
+    useEffect(() => {
+        setNodes(initialNodes.map(n => ({
+            ...n,
+            type: 'ecosystemNode',
+            data: { ...n, onUpdateLabel: handleUpdateLabel },
+        })));
+        setEdges(initialEdges.map(e => ({
+            ...e,
+            type: 'ecosystemEdge',
+            animated: true,
+            data: { onUpdateEdgeLabel: handleUpdateEdgeLabel },
+            style: { strokeWidth: 2, stroke: '#94a3b8' },
+        })));
+    }, [initialNodes, initialEdges, handleUpdateLabel, handleUpdateEdgeLabel, setNodes, setEdges]);
+
     useImperativeHandle(ref, () => ({
         addNode: () => {
             const id = `node_${Date.now()}`;
