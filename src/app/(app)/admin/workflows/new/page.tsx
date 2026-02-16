@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Loader2, Play } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { WorkflowDomain, MermaidWorkflow } from '@/types/compliance';
 
@@ -22,6 +22,7 @@ function NewWorkflowForm() {
     const initialDomain = (searchParams.get('domain') as WorkflowDomain) || 'Conformité';
 
     const [name, setName] = useState('');
+    const [customId, setCustomId] = useState('');
     const [domain, setDomain] = useState<WorkflowDomain>(initialDomain);
     const [loading, setLoading] = useState(false);
 
@@ -42,28 +43,64 @@ function NewWorkflowForm() {
         setLoading(true);
 
         try {
-            // Generate ID manually since we are client-side
-            const newId = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
-            const now = new Date().toISOString();
+            let finalId = customId.trim();
 
-            const newWorkflow: MermaidWorkflow = {
-                id: newId,
-                workflowId: newId,
-                name: name.trim(),
-                domain: domain,
-                currentVersion: 0,
-                createdAt: now,
-                updatedAt: now,
-                // activeVersionId is undefined initially
-            };
+            if (finalId) {
+                // Basic sanitization: lowercase, replace spaces with dashes, remove special chars
+                // Allow alphanumeric and dashes/underscores only
+                finalId = finalId.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '');
+
+                if (finalId !== customId.trim()) {
+                    // Optionally notify user about sanitization, or just proceed
+                    // For now, we proceed with the sanitized ID
+                }
+            } else {
+                finalId = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+            }
+
+            if (!finalId) {
+                toast({
+                    title: "ID Invalide",
+                    description: "Impossible de générer un ID valide.",
+                    variant: "destructive"
+                });
+                setLoading(false);
+                return;
+            }
 
             if (db) {
-                await setDoc(doc(db, 'workflows', newId), newWorkflow);
+                // Check if ID exists if it was custom provided (or even if random, though unlikely)
+                const docRef = doc(db, 'workflows', finalId);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    toast({
+                        title: "ID déjà existant",
+                        description: "Un workflow avec cet ID existe déjà. Veuillez en choisir un autre.",
+                        variant: "destructive"
+                    });
+                    setLoading(false);
+                    return;
+                }
+
+                const now = new Date().toISOString();
+                const newWorkflow: MermaidWorkflow = {
+                    id: finalId,
+                    workflowId: finalId,
+                    name: name.trim(),
+                    domain: domain,
+                    currentVersion: 0,
+                    createdAt: now,
+                    updatedAt: now,
+                    // activeVersionId is undefined initially
+                };
+
+                await setDoc(docRef, newWorkflow);
                 toast({
                     title: "Workflow créé",
                     description: "Redirection vers l'éditeur...",
                 });
-                router.push(`/admin/workflows/${newId}/edit`);
+                router.push(`/admin/workflows/${finalId}/edit`);
             } else {
                 toast({
                     title: "Erreur",
@@ -85,7 +122,7 @@ function NewWorkflowForm() {
     };
 
     return (
-        <div className="flex justify-center items-center min-h-[calc(100vh-10rem)] p-4">
+        <div className="flex justify-center items-center h-[calc(100vh-10rem)] p-4">
             <Card className="w-full max-w-lg shadow-xl">
                 <CardHeader>
                     <CardTitle className="text-2xl">Nouveau Workflow</CardTitle>
@@ -102,6 +139,23 @@ function NewWorkflowForm() {
                                 onChange={(e) => setName(e.target.value)}
                                 autoFocus
                             />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="customId" className="flex justify-between">
+                                Identifiant (Optionnel)
+                                <span className="text-xs text-muted-foreground font-normal">Sera généré automatiquement si vide</span>
+                            </Label>
+                            <Input
+                                id="customId"
+                                placeholder="ex: notes-frais-v1"
+                                value={customId}
+                                onChange={(e) => setCustomId(e.target.value)}
+                                className="font-mono text-sm"
+                            />
+                            <p className="text-[10px] text-muted-foreground">
+                                Uniques, minuscules, sans espaces ou caractères spéciaux (sauf - et _).
+                            </p>
                         </div>
 
                         <div className="space-y-2">
