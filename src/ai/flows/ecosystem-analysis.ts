@@ -29,7 +29,7 @@ export async function analyzeEcosystemImageFlow(base64Image: string): Promise<Om
         throw new Error('GROQ_API_KEY is not configured');
     }
 
-    const model = 'llama-3.2-11b-vision-preview';
+    const model = 'llama-3.2-11b-vision-instant';
 
     const prompt = `
     Tu es un expert en conformité et gestion des risques. 

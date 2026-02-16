@@ -135,18 +135,18 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onSnapshot(q, async (snapshot: QuerySnapshot<DocumentData>) => {
       const workflows: Record<string, { code: string; name: string, order?: number }> = {};
 
-      console.log(`[PlanData] Workflows snapshot size: ${snapshot.size}`);
+      // console.log(`[PlanData] Workflows snapshot size: ${snapshot.size}`);
       for (const workflowDoc of snapshot.docs) {
         const data = workflowDoc.data() as any;
-        console.log(`[PlanData] Workflow ${workflowDoc.id} data:`, data);
+        // console.log(`[PlanData] Workflow ${workflowDoc.id} data:`, data);
 
         if (data.activeVersionId) {
-          console.log(`[PlanData] Fetching active version ${data.activeVersionId} for ${workflowDoc.id}`);
+          // console.log(`[PlanData] Fetching active version ${data.activeVersionId} for ${workflowDoc.id}`);
           try {
             const vRef = doc(db as any, 'workflows', workflowDoc.id, 'versions', data.activeVersionId);
             const vSnap = await getDoc(vRef);
             if (vSnap.exists()) {
-              console.log(`[PlanData] Version found for ${workflowDoc.id}`);
+              // console.log(`[PlanData] Version found for ${workflowDoc.id}`);
               workflows[data.workflowId] = {
                 code: vSnap.data().mermaidCode,
                 name: data.name || data.workflowId,
@@ -159,10 +159,10 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
             console.error(`[PlanData] Error fetching version for ${workflowDoc.id}:`, e);
           }
         } else {
-          console.log(`[PlanData] Workflow ${workflowDoc.id} has no activeVersionId`);
+          // console.log(`[PlanData] Workflow ${workflowDoc.id} has no activeVersionId`);
         }
       }
-      console.log(`[PlanData] Final active workflows:`, Object.keys(workflows));
+      // console.log(`[PlanData] Final active workflows:`, Object.keys(workflows));
       setActiveWorkflows(workflows);
     });
 
