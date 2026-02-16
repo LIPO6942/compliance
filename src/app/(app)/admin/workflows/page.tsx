@@ -173,6 +173,8 @@ export default function AdminWorkflowsPage() {
 
     const domains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique'];
 
+    const [activeTab, setActiveTab] = useState<WorkflowDomain>('Conformité');
+
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-8">
             <div className="flex justify-between items-center">
@@ -184,7 +186,7 @@ export default function AdminWorkflowsPage() {
                     <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={handleDeleteAll} disabled={workflows.length === 0}>
                         <LucideIcons.Trash2 className="mr-2 h-4 w-4" /> Tout supprimer
                     </Button>
-                    <Link href="/admin/workflows/new">
+                    <Link href={`/admin/workflows/new?domain=${activeTab}`}>
                         <Button>
                             <LucideIcons.Plus className="mr-2 h-4 w-4" /> Nouveau Workflow
                         </Button>
@@ -192,7 +194,7 @@ export default function AdminWorkflowsPage() {
                 </div>
             </div>
 
-            <Tabs defaultValue="Conformité" className="w-full">
+            <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as WorkflowDomain)} className="w-full">
                 <TabsList className="mb-4">
                     {domains.map(domain => (
                         <TabsTrigger key={domain} value={domain} className="px-4">
@@ -262,7 +264,7 @@ export default function AdminWorkflowsPage() {
                                 <div className="col-span-full py-12 text-center text-muted-foreground bg-slate-50 rounded-lg border border-dashed">
                                     <LucideIcons.FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-20" />
                                     <p>Aucun workflow dans la catégorie <span className="font-medium text-foreground">{domain}</span>.</p>
-                                    <Link href="/admin/workflows/new" className="mt-4 inline-block">
+                                    <Link href={`/admin/workflows/new?domain=${domain}`} className="mt-4 inline-block">
                                         <Button variant="outline" size="sm">
                                             <LucideIcons.Plus className="mr-2 h-3 w-3" /> Créer un workflow
                                         </Button>

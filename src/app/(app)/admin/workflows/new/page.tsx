@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { collection, doc, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -15,13 +15,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { WorkflowDomain } from '@/types/compliance';
 
 export default function NewWorkflowPage() {
-    const router = useRouter();
+    const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
     const [name, setName] = useState('');
     const [workflowId, setWorkflowId] = useState('');
-    const [domain, setDomain] = useState<WorkflowDomain>('Conformité');
 
     const domains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique'];
+
+    // Lire le domaine depuis l'URL s'il existe
+    const domainFromUrl = searchParams.get('domain') as WorkflowDomain;
+    const initialDomain = (domainFromUrl && domains.includes(domainFromUrl)) ? domainFromUrl : 'Conformité';
+
+    const [domain, setDomain] = useState<WorkflowDomain>(initialDomain);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
