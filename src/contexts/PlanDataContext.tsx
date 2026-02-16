@@ -199,7 +199,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       });
 
       // Nettoyage automatique des doublons dans Firestore
-      if (duplicateIds.length > 0) {
+      if (duplicateIds.length > 0 && db) {
         console.log(`[PlanData] Nettoyage de ${duplicateIds.length} tâche(s) dupliquée(s)`);
         for (const dupId of duplicateIds) {
           try {
@@ -424,7 +424,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         ...cat,
         subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
           ...sub,
-          tasks: sub.tasks.map(function recurse(task) {
+          tasks: sub.tasks.map(function recurse(task: ComplianceTask): ComplianceTask {
             if (task.id === taskId) {
               const existing = task.branches || [];
               // avoid duplicate labels
@@ -432,7 +432,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
               return { ...task, branches: [...existing, { label, tasks: [] }] } as ComplianceTask;
             }
             if (task.branches) {
-              return { ...task, branches: task.branches.map(b => ({ ...b, tasks: b.tasks.map(recurse) })) };
+              return { ...task, branches: task.branches.map(b => ({ ...b, tasks: b.tasks.map(t => recurse(t)) })) };
             }
             return task;
           })
@@ -450,12 +450,12 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         ...cat,
         subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
           ...sub,
-          tasks: sub.tasks.map(function recurse(task) {
+          tasks: sub.tasks.map(function recurse(task: ComplianceTask): ComplianceTask {
             if (task.id === taskId) {
               return { ...task, branches: (task.branches || []).filter(b => b.label !== label) } as ComplianceTask;
             }
             if (task.branches) {
-              return { ...task, branches: task.branches.map(b => ({ ...b, tasks: b.tasks.map(recurse) })) };
+              return { ...task, branches: task.branches.map(b => ({ ...b, tasks: b.tasks.map(t => recurse(t)) })) };
             }
             return task;
           })
@@ -473,12 +473,12 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         ...cat,
         subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
           ...sub,
-          tasks: sub.tasks.map(function recurse(task) {
+          tasks: sub.tasks.map(function recurse(task: ComplianceTask): ComplianceTask {
             if (task.id === taskId) {
               return { ...task, branches: (task.branches || []).map(b => b.label === oldLabel ? { ...b, label: newLabel } : b) } as ComplianceTask;
             }
             if (task.branches) {
-              return { ...task, branches: task.branches.map(b => ({ ...b, tasks: b.tasks.map(recurse) })) };
+              return { ...task, branches: task.branches.map(b => ({ ...b, tasks: b.tasks.map(t => recurse(t)) })) };
             }
             return task;
           })
@@ -497,7 +497,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         ...cat,
         subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
           ...sub,
-          tasks: sub.tasks.map(function recurse(t) {
+          tasks: sub.tasks.map(function recurse(t: ComplianceTask): ComplianceTask {
             if (t.id === taskId) {
               const branches = t.branches || [];
               const idx = branches.findIndex(b => b.label === branchLabel);
@@ -507,7 +507,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
               const newBranches = branches.map((b, i) => i === idx ? { ...b, tasks: [...b.tasks, newTask] } : b);
               return { ...t, branches: newBranches } as ComplianceTask;
             }
-            if (t.branches) return { ...t, branches: t.branches.map(b => ({ ...b, tasks: b.tasks.map(recurse) })) };
+            if (t.branches) return { ...t, branches: t.branches.map(b => ({ ...b, tasks: b.tasks.map(st => recurse(st)) })) };
             return t;
           })
         } : sub)
@@ -547,7 +547,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
         ...cat,
         subCategories: cat.subCategories.map(sub => sub.id === subCategoryId ? {
           ...sub,
-          tasks: sub.tasks.map(function recurse(t) {
+          tasks: sub.tasks.map(function recurse(t: ComplianceTask): ComplianceTask {
             if (t.id === destParentTaskId) {
               const branches = t.branches || [];
               const idx = branches.findIndex(b => b.label === destBranchLabel);
@@ -557,7 +557,7 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
               const newBranches = branches.map((b, i) => i === idx ? { ...b, tasks: [...b.tasks, removed!] } : b);
               return { ...t, branches: newBranches } as ComplianceTask;
             }
-            if (t.branches) return { ...t, branches: t.branches.map(b => ({ ...b, tasks: b.tasks.map(recurse) })) };
+            if (t.branches) return { ...t, branches: t.branches.map(b => ({ ...b, tasks: b.tasks.map(st => recurse(st)) })) };
             return t;
           })
         } : sub)
