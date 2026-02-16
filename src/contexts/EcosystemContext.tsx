@@ -40,13 +40,13 @@ export const EcosystemProvider = ({ children }: { children: ReactNode }) => {
             });
             setEcosystems(maps);
 
-            // Set current map to the first one if not set or if current map was deleted
-            if (maps.length > 0) {
-                if (!currentMapId || !maps.find(m => m.id === currentMapId)) {
-                    setCurrentMapId(maps[0].id);
-                }
-            } else {
-                setCurrentMapId(null);
+            // Only set initial current map if not currently in creation mode (currentMapId === null)
+            // and we don't have a map selected yet.
+            if (maps.length > 0 && currentMapId === null && ecosystems.length === 0) {
+                setCurrentMapId(maps[0].id);
+            } else if (currentMapId && !maps.find(m => m.id === currentMapId)) {
+                // If the selected map was deleted, fallback to the first one
+                setCurrentMapId(maps.length > 0 ? maps[0].id : null);
             }
 
             setLoading(false);
@@ -56,19 +56,22 @@ export const EcosystemProvider = ({ children }: { children: ReactNode }) => {
         });
 
         return () => unsubscribe();
-    }, [currentMapId]);
+    }, [currentMapId, ecosystems.length]);
 
     const currentMap = ecosystems.find(m => m.id === currentMapId) || null;
 
     const saveEcosystemMap = async (map: EcosystemMap) => {
         if (!db) return;
+        // If map.id is empty, it's a new map
         const mapId = map.id || `map-${Date.now()}`;
         try {
-            await setDoc(doc(db, 'ecosystems', mapId), {
+            const mapToSave = {
                 ...map,
                 id: mapId,
-                updatedAt: new Date().toISOString()
-            }, { merge: true });
+                updatedAt: new Date().toISOString(),
+                createdAt: map.createdAt || new Date().toISOString()
+            };
+            await setDoc(doc(db, 'ecosystems', mapId), mapToSave, { merge: true });
             setCurrentMapId(mapId);
         } catch (error) {
             console.error("Error saving ecosystem map:", error);

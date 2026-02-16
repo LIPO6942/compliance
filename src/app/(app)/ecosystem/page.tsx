@@ -50,13 +50,14 @@ export default function EcosystemPage() {
     };
 
     const handleSaveMap = async (nodes: any[], edges: any[]) => {
+        const isNew = !currentMapId && draftMap;
         const mapToSave: EcosystemMap = {
-            id: currentMap?.id || '',
-            name: currentMap?.name || draftMap?.name || 'Ma Cartographie',
-            section: currentMap?.section || draftMap?.section || 'general',
+            id: currentMapId || '',
+            name: (isNew ? draftMap?.name : currentMap?.name) || 'Ma Cartographie',
+            section: (isNew ? draftMap?.section : currentMap?.section) || 'general',
             nodes,
             edges,
-            createdAt: currentMap?.createdAt || new Date().toISOString(),
+            createdAt: (isNew ? undefined : currentMap?.createdAt) || new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
         await saveEcosystemMap(mapToSave);
@@ -92,6 +93,13 @@ export default function EcosystemPage() {
             await renameEcosystemMap(currentMapId, tempName.trim());
         }
         setIsEditingName(false);
+    };
+
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette cartographie ?')) {
+            await deleteEcosystemMap(id);
+        }
     };
 
     const activeMap = draftMap || currentMap;
@@ -183,19 +191,31 @@ export default function EcosystemPage() {
             {!isCreating && !draftMap && ecosystems.length > 0 && (
                 <div className="flex flex-wrap gap-2 pb-2">
                     {ecosystems.map((map) => (
-                        <button
-                            key={map.id}
-                            onClick={() => setCurrentMapId(map.id)}
-                            className={cn(
-                                "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold border-2",
-                                currentMapId === map.id
-                                    ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
-                                    : "bg-white text-slate-600 border-slate-100 hover:border-primary/30 hover:bg-slate-50"
-                            )}
-                        >
-                            <FileText className={cn("h-4 w-4", currentMapId === map.id ? "text-white" : "text-primary")} />
-                            {map.name}
-                        </button>
+                        <div key={map.id} className="relative group/item">
+                            <button
+                                onClick={() => setCurrentMapId(map.id)}
+                                className={cn(
+                                    "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold border-2 pr-10",
+                                    currentMapId === map.id
+                                        ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
+                                        : "bg-white text-slate-600 border-slate-100 hover:border-primary/30 hover:bg-slate-50"
+                                )}
+                            >
+                                <FileText className={cn("h-4 w-4", currentMapId === map.id ? "text-white" : "text-primary")} />
+                                {map.name}
+                            </button>
+                            <button
+                                onClick={(e) => handleDelete(e, map.id)}
+                                className={cn(
+                                    "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover/item:opacity-100 transition-all",
+                                    currentMapId === map.id
+                                        ? "hover:bg-white/20 text-white"
+                                        : "hover:bg-rose-50 text-rose-500"
+                                )}
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
                     ))}
                 </div>
             )}
