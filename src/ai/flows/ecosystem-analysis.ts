@@ -29,13 +29,14 @@ export async function analyzeEcosystemImageFlow(base64Image: string): Promise<Om
         throw new Error('GROQ_API_KEY is not configured');
     }
 
-    const model = 'llama-3.2-90b-vision-preview';
+    const model = 'llama-3.2-11b-vision-preview';
 
     const prompt = `
     Tu es un expert en conformité et gestion des risques. 
     Analyse cette image qui représente une cartographie des acteurs ou un organigramme (LBA/FT, GRC).
     
     Ta mission est de TRANSCRIRE FIDÈLEMENT le contenu de l'image en une structure de nœuds et de liens.
+    RÉPONDS UNIQUEMENT EN JSON.
     
     Règles d'extraction :
     1. Lis TOUT le texte visible dans les boîtes/formes.
@@ -54,7 +55,7 @@ export async function analyzeEcosystemImageFlow(base64Image: string): Promise<Om
     - target : id du nœud d'arrivée
     - label : texte sur la flèche (si présent)
     
-    Réponds UNIQUEMENT avec ce JSON valide :
+    Réponds avec ce format JSON :
     {
       "name": "Titre détecté ou Cartographie",
       "nodes": [...],
@@ -79,7 +80,7 @@ export async function analyzeEcosystemImageFlow(base64Image: string): Promise<Om
                             {
                                 type: 'image_url',
                                 image_url: {
-                                    url: base64Image.startsWith('data:') ? base64Image : `data:image/jpeg;base64,${base64Image}`,
+                                    url: base64Image,
                                 },
                             },
                         ],
@@ -93,7 +94,15 @@ export async function analyzeEcosystemImageFlow(base64Image: string): Promise<Om
         if (!response.ok) {
             const errorText = await response.text();
             console.error('[GROQ VISION ERROR]', response.status, errorText);
-            throw new Error(`Groq API error: ${response.status}`);
+            // On renvoie un message plus explicite pour débugger
+            let message = `Groq API error: ${response.status}`;
+            try {
+                const errJson = JSON.parse(errorText);
+                message += ` - ${errJson.error?.message || errorText}`;
+            } catch (e) {
+                message += ` - ${errorText}`;
+            }
+            throw new Error(message);
         }
 
         const data = await response.json();

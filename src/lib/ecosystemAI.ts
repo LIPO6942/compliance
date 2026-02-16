@@ -17,7 +17,7 @@ async function compressAndConvertToBase64(fileUri: string): Promise<string> {
             let height = img.height;
 
             // Resize if too large
-            const MAX_DIMENSION = 1500;
+            const MAX_DIMENSION = 1024;
             if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
                 if (width > height) {
                     height = Math.round((height * MAX_DIMENSION) / width);
