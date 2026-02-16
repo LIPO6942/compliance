@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useEcosystem } from '@/contexts/EcosystemContext';
 import { EcosystemUpload } from '@/components/ecosystem/EcosystemUpload';
-import { EcosystemEditorWrapper } from '@/components/ecosystem/EcosystemEditor';
+import { EcosystemEditorWrapper, EcosystemEditorRef } from '@/components/ecosystem/EcosystemEditor';
 import { EcosystemMap } from '@/types/compliance';
 import { Loader2, Share2, Plus, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 export default function EcosystemPage() {
     const { ecosystemMap, loading, saveEcosystemMap } = useEcosystem();
     const [draftMap, setDraftMap] = useState<Omit<EcosystemMap, 'id' | 'createdAt' | 'updatedAt'> | null>(null);
+    const editorRef = useRef<EcosystemEditorRef>(null);
 
     if (loading) {
         return (
@@ -38,6 +39,10 @@ export default function EcosystemPage() {
         setDraftMap(null); // Clear draft once saved
     };
 
+    const handleAddNode = () => {
+        editorRef.current?.addNode();
+    };
+
     const currentMap = ecosystemMap || draftMap;
 
     return (
@@ -51,9 +56,13 @@ export default function EcosystemPage() {
                     </p>
                 </div>
 
-                {ecosystemMap && (
+                {currentMap && (
                     <div className="flex gap-2">
-                        <Button variant="outline" className="rounded-xl gap-2 font-bold">
+                        <Button
+                            variant="outline"
+                            className="rounded-xl gap-2 font-bold"
+                            onClick={handleAddNode}
+                        >
                             <Plus className="h-4 w-4" />
                             Nouveau Nœud
                         </Button>
@@ -89,6 +98,7 @@ export default function EcosystemPage() {
                     )}
 
                     <EcosystemEditorWrapper
+                        ref={editorRef}
                         initialNodes={currentMap.nodes}
                         initialEdges={currentMap.edges}
                         onSave={handleSaveMap}

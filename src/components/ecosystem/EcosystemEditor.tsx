@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import {
     ReactFlow,
     Controls,
@@ -56,14 +56,14 @@ const nodeStyles: Record<EcosystemNodeType, string> = {
 };
 
 // Custom Node Component
-function EcosystemNodeComponent({ data }: { data: EcosystemNode }) {
+function EcosystemNodeComponent({ data, id }: { data: EcosystemNode & { onUpdateLabel?: (id: string, label: string) => void }, id: string }) {
     const Icon = iconMap[data.icon || 'Building'] || Building;
     const styleClass = nodeStyles[data.type] || nodeStyles.other;
 
     return (
         <div className={cn(
-            "px-4 py-3 rounded-2xl border-2 shadow-lg min-w-[200px] transition-all",
-            "hover:scale-105 hover:shadow-xl",
+            "px-4 py-3 rounded-2xl border-2 shadow-lg min-w-[200px] transition-all group",
+            "hover:scale-105 hover:shadow-xl bg-white",
             styleClass
         )}>
             <Handle type="target" position={Position.Top} className="!bg-slate-300" />
@@ -71,9 +71,14 @@ function EcosystemNodeComponent({ data }: { data: EcosystemNode }) {
                 <div className="p-2 rounded-xl bg-white/50">
                     <Icon className="h-5 w-5" />
                 </div>
-                <div>
-                    <p className="text-xs font-black uppercase tracking-wider opacity-60">{data.type}</p>
-                    <p className="text-sm font-bold leading-tight">{data.label}</p>
+                <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider opacity-60 pointer-events-none">{data.type}</p>
+                    <input
+                        className="text-sm font-bold leading-tight bg-transparent border-none p-0 focus:ring-0 w-full outline-none block"
+                        value={data.label}
+                        onChange={(e) => data.onUpdateLabel?.(id, e.target.value)}
+                        placeholder="Nom du noeud..."
+                    />
                 </div>
             </div>
             <Handle type="source" position={Position.Bottom} className="!bg-slate-300" />
@@ -85,18 +90,39 @@ const nodeTypes = {
     ecosystemNode: EcosystemNodeComponent,
 };
 
+export interface EcosystemEditorRef {
+    addNode: () => void;
+}
+
 interface EcosystemEditorProps {
     initialNodes: EcosystemNode[];
     initialEdges: EcosystemEdge[];
     onSave: (nodes: EcosystemNode[], edges: EcosystemEdge[]) => void;
 }
 
-export function EcosystemEditor({ initialNodes, initialEdges, onSave }: EcosystemEditorProps) {
+const EcosystemEditor = forwardRef<EcosystemEditorRef, EcosystemEditorProps>(({ initialNodes, initialEdges, onSave }, ref) => {
+    const handleUpdateLabel = useCallback((id: string, label: string) => {
+        setNodes((nds) =>
+            nds.map((node) => {
+                if (node.id === id) {
+                    return {
+                        ...node,
+                        data: {
+                            ...node.data,
+                            label: label,
+                        },
+                    };
+                }
+                return node;
+            })
+        );
+    }, []);
+
     const [nodes, setNodes, onNodesChange] = useNodesState(
         initialNodes.map(n => ({
             ...n,
             type: 'ecosystemNode',
-            data: n,
+            data: { ...n, onUpdateLabel: handleUpdateLabel },
         }))
     );
 
@@ -107,6 +133,24 @@ export function EcosystemEditor({ initialNodes, initialEdges, onSave }: Ecosyste
             style: { strokeWidth: 2, stroke: '#94a3b8' },
         }))
     );
+
+    useImperativeHandle(ref, () => ({
+        addNode: () => {
+            const id = `node_${Date.now()}`;
+            const newNode: Node = {
+                id,
+                type: 'ecosystemNode',
+                position: { x: Math.random() * 400, y: Math.random() * 400 },
+                data: {
+                    id,
+                    label: 'Nouveau Noeud',
+                    type: 'other' as EcosystemNodeType,
+                    onUpdateLabel: handleUpdateLabel,
+                },
+            };
+            setNodes((nds) => nds.concat(newNode));
+        }
+    }), [handleUpdateLabel, setNodes]);
 
     const onConnect = useCallback(
         (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, style: { strokeWidth: 2, stroke: '#94a3b8' } }, eds)),
@@ -124,6 +168,7 @@ export function EcosystemEditor({ initialNodes, initialEdges, onSave }: Ecosyste
             source: e.source,
             target: e.target,
             label: e.label?.toString(),
+            type: e.type,
         })) as EcosystemEdge[];
 
         onSave(rawNodes, rawEdges);
@@ -156,18 +201,23 @@ export function EcosystemEditor({ initialNodes, initialEdges, onSave }: Ecosyste
                         <p className="text-xs font-bold">Mode Édition</p>
                     </div>
                     <p className="text-[10px] text-slate-500">
-                        Déplacez les bulles pour organiser votre écosystème. Tracez de nouveaux liens en glissant depuis les points gris.
+                        Déplacez les bulles pour organiser votre écosystème. Cliquez sur le nom d'une bulle pour le modifier.
+                        Tracez de nouveaux liens en glissant depuis les points gris.
                     </p>
                 </Panel>
             </ReactFlow>
         </div>
     );
-}
+});
 
-export function EcosystemEditorWrapper(props: EcosystemEditorProps) {
+EcosystemEditor.displayName = 'EcosystemEditor';
+
+export const EcosystemEditorWrapper = forwardRef<EcosystemEditorRef, EcosystemEditorProps>((props, ref) => {
     return (
         <ReactFlowProvider>
-            <EcosystemEditor {...props} />
+            <EcosystemEditor {...props} ref={ref} />
         </ReactFlowProvider>
     );
-}
+});
+
+EcosystemEditorWrapper.displayName = 'EcosystemEditorWrapper';
