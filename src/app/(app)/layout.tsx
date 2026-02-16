@@ -12,6 +12,8 @@ import { DocumentTypesProvider } from "@/contexts/DocumentTypesContext";
 import { NewsProvider } from "@/contexts/NewsContext";
 import { TeamProvider } from "@/contexts/TeamContext";
 import { TimelineProvider } from "@/contexts/TimelineContext";
+import { EcosystemProvider } from "@/contexts/EcosystemContext";
+
 
 export default function ApplicationGroupLayout({
   children,
@@ -31,7 +33,9 @@ export default function ApplicationGroupLayout({
                       <NewsProvider>
                         <TeamProvider>
                           <TimelineProvider>
-                            <AppLayout>{children}</AppLayout>
+                            <EcosystemProvider>
+                              <AppLayout>{children}</AppLayout>
+                            </EcosystemProvider>
                           </TimelineProvider>
                         </TeamProvider>
                       </NewsProvider>

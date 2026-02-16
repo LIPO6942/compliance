@@ -64,6 +64,7 @@ const navItems = [
       { href: "/plan#processus-metiers", icon: Workflow, label: "Processus Métiers" }
     ]
   },
+  { href: "/ecosystem", icon: Users, label: "Cartographie des Acteurs", title: "Cartographie des Acteurs" },
   { href: "/regulatory-watch", icon: SearchCheck, label: "Assistance Conformité IA", title: "Assistance Conformité IA" },
   { href: "/risk-mapping", icon: Map, label: "Cartographie des Risques", title: "Cartographie des Risques" },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },

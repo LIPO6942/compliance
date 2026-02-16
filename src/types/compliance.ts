@@ -255,3 +255,35 @@ export interface ActivityItem {
   date: Date;
   Icon: React.ComponentType<{ className?: string }>;
 }
+
+// Ecosystem Map Types
+export type EcosystemNodeType = 'authority' | 'entity' | 'judicial' | 'service' | 'other';
+
+export interface EcosystemNode {
+  id: string;
+  label: string;
+  type: EcosystemNodeType;
+  description?: string;
+  category?: string;
+  icon?: string; // Lucide icon name
+  position: { x: number; y: number };
+  data?: any;
+}
+
+export interface EcosystemEdge {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+  type?: string;
+}
+
+export interface EcosystemMap {
+  id: string;
+  name: string;
+  section: string; // To link to a specific section (e.g., 'lab-cft')
+  nodes: EcosystemNode[];
+  edges: EcosystemEdge[];
+  createdAt: string;
+  updatedAt: string;
+}
