@@ -647,6 +647,13 @@ export default function PlanPage() {
     );
   }
 
+  const filteredPlanData = React.useMemo(() => {
+    if (viewMode === 'diagram') {
+      return displayPlanData.filter(c => c.name === "Processus Métiers Clés" || c.name === "Processus Métiers");
+    }
+    return displayPlanData;
+  }, [displayPlanData, viewMode]);
+
   return (
     <div className="space-y-10 bg-slate-50/50 dark:bg-slate-950/20 -m-8 p-8 min-h-screen">
       <PlanHeader onAddCategory={() => openDialog("category", "add")} viewMode={viewMode} onViewModeChange={setViewMode} />
@@ -665,7 +672,7 @@ export default function PlanPage() {
         }} />
       ) : (
         <div className="space-y-12">
-          {displayPlanData.length > 0 ? displayPlanData.map((category: ComplianceCategory) => {
+          {filteredPlanData.length > 0 ? filteredPlanData.map((category: ComplianceCategory) => {
             const Icon = getIconComponent(category.icon);
             const isProcessCategory = category.name === "Processus Métiers Clés";
             return (

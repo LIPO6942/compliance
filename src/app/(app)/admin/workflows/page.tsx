@@ -180,7 +180,7 @@ export default function AdminWorkflowsPage() {
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Gestion des Workflows</h1>
-                    <p className="text-muted-foreground">Configurez les processus métier via Mermaid.js</p>
+                    <p className="text-muted-foreground">Configurez les processus métier via Mermaid</p>
                 </div>
                 <div className="flex gap-4">
                     <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={handleDeleteAll} disabled={workflows.length === 0}>
