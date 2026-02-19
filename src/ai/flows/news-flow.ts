@@ -18,7 +18,7 @@ const ComplianceNewsOutputSchema = z.array(
         id: z.string().describe("Un identifiant unique pour l'actualité."),
         title: z.string().describe("Le titre de l'article de presse."),
         date: z.string().describe("La date de publication au format AAAA-MM-JJ."),
-        source: z.enum(["NewsAPI", "GNews", "MarketAux", "Google News", "CGA", "JORT", "GAFI", "OFAC", "UE", "Autre"]).describe("La source de l'information."),
+        source: z.enum(["NewsAPI", "GNews", "MarketAux", "Google News", "CGA", "JORT", "GAFI", "OFAC", "UE", "AML Intelligence", "ComplyAdvantage", "Autre"]).describe("La source de l'information."),
         description: z.string().describe("Une courte description (1-2 phrases) de l'actualité."),
         url: z.string().url().optional().describe("L'URL vers l'article complet, si disponible."),
         imageUrl: z.string().url().optional().describe("L'URL d'une image pour l'article."),
@@ -165,12 +165,73 @@ const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
         return [];
     }
 };
+
+// Fetcher for AML Intelligence RSS
+const fetchFromAMLIntelligence = async (): Promise<NewsItem[]> => {
+    try {
+        const parser = new Parser();
+        const url = `https://amlintelligence.com/feed`;
+
+        const feed = await parser.parseURL(url);
+        if (!feed.items) return [];
+
+        return feed.items.slice(0, 10).map((item: any): NewsItem | null => {
+            if (!item.title || !item.link) return null;
+            const itemDate = item.isoDate ? new Date(item.isoDate) : new Date();
+            return {
+                id: item.guid || item.link,
+                title: item.title,
+                date: itemDate.toISOString().split('T')[0],
+                source: 'AML Intelligence',
+                description: item.contentSnippet || 'Actualité spécialisée LCB-FT.',
+                url: item.link,
+                imageUrl: undefined,
+            };
+        }).filter((item: NewsItem | null): item is NewsItem => item !== null);
+
+    } catch (error) {
+        console.error("[NEWS FLOW] Error fetching from AML Intelligence RSS:", error);
+        return [];
+    }
+};
+
+// Fetcher for ComplyAdvantage RSS
+const fetchFromComplyAdvantage = async (): Promise<NewsItem[]> => {
+    try {
+        const parser = new Parser();
+        const url = `https://complyadvantage.com/feed`;
+
+        const feed = await parser.parseURL(url);
+        if (!feed.items) return [];
+
+        return feed.items.slice(0, 10).map((item: any): NewsItem | null => {
+            if (!item.title || !item.link) return null;
+            const itemDate = item.isoDate ? new Date(item.isoDate) : new Date();
+            return {
+                id: item.guid || item.link,
+                title: item.title,
+                date: itemDate.toISOString().split('T')[0],
+                source: 'ComplyAdvantage',
+                description: item.contentSnippet || 'Analyses et perspectives de conformité.',
+                url: item.link,
+                imageUrl: undefined,
+            };
+        }).filter((item: NewsItem | null): item is NewsItem => item !== null);
+
+    } catch (error) {
+        // Fallback or retry logic can be added here if needed
+        console.error("[NEWS FLOW] Error fetching from ComplyAdvantage RSS:", error);
+        return [];
+    }
+};
 async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
     const allNewsPromises = [
         fetchFromNewsAPI(),
         fetchFromGNews(),
         fetchFromMarketAux(),
         fetchFromGoogleNewsRSS(),
+        fetchFromAMLIntelligence(),
+        fetchFromComplyAdvantage(),
     ];
     const results = await Promise.allSettled(allNewsPromises);
 
