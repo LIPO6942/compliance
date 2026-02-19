@@ -18,7 +18,7 @@ const ComplianceNewsOutputSchema = z.array(
         id: z.string().describe("Un identifiant unique pour l'actualité."),
         title: z.string().describe("Le titre de l'article de presse."),
         date: z.string().describe("La date de publication au format AAAA-MM-JJ."),
-        source: z.enum(["NewsAPI", "GNews", "MarketAux", "Google News", "CGA", "JORT", "GAFI", "OFAC", "UE", "AML Intelligence", "ComplyAdvantage", "Autre"]).describe("La source de l'information."),
+        source: z.enum(["NewsAPI", "GNews", "MarketAux", "Google News", "CGA", "JORT", "GAFI", "OFAC", "UE", "AML Intelligence", "ComplyAdvantage", "KPMG", "FATF", "Autre"]).describe("La source de l'information."),
         description: z.string().describe("Une courte description (1-2 phrases) de l'actualité."),
         url: z.string().url().optional().describe("L'URL vers l'article complet, si disponible."),
         imageUrl: z.string().url().optional().describe("L'URL d'une image pour l'article."),
@@ -37,7 +37,7 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
     if (!NEWS_API_KEY) return [];
 
     try {
-        const query = encodeURIComponent('"conformité GRC" OR "compliance LCB-FT" OR "lutte contre le blanchiment" OR "Sapin II" OR "anti-corruption"');
+        const query = encodeURIComponent('"conformité GRC" OR "compliance LCB-FT" OR "lutte contre le blanchiment" OR "Sapin II" OR "anti-corruption" OR "FATF"');
         const url = `https://newsapi.org/v2/everything?q=${query}&language=fr&sortBy=publishedAt&pageSize=20&apiKey=${NEWS_API_KEY}`;
 
         const response = await fetch(url);
@@ -72,7 +72,7 @@ const fetchFromGNews = async (): Promise<NewsItem[]> => {
     if (!GNEWS_API_KEY) return [];
 
     try {
-        const query = encodeURIComponent('"conformité réglementaire" OR "LCB-FT Tunisie" OR "GAFI" OR "déontologie financière"');
+        const query = encodeURIComponent('"conformité réglementaire" OR "LCB-FT Tunisie" OR "GAFI" OR "FATF" OR "déontologie financière"');
         const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&topic=business&max=20&apikey=${GNEWS_API_KEY}`;
 
         const response = await fetch(url);
@@ -140,7 +140,7 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
 const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
     try {
         const parser = new Parser();
-        const query = encodeURIComponent('"Conformité MAE" OR "LCB-FT Tunisie" OR "Gouvernance et Conformité" OR "Contrôle interne GRC" OR "Audit de conformité bancaire"');
+        const query = encodeURIComponent('"Conformité MAE" OR "LCB-FT Tunisie" OR "Gouvernance et Conformité" OR "FATF news" OR "Contrôle interne GRC" OR "Audit de conformité bancaire"');
         const url = `https://news.google.com/rss/search?q=${query}&hl=fr&gl=FR&ceid=FR:fr`;
 
         const feed = await parser.parseURL(url);
@@ -224,6 +224,65 @@ const fetchFromComplyAdvantage = async (): Promise<NewsItem[]> => {
         return [];
     }
 };
+
+// Fetcher for KPMG Compliance RSS (via search as direct general feed is often gated)
+const fetchFromKPMG = async (): Promise<NewsItem[]> => {
+    try {
+        const parser = new Parser();
+        // KPMG often uses specific regional or topical feeds. This targets general regulatory insights if available via search-like RSS
+        const url = `https://news.google.com/rss/search?q=site:kpmg.com+compliance+OR+regulatory&hl=en&gl=US&ceid=US:en`;
+
+        const feed = await parser.parseURL(url);
+        if (!feed.items) return [];
+
+        return feed.items.slice(0, 5).map((item: any): NewsItem | null => {
+            if (!item.title || !item.link) return null;
+            const itemDate = item.isoDate ? new Date(item.isoDate) : new Date();
+            return {
+                id: item.guid || item.link,
+                title: item.title,
+                date: itemDate.toISOString().split('T')[0],
+                source: 'KPMG',
+                description: item.contentSnippet || 'Insights réglementaires et conformité KPMG.',
+                url: item.link,
+                imageUrl: undefined,
+            };
+        }).filter((item: NewsItem | null): item is NewsItem => item !== null);
+
+    } catch (error) {
+        console.error("[NEWS FLOW] Error fetching from KPMG RSS:", error);
+        return [];
+    }
+};
+
+// Fetcher for FATF (GAFI) Latest Publications
+const fetchFromFATF = async (): Promise<NewsItem[]> => {
+    try {
+        const parser = new Parser();
+        const url = `https://www.fatf-gafi.org/en/publications.rss`;
+
+        const feed = await parser.parseURL(url);
+        if (!feed.items) return [];
+
+        return feed.items.slice(0, 10).map((item: any): NewsItem | null => {
+            if (!item.title || !item.link) return null;
+            const itemDate = item.isoDate ? new Date(item.isoDate) : new Date();
+            return {
+                id: item.guid || item.link,
+                title: item.title,
+                date: itemDate.toISOString().split('T')[0],
+                source: 'FATF',
+                description: item.contentSnippet || 'Latest publications and guidance from the FATF-GAFI.',
+                url: item.link,
+                imageUrl: undefined,
+            };
+        }).filter((item: NewsItem | null): item is NewsItem => item !== null);
+
+    } catch (error) {
+        console.error("[NEWS FLOW] Error fetching from FATF RSS:", error);
+        return [];
+    }
+};
 async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
     const allNewsPromises = [
         fetchFromNewsAPI(),
@@ -232,6 +291,8 @@ async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
         fetchFromGoogleNewsRSS(),
         fetchFromAMLIntelligence(),
         fetchFromComplyAdvantage(),
+        fetchFromKPMG(),
+        fetchFromFATF(),
     ];
     const results = await Promise.allSettled(allNewsPromises);
 
@@ -257,5 +318,5 @@ async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
     uniqueNews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // Increase the final slice to have a larger pool of recent articles
-    return ComplianceNewsOutputSchema.parse(uniqueNews.slice(0, 15));
+    return ComplianceNewsOutputSchema.parse(uniqueNews.slice(0, 25));
 }
