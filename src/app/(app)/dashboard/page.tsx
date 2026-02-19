@@ -4,7 +4,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle, X } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
@@ -21,6 +21,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useTimeline } from "@/contexts/TimelineContext";
+import { summarizeNewsAction } from "./actions";
+import { useToast } from "@/hooks/use-toast";
+import { Sparkles } from "lucide-react";
 
 const complianceStatusBaseColors = {
   conforme: "#10b981", // emerald-500
@@ -34,7 +37,7 @@ export default function DashboardPage() {
   const { documents } = useDocuments();
   const { identifiedRegulations } = useIdentifiedRegulations();
   const { risks } = useRiskMapping();
-  const { news, loading: newsLoading, refetchNews } = useNews();
+  const { news, loading: newsLoading, refetchNews, dismissNewsItem } = useNews();
   const { events: timelineEvents, toggleValidation } = useTimeline();
   const [isLoading, setIsLoading] = React.useState(true);
   const router = useRouter();
@@ -46,6 +49,9 @@ export default function DashboardPage() {
   const [taskProgressData, setTaskProgressData] = React.useState<any[]>([]);
   const [newAlertsCount, setNewAlertsCount] = React.useState(0);
   const [lastActions, setLastActions] = React.useState<any[]>([]);
+  const [newsSummary, setNewsSummary] = React.useState<string | null>(null);
+  const [isSummarizing, setIsSummarizing] = React.useState(false);
+  const { toast } = useToast();
   const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
@@ -133,6 +139,33 @@ export default function DashboardPage() {
 
   const handleCardClick = (path: string) => {
     router.push(path);
+  };
+
+  const handleSummarizeNews = async () => {
+    if (news.length === 0) return;
+    setIsSummarizing(true);
+    setNewsSummary(null);
+    try {
+      const result = await summarizeNewsAction(news.slice(0, 10));
+      if (result.summary) {
+        setNewsSummary(result.summary);
+      } else if (result.error) {
+        toast({
+          title: "Erreur IA",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Erreur",
+        description: "Échec de la connexion au service IA.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSummarizing(false);
+    }
   };
 
   return (
@@ -573,39 +606,108 @@ export default function DashboardPage() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Card
-                  className="shadow-xl overflow-hidden border-none bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 cursor-pointer hover:shadow-primary/10 transition-all"
+                  className="shadow-2xl overflow-hidden border-none bg-white dark:bg-slate-900 cursor-pointer hover:shadow-primary/20 transition-all group/card relative"
                   onClick={() => handleCardClick('/regulatory-watch')}
                 >
-                  <CardHeader className="pb-3 border-b border-primary/5">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                  <CardHeader className="pb-4 pt-6 px-6 border-b border-slate-50 dark:border-slate-800">
                     <div className="flex justify-between items-center">
-                      <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-slate-500">
-                        <Newspaper className="h-3 w-3" />
-                        Intelligence Flux
-                      </CardTitle>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={(e) => { e.stopPropagation(); refetchNews(); }}>
-                        <RefreshCw className={`h-3 w-3 ${newsLoading ? 'animate-spin' : ''}`} />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                          <Newspaper className="h-4 w-4 text-primary" />
+                        </div>
+                        <CardTitle className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-800 dark:text-slate-200">
+                          Intelligence Flux
+                        </CardTitle>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            "h-7 px-2 text-[9px] font-black uppercase gap-1.5 transition-all active:scale-95",
+                            newsSummary ? "bg-primary/20 text-primary border border-primary/20" : "hover:bg-primary/10 text-primary/70 hover:text-primary"
+                          )}
+                          onClick={(e) => { e.stopPropagation(); handleSummarizeNews(); }}
+                          disabled={isSummarizing || news.length === 0}
+                        >
+                          <Sparkles className={cn("h-3 w-3", isSummarizing && "animate-pulse")} />
+                          {isSummarizing ? "Analyse..." : newsSummary ? "Actualiser Briefing" : "Briefing IA"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-primary/10 text-primary transition-all active:scale-95"
+                          onClick={(e) => { e.stopPropagation(); refetchNews(); }}
+                        >
+                          <RefreshCw className={`h-4 w-4 ${newsLoading ? 'animate-spin' : 'group-hover/card:rotate-180 transition-transform duration-500'}`} />
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="p-4 space-y-4">
-                    {news.slice(0, 3).map((item, i) => (
-                      <div
-                        key={i}
-                        onClick={(e) => { e.stopPropagation(); window.open(item.url, '_blank'); }}
-                        className="block p-3 rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm border border-transparent hover:border-slate-200 transition-all group cursor-pointer"
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <Badge className="text-[8px] h-4 font-black uppercase bg-primary/10 text-primary border-none shadow-none">{item.source}</Badge>
-                          <span className="text-[8px] font-bold opacity-30">{format(parseISO(item.date), 'dd/MM', { locale: fr })}</span>
+                  <CardContent className="p-0">
+                    {newsSummary && (
+                      <div className="px-6 py-4 bg-primary/5 border-b border-primary/10 animate-in fade-in slide-in-from-top-2 duration-500">
+                        <div className="flex items-center gap-2 mb-2">
+                          <BrainCircuit className="h-3 w-3 text-primary" />
+                          <span className="text-[10px] font-black uppercase tracking-wider text-primary">Synthèse Cognitive</span>
                         </div>
-                        <p className="text-[12px] font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors">{item.title}</p>
+                        <div className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400 whitespace-pre-line font-medium italic">
+                          {newsSummary}
+                        </div>
                       </div>
-                    ))}
+                    )}
+                    <div className="divide-y divide-slate-50 dark:divide-slate-800">
+                      {news.slice(0, 4).map((item) => (
+                        <div
+                          key={item.id}
+                          className="group/item relative p-5 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all flex flex-col gap-3"
+                          onClick={(e) => { e.stopPropagation(); window.open(item.url, '_blank'); }}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <Badge className={cn(
+                                "text-[9px] font-black uppercase px-2 py-0.5 border-none",
+                                item.source === 'FATF' ? "bg-amber-500/10 text-amber-600" :
+                                  item.source === 'KPMG' ? "bg-blue-500/10 text-blue-600" :
+                                    "bg-primary/10 text-primary"
+                              )}>
+                                {item.source}
+                              </Badge>
+                              <span className="text-[9px] font-bold text-slate-400">
+                                {format(parseISO(item.date), 'dd MMM', { locale: fr })}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 opacity-0 group-hover/item:opacity-100 hover:bg-rose-50 hover:text-rose-600 rounded-full transition-all"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                dismissNewsItem(item.id);
+                              }}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          <p className="text-[13px] font-bold leading-tight line-clamp-2 text-slate-700 dark:text-slate-300 group-hover/item:text-primary transition-colors">
+                            {item.title}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    {news.length === 0 && (
+                      <div className="p-10 text-center space-y-2">
+                        <Activity className="h-8 w-8 text-slate-200 mx-auto" />
+                        <p className="text-xs font-bold text-slate-400 uppercase italic">Aucun nouveau signal</p>
+                      </div>
+                    )}
                     <div
-                      onClick={() => router.push('/regulatory-watch')}
-                      className="flex items-center text-[10px] font-black uppercase p-0 h-auto tracking-widest text-primary/70 group cursor-pointer hover:text-primary transition-colors"
+                      onClick={(e) => { e.stopPropagation(); router.push('/regulatory-watch'); }}
+                      className="p-4 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors group/more"
                     >
-                      Flux complet <ArrowRight className="ml-1 h-3 w-3 group-hover:translate-x-1 transition-transform" />
+                      Explorer le flux complet
+                      <ArrowRight className="ml-2 h-3.5 w-3.5 group-hover/more:translate-x-1 transition-transform" />
                     </div>
                   </CardContent>
                 </Card>

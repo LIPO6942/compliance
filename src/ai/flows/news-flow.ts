@@ -31,6 +31,21 @@ export async function fetchComplianceNews(): Promise<ComplianceNewsOutput> {
     return fetchComplianceNewsFlow();
 }
 
+export async function summarizeNewsFlow(newsItems: NewsItem[]): Promise<string> {
+    if (newsItems.length === 0) return "Aucune actualité à synthétiser.";
+
+    const titles = newsItems.map(item => `- ${item.title}`).join('\n');
+    const prompt = `Voici les dernières actualités de conformité LCB-FT, GRC et Sanctions :\n${titles}\n\nAgis en tant qu'expert GRC (Gouvernance, Risque et Conformité). Analyse ces titres et fournis un "Briefing IA Cognitive" très concis en exactement 3 points clés (bullet points).
+Ta synthèse doit identifier :
+1. Les tendances majeures ou thèmes récurrents.
+2. Les alertes critiques (ex: GAFI/FATF, nouvelles sanctions, régulations UE).
+3. L'impact opérationnel immédiat pour un responsable conformité.
+
+Réponds en français, avec un ton professionnel, précis et percutant. Utilise des emojis pertinents.`;
+
+    return callGroqChatCompletion(prompt);
+}
+
 // Fetcher for NewsAPI.org
 const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
     const NEWS_API_KEY = process.env.NEWS_API_KEY;
@@ -319,4 +334,44 @@ async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
 
     // Increase the final slice to have a larger pool of recent articles
     return ComplianceNewsOutputSchema.parse(uniqueNews.slice(0, 25));
+}
+
+async function callGroqChatCompletion(prompt: string): Promise<string> {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+        console.error('[AI] Missing GROQ_API_KEY');
+        return 'L\'assistant IA est temporairement indisponible (Clé API manquante).';
+    }
+
+    const model = process.env.GROQ_MODEL || 'llama3-8b-8192';
+
+    try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model,
+                messages: [
+                    { role: 'system', content: 'Tu es un assistant expert en conformité GRC et LCB-FT. Ta mission est de fournir des briefings stratégiques basés sur les actualités.' },
+                    { role: 'user', content: prompt },
+                ],
+                temperature: 0.4,
+            }),
+        });
+
+        if (!res.ok) {
+            console.error('[AI] Groq API error', res.status);
+            return 'Erreur lors de la génération du briefing IA.';
+        }
+
+        const data: any = await res.json();
+        const content: string | undefined = data?.choices?.[0]?.message?.content;
+        return content ?? 'Impossible de générer la synthèse.';
+    } catch (err) {
+        console.error('[AI] Groq request failed', err);
+        return 'Erreur de connexion au moteur IA.';
+    }
 }
