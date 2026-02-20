@@ -51,6 +51,7 @@ export default function DashboardPage() {
   const [lastActions, setLastActions] = React.useState<any[]>([]);
   const [newsSummary, setNewsSummary] = React.useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = React.useState(false);
+  const [isBriefingExpanded, setIsBriefingExpanded] = React.useState(true);
   const { toast } = useToast();
   const [isClient, setIsClient] = React.useState(false);
 
@@ -142,8 +143,15 @@ export default function DashboardPage() {
   };
 
   const handleSummarizeNews = async () => {
+    // Si un briefing existe déjà, on le plie/déplie
+    if (newsSummary) {
+      setIsBriefingExpanded(prev => !prev);
+      return;
+    }
+
     if (news.length === 0) return;
     setIsSummarizing(true);
+    setIsBriefingExpanded(true);
     setNewsSummary(null);
     try {
       const result = await summarizeNewsAction(news.slice(0, 10));
@@ -626,13 +634,13 @@ export default function DashboardPage() {
                           size="sm"
                           className={cn(
                             "h-7 px-2 text-[9px] font-black uppercase gap-1.5 transition-all active:scale-95",
-                            newsSummary ? "bg-primary/20 text-primary border border-primary/20" : "hover:bg-primary/10 text-primary/70 hover:text-primary"
+                            newsSummary && isBriefingExpanded ? "bg-primary/20 text-primary border border-primary/20" : "hover:bg-primary/10 text-primary/70 hover:text-primary"
                           )}
                           onClick={(e) => { e.stopPropagation(); handleSummarizeNews(); }}
                           disabled={isSummarizing || news.length === 0}
                         >
                           <Sparkles className={cn("h-3 w-3", isSummarizing && "animate-pulse")} />
-                          {isSummarizing ? "Analyse..." : newsSummary ? "Actualiser Briefing" : "Briefing IA"}
+                          {isSummarizing ? "Analyse..." : newsSummary ? (isBriefingExpanded ? "Masquer Briefing" : "Voir Briefing") : "Briefing IA"}
                         </Button>
                         <Button
                           variant="ghost"
@@ -646,11 +654,19 @@ export default function DashboardPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="p-0">
-                    {newsSummary && (
-                      <div className="px-6 py-4 bg-primary/5 border-b border-primary/10 animate-in fade-in slide-in-from-top-2 duration-500">
-                        <div className="flex items-center gap-2 mb-2">
-                          <BrainCircuit className="h-3 w-3 text-primary" />
-                          <span className="text-[10px] font-black uppercase tracking-wider text-primary">Synthèse Cognitive</span>
+                    {newsSummary && isBriefingExpanded && (
+                      <div className="px-6 py-4 bg-primary/5 border-b border-primary/10 animate-in fade-in slide-in-from-top-2 duration-500 relative">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            <BrainCircuit className="h-3 w-3 text-primary" />
+                            <span className="text-[10px] font-black uppercase tracking-wider text-primary">Synthèse Cognitive</span>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setIsBriefingExpanded(false); }}
+                            className="text-slate-400 hover:text-primary transition-colors p-1"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
                         </div>
                         <div className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400 whitespace-pre-line font-medium italic">
                           {newsSummary}
