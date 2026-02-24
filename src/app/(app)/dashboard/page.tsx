@@ -686,7 +686,8 @@ export default function DashboardPage() {
                                 "text-[9px] font-black uppercase px-2 py-0.5 border-none",
                                 item.source === 'FATF' ? "bg-amber-500/10 text-amber-600" :
                                   item.source === 'KPMG' ? "bg-blue-500/10 text-blue-600" :
-                                    "bg-primary/10 text-primary"
+                                    item.source === 'Juridoc.tn' ? "bg-teal-500/10 text-teal-600" :
+                                      "bg-primary/10 text-primary"
                               )}>
                                 {item.source}
                               </Badge>

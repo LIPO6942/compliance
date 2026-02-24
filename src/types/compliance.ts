@@ -178,7 +178,7 @@ export interface NewsItem {
   id: string;
   title: string;
   date: string; // ISO Date String
-  source: "NewsAPI" | "GNews" | "MarketAux" | "Google News" | "CGA" | "JORT" | "GAFI" | "OFAC" | "UE" | "AML Intelligence" | "ComplyAdvantage" | "KPMG" | "FATF" | "Autre";
+  source: "NewsAPI" | "GNews" | "MarketAux" | "Google News" | "CGA" | "JORT" | "GAFI" | "OFAC" | "UE" | "AML Intelligence" | "ComplyAdvantage" | "KPMG" | "FATF" | "Juridoc.tn" | "Autre";
   description: string;
   url?: string;
   imageUrl?: string;

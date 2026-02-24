@@ -18,7 +18,7 @@ const ComplianceNewsOutputSchema = z.array(
         id: z.string().describe("Un identifiant unique pour l'actualité."),
         title: z.string().describe("Le titre de l'article de presse."),
         date: z.string().describe("La date de publication au format AAAA-MM-JJ."),
-        source: z.enum(["NewsAPI", "GNews", "MarketAux", "Google News", "CGA", "JORT", "GAFI", "OFAC", "UE", "AML Intelligence", "ComplyAdvantage", "KPMG", "FATF", "Autre"]).describe("La source de l'information."),
+        source: z.enum(["NewsAPI", "GNews", "MarketAux", "Google News", "CGA", "JORT", "GAFI", "OFAC", "UE", "AML Intelligence", "ComplyAdvantage", "KPMG", "FATF", "Juridoc.tn", "Autre"]).describe("La source de l'information."),
         description: z.string().describe("Une courte description (1-2 phrases) de l'actualité."),
         url: z.string().url().optional().describe("L'URL vers l'article complet, si disponible."),
         imageUrl: z.string().url().optional().describe("L'URL d'une image pour l'article."),
@@ -298,6 +298,59 @@ const fetchFromFATF = async (): Promise<NewsItem[]> => {
         return [];
     }
 };
+
+// Fetcher for Juridoc.tn - Publications de conformité réglementaire tunisienne
+// Juridoc.tn is a SPA without a native RSS feed, so we use Google News RSS
+// targeting juridoc.tn content and Tunisian regulatory compliance topics.
+const fetchFromJuridocTN = async (): Promise<NewsItem[]> => {
+    try {
+        const parser = new Parser();
+        const results: NewsItem[] = [];
+
+        // Query 1: Publications directly mentioning juridoc.tn
+        const query1 = encodeURIComponent('site:juridoc.tn OR (juridoc.tn conformité réglementaire)');
+        const url1 = `https://news.google.com/rss/search?q=${query1}&hl=fr&gl=TN&ceid=TN:fr`;
+
+        // Query 2: Tunisian regulatory compliance publications (JORT, BCT, CGA, AMF Tunisie)
+        const query2 = encodeURIComponent('"conformité réglementaire" Tunisie OR "textes réglementaires" Tunisie OR "JORT" conformité OR "Banque Centrale Tunisie" réglementaire OR "loi tunisienne" conformité OR "décret tunisien" conformité');
+        const url2 = `https://news.google.com/rss/search?q=${query2}&hl=fr&gl=TN&ceid=TN:fr`;
+
+        const [feed1, feed2] = await Promise.allSettled([
+            parser.parseURL(url1),
+            parser.parseURL(url2),
+        ]);
+
+        const processItems = (items: any[], isJuridocDirect: boolean): NewsItem[] => {
+            return items.slice(0, isJuridocDirect ? 10 : 8).map((item: any): NewsItem | null => {
+                if (!item.title || !item.link) return null;
+                const itemDate = item.isoDate ? new Date(item.isoDate) : new Date();
+                return {
+                    id: item.guid || item.link,
+                    title: item.title,
+                    date: itemDate.toISOString().split('T')[0],
+                    source: 'Juridoc.tn',
+                    description: item.contentSnippet || 'Publication juridique et réglementaire tunisienne.',
+                    url: item.link,
+                    imageUrl: undefined,
+                };
+            }).filter((item: NewsItem | null): item is NewsItem => item !== null);
+        };
+
+        if (feed1.status === 'fulfilled' && feed1.value.items) {
+            results.push(...processItems(feed1.value.items, true));
+        }
+        if (feed2.status === 'fulfilled' && feed2.value.items) {
+            results.push(...processItems(feed2.value.items, false));
+        }
+
+        console.log(`[NEWS FLOW] Juridoc.tn: ${results.length} articles trouvés.`);
+        return results;
+
+    } catch (error) {
+        console.error("[NEWS FLOW] Error fetching from Juridoc.tn:", error);
+        return [];
+    }
+};
 async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
     const allNewsPromises = [
         fetchFromNewsAPI(),
@@ -308,6 +361,7 @@ async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
         fetchFromComplyAdvantage(),
         fetchFromKPMG(),
         fetchFromFATF(),
+        fetchFromJuridocTN(),
     ];
     const results = await Promise.allSettled(allNewsPromises);
 
