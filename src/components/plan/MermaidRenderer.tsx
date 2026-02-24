@@ -369,7 +369,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
     }
 
     return (
-        <div className="w-full h-full relative group p-4">
+        <div className="w-full h-full relative group p-4 flex flex-col overflow-hidden">
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&display=swap');
@@ -481,7 +481,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
 
             <div className="relative flex-1 w-full bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3rem] p-8 shadow-2xl overflow-hidden flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
                 <div
-                    className="mermaid w-full flex flex-col items-center justify-center opacity-0 translate-y-4 animate-[fadeIn_0.8s_ease-out_forwards]"
+                    className="mermaid w-full h-full flex flex-col items-center justify-center opacity-0 translate-y-4 animate-[fadeIn_0.8s_ease-out_forwards]"
                     dangerouslySetInnerHTML={{ __html: svg }}
                 />
 

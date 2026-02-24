@@ -180,14 +180,12 @@ export default function WorkflowEditorPage() {
         return classIdx > -1 ? src.slice(0, classIdx) + `\n  ${def}` + src.slice(classIdx) : src + `\n  ${def}`;
     };
 
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        let isM = true;
+    const initMonaco = useCallback(() => {
+        if (typeof window === 'undefined' || !monacoContainerRef.current || editorRef.current) return;
 
-        const setupMonaco = () => {
-            if (!isM || editorRef.current || !window.monaco || !monacoContainerRef.current) return;
+        const setup = () => {
+            if (!monacoContainerRef.current || editorRef.current) return;
 
-            // Register mermaid language if not exists to avoid empty editor
             try {
                 if (!window.monaco.languages.getLanguages().some((l: any) => l.id === 'mermaid')) {
                     window.monaco.languages.register({ id: 'mermaid' });
@@ -216,26 +214,25 @@ export default function WorkflowEditorPage() {
             setIsMonacoReady(true);
         };
 
-        const initM = () => {
-            if (!isM || editorRef.current || !monacoContainerRef.current) return;
+        if (window.monaco) {
+            setup();
+        } else if (window.require) {
+            window.require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+            window.require(['vs/editor/editor.main'], () => {
+                setup();
+            });
+        }
+    }, []);
 
-            if (window.monaco) {
-                setupMonaco();
-            } else if (window.require) {
-                window.require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
-                window.require(['vs/editor/editor.main'], () => {
-                    if (isM) setupMonaco();
-                });
-            }
-        };
+    useEffect(() => {
+        if (activeTab === 'editor') {
+            const timer = setTimeout(initMonaco, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [activeTab, initMonaco]);
 
-        // Delay slightly to ensure layout is ready
-        const timer = setTimeout(initM, 100);
-        return () => {
-            clearTimeout(timer);
-            isM = false;
-            if (editorRef.current) editorRef.current.dispose();
-        };
+    useEffect(() => {
+        return () => { if (editorRef.current) editorRef.current.dispose(); };
     }, []);
 
     useEffect(() => {
@@ -314,18 +311,19 @@ export default function WorkflowEditorPage() {
                                             variant={graph.direction === d ? 'default' : 'outline'}
                                             onClick={() => {
                                                 const currentCode = codeRef.current;
-                                                const re = /^([ \t]*(?:graph|flowchart)\s+)(TD|LR|BT|RL)/m;
-                                                let newCode = currentCode.replace(re, `$1${d}`);
-
-                                                // If replacement didn't happen (maybe no direction specified yet)
-                                                if (newCode === currentCode && !currentCode.match(re)) {
-                                                    newCode = currentCode.replace(/^([ \t]*(?:graph|flowchart))(?!\s+(?:TD|LR|BT|RL))/m, `$1 ${d}`);
+                                                // Support global replace for direction to ensure it works every time
+                                                const re = /^(graph|flowchart)\s+(TD|LR|BT|RL)/im;
+                                                let newCode;
+                                                if (re.test(currentCode)) {
+                                                    newCode = currentCode.replace(re, `$1 ${d}`);
+                                                } else {
+                                                    const baseRe = /^(graph|flowchart)/im;
+                                                    if (baseRe.test(currentCode)) {
+                                                        newCode = currentCode.replace(baseRe, `$1 ${d}`);
+                                                    } else {
+                                                        newCode = `graph ${d}\n${currentCode}`;
+                                                    }
                                                 }
-                                                // Support lowercase/aliases if any
-                                                if (newCode === currentCode) {
-                                                    newCode = currentCode.replace(/^(graph|flowchart)(\s+)?/i, `$1 ${d}\n`);
-                                                }
-
                                                 applyCode(newCode);
                                             }}
                                             className={cn("h-8 w-10 font-mono font-black", graph.direction === d && "bg-indigo-600 shadow-md transform scale-110")}
