@@ -89,7 +89,7 @@ export default function RiskMappingPage() {
   const [isClient, setIsClient] = React.useState(false);
   React.useEffect(() => { setIsClient(true) }, []);
 
-  const [dialogState, setDialogState] = React.useState<{ mode: "add" | "edit" | null; data?: RiskMappingItem }>({ mode: null });
+  const [dialogState, setDialogState] = React.useState<{ mode: "add" | "edit" | "delete" | null; data?: RiskMappingItem }>({ mode: null });
   const form = useForm<RiskFormValues>({ resolver: zodResolver(riskSchema) });
 
   const [filterRiskLevel, setFilterRiskLevel] = React.useState<string>("all");
@@ -98,7 +98,7 @@ export default function RiskMappingPage() {
   const [searchQuery, setSearchQuery] = React.useState<string>("");
   const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis">("table");
 
-  const openDialog = (mode: "add" | "edit", data?: RiskMappingItem) => {
+  const openDialog = (mode: "add" | "edit" | "delete", data?: RiskMappingItem) => {
     setDialogState({ mode, data });
     if (mode === "edit" && data) {
       form.reset({
@@ -362,11 +362,12 @@ export default function RiskMappingPage() {
                                       <Edit className="mr-2 h-3.5 w-3.5 text-indigo-500" /> Modifier
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <AlertDialogTrigger asChild>
-                                      <DropdownMenuItem className="text-rose-600 text-xs font-bold py-2 focus:text-rose-600 focus:bg-rose-50">
-                                        <Trash2 className="mr-2 h-3.5 w-3.5" /> Supprimer
-                                      </DropdownMenuItem>
-                                    </AlertDialogTrigger>
+                                    <DropdownMenuItem
+                                      onClick={() => openDialog('delete', risk)}
+                                      className="text-rose-600 text-xs font-bold py-2 focus:text-rose-600 focus:bg-rose-50"
+                                    >
+                                      <Trash2 className="mr-2 h-3.5 w-3.5" /> Supprimer
+                                    </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
@@ -612,7 +613,7 @@ export default function RiskMappingPage() {
       </Dialog>
 
       {/* Reusable Delete Dialog */}
-      <AlertDialog>
+      <AlertDialog open={dialogState.mode === "delete"} onOpenChange={(open) => !open && closeDialog()}>
         <AlertDialogContent className="rounded-[3rem] p-10 border-none shadow-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-3xl font-black tracking-tighter uppercase italic">Effacer le <span className="text-rose-600">Risque</span></AlertDialogTitle>

@@ -115,7 +115,7 @@ export default function TrainingPage() {
   const { toast } = useToast();
 
   const [dialogState, setDialogState] = React.useState<{
-    type: "registry" | "session" | "campaign" | null;
+    type: "registry" | "session" | "campaign" | "delete_registry" | "delete_session" | "delete_campaign" | null;
     mode: "add" | "edit" | null;
     data?: TrainingRegistryItem | UpcomingSession | SensitizationCampaign;
   }>({ type: null, mode: null });
@@ -192,7 +192,7 @@ export default function TrainingPage() {
   }, [upcomingSessions, trainingRegistryItems]);
 
 
-  const openDialog = (type: "registry" | "session" | "campaign", mode: "add" | "edit", data?: any) => {
+  const openDialog = (type: "registry" | "session" | "campaign" | "delete_registry" | "delete_session" | "delete_campaign", mode: "add" | "edit" | null, data?: any) => {
     setDialogState({ type, mode, data });
     if (mode === "edit" && data) {
       if (type === "registry") registryForm.reset({ ...data, successRate: data.successRate ?? 0, completionCriteria: data.completionCriteria || [] });
@@ -352,31 +352,22 @@ export default function TrainingPage() {
                       </div>
                       <div className="flex items-center">
                         <Badge variant={session.type === "Obligatoire" ? "destructive" : "secondary"} className="text-xs mr-2">{session.type}</Badge>
-                        <AlertDialog>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openDialog("session", "edit", session)}><Edit2 className="mr-2 h-4 w-4" />Modifier</DropdownMenuItem>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e) => e.preventDefault()}><Trash2 className="mr-2 h-4 w-4" />Supprimer</DropdownMenuItem>
-                              </AlertDialogTrigger>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Supprimer la session ?</AlertDialogTitle>
-                              <AlertDialogDescription>"{session.title}" sera supprimée définitivement.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Annuler</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleRemoveSession(session.id, session.title)} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openDialog("session", "edit", session)}><Edit2 className="mr-2 h-4 w-4" />Modifier</DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                              onClick={() => openDialog("delete_session", null, session)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />Supprimer
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                     {session.progress !== undefined && (
@@ -424,31 +415,22 @@ export default function TrainingPage() {
                             <Badge variant={campaign.status === "En cours" ? "default" : campaign.status === "Planifiée" ? "outline" : "secondary"} className={`capitalize text-xs mr-2 ${campaign.status === "En cours" ? "bg-yellow-500 text-white hover:bg-yellow-600" : ""}`}>
                               {campaign.status}
                             </Badge>
-                            <AlertDialog>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => openDialog("campaign", "edit", campaign)}><Edit2 className="mr-2 h-4 w-4" />Modifier</DropdownMenuItem>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onSelect={(e) => e.preventDefault()}><Trash2 className="mr-2 h-4 w-4" />Supprimer</DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Supprimer la campagne ?</AlertDialogTitle>
-                                  <AlertDialogDescription>"{campaign.name}" sera supprimée définitivement.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleRemoveCampaign(campaign.id, campaign.name)} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openDialog("campaign", "edit", campaign)}><Edit2 className="mr-2 h-4 w-4" />Modifier</DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                  onClick={() => openDialog("delete_campaign", null, campaign)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />Supprimer
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                         {campaign.progress !== undefined && (
@@ -515,44 +497,26 @@ export default function TrainingPage() {
                       </TableCell>
                       <TableCell className="text-center text-xs py-3">{training.lastUpdated}</TableCell>
                       <TableCell className="py-3 text-right">
-                        <AlertDialog>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Ouvrir menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openDialog("registry", "edit", training)}>
-                                <Edit2 className="mr-2 h-4 w-4" /> Modifier
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                  onSelect={(e) => e.preventDefault()}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette formation ?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Cette action est irréversible et supprimera la formation "{training.title}" du registre.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Annuler</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleRemoveRegistryItem(training.id, training.title)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                Supprimer
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Ouvrir menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openDialog("registry", "edit", training)}>
+                              <Edit2 className="mr-2 h-4 w-4" /> Modifier
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                              onClick={() => openDialog("delete_registry", null, training)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
@@ -598,6 +562,67 @@ export default function TrainingPage() {
           </div>
         </div>
       </Card>
+
+      {/* Deletion Dialogs */}
+      <AlertDialog open={dialogState.type === "delete_registry"} onOpenChange={(open) => !open && closeDialog()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la formation ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{dialogState.data?.title}" sera supprimée définitivement du registre.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => dialogState.data && handleRemoveRegistryItem(dialogState.data.id, dialogState.data.title)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={dialogState.type === "delete_session"} onOpenChange={(open) => !open && closeDialog()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la session ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{dialogState.data?.title}" sera supprimée définitivement.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => dialogState.data && handleRemoveSession(dialogState.data.id, dialogState.data.title)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={dialogState.type === "delete_campaign"} onOpenChange={(open) => !open && closeDialog()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la campagne ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{dialogState.data?.name}" sera supprimée définitivement.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => dialogState.data && handleRemoveCampaign(dialogState.data.id, (dialogState.data as any).name)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={!!dialogState.type} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
         <DialogContent className="rounded-[2.5rem] p-0 max-w-2xl border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] overflow-hidden bg-white dark:bg-slate-950">

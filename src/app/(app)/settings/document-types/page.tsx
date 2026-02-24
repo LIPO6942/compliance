@@ -34,8 +34,9 @@ type TypeFormValues = z.infer<typeof typeSchema>;
 export default function DocumentTypesPage() {
   const { documentTypes, loading, addDocumentType, editDocumentType, removeDocumentType } = useDocumentTypes();
   const { toast } = useToast();
-  
+
   const [dialogState, setDialogState] = React.useState<{ mode: "add" | "edit" | null; data?: DocumentTypeInfo }>({ mode: null });
+  const [deleteTarget, setDeleteTarget] = React.useState<DocumentTypeInfo | null>(null);
 
   const form = useForm<TypeFormValues>({ resolver: zodResolver(typeSchema) });
 
@@ -111,39 +112,24 @@ export default function DocumentTypesPage() {
                     <TableRow key={type.id}>
                       <TableCell className="font-medium">{type.label}</TableCell>
                       <TableCell className="text-right">
-                        <AlertDialog>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openDialog('edit', type)}>
-                                <Edit className="mr-2 h-4 w-4" /> Modifier
-                              </DropdownMenuItem>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
-                                  <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Supprimer ce type ?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Cette action est irréversible. Les documents utilisant ce type ne seront pas supprimés mais devront être re-classifiés.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Annuler</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleRemove(type.id, type.label)} className="bg-destructive text-destructive-foreground">
-                                Supprimer
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openDialog('edit', type)}>
+                              <Edit className="mr-2 h-4 w-4" /> Modifier
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                              onClick={() => setDeleteTarget(type)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
@@ -157,7 +143,28 @@ export default function DocumentTypesPage() {
           </div>
         </CardContent>
       </Card>
-      
+
+      {/* Controlled delete confirmation dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce type ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. Les documents utilisant &quot;{deleteTarget?.label}&quot; ne seront pas supprimés mais devront être re-classifiés.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTarget && handleRemove(deleteTarget.id, deleteTarget.label)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={!!dialogState.mode} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
         <DialogContent>
           <DialogHeader>

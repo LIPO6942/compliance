@@ -392,6 +392,16 @@ export default function PlanPage() {
 
   const [dialogState, setDialogState] = React.useState<DialogState>({ type: null, mode: null });
 
+  // Controlled delete confirmation state
+  const [deleteDialog, setDeleteDialog] = React.useState<{
+    type: 'category' | 'subCategory' | 'task' | null;
+    categoryId?: string;
+    subCategoryId?: string;
+    taskId?: string;
+    name?: string;
+  }>({ type: null });
+  const closeDeleteDialog = () => setDeleteDialog({ type: null });
+
   const [connectorDialog, setConnectorDialog] = React.useState<{
     open: boolean;
     mode: 'addBranch' | 'renameBranch' | 'addTask' | null;
@@ -690,35 +700,24 @@ export default function PlanPage() {
                         <PlusCircle className="h-5 w-5 text-emerald-600" />
                       </Button>
                     )}
-                    <AlertDialog>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-5 w-5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openDialog("category", "edit", category)}>
-                            <Edit2 className="mr-2 h-4 w-4" /> Modifier
-                          </DropdownMenuItem>
-                          <AlertDialogTrigger asChild>
-                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                              <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-                            </DropdownMenuItem>
-                          </AlertDialogTrigger>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette catégorie ?</AlertDialogTitle>
-                          <AlertDialogDescription>Cette action est irréversible et supprimera "{category.name}" et toutes ses sous-catégories et tâches.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Annuler</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleRemoveCategory(category.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openDialog("category", "edit", category)}>
+                          <Edit2 className="mr-2 h-4 w-4" /> Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                          onClick={() => setDeleteDialog({ type: 'category', categoryId: category.id, name: category.name })}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardHeader>
                 <CardContent className="p-6">
@@ -831,25 +830,18 @@ export default function PlanPage() {
                                 <CardTitle className="text-lg font-black uppercase tracking-tight font-headline">{subCategory.name}</CardTitle>
                               </div>
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                <AlertDialog>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => openDialog("subCategory", "edit", subCategory, category.id, category.id)}><Edit2 className="mr-2 h-4 w-4" /> Modifier</DropdownMenuItem>
-                                      <AlertDialogTrigger asChild><DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10"><Trash2 className="mr-2 h-4 w-4" /> Supprimer</DropdownMenuItem></AlertDialogTrigger>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette sous-catégorie ?</AlertDialogTitle>
-                                      <AlertDialogDescription>Cette action est irréversible et supprimera "{subCategory.name}" et toutes ses tâches.</AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleRemoveSubCategory(category.id, subCategory.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => openDialog("subCategory", "edit", subCategory, category.id, category.id)}><Edit2 className="mr-2 h-4 w-4" /> Modifier</DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                      onClick={() => setDeleteDialog({ type: 'subCategory', categoryId: category.id, subCategoryId: subCategory.id, name: subCategory.name })}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </div>
                             </CardHeader>
                             <CardContent className="px-6 pb-6 pt-2">
@@ -892,19 +884,18 @@ export default function PlanPage() {
                                         )}
                                       </label>
                                       <div className="absolute right-0 top-0 opacity-0 group-hover/task:opacity-100 transition-opacity">
-                                        <AlertDialog>
-                                          <DropdownMenu>
-                                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" side="left">
-                                              <DropdownMenuItem onClick={() => openDialog("task", "edit", task, subCategory.id, category.id)}><Edit2 className="mr-2 h-4 w-4" /> Modifier</DropdownMenuItem>
-                                              <AlertDialogTrigger asChild><DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10"><Trash2 className="mr-2 h-4 w-4" /> Supprimer</DropdownMenuItem></AlertDialogTrigger>
-                                            </DropdownMenuContent>
-                                          </DropdownMenu>
-                                          <AlertDialogContent>
-                                            <AlertDialogHeader><AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette tâche ?</AlertDialogTitle><AlertDialogDescription>Cette action est irréversible et supprimera la tâche "{task.name}".</AlertDialogDescription></AlertDialogHeader>
-                                            <AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={() => handleRemoveTask(category.id, subCategory.id, task.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction></AlertDialogFooter>
-                                          </AlertDialogContent>
-                                        </AlertDialog>
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end" side="left">
+                                            <DropdownMenuItem onClick={() => openDialog("task", "edit", task, subCategory.id, category.id)}><Edit2 className="mr-2 h-4 w-4" /> Modifier</DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                              onClick={() => setDeleteDialog({ type: 'task', categoryId: category.id, subCategoryId: subCategory.id, taskId: task.id, name: task.name })}
+                                            >
+                                              <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
                                       </div>
                                     </li>
                                   );
@@ -936,6 +927,46 @@ export default function PlanPage() {
             )}
         </div>
       )}
+
+      {/* Controlled delete confirmation dialogs */}
+      <AlertDialog open={deleteDialog.type === 'category'} onOpenChange={(open) => !open && closeDeleteDialog()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette catégorie ?</AlertDialogTitle>
+            <AlertDialogDescription>Cette action est irréversible et supprimera &quot;{deleteDialog.name}&quot; et toutes ses sous-catégories et tâches.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteDialog.categoryId && handleRemoveCategory(deleteDialog.categoryId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteDialog.type === 'subCategory'} onOpenChange={(open) => !open && closeDeleteDialog()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette sous-catégorie ?</AlertDialogTitle>
+            <AlertDialogDescription>Cette action est irréversible et supprimera &quot;{deleteDialog.name}&quot; et toutes ses tâches.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteDialog.categoryId && deleteDialog.subCategoryId && handleRemoveSubCategory(deleteDialog.categoryId, deleteDialog.subCategoryId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteDialog.type === 'task'} onOpenChange={(open) => !open && closeDeleteDialog()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette tâche ?</AlertDialogTitle>
+            <AlertDialogDescription>Cette action est irréversible et supprimera la tâche &quot;{deleteDialog.name}&quot;.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteDialog.categoryId && deleteDialog.subCategoryId && deleteDialog.taskId && handleRemoveTask(deleteDialog.categoryId, deleteDialog.subCategoryId, deleteDialog.taskId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <PlanDialogs
         dialogState={dialogState}
