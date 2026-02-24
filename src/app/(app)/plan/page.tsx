@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { PlusCircle, Edit2, Trash2, MoreVertical, Clock, Link as LinkIcon, FileText, ArrowDown, ArrowUp, ShieldAlert } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, MoreVertical, Clock, Link as LinkIcon, FileText, ArrowDown, ArrowUp, ShieldAlert, Maximize2, X } from "lucide-react";
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
 import * as LucideIcons from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -149,6 +149,13 @@ export default function PlanPage() {
     taskId?: string;
     name?: string;
   }>({ type: null });
+
+  // Fullscreen diagram state
+  const [fullscreenDiagram, setFullscreenDiagram] = React.useState<{
+    code: string;
+    workflowId: string;
+    name: string;
+  } | null>(null);
 
   React.useEffect(() => {
     setIsClient(true);
@@ -441,12 +448,26 @@ export default function PlanPage() {
                                     </div>
                                   </div>
                                   {activeWorkflow && (
-                                    <div className="py-4">
-                                      <MermaidRenderer
-                                        chart={activeWorkflow.code}
-                                        workflowId={subCategory.id}
-                                        onEditTask={(task: any) => openDialog("task", "edit", task, task.subCategoryId || subCategory.id, task.categoryId || category.id)}
-                                      />
+                                    <div className="py-4 relative group/diagram">
+                                      {/* Fullscreen expand button */}
+                                      <button
+                                        onClick={() => setFullscreenDiagram({ code: activeWorkflow.code, workflowId: subCategory.id, name: subCategory.name })}
+                                        className="absolute top-6 right-6 z-10 opacity-0 group-hover/diagram:opacity-100 transition-all duration-200 bg-white/90 backdrop-blur-sm border border-slate-200 shadow-lg rounded-xl h-9 w-9 flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-200 hover:scale-110"
+                                        title="Agrandir le diagramme"
+                                      >
+                                        <Maximize2 className="h-4 w-4 text-slate-500 hover:text-indigo-600" />
+                                      </button>
+                                      {/* Clickable wrapper to open fullscreen */}
+                                      <div
+                                        className="cursor-zoom-in"
+                                        onClick={() => setFullscreenDiagram({ code: activeWorkflow.code, workflowId: subCategory.id, name: subCategory.name })}
+                                      >
+                                        <MermaidRenderer
+                                          chart={activeWorkflow.code}
+                                          workflowId={subCategory.id}
+                                          onEditTask={(task: any) => openDialog("task", "edit", task, task.subCategoryId || subCategory.id, task.categoryId || category.id)}
+                                        />
+                                      </div>
                                     </div>
                                   )}
                                 </div>
@@ -608,7 +629,54 @@ export default function PlanPage() {
         onSubmitSubCategory={onSubmitSubCategory}
         onSubmitTask={onSubmitTask}
       />
+
+      {/* ── Fullscreen Diagram Overlay ── */}
+      {fullscreenDiagram && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setFullscreenDiagram(null)}
+        >
+          <div
+            className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden"
+            style={{ width: 'calc(100vw - 2rem)', height: 'calc(100vh - 2rem)', maxWidth: '1600px' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-6 py-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-xl bg-indigo-100 flex items-center justify-center">
+                  <LucideIcons.GitBranch className="h-4 w-4 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="font-black text-slate-700 text-sm">{fullscreenDiagram.name}</p>
+                  <p className="text-[10px] text-slate-400 font-mono">{fullscreenDiagram.workflowId}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setFullscreenDiagram(null)}
+                className="h-9 w-9 rounded-xl border border-slate-200 hover:bg-slate-100 flex items-center justify-center transition-colors"
+              >
+                <X className="h-4 w-4 text-slate-500" />
+              </button>
+            </div>
+
+            {/* Diagram — fills remaining space, SVG scales to fit */}
+            <div className="absolute inset-0 pt-[64px] overflow-hidden flex items-center justify-center bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px]">
+              <div className="w-full h-full overflow-auto p-6">
+                <div className="min-h-full flex items-center justify-center">
+                  <style dangerouslySetInnerHTML={{ __html: `.fullscreen-mermaid svg { width: 100% !important; height: auto !important; max-height: calc(100vh - 140px) !important; }` }} />
+                  <div className="fullscreen-mermaid w-full">
+                    <MermaidRenderer
+                      chart={fullscreenDiagram.code}
+                      workflowId={fullscreenDiagram.workflowId}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

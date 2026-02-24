@@ -207,12 +207,17 @@ export default function WorkflowEditorPage() {
     const { workflowTasks, assignTask, auditLogs, availableUsers, availableRoles,
         addAvailableUser, removeAvailableUser, addAvailableRole, removeAvailableRole } = usePlanData();
 
-    // ── Push a surgically-edited code to both state and Monaco ─────────────
+    // ── Skip-ref: prevents Monaco onChange feedback loop ────────────────
+    const skipMonacoSync = useRef(false);
+
+    // Applies a new Mermaid code: updates React state + graph + Monaco editor atomically
     const applyCode = useCallback((newCode: string) => {
         setCode(newCode);
-        syncCodeToGraph(newCode);
-        if (editorRef.current && editorRef.current.getValue() !== newCode)
+        setGraph(mermaidToGraph(newCode));
+        if (editorRef.current && editorRef.current.getValue() !== newCode) {
+            skipMonacoSync.current = true;
             editorRef.current.setValue(newCode);
+        }
     }, []);
 
     // ── Surgical helpers (preserve classDef / styles / colors) ──────────────
@@ -317,10 +322,14 @@ export default function WorkflowEditorPage() {
                             fontFamily: "'Fira Code', 'Courier New', monospace",
                         });
                         editorRef.current.onDidChangeModelContent(() => {
+                            if (skipMonacoSync.current) {
+                                skipMonacoSync.current = false;
+                                return; // was set by applyCode — skip to avoid loop
+                            }
                             if (isMounted) {
                                 const val = editorRef.current.getValue();
                                 setCode(val);
-                                syncCodeToGraph(val);
+                                setGraph(mermaidToGraph(val));
                             }
                         });
                         setIsMonacoReady(true);
@@ -417,30 +426,16 @@ export default function WorkflowEditorPage() {
         if (!nodeForm.label.trim()) {
             toast({ title: 'Le libellé est requis.', variant: 'destructive' }); return;
         }
-        setCode(prev => {
-            let next: string;
-            if (editingNodeId) {
-                // Surgically replace the node definition everywhere in the code
-                next = surgicalEditNode(prev, editingNodeId, nodeForm.label, nodeForm.shape);
-            } else {
-                // Append a new node definition while preserving the rest
-                next = surgicalAddNode(prev, nodeForm.id, nodeForm.label, nodeForm.shape);
-            }
-            syncCodeToGraph(next);
-            if (editorRef.current) editorRef.current.setValue(next);
-            return next;
-        });
+        const next = editingNodeId
+            ? surgicalEditNode(code, editingNodeId, nodeForm.label, nodeForm.shape)
+            : surgicalAddNode(code, nodeForm.id, nodeForm.label, nodeForm.shape);
+        applyCode(next);
         setNodeDialogOpen(false);
         toast({ title: editingNodeId ? '✏️ Nœud modifié' : '➕ Nœud ajouté' });
     };
 
     const deleteNode = (nodeId: string) => {
-        setCode(prev => {
-            const next = surgicalDeleteNode(prev, nodeId);
-            syncCodeToGraph(next);
-            if (editorRef.current) editorRef.current.setValue(next);
-            return next;
-        });
+        applyCode(surgicalDeleteNode(code, nodeId));
         toast({ title: '🗑️ Nœud supprimé' });
     };
 
@@ -451,12 +446,7 @@ export default function WorkflowEditorPage() {
         if (edgeForm.from === edgeForm.to) {
             toast({ title: 'Un nœud ne peut pas se connecter à lui-même.', variant: 'destructive' }); return;
         }
-        setCode(prev => {
-            const next = surgicalAddEdge(prev, edgeForm.from, edgeForm.to, edgeForm.label || undefined);
-            syncCodeToGraph(next);
-            if (editorRef.current) editorRef.current.setValue(next);
-            return next;
-        });
+        applyCode(surgicalAddEdge(code, edgeForm.from, edgeForm.to, edgeForm.label || undefined));
         setEdgeDialogOpen(false);
         setEdgeForm({ from: '', to: '', label: '' });
         toast({ title: '🔗 Connexion ajoutée' });
@@ -465,21 +455,11 @@ export default function WorkflowEditorPage() {
     const deleteEdge = (idx: number) => {
         const edge = graph.edges[idx];
         if (!edge) return;
-        setCode(prev => {
-            const next = surgicalDeleteEdge(prev, edge.from, edge.to, edge.label);
-            syncCodeToGraph(next);
-            if (editorRef.current) editorRef.current.setValue(next);
-            return next;
-        });
+        applyCode(surgicalDeleteEdge(code, edge.from, edge.to, edge.label));
     };
 
     const changeDirection = (dir: VisualGraph['direction']) => {
-        setCode(prev => {
-            const next = surgicalChangeDirection(prev, dir);
-            syncCodeToGraph(next);
-            if (editorRef.current) editorRef.current.setValue(next);
-            return next;
-        });
+        applyCode(surgicalChangeDirection(code, dir));
     };
 
     const getTaskForNode = (nodeId: string) =>
@@ -490,7 +470,7 @@ export default function WorkflowEditorPage() {
         toast({ title: '✅ Tâche assignée', description: `${nodeLabel} → ${userName}` });
     };
 
-    if (loading) return <div className="p-20 text-center font-bold text-slate-500 animate-pulse">Chargement de l'éditeur...</div>;
+    if (loading) return <div className="p-20 text-center font-bold text-slate-500 animate-pulse">Chargement de l&apos;éditeur...</div>;
 
     return (
         <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
