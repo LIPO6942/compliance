@@ -202,6 +202,7 @@ export interface MermaidWorkflow {
   currentVersion: number;
   createdAt: string;
   updatedAt: string;
+  processAssignees?: { userId: string; userName: string; role: string }[];
 }
 
 export type WorkflowTaskStatus = "En attente" | "En cours" | "Terminé";
