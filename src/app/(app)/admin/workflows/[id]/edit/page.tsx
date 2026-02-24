@@ -228,11 +228,24 @@ export default function WorkflowEditorPage() {
         if (activeTab === 'editor') {
             const timer = setTimeout(initMonaco, 100);
             return () => clearTimeout(timer);
+        } else {
+            // Dispose of editor when switching away from editor tab
+            // to allow re-initialization on a new DOM container
+            if (editorRef.current) {
+                editorRef.current.dispose();
+                editorRef.current = null;
+                setIsMonacoReady(false);
+            }
         }
     }, [activeTab, initMonaco]);
 
     useEffect(() => {
-        return () => { if (editorRef.current) editorRef.current.dispose(); };
+        return () => {
+            if (editorRef.current) {
+                editorRef.current.dispose();
+                editorRef.current = null;
+            }
+        };
     }, []);
 
     useEffect(() => {

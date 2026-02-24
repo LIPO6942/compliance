@@ -375,7 +375,15 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&display=swap');
                 
                 /* Layout global Mermaid */
-                .mermaid svg { max-width: 100% !important; max-height: 100% !important; height: auto !important; width: auto !important; filter: drop-shadow(0 15px 30px rgba(0,0,0,0.05)); margin: 0 auto !important; display: block !important; }
+                .mermaid svg { 
+                    max-width: 100% !important; 
+                    max-height: 100% !important; 
+                    height: auto !important; 
+                    width: auto !important; 
+                    filter: drop-shadow(0 15px 30px rgba(0,0,0,0.05)); 
+                    margin: 0 auto !important; 
+                    display: block !important;
+                }
                 
                 /* Styles des noeuds HTML injectés */
                 .node-label-main { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 13px; color: #1e293b; margin-bottom: 4px; }
@@ -455,7 +463,10 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     <div className="flex items-center gap-3">
                         <div
                             className="flex flex-col items-center px-4 py-1.5 rounded-xl border"
-                            style={{ background: 'rgba(255,255,255,0.6)', borderColor: workflowRiskInfo.config.border }}
+                            style={{
+                                background: 'rgba(255,255,255,0.6)',
+                                borderColor: workflowRiskInfo.config.border
+                            }}
                         >
                             <span className="text-lg font-black" style={{ color: workflowRiskInfo.config.text }}>
                                 {workflowRiskInfo.totalRisks}
@@ -466,7 +477,10 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                         </div>
                         <div
                             className="flex flex-col items-center px-4 py-1.5 rounded-xl border"
-                            style={{ background: 'rgba(255,255,255,0.6)', borderColor: workflowRiskInfo.config.border }}
+                            style={{
+                                background: 'rgba(255,255,255,0.6)',
+                                borderColor: workflowRiskInfo.config.border
+                            }}
                         >
                             <span className="text-lg font-black" style={{ color: workflowRiskInfo.config.text }}>
                                 {workflowRiskInfo.avgScore}
