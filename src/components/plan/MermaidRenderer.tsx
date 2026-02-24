@@ -381,7 +381,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     ${fitMode ? `
                         max-width: 100% !important;
                         max-height: 100% !important;
-                        width: auto !important;
+                        width: 100% !important;
                         height: auto !important;
                     ` : `
                         min-width: ${zoom * 1000}px;
@@ -506,9 +506,9 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 </div>
             )}
 
-            <div className="relative flex-1 w-full bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[2rem] p-4 shadow-2xl overflow-visible flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
+            <div className={`relative flex-1 w-full bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[2rem] p-4 shadow-2xl ${fitMode ? 'overflow-hidden min-h-0' : 'overflow-visible'} flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10`}>
                 <div
-                    className="mermaid mb-10 w-full h-full flex flex-col items-center justify-center opacity-0 animate-[fadeIn_0.8s_ease-out_forwards]"
+                    className="mermaid w-full h-full flex items-center justify-center opacity-0 animate-[fadeIn_0.8s_ease-out_forwards]"
                     dangerouslySetInnerHTML={{ __html: svg }}
                 />
 
@@ -538,6 +538,6 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
 // Animation CSS Additionnelle
 if (typeof document !== 'undefined') {
     const style = document.createElement('style');
-    style.innerHTML = `@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`;
+    style.innerHTML = `@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`;
     document.head.appendChild(style);
 }

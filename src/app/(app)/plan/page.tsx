@@ -662,18 +662,13 @@ export default function PlanPage() {
             </div>
 
             {/* Diagram — fills remaining space, SVG scales to fit */}
-            <div className="absolute inset-0 pt-[64px] overflow-hidden flex items-center justify-center bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px]">
-              <div className="w-full h-full overflow-auto p-6">
-                <div className="min-h-full flex items-center justify-center">
-                  <style dangerouslySetInnerHTML={{ __html: `.fullscreen-mermaid svg { width: 100% !important; height: auto !important; max-height: calc(100vh - 140px) !important; }` }} />
-                  <div className="fullscreen-mermaid w-full">
-                    <MermaidRenderer
-                      chart={fullscreenDiagram.code}
-                      workflowId={fullscreenDiagram.workflowId}
-                      fitMode={true}
-                    />
-                  </div>
-                </div>
+            <div className="absolute inset-0 pt-[64px] overflow-hidden flex items-center justify-center bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] p-6">
+              <div className="w-full h-full flex items-center justify-center">
+                <MermaidRenderer
+                  chart={fullscreenDiagram.code}
+                  workflowId={fullscreenDiagram.workflowId}
+                  fitMode={true}
+                />
               </div>
             </div>
           </div>
