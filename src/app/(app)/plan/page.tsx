@@ -111,233 +111,9 @@ const riskBadgeStyles: Record<string, { bg: string; text: string; border: string
   'Très élevé': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', emoji: '🔴' },
 };
 
-const flowTypeStyles: Record<string, string> = {
-  start: 'bg-white dark:bg-slate-900 border-2 border-emerald-500 text-emerald-700 dark:text-emerald-400 shadow-[0_10px_20px_-10px_rgba(16,185,129,0.3)]',
-  end: 'bg-white dark:bg-slate-900 border-2 border-emerald-500 text-emerald-700 dark:text-emerald-400 shadow-[0_10px_20px_-10px_rgba(16,185,129,0.3)]',
-  process: 'bg-white dark:bg-slate-900 border-2 border-indigo-500 text-indigo-700 dark:text-indigo-400 shadow-[0_10px_20px_-10px_rgba(99,102,241,0.3)]',
-  decision: 'bg-[#FFFDF5] dark:bg-amber-950/20 border-2 border-amber-500 text-amber-700 dark:text-amber-400 shadow-[0_10px_20px_-10px_rgba(245,158,11,0.3)]',
-  action: 'bg-white dark:bg-slate-900 border-2 border-orange-500 text-orange-700 dark:text-orange-400 shadow-[0_10px_20px_-10px_rgba(249,115,22,0.3)]',
-  alert: 'bg-white dark:bg-slate-900 border-2 border-rose-500 text-rose-700 dark:text-rose-400 shadow-[0_10px_20px_-10px_rgba(244,63,94,0.3)]',
-  urgent: 'bg-red-50 dark:bg-red-950/30 border-2 border-red-500 text-red-700 font-bold animate-pulse shadow-[0_0_25px_-5px_rgba(239,68,68,0.5)]',
-};
 
-const FlowStep = ({ task, onToggle, onEdit }: { task: ComplianceTask; onToggle: () => void; onEdit?: (task: ComplianceTask) => void; }) => {
-  const styleClass = flowTypeStyles[task.flow_type || 'process'];
-  const isDecision = task.flow_type === 'decision';
-  const isStartEnd = task.flow_type === 'start' || task.flow_type === 'end';
 
-  if (isDecision) {
-    return (
-      <div className="relative flex items-center justify-center p-4 group">
-        <div
-          className={cn(
-            "w-[120px] h-[120px] border-2 cursor-pointer transition-all duration-300 relative",
-            "group-hover:shadow-lg group-hover:scale-[1.05] group-active:scale-95",
-            styleClass,
-            task.completed && "opacity-50 grayscale-[0.3]"
-          )}
-          style={{ clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }}
-          onClick={onToggle}
-          onDoubleClick={() => onEdit && onEdit(task)}
-        >
-          <div className="absolute inset-0 flex items-center justify-center p-4">
-            <span
-              className={cn(
-                "text-[10px] sm:text-[12px] font-bold text-center leading-tight tracking-tight",
-                task.completed && "line-through"
-              )}
-            >
-              {task.name}
-            </span>
-          </div>
-        </div>
-        <div className="absolute top-1 right-1 p-1.5 bg-white dark:bg-slate-800 rounded-full border shadow-md z-30 transform group-hover:scale-110 transition-transform">
-          <Checkbox checked={task.completed} className="h-4 w-4 border-primary text-primary" />
-        </div>
-      </div>
-    );
-  }
 
-  return (
-    <div
-      className={cn(
-        "relative w-[180px] sm:w-[220px] min-h-[56px] p-4 text-xs sm:text-sm font-black text-center border-2 cursor-pointer transition-all duration-500 flex items-center justify-center group/card",
-        "shadow-lg hover:shadow-2xl hover:scale-[1.05] active:scale-95 uppercase tracking-tighter",
-        isStartEnd ? "rounded-full px-8" : "rounded-3xl",
-        styleClass,
-        task.completed && "opacity-50 grayscale-[0.8]"
-      )}
-      onClick={onToggle}
-      onDoubleClick={() => onEdit && onEdit(task)}
-    >
-      <div className="absolute -top-2 -right-2 p-1.5 bg-white dark:bg-slate-800 rounded-full border shadow-md z-30 opacity-0 group-hover/card:opacity-100 transition-all duration-300 transform group-hover/card:scale-110">
-        <Checkbox checked={task.completed} className="h-4 w-4 border-primary text-primary" />
-      </div>
-      {task.completed && (
-        <div className="absolute -top-1 -left-1">
-          <LucideIcons.CheckCircle2 className="h-6 w-6 text-emerald-500 fill-white dark:fill-slate-900" />
-        </div>
-      )}
-      <span className={cn("px-2 leading-tight", task.completed && "line-through opacity-70")}>{task.name}</span>
-    </div>
-  );
-};
-
-const FlowConnector = ({
-  label,
-  variant = 'vertical',
-  active = false
-  ,
-  onAddBranch,
-  onRename,
-  onAddTask
-}: {
-  label?: string;
-  variant?: 'vertical' | 'side-right' | 'side-left';
-  active?: boolean,
-  onAddBranch?: () => void,
-  onRename?: () => void,
-  onAddTask?: () => void,
-}) => {
-  const colorClass = active ? "stroke-primary" : "stroke-slate-400 dark:stroke-slate-500";
-  const arrowClass = active ? "fill-primary" : "fill-slate-400 dark:fill-slate-500";
-  const badgeClass = label === 'Oui' || label === 'Normal' ? "bg-emerald-500 text-white border-none shadow-sm" :
-    label === 'Non' || label === 'Inhabituel' ? "bg-rose-500 text-white border-none shadow-sm" :
-      "bg-primary text-white border-none shadow-sm";
-
-  if (variant === 'side-right') {
-    return (
-      <div className="relative absolute left-1/2 top-1/2 -translate-y-1/2 flex items-center" style={{ width: '120px' }}>
-        <svg width="80" height="24" className="overflow-visible">
-          <defs>
-            <marker id="arrowhead-right" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orientation="auto">
-              <polygon points="0 0, 10 3.5, 0 7" className={arrowClass} />
-            </marker>
-          </defs>
-          <path d="M 0 12 L 70 12" className={cn(colorClass, "stroke-2")} fill="none" markerEnd="url(#arrowhead-right)" />
-        </svg>
-        {label && (
-          <Badge className={cn("absolute left-4 -top-3 scale-90 px-2 py-0.5 font-bold rounded-md", badgeClass)} variant="default">
-            {label}
-          </Badge>
-        )}
-        <div className="absolute right-[-40px] top-[-10px] hidden group-hover/connector:flex gap-1 z-40 bg-white/80 dark:bg-slate-800/80 p-1 rounded-lg backdrop-blur-sm border shadow-sm">
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onAddBranch && onAddBranch()} title="Ajouter une branche"><PlusCircle className="h-4 w-4" /></Button>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onAddTask && onAddTask()} title="Ajouter tâche cible"><Edit2 className="h-4 w-4" /></Button>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRename && onRename()} title="Renommer la branche"><ArrowDown className="h-4 w-4" /></Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center py-5 relative min-h-[50px] group/connector">
-      <svg width="24" height="50" className="overflow-visible">
-        <defs>
-          <marker id="arrowhead-down" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orientation="90">
-            <polygon points="0 0, 10 3.5, 0 7" className={arrowClass} />
-          </marker>
-        </defs>
-        <path d="M 12 0 L 12 40" className={cn(colorClass, "stroke-2")} fill="none" markerEnd="url(#arrowhead-down)" />
-      </svg>
-      {label && (
-        <Badge className={cn("absolute top-1/2 -translate-y-1/2 z-10 scale-90 px-2 py-0.5 font-bold rounded-md", badgeClass)} variant="default">
-          {label}
-        </Badge>
-      )}
-      <div className="absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 hidden group-hover/connector:flex gap-1 z-40 bg-white/80 dark:bg-slate-800/80 p-1 rounded-lg backdrop-blur-sm border shadow-sm">
-        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onAddBranch && onAddBranch()} title="Ajouter une branche"><PlusCircle className="h-4 w-4" /></Button>
-        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onAddTask && onAddTask()} title="Ajouter tâche cible"><Edit2 className="h-4 w-4" /></Button>
-        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRename && onRename()} title="Renommer la branche"><ArrowDown className="h-4 w-4" /></Button>
-      </div>
-    </div>
-  );
-};
-
-const FlowRenderer = ({
-  tasks,
-  onToggleTask,
-  onEditTask,
-  onAddBranch,
-  onRenameBranch,
-  onAddTaskToBranch,
-  categoryId,
-  subCategoryId
-}: {
-  tasks: ComplianceTask[],
-  onToggleTask: (catId: string, subCatId: string, taskId: string, completed: boolean) => void,
-  onEditTask?: (task: ComplianceTask) => void,
-  onAddBranch?: (taskId: string) => void,
-  onRenameBranch?: (taskId: string, branchLabel?: string) => void,
-  onAddTaskToBranch?: (taskId: string, branchLabel?: string) => void,
-  categoryId: string,
-  subCategoryId: string
-}) => {
-  if (!tasks || tasks.length === 0) return null;
-
-  return (
-    <div className="flex flex-col items-center w-full">
-      {tasks.map((task, index) => {
-        const nextTask = tasks[index + 1];
-        const yesBranch = task.branches?.find(b => b.label === 'Oui' || b.label === 'Normal');
-        const noBranch = task.branches?.find(b => b.label === 'Non' || b.label === 'Inhabituel');
-        const otherBranches = task.branches?.filter(b => !['Oui', 'Non', 'Normal', 'Inhabituel'].includes(b.label || ''));
-
-        const handleToggle = () => onToggleTask(categoryId, subCategoryId, task.id, !task.completed);
-
-        return (
-          <React.Fragment key={task.id}>
-            <div className="relative flex flex-col items-center w-full">
-              <div className="relative z-20">
-                <FlowStep task={task} onToggle={handleToggle} onEdit={onEditTask} />
-              </div>
-
-              {(yesBranch || noBranch || otherBranches?.length) ? (
-                <div className="flex w-full justify-center">
-                  {/* MAIN DOWNWARD PATH */}
-                  <div className="flex flex-col items-center min-w-[240px]">
-                    {noBranch ? (
-                      <>
-                        <FlowConnector label={noBranch.label} active={task.completed} onAddBranch={() => onAddBranch && onAddBranch(task.id)} onAddTask={() => onAddTaskToBranch && onAddTaskToBranch(task.id, noBranch.label)} onRename={() => onRenameBranch && onRenameBranch(task.id, noBranch.label)} />
-                        <FlowRenderer tasks={noBranch.tasks} onToggleTask={onToggleTask} onEditTask={onEditTask} onAddBranch={onAddBranch} onRenameBranch={onRenameBranch} onAddTaskToBranch={onAddTaskToBranch} categoryId={categoryId} subCategoryId={subCategoryId} />
-                      </>
-                    ) : nextTask ? (
-                      <FlowConnector active={task.completed} />
-                    ) : null}
-                  </div>
-
-                  {/* SIDE PATHS (Right) */}
-                  {(yesBranch || (otherBranches && otherBranches.length > 0)) && (
-                    <div className="absolute left-[calc(50%+60px)] top-[20px] pt-[20px] flex flex-col gap-8">
-                      {yesBranch && (
-                        <div className="relative flex items-center">
-                          <FlowConnector variant="side-right" label={yesBranch.label} active={task.completed} onAddBranch={() => onAddBranch && onAddBranch(task.id)} onAddTask={() => onAddTaskToBranch && onAddTaskToBranch(task.id, yesBranch.label)} onRename={() => onRenameBranch && onRenameBranch(task.id, yesBranch.label)} />
-                          <div className="ml-24">
-                            <FlowRenderer tasks={yesBranch.tasks} onToggleTask={onToggleTask} onEditTask={onEditTask} onAddBranch={onAddBranch} onRenameBranch={onRenameBranch} onAddTaskToBranch={onAddTaskToBranch} categoryId={categoryId} subCategoryId={subCategoryId} />
-                          </div>
-                        </div>
-                      )}
-                      {otherBranches?.map(branch => (
-                        <div key={branch.label} className="relative flex items-center">
-                          <FlowConnector variant="side-right" label={branch.label} active={task.completed} onAddBranch={() => onAddBranch && onAddBranch(task.id)} onAddTask={() => onAddTaskToBranch && onAddTaskToBranch(task.id, branch.label)} onRename={() => onRenameBranch && onRenameBranch(task.id, branch.label)} />
-                          <div className="ml-24">
-                            <FlowRenderer tasks={branch.tasks} onToggleTask={onToggleTask} onEditTask={onEditTask} onAddBranch={onAddBranch} onRenameBranch={onRenameBranch} onAddTaskToBranch={onAddTaskToBranch} categoryId={categoryId} subCategoryId={subCategoryId} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                nextTask && <FlowConnector active={task.completed} />
-              )}
-            </div>
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-};
 
 
 export default function PlanPage() {
@@ -354,10 +130,6 @@ export default function PlanPage() {
     addTask,
     editTask,
     removeTask,
-    addBranch,
-    removeBranch,
-    renameBranch,
-    addTaskToBranch,
     activeWorkflows,
     deleteWorkflow,
     updateWorkflowOrder
@@ -365,8 +137,30 @@ export default function PlanPage() {
   const router = useRouter();
   const { documents, loading: docsLoading } = useDocuments();
   const { risks: allRisks } = useRiskMapping();
+  const { toast } = useToast();
 
-  // Helper: get highest risk level for a task
+  const [isClient, setIsClient] = React.useState(false);
+  const [viewMode, setViewMode] = React.useState<ViewMode>('list');
+  const [dialogState, setDialogState] = React.useState<DialogState>({ type: null, mode: null });
+  const [deleteDialog, setDeleteDialog] = React.useState<{
+    type: 'category' | 'subCategory' | 'task' | null;
+    categoryId?: string;
+    subCategoryId?: string;
+    taskId?: string;
+    name?: string;
+  }>({ type: null });
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const openDialog = (type: "category" | "subCategory" | "task", mode: "add" | "edit", data?: any, parentId?: string, grandParentId?: string) => {
+    setDialogState({ type, mode, data, parentId, grandParentId });
+  };
+
+  const closeDialog = () => setDialogState({ type: null, mode: null });
+  const closeDeleteDialog = () => setDeleteDialog({ type: null });
+
   const getTaskRiskLevel = (task: ComplianceTask): string | null => {
     if (!task.risks || task.risks.length === 0) return null;
     const linkedRisks = allRisks.filter(r => task.risks!.includes(r.id));
@@ -380,83 +174,6 @@ export default function PlanPage() {
     return maxLabel;
   };
 
-  const { toast } = useToast();
-
-  const [isClient, setIsClient] = React.useState(false);
-  const [viewMode, setViewMode] = React.useState<ViewMode>('list');
-
-  React.useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-
-  const [dialogState, setDialogState] = React.useState<DialogState>({ type: null, mode: null });
-
-  // Controlled delete confirmation state
-  const [deleteDialog, setDeleteDialog] = React.useState<{
-    type: 'category' | 'subCategory' | 'task' | null;
-    categoryId?: string;
-    subCategoryId?: string;
-    taskId?: string;
-    name?: string;
-  }>({ type: null });
-  const closeDeleteDialog = () => setDeleteDialog({ type: null });
-
-  const [connectorDialog, setConnectorDialog] = React.useState<{
-    open: boolean;
-    mode: 'addBranch' | 'renameBranch' | 'addTask' | null;
-    categoryId?: string;
-    subCategoryId?: string;
-    taskId?: string;
-    branchLabel?: string;
-    value?: string; // for label or new label
-    taskName?: string;
-  }>({ open: false, mode: null });
-
-  const openConnectorDialog = (mode: 'addBranch' | 'renameBranch' | 'addTask', categoryId: string, subCategoryId: string, taskId: string, branchLabel?: string) => {
-    setConnectorDialog({ open: true, mode, categoryId, subCategoryId, taskId, branchLabel, value: branchLabel || '', taskName: '' });
-  };
-
-  const closeConnectorDialog = () => setConnectorDialog({ open: false, mode: null });
-
-  const handleConnectorSubmit = async (values: { value: string; taskName?: string }) => {
-    try {
-      if (!connectorDialog.mode || !connectorDialog.categoryId || !connectorDialog.subCategoryId || !connectorDialog.taskId) return closeConnectorDialog();
-      if (connectorDialog.mode === 'addBranch') {
-        const label = (values.value || '').trim();
-        if (!label) return;
-        await addBranch(connectorDialog.categoryId, connectorDialog.subCategoryId, connectorDialog.taskId, label);
-        toast({ title: 'Branche ajoutée', description: `Branche "${label}" ajoutée.` });
-      }
-      if (connectorDialog.mode === 'renameBranch') {
-        const oldLabel = connectorDialog.branchLabel;
-        const newLabel = (values.value || '').trim();
-        if (!oldLabel || !newLabel) return;
-        await renameBranch(connectorDialog.categoryId, connectorDialog.subCategoryId, connectorDialog.taskId, oldLabel, newLabel);
-        toast({ title: 'Branche renommée', description: `"${oldLabel}" → "${newLabel}"` });
-      }
-      if (connectorDialog.mode === 'addTask') {
-        const label = (connectorDialog.branchLabel || values.value || '').trim();
-        const name = (values.taskName || '').trim();
-        if (!label || !name) return;
-        await addTaskToBranch(connectorDialog.categoryId, connectorDialog.subCategoryId, connectorDialog.taskId, label, { name });
-        toast({ title: 'Tâche cible ajoutée', description: `"${name}" ajoutée à la branche ${label}.` });
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      closeConnectorDialog();
-    }
-  };
-
-
-
-  const openDialog = (type: "category" | "subCategory" | "task", mode: "add" | "edit", data?: any, parentId?: string, grandParentId?: string) => {
-    setDialogState({ type, mode, data, parentId, grandParentId });
-  };
-
-  const closeDialog = () => setDialogState({ type: null, mode: null });
-
   const handleMoveWorkflow = async (id: string, direction: number) => {
     const sortedWorkflows = Object.entries(activeWorkflows).sort(([, a], [, b]) => (a.order ?? 0) - (b.order ?? 0));
     const index = sortedWorkflows.findIndex(([wfId]) => wfId === id);
@@ -465,7 +182,6 @@ export default function PlanPage() {
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= sortedWorkflows.length) return;
 
-    // Swap orders
     const currentWf = sortedWorkflows[index];
     const targetWf = sortedWorkflows[newIndex];
 
@@ -487,124 +203,66 @@ export default function PlanPage() {
     }
   };
 
-  const handleAddCategory = async (values: CategoryFormValues) => {
-    await addCategory(values);
-    toast({ title: "Catégorie ajoutée", description: `La catégorie "${values.name}" a été ajoutée.` });
-    closeDialog();
-  };
-
-  const handleEditCategory = async (values: CategoryFormValues) => {
-    if (dialogState.data?.id) {
-      await editCategory(dialogState.data.id, values);
-      toast({ title: "Catégorie modifiée", description: `La catégorie "${values.name}" a été modifiée.` });
-    }
-    closeDialog();
-  };
-
-  const onSubmitCategory = (values: CategoryFormValues) => {
+  const onSubmitCategory = async (values: CategoryFormValues) => {
     if (dialogState.mode === 'add') {
-      handleAddCategory(values);
-    } else {
-      handleEditCategory(values);
+      await addCategory(values);
+      toast({ title: "Catégorie ajoutée" });
+    } else if (dialogState.data?.id) {
+      await editCategory(dialogState.data.id, values);
+      toast({ title: "Catégorie modifiée" });
     }
+    closeDialog();
   };
 
   const handleRemoveCategory = async (categoryId: string) => {
     await removeCategory(categoryId);
-    toast({ title: "Catégorie supprimée", description: `La catégorie a été supprimée.` });
+    toast({ title: "Catégorie supprimée" });
+    closeDeleteDialog();
   };
 
-  const handleAddSubCategory = async (values: SubCategoryFormValues) => {
-    if (dialogState.parentId) {
+  const onSubmitSubCategory = async (values: SubCategoryFormValues) => {
+    if (dialogState.mode === 'add' && dialogState.parentId) {
       await addSubCategory(dialogState.parentId, values);
-      toast({ title: "Sous-catégorie ajoutée", description: `La sous-catégorie "${values.name}" a été ajoutée.` });
-    }
-    closeDialog();
-  };
-
-  const handleEditSubCategory = async (values: SubCategoryFormValues) => {
-    if (dialogState.grandParentId && dialogState.data?.id) {
+      toast({ title: "Sous-catégorie ajoutée" });
+    } else if (dialogState.mode === 'edit' && dialogState.grandParentId && dialogState.data?.id) {
       await editSubCategory(dialogState.grandParentId, dialogState.data.id, values);
-      toast({ title: "Sous-catégorie modifiée", description: `La sous-catégorie "${values.name}" a été modifiée.` });
+      toast({ title: "Sous-catégorie modifiée" });
     }
     closeDialog();
-  };
-
-  const onSubmitSubCategory = (values: SubCategoryFormValues) => {
-    if (dialogState.mode === 'add') {
-      handleAddSubCategory(values);
-    } else {
-      handleEditSubCategory(values);
-    }
   };
 
   const handleRemoveSubCategory = async (categoryId: string, subCategoryId: string) => {
     await removeSubCategory(categoryId, subCategoryId);
-    toast({ title: "Sous-catégorie supprimée", description: `La sous-catégorie a été supprimée.` });
+    toast({ title: "Sous-catégorie supprimée" });
+    closeDeleteDialog();
   };
 
-  const handleAddTask = async (values: TaskFormValues) => {
+  const onSubmitTask = async (values: TaskFormValues) => {
     if (dialogState.grandParentId && dialogState.parentId) {
-      const branchObjs = (values.branches || []).map(label => ({ label, tasks: [] }));
       const taskData = {
         ...values,
         deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined,
-        branches: branchObjs,
-        kpi: values.kpi?.name ? {
-          name: values.kpi.name,
-          target: values.kpi.target || '',
-          unit: values.kpi.unit || '',
-          thresholdAlert: values.kpi.thresholdAlert
-        } : undefined
       };
-      await addTask(dialogState.grandParentId, dialogState.parentId, taskData);
-      toast({ title: "Tâche ajoutée", description: `La tâche "${values.name}" a été ajoutée.` });
+      if (dialogState.mode === 'add') {
+        await addTask(dialogState.grandParentId, dialogState.parentId, taskData);
+        toast({ title: "Tâche ajoutée" });
+      } else if (dialogState.data?.id) {
+        await editTask(dialogState.grandParentId, dialogState.parentId, dialogState.data.id, taskData);
+        toast({ title: "Tâche modifiée" });
+      }
     }
     closeDialog();
-  };
-
-  const handleEditTask = async (values: TaskFormValues) => {
-    if (dialogState.grandParentId && dialogState.parentId && dialogState.data?.id) {
-      const existingBranches = dialogState.data?.branches || [];
-      const branchObjs = (values.branches || []).map(label => {
-        const found = existingBranches.find((b: any) => b.label === label);
-        return found ? found : { label, tasks: [] };
-      });
-      const taskData = {
-        ...values,
-        deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined,
-        branches: branchObjs,
-        kpi: values.kpi?.name ? {
-          name: values.kpi.name,
-          target: values.kpi.target || '',
-          unit: values.kpi.unit || '',
-          thresholdAlert: values.kpi.thresholdAlert
-        } : undefined
-      };
-      await editTask(dialogState.grandParentId, dialogState.parentId, dialogState.data.id, taskData);
-      toast({ title: "Tâche modifiée", description: `La tâche "${values.name}" a été modifiée.` });
-    }
-    closeDialog();
-  };
-
-  const onSubmitTask = (values: TaskFormValues) => {
-    if (dialogState.mode === 'add') {
-      handleAddTask(values);
-    } else {
-      handleEditTask(values);
-    }
   };
 
   const handleRemoveTask = async (categoryId: string, subCategoryId: string, taskId: string) => {
     await removeTask(categoryId, subCategoryId, taskId);
-    toast({ title: "Tâche supprimée", description: `La tâche a été supprimée.` });
+    toast({ title: "Tâche supprimée" });
+    closeDeleteDialog();
   };
 
   const handleToggleTaskCompletion = async (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => {
     await updateTaskCompletion(categoryId, subCategoryId, taskId, completed);
-    toast({
-      title: "Statut de la tâche modifié",
-    });
+    toast({ title: "Statut de la tâche modifié" });
   };
 
   const getLinkedDocuments = (task: ComplianceTask): Document[] => {
@@ -612,27 +270,16 @@ export default function PlanPage() {
     return documents.filter(doc => task.documentIds!.includes(doc.id));
   };
 
-
-  // Fusionner les workflows actifs dans les données du plan pour l'affichage
   const displayPlanData = React.useMemo(() => {
     if (!planData) return [];
-    // Copie profonde pour éviter de muter l'état
     const newPlan = JSON.parse(JSON.stringify(planData));
-
     const activeIds = Object.keys(activeWorkflows);
     if (activeIds.length > 0) {
       let processCat = newPlan.find((c: any) => c.name === "Processus Métiers Clés" || c.name === "Processus Métiers");
-
       if (!processCat) {
-        processCat = {
-          id: 'processus-metiers',
-          name: 'Processus Métiers Clés',
-          icon: 'Workflow',
-          subCategories: []
-        };
+        processCat = { id: 'processus-metiers', name: 'Processus Métiers Clés', icon: 'Workflow', subCategories: [] };
         newPlan.push(processCat);
       }
-
       const existingSubIds = processCat.subCategories.map((s: any) => s.id);
       activeIds.forEach(id => {
         if (!existingSubIds.includes(id)) {
@@ -657,12 +304,9 @@ export default function PlanPage() {
     );
   }
 
-  const filteredPlanData = React.useMemo(() => {
-    if (viewMode === 'diagram') {
-      return displayPlanData.filter(c => c.name === "Processus Métiers Clés" || c.name === "Processus Métiers");
-    }
-    return displayPlanData;
-  }, [displayPlanData, viewMode]);
+  const filteredPlanData = viewMode === 'diagram'
+    ? displayPlanData.filter((c: any) => c.name === "Processus Métiers Clés" || c.name === "Processus Métiers")
+    : displayPlanData;
 
   return (
     <div className="space-y-10 bg-slate-50/50 dark:bg-slate-950/20 -m-8 p-8 min-h-screen">
@@ -670,7 +314,6 @@ export default function PlanPage() {
 
       {viewMode === 'mindmap' ? (
         <MindMapView onNodeClick={(nodeType, entityId) => {
-          // Navigate to relevant detail based on node type
           if (nodeType === 'process') {
             const el = document.getElementById(entityId);
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -684,7 +327,7 @@ export default function PlanPage() {
         <div className="space-y-12">
           {filteredPlanData.length > 0 ? filteredPlanData.map((category: ComplianceCategory) => {
             const Icon = getIconComponent(category.icon);
-            const isProcessCategory = category.name === "Processus Métiers Clés";
+            const isProcessCategory = category.name === "Processus Métiers Clés" || category.name === "Processus Métiers";
             return (
               <Card key={category.id} id={category.id} className="shadow-2xl border-none overflow-hidden rounded-[2.5rem] bg-white dark:bg-slate-900">
                 <CardHeader className="flex flex-row items-center justify-between bg-slate-50/50 dark:bg-slate-800/50 px-8 py-6 group border-b border-slate-100 dark:border-slate-800">
@@ -723,43 +366,30 @@ export default function PlanPage() {
                 <CardContent className="p-6">
                   <div className="space-y-4">
                     {(() => {
-                      const isProcessCategory = category.name === "Processus Métiers Clés" || category.name === "Processus Métiers";
-
-                      // Fusionner les sous-catégories existantes avec les workflows dynamiques
                       let subCategoriesToRender = [...category.subCategories];
-
                       if (isProcessCategory) {
                         const existingIds = subCategoriesToRender.map(s => s.id);
-                        const missingWorkflowIds = Object.keys(activeWorkflows).filter(id => !existingIds.includes(id));
-
-                        missingWorkflowIds.forEach(wfId => {
-                          subCategoriesToRender.push({
-                            id: wfId,
-                            name: activeWorkflows[wfId].name || wfId,
-                            tasks: [],
-                            icon: 'Workflow'
-                          });
+                        Object.keys(activeWorkflows).forEach(id => {
+                          if (!existingIds.includes(id)) {
+                            subCategoriesToRender.push({
+                              id,
+                              name: activeWorkflows[id].name || id,
+                              tasks: [],
+                              icon: 'Workflow'
+                            });
+                          }
                         });
-
-                        // Tri des sous-catégories/workflows selon l'ordre défini
-                        subCategoriesToRender.sort((a, b) => {
-                          const orderA = activeWorkflows[a.id]?.order ?? 999;
-                          const orderB = activeWorkflows[b.id]?.order ?? 999;
-                          return orderA - orderB;
-                        });
+                        subCategoriesToRender.sort((a, b) => (activeWorkflows[a.id]?.order ?? 999) - (activeWorkflows[b.id]?.order ?? 999));
                       }
 
                       return subCategoriesToRender.map((subCategory: ComplianceSubCategory) => {
                         const SubIcon = getIconComponent(subCategory.icon);
                         const activeWorkflow = activeWorkflows[subCategory.id];
-
                         if (isProcessCategory) {
                           return (
                             <Card key={subCategory.id} id={subCategory.id} className="bg-slate-50 border-none shadow-none overflow-hidden group transition-all duration-300 relative rounded-[2rem]">
                               <CardContent className="p-4">
                                 <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[1.8rem] p-8 shadow-sm space-y-8 relative">
-
-                                  {/* Menu Actions (Absolute top-right) */}
                                   {activeWorkflow && (
                                     <div className="absolute right-4 top-4 z-10">
                                       <DropdownMenu>
@@ -786,16 +416,13 @@ export default function PlanPage() {
                                       </DropdownMenu>
                                     </div>
                                   )}
-
-                                  {/* Titre du processus */}
                                   <div className="text-center border-b-2 border-[#D4B896]/50 dark:border-[#8B7355]/50 pb-3">
                                     <div className="flex items-center justify-center gap-2">
                                       <SubIcon className="h-6 w-6 text-[#8B6914] dark:text-[#D4B896]" />
                                       <h3 className="text-xl font-semibold font-headline text-[#5D4E37] dark:text-[#D4B896]">{subCategory.name}</h3>
                                     </div>
                                   </div>
-                                  {/* Diagramme de flux */}
-                                  {activeWorkflow ? (
+                                  {activeWorkflow && (
                                     <div className="py-4">
                                       <MermaidRenderer
                                         chart={activeWorkflow.code}
@@ -803,22 +430,11 @@ export default function PlanPage() {
                                         onEditTask={(task: any) => openDialog("task", "edit", task, task.subCategoryId || subCategory.id, task.categoryId || category.id)}
                                       />
                                     </div>
-                                  ) : (
-                                    <FlowRenderer
-                                      tasks={subCategory.tasks}
-                                      onToggleTask={handleToggleTaskCompletion}
-                                      onEditTask={(task) => openDialog("task", "edit", task, subCategory.id, category.id)}
-                                      onAddBranch={(taskId: string) => openConnectorDialog('addBranch', category.id, subCategory.id, taskId)}
-                                      onRenameBranch={(taskId: string, branchLabel?: string) => openConnectorDialog('renameBranch', category.id, subCategory.id, taskId, branchLabel)}
-                                      onAddTaskToBranch={(taskId: string, branchLabel?: string) => openConnectorDialog('addTask', category.id, subCategory.id, taskId, branchLabel)}
-                                      categoryId={category.id}
-                                      subCategoryId={subCategory.id}
-                                    />
                                   )}
                                 </div>
                               </CardContent>
                             </Card>
-                          )
+                          );
                         }
                         return (
                           <Card key={subCategory.id} id={subCategory.id} className="bg-slate-50 dark:bg-slate-800/20 border-none shadow-none group rounded-[1.8rem]">
@@ -907,7 +523,7 @@ export default function PlanPage() {
                             </CardContent>
                           </Card>
                         );
-                      })
+                      });
                     })()}
                     <Button variant="default" className="mt-4" onClick={() => openDialog("subCategory", "add", undefined, category.id, category.id)}>
                       <PlusCircle className="mr-2 h-5 w-5" /> Ajouter une sous-catégorie
@@ -916,15 +532,14 @@ export default function PlanPage() {
                 </CardContent>
               </Card>
             );
-          })
-            : (
-              <Card className="text-center p-8 border-dashed shadow-none">
-                <CardHeader className="p-0">
-                  <CardTitle className="text-xl font-medium">Aucun plan de conformité défini</CardTitle>
-                  <CardDescription className="mt-2">Commencez par ajouter votre première catégorie pour construire votre plan.</CardDescription>
-                </CardHeader>
-              </Card>
-            )}
+          }) : (
+            <Card className="text-center p-8 border-dashed shadow-none">
+              <CardHeader className="p-0">
+                <CardTitle className="text-xl font-medium">Aucun plan de conformité défini</CardTitle>
+                <CardDescription className="mt-2">Commencez par ajouter votre première catégorie pour construire votre plan.</CardDescription>
+              </CardHeader>
+            </Card>
+          )}
         </div>
       )}
 
@@ -975,16 +590,7 @@ export default function PlanPage() {
         onSubmitSubCategory={onSubmitSubCategory}
         onSubmitTask={onSubmitTask}
       />
-      <ConnectorDialog
-        open={connectorDialog.open}
-        onOpenChange={(isOpen) => !isOpen && closeConnectorDialog()}
-        mode={connectorDialog.mode}
-        initialValue={connectorDialog.value}
-        initialTaskName={connectorDialog.taskName}
-        branchLabel={connectorDialog.branchLabel}
-        onCancel={closeConnectorDialog}
-        onSubmit={handleConnectorSubmit}
-      />
     </div>
   );
 }
+

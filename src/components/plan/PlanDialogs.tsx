@@ -51,7 +51,7 @@ const taskSchema = z.object({
   description: z.string().optional(),
   deadline: z.string().optional(),
   documentIds: z.array(z.string()).optional(),
-  branches: z.array(z.string()).optional(),
+
 
   // GRC Fields
   processes: z.array(z.string()).optional(),
@@ -109,7 +109,7 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
         lastReviewDate: dialogState.data.lastReviewDate ? new Date(dialogState.data.lastReviewDate).toISOString().split('T')[0] : "",
         nextReviewDate: dialogState.data.nextReviewDate ? new Date(dialogState.data.nextReviewDate).toISOString().split('T')[0] : "",
         documentIds: dialogState.data.documentIds || [],
-        branches: dialogState.data.branches ? dialogState.data.branches.map((b: any) => b.label) : [],
+
         raci: dialogState.data.raci || { responsible: "", accountable: "", consulted: [], informed: [] },
         processes: dialogState.data.processes || [],
         risks: dialogState.data.risks || [],
@@ -127,7 +127,7 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
         description: "",
         deadline: "",
         documentIds: [],
-        branches: [],
+
         raci: { responsible: "", accountable: "", consulted: [], informed: [] },
         processes: [],
         risks: [],
@@ -253,44 +253,7 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
                     )}
                   />
 
-                  <FormField
-                    control={taskForm.control}
-                    name="branches"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Branches / Liaisons (labels)</FormLabel>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Ex: Oui, Non"
-                            value={branchInput}
-                            onChange={(e) => setBranchInput(e.target.value)}
-                            className="text-xs"
-                          />
-                          <Button type="button" size="sm" variant="outline" onClick={() => {
-                            if (!branchInput.trim()) return;
-                            const current = field.value || [];
-                            if (!current.includes(branchInput.trim())) {
-                              field.onChange([...current, branchInput.trim()]);
-                            }
-                            setBranchInput("");
-                          }}>Ajouter</Button>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {(field.value || []).map((label: string, idx: number) => (
-                            <Badge key={label + idx} variant="outline" className="flex items-center gap-1 pl-2 pr-1 text-[10px]">
-                              {label}
-                              <Button type="button" size="icon" variant="ghost" className="h-4 w-4 rounded-full" onClick={() => {
-                                const newVals = (field.value || []).filter((l: string) => l !== label);
-                                field.onChange(newVals);
-                              }}>
-                                <LucideIcons.X className="h-2 w-2" />
-                              </Button>
-                            </Badge>
-                          ))}
-                        </div>
-                      </FormItem>
-                    )}
-                  />
+
                 </TabsContent>
 
                 <TabsContent value="raci" className="space-y-4 pt-4">
