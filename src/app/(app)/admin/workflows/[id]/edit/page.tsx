@@ -426,17 +426,26 @@ export default function WorkflowEditorPage() {
                     </Tabs>
                 </div>
 
-                <div className="flex-1 flex flex-col bg-slate-50 relative group">
+                <div className="flex-1 flex flex-col bg-slate-50 relative group overflow-hidden">
                     <div className="bg-white px-6 py-3 border-b flex justify-between items-center shrink-0">
-                        <div className="flex items-center gap-2"><LucideIcons.Eye className="h-4 w-4 text-emerald-500" /><span className="text-[10px] font-black uppercase text-slate-500">Live Visualizer</span></div>
+                        <div className="flex items-center gap-2">
+                            <LucideIcons.Eye className="h-4 w-4 text-emerald-500" />
+                            <span className="text-[10px] font-black uppercase text-slate-500">Live Visualizer</span>
+                        </div>
                         <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setIsFullscreen(true)} className="h-8 rounded-full gap-2 text-[10px] font-black uppercase"><LucideIcons.Maximize2 className="h-3 w-3" /> Fullscreen</Button>
+                            <Button variant="outline" size="sm" onClick={() => setIsFullscreen(true)} className="h-8 rounded-full gap-2 text-[10px] font-black uppercase">
+                                <LucideIcons.Maximize2 className="h-3 w-3" /> Fullscreen
+                            </Button>
                             <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200 text-[10px] h-6 px-3">● Sync Active</Badge>
                         </div>
                     </div>
-                    <div className="flex-1 overflow-auto bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:20px_20px] flex items-center justify-center p-12">
-                        <div className="w-full max-w-3xl bg-white/95 backdrop-blur-xl p-10 rounded-[3rem] shadow-2xl border relative min-h-[500px] flex items-center justify-center transition-all duration-500 hover:scale-[1.01]">
-                            <MermaidRenderer chart={code} workflowId={id} />
+
+                    {/* Updated wrapper to enforce bounds */}
+                    <div className="flex-1 relative bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:20px_20px] p-8 overflow-hidden">
+                        <div className="absolute inset-8 bg-white/95 backdrop-blur-xl rounded-[3rem] shadow-2xl border flex flex-col items-center justify-center transition-all duration-500 hover:scale-[1.005] overflow-hidden">
+                            <div className="w-full h-full p-6">
+                                <MermaidRenderer chart={code} workflowId={id} />
+                            </div>
                         </div>
                     </div>
                 </div>

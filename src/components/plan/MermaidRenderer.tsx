@@ -378,8 +378,9 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 .mermaid svg { 
                     max-width: 100% !important; 
                     max-height: 100% !important; 
-                    height: auto !important; 
-                    width: auto !important; 
+                    width: 100% !important; 
+                    height: 100% !important; 
+                    object-fit: contain !important;
                     filter: drop-shadow(0 15px 30px rgba(0,0,0,0.05)); 
                     margin: 0 auto !important; 
                     display: block !important;
@@ -428,6 +429,11 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 @keyframes riskPulse {
                     0%, 100% { opacity: 1; }
                     50% { opacity: 0.85; }
+                }
+
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
                 }
 
                 /* Animations & Interactivité */
@@ -493,9 +499,9 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 </div>
             )}
 
-            <div className="relative flex-1 w-full bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3rem] p-8 shadow-2xl overflow-hidden flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
+            <div className="relative flex-1 w-full bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] p-6 shadow-2xl overflow-hidden flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
                 <div
-                    className="mermaid w-full h-full flex flex-col items-center justify-center opacity-0 translate-y-4 animate-[fadeIn_0.8s_ease-out_forwards]"
+                    className="mermaid w-full h-full flex flex-col items-center justify-center opacity-0 animate-[fadeIn_0.8s_ease-out_forwards]"
                     dangerouslySetInnerHTML={{ __html: svg }}
                 />
 
