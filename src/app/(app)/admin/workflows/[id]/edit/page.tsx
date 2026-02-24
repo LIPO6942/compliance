@@ -733,7 +733,8 @@ export default function WorkflowEditorPage() {
                                                                 onValueChange={val => {
                                                                     if (task) handleAssign(node.id, node.label, task.responsibleUserId, task.responsibleUserName || '', val);
                                                                     else toast({
-                                                                        title: 'Sélectionnez d'abord un responsable.' });
+                                                                        title: `Sélectionnez d'abord un responsable.`
+                                                                    });
                                                                 }}>
                                                                 <SelectTrigger className="rounded-xl h-9 text-sm">
                                                                     <SelectValue placeholder="Rôle..." />
