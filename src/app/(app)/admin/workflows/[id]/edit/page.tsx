@@ -207,12 +207,89 @@ export default function WorkflowEditorPage() {
     const { workflowTasks, assignTask, auditLogs, availableUsers, availableRoles,
         addAvailableUser, removeAvailableUser, addAvailableRole, removeAvailableRole } = usePlanData();
 
-    // ── Sync graph → code (visual mode) ─────────────────────────────────────
-    const syncGraphToCode = useCallback((g: VisualGraph) => {
-        const newCode = graphToMermaid(g);
+    // ── Push a surgically-edited code to both state and Monaco ─────────────
+    const applyCode = useCallback((newCode: string) => {
         setCode(newCode);
-        if (editorRef.current) editorRef.current.setValue(newCode);
+        syncCodeToGraph(newCode);
+        if (editorRef.current && editorRef.current.getValue() !== newCode)
+            editorRef.current.setValue(newCode);
     }, []);
+
+    // ── Surgical helpers (preserve classDef / styles / colors) ──────────────
+    const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Build the bracket expression for a shape/label
+    const nodeDef = (id: string, label: string, shape: NodeShape): string => {
+        const s = label.replace(/"/g, "'");
+        switch (shape) {
+            case 'rounded': return `${id}("${s}")`;
+            case 'diamond': return `${id}{"${s}"}`;
+            case 'circle': return `${id}(("${s}"))`;
+            case 'parallelogram': return `${id}[/"${s}"/]`;
+            default: return `${id}["${s}"]`;
+        }
+    };
+
+    // Replace every occurrence of NodeID[..] / NodeID{..} / NodeID(..) in code
+    const surgicalEditNode = (src: string, nodeId: string, newLabel: string, newShape: NodeShape): string => {
+        const id = esc(nodeId);
+        // Matches nodeID followed by any bracket form (with optional :::class suffix captured separately)
+        const re = new RegExp(
+            `\\b${id}(:::?\\w+)?\\s*` +
+            `(?:\\(\\([^)]*\\)\\)|\\{[^}]*\\}|\\[\\/[^\\]]*\\/\\]|\\([^)]+\\)|\\[[^\\]]+\\])`,
+            'g'
+        );
+        return src.replace(re, (_, cls) => nodeDef(nodeId, newLabel, newShape) + (cls || ''));
+    };
+
+    // Remove every line that *only* defines this node (standalone) and every edge line containing it
+    const surgicalDeleteNode = (src: string, nodeId: string): string => {
+        const id = esc(nodeId);
+        return src.split('\n').filter(line => {
+            const t = line.trim();
+            // standalone node definition line
+            if (new RegExp(`^${id}(?::{2,3}\\w+)?\\s*[\\[({]`).test(t)) return false;
+            // any edge line that references this node
+            if (new RegExp(`(?:^|-->\\s*(?:\\|[^|]*\\|)?\\s*)${id}(?:[\\s\\[({\\n]|$)`).test(t) ||
+                new RegExp(`^${id}(?:[\\s\\[({]|$).*-->`).test(t)) return false;
+            return true;
+        }).join('\n');
+    };
+
+    // Append a new node definition before the first classDef/style line (or at end)
+    const surgicalAddNode = (src: string, id: string, label: string, shape: NodeShape): string => {
+        const def = `  ${nodeDef(id, label, shape)}`;
+        const classIdx = src.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
+        if (classIdx > -1) return src.slice(0, classIdx) + '\n' + def + src.slice(classIdx);
+        return src + '\n' + def;
+    };
+
+    // Append a new edge before the first classDef/style line (or at end)
+    const surgicalAddEdge = (src: string, from: string, to: string, label?: string): string => {
+        const edgeLine = label ? `  ${from} -->|"${label}"| ${to}` : `  ${from} --> ${to}`;
+        const classIdx = src.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
+        if (classIdx > -1) return src.slice(0, classIdx) + '\n' + edgeLine + src.slice(classIdx);
+        return src + '\n' + edgeLine;
+    };
+
+    // Remove the first edge line matching from --> to (with any optional inline defs / labels)
+    const surgicalDeleteEdge = (src: string, from: string, to: string, label?: string): string => {
+        const f = esc(from);
+        const t2 = esc(to);
+        const re = new RegExp(
+            `^[ \t]*${f}(?:[\\[({][^\\])}\\n]*[\\])}])?\\s*--?>+\\s*(?:\\|[^|\\n]*\\|)?\\s*${t2}(?:[\\[({\\s]|$)`);
+        let removed = false;
+        return src.split('\n').filter(line => {
+            if (!removed && re.test(line.trim())) {
+                if (!label || line.includes(label)) { removed = true; return false; }
+            }
+            return true;
+        }).join('\n');
+    };
+
+    // Change graph direction (only replace the header line)
+    const surgicalChangeDirection = (src: string, dir: string): string =>
+        src.replace(/^([ \t]*graph\s+)(TD|LR|BT|RL)/m, `$1${dir}`);
 
     // ── Sync code → graph (when user edits code directly) ───────────────────
     const syncCodeToGraph = useCallback((c: string) => {
@@ -340,40 +417,29 @@ export default function WorkflowEditorPage() {
         if (!nodeForm.label.trim()) {
             toast({ title: 'Le libellé est requis.', variant: 'destructive' }); return;
         }
-        setGraph(prev => {
-            let updated: VisualGraph;
+        setCode(prev => {
+            let next: string;
             if (editingNodeId) {
-                updated = {
-                    ...prev,
-                    nodes: prev.nodes.map(n => n.id === editingNodeId
-                        ? { ...n, label: nodeForm.label, shape: nodeForm.shape }
-                        : n),
-                    edges: prev.edges.map(e => ({
-                        ...e,
-                        from: e.from === editingNodeId ? nodeForm.id : e.from,
-                        to: e.to === editingNodeId ? nodeForm.id : e.to,
-                    })),
-                };
+                // Surgically replace the node definition everywhere in the code
+                next = surgicalEditNode(prev, editingNodeId, nodeForm.label, nodeForm.shape);
             } else {
-                const newNode: VisualNode = { id: nodeForm.id, label: nodeForm.label, shape: nodeForm.shape };
-                updated = { ...prev, nodes: [...prev.nodes, newNode] };
+                // Append a new node definition while preserving the rest
+                next = surgicalAddNode(prev, nodeForm.id, nodeForm.label, nodeForm.shape);
             }
-            syncGraphToCode(updated);
-            return updated;
+            syncCodeToGraph(next);
+            if (editorRef.current) editorRef.current.setValue(next);
+            return next;
         });
         setNodeDialogOpen(false);
         toast({ title: editingNodeId ? '✏️ Nœud modifié' : '➕ Nœud ajouté' });
     };
 
     const deleteNode = (nodeId: string) => {
-        setGraph(prev => {
-            const updated: VisualGraph = {
-                ...prev,
-                nodes: prev.nodes.filter(n => n.id !== nodeId),
-                edges: prev.edges.filter(e => e.from !== nodeId && e.to !== nodeId),
-            };
-            syncGraphToCode(updated);
-            return updated;
+        setCode(prev => {
+            const next = surgicalDeleteNode(prev, nodeId);
+            syncCodeToGraph(next);
+            if (editorRef.current) editorRef.current.setValue(next);
+            return next;
         });
         toast({ title: '🗑️ Nœud supprimé' });
     };
@@ -385,13 +451,11 @@ export default function WorkflowEditorPage() {
         if (edgeForm.from === edgeForm.to) {
             toast({ title: 'Un nœud ne peut pas se connecter à lui-même.', variant: 'destructive' }); return;
         }
-        setGraph(prev => {
-            const updated: VisualGraph = {
-                ...prev,
-                edges: [...prev.edges, { from: edgeForm.from, to: edgeForm.to, label: edgeForm.label || undefined }],
-            };
-            syncGraphToCode(updated);
-            return updated;
+        setCode(prev => {
+            const next = surgicalAddEdge(prev, edgeForm.from, edgeForm.to, edgeForm.label || undefined);
+            syncCodeToGraph(next);
+            if (editorRef.current) editorRef.current.setValue(next);
+            return next;
         });
         setEdgeDialogOpen(false);
         setEdgeForm({ from: '', to: '', label: '' });
@@ -399,18 +463,22 @@ export default function WorkflowEditorPage() {
     };
 
     const deleteEdge = (idx: number) => {
-        setGraph(prev => {
-            const updated: VisualGraph = { ...prev, edges: prev.edges.filter((_, i) => i !== idx) };
-            syncGraphToCode(updated);
-            return updated;
+        const edge = graph.edges[idx];
+        if (!edge) return;
+        setCode(prev => {
+            const next = surgicalDeleteEdge(prev, edge.from, edge.to, edge.label);
+            syncCodeToGraph(next);
+            if (editorRef.current) editorRef.current.setValue(next);
+            return next;
         });
     };
 
     const changeDirection = (dir: VisualGraph['direction']) => {
-        setGraph(prev => {
-            const updated = { ...prev, direction: dir };
-            syncGraphToCode(updated);
-            return updated;
+        setCode(prev => {
+            const next = surgicalChangeDirection(prev, dir);
+            syncCodeToGraph(next);
+            if (editorRef.current) editorRef.current.setValue(next);
+            return next;
         });
     };
 
