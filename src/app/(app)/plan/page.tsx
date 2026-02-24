@@ -465,6 +465,7 @@ export default function PlanPage() {
                                         <MermaidRenderer
                                           chart={activeWorkflow.code}
                                           workflowId={subCategory.id}
+                                          fitMode={true}
                                           onEditTask={(task: any) => openDialog("task", "edit", task, task.subCategoryId || subCategory.id, task.categoryId || category.id)}
                                         />
                                       </div>
@@ -669,6 +670,7 @@ export default function PlanPage() {
                     <MermaidRenderer
                       chart={fullscreenDiagram.code}
                       workflowId={fullscreenDiagram.workflowId}
+                      fitMode={true}
                     />
                   </div>
                 </div>

@@ -449,7 +449,7 @@ export default function WorkflowEditorPage() {
                     </div>
                     <div className="flex-1 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] overflow-hidden p-6 flex items-center justify-center">
                         <div className="w-full h-full max-w-[95%] max-h-[95%] bg-white rounded-[3rem] shadow-2xl border border-slate-100 flex items-center justify-center p-4">
-                            <MermaidRenderer chart={code} workflowId={id} zoom={zoom * 1.5} />
+                            <MermaidRenderer chart={code} workflowId={id} fitMode={true} />
                         </div>
                     </div>
                 </DialogContent>
