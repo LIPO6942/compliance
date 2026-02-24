@@ -440,10 +440,10 @@ export default function WorkflowEditorPage() {
                         </div>
                     </div>
 
-                    {/* Updated wrapper to enforce bounds */}
-                    <div className="flex-1 relative bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:20px_20px] p-8 overflow-hidden">
-                        <div className="absolute inset-8 bg-white/95 backdrop-blur-xl rounded-[3rem] shadow-2xl border flex flex-col items-center justify-center transition-all duration-500 hover:scale-[1.005] overflow-hidden">
-                            <div className="w-full h-full p-6">
+                    {/* Optimized wrapper for a larger display */}
+                    <div className="flex-1 relative bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:20px_20px] p-2 overflow-hidden">
+                        <div className="absolute inset-2 bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border flex flex-col items-center justify-center transition-all duration-500 hover:scale-[1.002] overflow-hidden">
+                            <div className="w-full h-full p-2">
                                 <MermaidRenderer chart={code} workflowId={id} />
                             </div>
                         </div>

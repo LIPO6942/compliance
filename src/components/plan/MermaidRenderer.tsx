@@ -116,8 +116,8 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 flowchart: {
                     htmlLabels: true,
                     curve: 'stepAfter',
-                    useMaxWidth: true,
-                    padding: 20
+                    useMaxWidth: false,
+                    padding: 10
                 },
             });
             // Surcharge de la gestion d'erreur pour éviter l'affichage "Syntax error" en bas de page
@@ -369,7 +369,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
     }
 
     return (
-        <div className="w-full h-full relative group p-4 flex flex-col overflow-hidden">
+        <div className="w-full h-full relative group p-1 flex flex-col overflow-hidden">
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&display=swap');
@@ -499,7 +499,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 </div>
             )}
 
-            <div className="relative flex-1 w-full bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] p-6 shadow-2xl overflow-hidden flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
+            <div className="relative flex-1 w-full bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[2rem] p-4 shadow-2xl overflow-hidden flex items-center justify-center transition-all duration-500 group-hover:shadow-indigo-500/10">
                 <div
                     className="mermaid w-full h-full flex flex-col items-center justify-center opacity-0 animate-[fadeIn_0.8s_ease-out_forwards]"
                     dangerouslySetInnerHTML={{ __html: svg }}
