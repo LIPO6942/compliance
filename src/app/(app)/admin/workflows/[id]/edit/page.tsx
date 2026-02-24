@@ -134,7 +134,7 @@ export default function WorkflowEditorPage() {
     const [edgeForm, setEdgeForm] = useState<{ from: string; to: string; label: string }>({ from: '', to: '', label: '' });
     const [edgeDialogOpen, setEdgeDialogOpen] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
-    const [zoom, setZoom] = useState(0.65);
+    const [zoom, setZoom] = useState(0.3);
 
     const [processAssignees, setProcessAssignees] = useState<{ userId: string; userName: string; role: string }[]>([]);
     const [addingAssignee, setAddingAssignee] = useState(false);
@@ -314,39 +314,6 @@ export default function WorkflowEditorPage() {
                         </div>
 
                         <TabsContent value="builder" className="flex-1 m-0 overflow-auto bg-slate-50/50 p-6 space-y-6">
-                            <div className="flex items-center gap-3 bg-white rounded-2xl border p-4 shadow-sm">
-                                <LucideIcons.Move className="h-4 w-4 text-indigo-500" />
-                                <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Orientation :</span>
-                                <div className="flex gap-2 ml-auto">
-                                    {(['TD', 'LR', 'BT', 'RL'] as const).map(d => (
-                                        <Button
-                                            key={d}
-                                            size="sm"
-                                            variant={graph.direction === d ? 'default' : 'outline'}
-                                            onClick={() => {
-                                                const currentCode = codeRef.current;
-                                                // Support global replace for direction to ensure it works every time
-                                                const re = /^(graph|flowchart)\s+(TD|LR|BT|RL)/im;
-                                                let newCode;
-                                                if (re.test(currentCode)) {
-                                                    newCode = currentCode.replace(re, `$1 ${d}`);
-                                                } else {
-                                                    const baseRe = /^(graph|flowchart)/im;
-                                                    if (baseRe.test(currentCode)) {
-                                                        newCode = currentCode.replace(baseRe, `$1 ${d}`);
-                                                    } else {
-                                                        newCode = `graph ${d}\n${currentCode}`;
-                                                    }
-                                                }
-                                                applyCode(newCode);
-                                            }}
-                                            className={cn("h-8 w-10 font-mono font-black", graph.direction === d && "bg-indigo-600 shadow-md transform scale-110")}
-                                        >
-                                            {d}
-                                        </Button>
-                                    ))}
-                                </div>
-                            </div>
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between"><h3 className="font-black text-sm text-slate-700 uppercase tracking-widest">Nœuds du Flux ({graph.nodes.length})</h3><Button size="sm" onClick={() => { setNodeForm({ id: genId(graph), label: '', shape: 'rectangle' }); setEditingNodeId(null); setNodeDialogOpen(true); }} className="bg-indigo-600 text-white rounded-xl px-4 font-bold shadow-md"><LucideIcons.Plus className="h-4 w-4 mr-2" /> Ajouter</Button></div>
                                 <div className="grid gap-3">
