@@ -56,7 +56,7 @@ const NODE_COLORS: Record<NodeShape, string> = {
 
 // Parse existing Mermaid code → VisualGraph
 function mermaidToGraph(code: string): VisualGraph {
-    const dir = code.match(/graph\s+(TD|LR|BT|RL)/)?.[1] as VisualGraph['direction'] || 'TD';
+    const dir = code.match(/(?:graph|flowchart)\s+(TD|LR|BT|RL)/)?.[1] as VisualGraph['direction'] || 'TD';
     const nodes: VisualNode[] = [];
     const edges: VisualEdge[] = [];
 
@@ -183,18 +183,59 @@ export default function WorkflowEditorPage() {
     useEffect(() => {
         if (typeof window === 'undefined') return;
         let isM = true;
-        const initM = () => {
-            if (!isM || editorRef.current || !window.require || !monacoContainerRef.current) return;
-            window.require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
-            window.require(['vs/editor/editor.main'], () => {
-                if (!isM || !monacoContainerRef.current || editorRef.current) return;
-                editorRef.current = window.monaco.editor.create(monacoContainerRef.current, { value: codeRef.current, language: 'mermaid', theme: 'vs-dark', minimap: { enabled: false }, fontSize: 14, automaticLayout: true });
-                editorRef.current.onDidChangeModelContent(() => { if (skipMonacoSync.current) { skipMonacoSync.current = false; return; } setCode(editorRef.current.getValue()); setGraph(mermaidToGraph(editorRef.current.getValue())); });
-                setIsMonacoReady(true);
+
+        const setupMonaco = () => {
+            if (!isM || editorRef.current || !window.monaco || !monacoContainerRef.current) return;
+
+            // Register mermaid language if not exists to avoid empty editor
+            try {
+                if (!window.monaco.languages.getLanguages().some((l: any) => l.id === 'mermaid')) {
+                    window.monaco.languages.register({ id: 'mermaid' });
+                }
+            } catch (e) { console.error('Error registering mermaid language', e); }
+
+            editorRef.current = window.monaco.editor.create(monacoContainerRef.current, {
+                value: codeRef.current,
+                language: 'mermaid',
+                theme: 'vs-dark',
+                minimap: { enabled: false },
+                fontSize: 14,
+                automaticLayout: true,
+                padding: { top: 10 }
             });
+
+            editorRef.current.onDidChangeModelContent(() => {
+                if (skipMonacoSync.current) {
+                    skipMonacoSync.current = false;
+                    return;
+                }
+                const newVal = editorRef.current.getValue();
+                setCode(newVal);
+                setGraph(mermaidToGraph(newVal));
+            });
+            setIsMonacoReady(true);
         };
-        initM();
-        return () => { isM = false; if (editorRef.current) editorRef.current.dispose(); };
+
+        const initM = () => {
+            if (!isM || editorRef.current || !monacoContainerRef.current) return;
+
+            if (window.monaco) {
+                setupMonaco();
+            } else if (window.require) {
+                window.require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+                window.require(['vs/editor/editor.main'], () => {
+                    if (isM) setupMonaco();
+                });
+            }
+        };
+
+        // Delay slightly to ensure layout is ready
+        const timer = setTimeout(initM, 100);
+        return () => {
+            clearTimeout(timer);
+            isM = false;
+            if (editorRef.current) editorRef.current.dispose();
+        };
     }, []);
 
     useEffect(() => {
@@ -267,7 +308,30 @@ export default function WorkflowEditorPage() {
                                 <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Orientation :</span>
                                 <div className="flex gap-2 ml-auto">
                                     {(['TD', 'LR', 'BT', 'RL'] as const).map(d => (
-                                        <Button key={d} size="sm" variant={graph.direction === d ? 'default' : 'outline'} onClick={() => applyCode(codeRef.current.replace(/^([ \t]*graph\s+)(TD|LR|BT|RL)/m, `$1${d}`))} className={cn("h-8 w-10 font-mono font-black", graph.direction === d && "bg-indigo-600 shadow-md transform scale-110")}>{d}</Button>
+                                        <Button
+                                            key={d}
+                                            size="sm"
+                                            variant={graph.direction === d ? 'default' : 'outline'}
+                                            onClick={() => {
+                                                const currentCode = codeRef.current;
+                                                const re = /^([ \t]*(?:graph|flowchart)\s+)(TD|LR|BT|RL)/m;
+                                                let newCode = currentCode.replace(re, `$1${d}`);
+
+                                                // If replacement didn't happen (maybe no direction specified yet)
+                                                if (newCode === currentCode && !currentCode.match(re)) {
+                                                    newCode = currentCode.replace(/^([ \t]*(?:graph|flowchart))(?!\s+(?:TD|LR|BT|RL))/m, `$1 ${d}`);
+                                                }
+                                                // Support lowercase/aliases if any
+                                                if (newCode === currentCode) {
+                                                    newCode = currentCode.replace(/^(graph|flowchart)(\s+)?/i, `$1 ${d}\n`);
+                                                }
+
+                                                applyCode(newCode);
+                                            }}
+                                            className={cn("h-8 w-10 font-mono font-black", graph.direction === d && "bg-indigo-600 shadow-md transform scale-110")}
+                                        >
+                                            {d}
+                                        </Button>
                                     ))}
                                 </div>
                             </div>
@@ -374,8 +438,8 @@ export default function WorkflowEditorPage() {
                         <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-2xl bg-indigo-600 flex items-center justify-center"><LucideIcons.Workflow className="h-6 w-6 text-white" /></div><div><h2 className="text-xl font-black text-slate-800">{name}</h2><p className="text-xs text-slate-500 font-medium uppercase tracking-widest">Aperçu Haute Résolution • ID: {id}</p></div></div>
                         <Button variant="ghost" size="icon" onClick={() => setIsFullscreen(false)} className="h-12 w-12 rounded-full hover:bg-slate-100"><LucideIcons.X className="h-6 w-6" /></Button>
                     </div>
-                    <div className="flex-1 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] overflow-auto p-12 flex items-center justify-center">
-                        <div className="p-12 bg-white rounded-[4rem] shadow-2xl border border-slate-100 min-w-[70%] transform-gpu">
+                    <div className="flex-1 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] overflow-hidden p-6 flex items-center justify-center">
+                        <div className="w-full h-full max-w-[95%] max-h-[95%] bg-white rounded-[3rem] shadow-2xl border border-slate-100 flex items-center justify-center p-4">
                             <MermaidRenderer chart={code} workflowId={id} />
                         </div>
                     </div>
