@@ -78,50 +78,86 @@ function graphToMermaid(graph: VisualGraph): string {
     return lines.join('\n');
 }
 
-// Parse existing Mermaid code → VisualGraph (best-effort)
+// Parse existing Mermaid code → VisualGraph (robust multi-pass parser)
 function mermaidToGraph(code: string): VisualGraph {
     const dir = code.match(/graph\s+(TD|LR|BT|RL)/)?.[1] as VisualGraph['direction'] || 'TD';
     const nodes: VisualNode[] = [];
     const edges: VisualEdge[] = [];
-    const lines = code.split('\n');
 
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        // Detect edges first
-        const edgeMatch = trimmed.match(/^([A-Za-z0-9_-]+)\s*-->\s*(?:\|"?([^|"]+)"?\|)?\s*([A-Za-z0-9_-]+)/);
-        if (edgeMatch) {
-            edges.push({ from: edgeMatch[1], to: edgeMatch[3], label: edgeMatch[2]?.trim() });
-            return;
+    const RESERVED = new Set(['graph', 'TD', 'LR', 'BT', 'RL', 'subgraph', 'end', 'classDef', 'class', 'style', 'linkStyle', 'click']);
+
+    // Helper: sanitize a raw label (strip HTML tags, br, backslash-n)
+    const cleanLabel = (raw: string) =>
+        raw
+            .replace(/<br\s*\/?>/gi, ' ')
+            .replace(/\\n/g, ' ')
+            .replace(/<[^>]+>/g, '')
+            .replace(/^["']|["']$/g, '')
+            .trim();
+
+    // Helper: register a node if not already known
+    const addNode = (id: string, label: string, shape: NodeShape) => {
+        if (RESERVED.has(id) || nodes.find(n => n.id === id)) return;
+        nodes.push({ id, label: cleanLabel(label) || id, shape });
+    };
+
+    // ── PASS 1: scan entire code with global regexes for node definitions ────
+    // Order matters: circle before rounded (both use parentheses)
+    const patterns: { re: RegExp; shape: NodeShape }[] = [
+        // Circle: ID(("label"))
+        { re: /\b([A-Za-z0-9_\-\.]+)\(\(\s*"((?:[^"\\]|\\.)*)"\s*\)\)/g, shape: 'circle' },
+        { re: /\b([A-Za-z0-9_\-\.]+)\(\(\s*([^)]+)\s*\)\)/g, shape: 'circle' },
+        // Diamond: ID{"label"}
+        { re: /\b([A-Za-z0-9_\-\.]+)\{\s*"((?:[^"\\]|\\.)*)"\s*\}/g, shape: 'diamond' },
+        { re: /\b([A-Za-z0-9_\-\.]+)\{\s*([^}]+)\s*\}/g, shape: 'diamond' },
+        // Parallelogram: ID[/"label"/]
+        { re: /\b([A-Za-z0-9_\-\.]+)\[\/\s*"((?:[^"\\]|\\.)*?)"\s*\/\]/g, shape: 'parallelogram' },
+        // Rounded: ID("label")
+        { re: /\b([A-Za-z0-9_\-\.]+)\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g, shape: 'rounded' },
+        { re: /\b([A-Za-z0-9_\-\.]+)\(\s*([^)]+)\s*\)/g, shape: 'rounded' },
+        // Rectangle: ID["label"]
+        { re: /\b([A-Za-z0-9_\-\.]+)\[\s*"((?:[^"\\]|\\.)*)"\s*\]/g, shape: 'rectangle' },
+        { re: /\b([A-Za-z0-9_\-\.]+)\[\s*([^\]]+)\s*\]/g, shape: 'rectangle' },
+    ];
+
+    patterns.forEach(({ re, shape }) => {
+        const clone = new RegExp(re.source, re.flags);
+        let m: RegExpExecArray | null;
+        while ((m = clone.exec(code)) !== null) {
+            addNode(m[1], m[2] ?? m[1], shape);
         }
-        // Detect standalone node definitions
-        const rectMatch = trimmed.match(/^([A-Za-z0-9_-]+)\["?([^"\]]+)"?\]/);
-        const roundMatch = trimmed.match(/^([A-Za-z0-9_-]+)\("?([^")]+)"?\)/);
-        const diaMatch = trimmed.match(/^([A-Za-z0-9_-]+)\{"?([^"}]+)"?\}/);
-        const circleMatch = trimmed.match(/^([A-Za-z0-9_-]+)\(\("?([^")]+)"?\)\)/);
-        const paraMatch = trimmed.match(/^([A-Za-z0-9_-]+)\[\/"?([^"/]+)"?\/\]/);
-
-        if (rectMatch && !nodes.find(n => n.id === rectMatch[1]))
-            nodes.push({ id: rectMatch[1], label: rectMatch[2], shape: 'rectangle' });
-        else if (circleMatch && !nodes.find(n => n.id === circleMatch[1]))
-            nodes.push({ id: circleMatch[1], label: circleMatch[2], shape: 'circle' });
-        else if (roundMatch && !nodes.find(n => n.id === roundMatch[1]))
-            nodes.push({ id: roundMatch[1], label: roundMatch[2], shape: 'rounded' });
-        else if (diaMatch && !nodes.find(n => n.id === diaMatch[1]))
-            nodes.push({ id: diaMatch[1], label: diaMatch[2], shape: 'diamond' });
-        else if (paraMatch && !nodes.find(n => n.id === paraMatch[1]))
-            nodes.push({ id: paraMatch[1], label: paraMatch[2], shape: 'parallelogram' });
     });
 
-    // Ensure edge endpoints exist as nodes
-    edges.forEach(e => {
-        [e.from, e.to].forEach(id => {
-            if (!nodes.find(n => n.id === id))
-                nodes.push({ id, label: id, shape: 'rectangle' });
-        });
-    });
+    // ── PASS 2: extract edges ────────────────────────────────────────────────
+    // Matches: ID[optional_def] --> [|label|] ID[optional_def]
+    // The [optional_def] parts are skipped via a balanced-bracket approximation
+    const nodePart = String.raw`([A-Za-z0-9_\-\.]+)(?:\s*(?:\[\/?[^\]]*\]|\{[^}]*\}|\([^)]*\)))?`;
+    const edgeRe = new RegExp(
+        `${nodePart}\\s*--?>+\\s*(?:\\|([^|\\n]*)\\|)?\\s*${nodePart}`,
+        'g'
+    );
+    let em: RegExpExecArray | null;
+    while ((em = edgeRe.exec(code)) !== null) {
+        const from = em[1];
+        const label = em[2]?.replace(/"/g, '').trim() || undefined;
+        const to = em[3];
+        if (RESERVED.has(from) || RESERVED.has(to)) continue;
+        if (!edges.find(e => e.from === from && e.to === to)) {
+            edges.push({ from, to, label });
+        }
+        // Make sure edge endpoints exist as nodes (fallback if pass 1 missed them)
+        addNode(from, from, 'rectangle');
+        addNode(to, to, 'rectangle');
+    }
 
-    return { direction: dir, nodes, edges };
+    // ── PASS 3: deduplicate edges ────────────────────────────────────────────
+    const uniqueEdges = edges.filter((e, i, arr) =>
+        arr.findIndex(x => x.from === e.from && x.to === e.to && x.label === e.label) === i
+    );
+
+    return { direction: dir, nodes, edges: uniqueEdges };
 }
+
 
 // Generate a unique node ID
 function genId(graph: VisualGraph): string {
