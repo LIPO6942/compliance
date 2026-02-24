@@ -239,10 +239,22 @@ export default function PlanPage() {
 
   const onSubmitTask = async (values: TaskFormValues) => {
     if (dialogState.grandParentId && dialogState.parentId) {
-      const taskData = {
+      const taskData: any = {
         ...values,
         deadline: values.deadline ? new Date(values.deadline).toISOString() : undefined,
       };
+
+      // Nettoyage KPI pour éviter les erreurs de type/données partielles
+      if (taskData.kpi) {
+        if (!taskData.kpi.name && !taskData.kpi.target && !taskData.kpi.unit) {
+          delete taskData.kpi;
+        } else {
+          taskData.kpi.name = taskData.kpi.name || "";
+          taskData.kpi.target = taskData.kpi.target || "";
+          taskData.kpi.unit = taskData.kpi.unit || "";
+        }
+      }
+
       if (dialogState.mode === 'add') {
         await addTask(dialogState.grandParentId, dialogState.parentId, taskData);
         toast({ title: "Tâche ajoutée" });
@@ -275,14 +287,18 @@ export default function PlanPage() {
     const newPlan = JSON.parse(JSON.stringify(planData));
     const activeIds = Object.keys(activeWorkflows);
     if (activeIds.length > 0) {
-      let processCat = newPlan.find((c: any) => c.name === "Processus Métiers Clés" || c.name === "Processus Métiers");
+      let processCat = newPlan.find((c: any) => c.id === 'processus-metiers' || c.name.toLowerCase().includes("processus métiers"));
       if (!processCat) {
         processCat = { id: 'processus-metiers', name: 'Processus Métiers Clés', icon: 'Workflow', subCategories: [] };
         newPlan.push(processCat);
       }
       const existingSubIds = processCat.subCategories.map((s: any) => s.id);
+
+      // Filter out subcategories that are not in activeWorkflows for this specific category
+      processCat.subCategories = processCat.subCategories.filter((s: any) => activeIds.includes(s.id));
+
       activeIds.forEach(id => {
-        if (!existingSubIds.includes(id)) {
+        if (!processCat.subCategories.find((s: any) => s.id === id)) {
           processCat.subCategories.push({
             id,
             name: activeWorkflows[id].name || id,
@@ -327,7 +343,7 @@ export default function PlanPage() {
         <div className="space-y-12">
           {filteredPlanData.length > 0 ? filteredPlanData.map((category: ComplianceCategory) => {
             const Icon = getIconComponent(category.icon);
-            const isProcessCategory = category.name === "Processus Métiers Clés" || category.name === "Processus Métiers";
+            const isProcessCategory = category.id === 'processus-metiers' || category.name.toLowerCase().includes("processus métiers");
             return (
               <Card key={category.id} id={category.id} className="shadow-2xl border-none overflow-hidden rounded-[2.5rem] bg-white dark:bg-slate-900">
                 <CardHeader className="flex flex-row items-center justify-between bg-slate-50/50 dark:bg-slate-800/50 px-8 py-6 group border-b border-slate-100 dark:border-slate-800">
@@ -366,7 +382,9 @@ export default function PlanPage() {
                 <CardContent className="p-6">
                   <div className="space-y-4">
                     {(() => {
-                      let subCategoriesToRender = [...category.subCategories];
+                      let subCategoriesToRender = isProcessCategory
+                        ? category.subCategories.filter(s => activeWorkflows[s.id])
+                        : [...category.subCategories];
                       if (isProcessCategory) {
                         const existingIds = subCategoriesToRender.map(s => s.id);
                         Object.keys(activeWorkflows).forEach(id => {
