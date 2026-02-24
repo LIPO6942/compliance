@@ -17,6 +17,7 @@ interface MermaidRendererProps {
     workflowId?: string;
     onNodeClick?: (id: string) => void;
     onEditTask?: (task: any) => void;
+    zoom?: number;
 }
 
 // Utilitaire: niveau de risque numérique pour comparaison
@@ -37,7 +38,7 @@ const riskLevelConfig: Record<string, { emoji: string; bg: string; border: strin
     'Très élevé': { emoji: '🔴', bg: '#fef2f2', border: '#fca5a5', text: '#991b1b', label: 'Risque Très élevé' },
 };
 
-export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflowId, onEditTask }) => {
+export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflowId, onEditTask, zoom = 1 }) => {
     const uniqueId = useMemo(() => Math.random().toString(36).substring(7), []);
     const [svg, setSvg] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
@@ -376,7 +377,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 
                 /* Layout global Mermaid */
                 .mermaid svg { 
-                    min-width: 1000px;
+                    min-width: ${zoom * 1000}px;
                     width: 100% !important; 
                     height: auto !important; 
                     filter: drop-shadow(0 15px 30px rgba(0,0,0,0.05)); 

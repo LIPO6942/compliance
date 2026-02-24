@@ -134,6 +134,7 @@ export default function WorkflowEditorPage() {
     const [edgeForm, setEdgeForm] = useState<{ from: string; to: string; label: string }>({ from: '', to: '', label: '' });
     const [edgeDialogOpen, setEdgeDialogOpen] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [zoom, setZoom] = useState(0.65);
 
     const [processAssignees, setProcessAssignees] = useState<{ userId: string; userName: string; role: string }[]>([]);
     const [addingAssignee, setAddingAssignee] = useState(false);
@@ -432,7 +433,28 @@ export default function WorkflowEditorPage() {
                             <LucideIcons.Eye className="h-4 w-4 text-emerald-500" />
                             <span className="text-[10px] font-black uppercase text-slate-500">Live Visualizer</span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1 bg-slate-100 rounded-full px-2 py-1 border border-slate-200 shadow-inner">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setZoom(z => Math.max(0.2, z - 0.1))}
+                                    className="h-6 w-6 rounded-full hover:bg-white hover:shadow-sm transition-all"
+                                >
+                                    <LucideIcons.Minus className="h-3 w-3 text-slate-600" />
+                                </Button>
+                                <span className="text-[10px] font-black w-10 text-center text-slate-500 font-mono">
+                                    {Math.round(zoom * 100)}%
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setZoom(z => Math.min(3, z + 0.1))}
+                                    className="h-6 w-6 rounded-full hover:bg-white hover:shadow-sm transition-all"
+                                >
+                                    <LucideIcons.Plus className="h-3 w-3 text-slate-600" />
+                                </Button>
+                            </div>
                             <Button variant="outline" size="sm" onClick={() => setIsFullscreen(true)} className="h-8 rounded-full gap-2 text-[10px] font-black uppercase">
                                 <LucideIcons.Maximize2 className="h-3 w-3" /> Fullscreen
                             </Button>
@@ -444,7 +466,7 @@ export default function WorkflowEditorPage() {
                     <div className="flex-1 relative bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:20px_20px] p-4 overflow-hidden">
                         <div className="absolute inset-4 bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border flex flex-col transition-all duration-500 hover:scale-[1.002] overflow-auto">
                             <div className="min-w-full min-h-full p-8 flex items-center justify-center">
-                                <MermaidRenderer chart={code} workflowId={id} />
+                                <MermaidRenderer chart={code} workflowId={id} zoom={zoom} />
                             </div>
                         </div>
                     </div>
@@ -460,7 +482,7 @@ export default function WorkflowEditorPage() {
                     </div>
                     <div className="flex-1 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] overflow-hidden p-6 flex items-center justify-center">
                         <div className="w-full h-full max-w-[95%] max-h-[95%] bg-white rounded-[3rem] shadow-2xl border border-slate-100 flex items-center justify-center p-4">
-                            <MermaidRenderer chart={code} workflowId={id} />
+                            <MermaidRenderer chart={code} workflowId={id} zoom={zoom * 1.5} />
                         </div>
                     </div>
                 </DialogContent>
