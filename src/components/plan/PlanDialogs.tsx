@@ -502,12 +502,12 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
 
                   {/* --- LIAISON GRC ASSISTÉE --- */}
                   <div className="p-4 border rounded-2xl bg-purple-50/30 space-y-4">
-                    <FormLabel className="flex items-center gap-2 font-bold text-purple-900 border-b pb-2"><Workflow className="h-4 w-4" /> Liaison Processus Métier (Assistance GRC)</FormLabel>
+                    <FormLabel className="flex items-center gap-2 font-bold text-purple-900 border-b pb-2"><Workflow className="h-4 w-4" /> Alignement Processus & GRC</FormLabel>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField control={taskForm.control} name="grcWorkflowId" render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Choix du Processus</FormLabel>
+                          <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Référence Workflow</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger className="bg-white"><SelectValue placeholder="Sélectionner un processus" /></SelectTrigger></FormControl>
                             <SelectContent>
@@ -540,12 +540,14 @@ export function PlanDialogs({ dialogState, closeDialog, onSubmitCategory, onSubm
 
                         return (
                           <FormItem>
-                            <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Étape / Nœud</FormLabel>
+                            <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Étape Opérationnelle</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value} disabled={!selectedWorkflowId}>
-                              <FormControl><SelectTrigger className="bg-white"><SelectValue placeholder={selectedWorkflowId ? "Choisir l'étape" : "Sélectionner d'abord le processus"} /></SelectTrigger></FormControl>
+                              <FormControl><SelectTrigger className="bg-white"><SelectValue placeholder={selectedWorkflowId ? "Cibler l'action métier" : "Sélectionner d'abord le processus"} /></SelectTrigger></FormControl>
                               <SelectContent>
-                                {nodes.map(node => (
-                                  <SelectItem key={node.id} value={node.id}>{node.label} ({node.id})</SelectItem>
+                                {nodes.map((node, index) => (
+                                  <SelectItem key={node.id} value={node.id}>
+                                    {index + 1}. {node.label}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>

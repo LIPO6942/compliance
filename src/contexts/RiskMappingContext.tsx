@@ -27,26 +27,23 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!isLoaded) return;
-    
+
     if (!isFirebaseConfigured || !db) {
-        setRisks(initialMockRiskMapping);
-        setLoading(false);
-        console.warn("Firebase is not configured. Risk mapping data will use mock data.");
-        return;
+      setRisks(initialMockRiskMapping);
+      setLoading(false);
+      console.warn("Firebase is not configured. Risk mapping data will use mock data.");
+      return;
     }
 
     const q = query(collection(db, risksCollectionName), orderBy("lastUpdated", "desc"));
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
       const dbRisks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RiskMappingItem));
-      
-      // Simple check to see if re-seeding is needed. Can be made more robust.
-      if (querySnapshot.empty || dbRisks.length < initialMockRiskMapping.length) {
-        console.log(`[${risksCollectionName}] collection requires seeding/reseeding.`);
+
+      // Only seed when the collection is completely empty (first-time setup).
+      // NEVER reseed based on length comparison — that destroys user modifications.
+      if (querySnapshot.empty) {
+        console.log(`[${risksCollectionName}] collection is empty. Initial seeding with default data.`);
         const batch = writeBatch(db!);
-        
-        // Delete existing docs to prevent duplicates if re-seeding
-        const existingDocs = await getDocs(q);
-        existingDocs.forEach(doc => batch.delete(doc.ref));
 
         // Add mock data
         initialMockRiskMapping.forEach((mockRisk) => {
@@ -54,7 +51,7 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
           const docRef = doc(collection(db!, risksCollectionName)); // Let Firestore generate ID
           batch.set(docRef, data);
         });
-        
+
         await batch.commit().catch(e => console.error(`Failed to seed ${risksCollectionName}:`, e));
         return; // Snapshot listener will re-run with new data
       }

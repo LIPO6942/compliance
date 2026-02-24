@@ -78,7 +78,7 @@ function EcosystemNodeComponent({ data, id }: { data: EcosystemNode & { onUpdate
                         className="text-sm font-bold leading-tight bg-transparent border-none p-0 focus:ring-0 w-full outline-none block"
                         value={data.label}
                         onChange={(e) => data.onUpdateLabel?.(id, e.target.value)}
-                        placeholder="Nom du noeud..."
+                        placeholder="Nom de l'acteur/entité..."
                     />
                 </div>
             </div>
@@ -236,7 +236,7 @@ const EcosystemEditor = forwardRef<EcosystemEditorRef, EcosystemEditorProps>(({ 
                 position: { x: Math.random() * 400, y: Math.random() * 400 },
                 data: {
                     id,
-                    label: 'Nouveau Noeud',
+                    label: 'Nouvel Acteur',
                     type: 'other' as EcosystemNodeType,
                     onUpdateLabel: handleUpdateLabel,
                 },

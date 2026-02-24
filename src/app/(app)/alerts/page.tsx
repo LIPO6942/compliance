@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { BellRing, Search, MoreHorizontal, Edit, Archive, Circle, TriangleAlert, CheckCircle2, Shield, Eye, Info, Zap, Calendar, MapPin, ArrowRight, ShieldAlert, History } from "lucide-react";
+import { BellRing, Search, MoreHorizontal, Edit, Archive, Circle, TriangleAlert, CheckCircle2, Shield, Eye, Info, Zap, Calendar, MapPin, ArrowRight, ShieldAlert, History, ShieldCheck } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

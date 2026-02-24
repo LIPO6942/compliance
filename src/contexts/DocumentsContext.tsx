@@ -26,7 +26,7 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
   const { isLoaded } = useUser();
 
   useEffect(() => {
-    if (!isLoaded) return; 
+    if (!isLoaded) return;
 
     if (!isFirebaseConfigured || !db) {
       setDocuments(initialMockDocuments);
@@ -39,31 +39,32 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
     const q = query(documentsRef, orderBy("lastUpdated", "desc"));
 
     const reseedData = async () => {
-        console.log(`[${documentsCollectionName}] collection is outdated or empty. Reseeding with fresh mock data.`);
-        const existingDocs = await getDocs(documentsRef);
-        const batch = writeBatch(db!);
-        
-        // Delete old documents
-        existingDocs.forEach(doc => {
-            batch.delete(doc.ref);
-        });
+      console.log(`[${documentsCollectionName}] collection is outdated or empty. Reseeding with fresh mock data.`);
+      const existingDocs = await getDocs(documentsRef);
+      const batch = writeBatch(db!);
 
-        // Add new documents
-        initialMockDocuments.forEach((mockDoc) => {
-          const { id, ...data } = mockDoc;
-          const docRef = doc(collection(db!, documentsCollectionName), id); // Use explicit ID
-          batch.set(docRef, data);
-        });
+      // Delete old documents
+      existingDocs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
 
-        await batch.commit().catch(e => console.error(`Failed to reseed ${documentsCollectionName}:`, e));
+      // Add new documents
+      initialMockDocuments.forEach((mockDoc) => {
+        const { id, ...data } = mockDoc;
+        const docRef = doc(collection(db!, documentsCollectionName), id); // Use explicit ID
+        batch.set(docRef, data);
+      });
+
+      await batch.commit().catch(e => console.error(`Failed to reseed ${documentsCollectionName}:`, e));
     };
 
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-      // Force re-seeding if the data is not what we expect.
-      if (querySnapshot.docs.length < initialMockDocuments.length) {
-          await reseedData();
-          // The listener will be re-triggered by reseedData, so we can return here.
-          return;
+      // Only seed when the collection is completely empty (first-time setup).
+      // NEVER reseed based on length comparison — that destroys user modifications.
+      if (querySnapshot.empty) {
+        await reseedData();
+        // The listener will be re-triggered by reseedData, so we can return here.
+        return;
       }
 
       const documentsData: Document[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Document));

@@ -9,7 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveCont
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
-import type { RiskMappingItem, ActivityItem } from "@/types/compliance";
+import type { RiskMappingItem, ActivityItem, ComplianceTask } from "@/types/compliance";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/icons/Logo";
 import { useNews } from "@/contexts/NewsContext";
@@ -61,17 +61,43 @@ export default function DashboardPage() {
 
   React.useEffect(() => {
     if (planData && documents && identifiedRegulations && risks) {
-      const allTasks = planData
-        .filter(category => category.name !== "Processus Métiers Clés")
-        .flatMap(category => category.subCategories.flatMap(subCategory => subCategory.tasks));
       const now = new Date();
 
-      setOverdueTasksCount(allTasks.filter(task => !task.completed && task.deadline && new Date(task.deadline) < now).length);
-      setActiveTasksCount(allTasks.filter(task => !task.completed).length);
+      // Helper recursif pour compter toutes les tâches (y compris dans les branches)
+      const getTaskStats = (tasks: ComplianceTask[]) => {
+        let total = 0;
+        let completed = 0;
+        let overdue = 0;
 
-      const validatedDocuments = documents.filter(doc => doc.status === "Validé").length;
-      const totalDocuments = documents.length;
-      setOverallCompliancePercentage(totalDocuments > 0 ? Math.round((validatedDocuments / totalDocuments) * 100) : 0);
+        const recurse = (taskList: ComplianceTask[]) => {
+          taskList.forEach(task => {
+            total++;
+            if (task.completed) completed++;
+            else if (task.deadline && new Date(task.deadline) < now) overdue++;
+
+            if (task.branches) {
+              task.branches.forEach((branch) => {
+                recurse(branch.tasks);
+              });
+            }
+          });
+        };
+
+        recurse(tasks);
+        return { total, completed, overdue };
+      };
+
+      const allTasksUnderlying = planData
+        .filter(category => category.name !== "Processus Métiers Clés")
+        .flatMap(category => category.subCategories.flatMap(subCategory => subCategory.tasks));
+
+      const globalStats = getTaskStats(allTasksUnderlying);
+
+      setOverdueTasksCount(globalStats.overdue);
+      setActiveTasksCount(globalStats.total - globalStats.completed);
+
+      // Conformité Globale = tâches complétées / total tâches
+      setOverallCompliancePercentage(globalStats.total > 0 ? Math.round((globalStats.completed / globalStats.total) * 100) : 0);
 
       const conformeCount = documents.filter(d => d.status === "Validé").length;
       const enCoursCount = documents.filter(d => d.status === "En Révision").length;
@@ -93,14 +119,12 @@ export default function DashboardPage() {
         .filter(category => category.name !== "Processus Métiers Clés")
         .map(category => {
           const categoryTasks = category.subCategories.flatMap(sub => sub.tasks);
-          const completed = categoryTasks.filter(task => task.completed).length;
-          const overdue = categoryTasks.filter(task => !task.completed && task.deadline && new Date(task.deadline) < now).length;
-          const total = categoryTasks.length;
+          const stats = getTaskStats(categoryTasks);
           return {
             id: category.id,
             name: category.name.substring(0, 15),
-            progress: total > 0 ? Math.round((completed / total) * 100) : 0,
-            overdue
+            progress: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0,
+            overdue: stats.overdue
           };
         }).filter(c => c.progress > 0 || c.overdue > 0).slice(0, 4);
       setTaskProgressData(newTaskProgressData);
