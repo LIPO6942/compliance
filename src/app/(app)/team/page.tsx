@@ -80,20 +80,25 @@ export default function TeamPage() {
         setIsDialogOpen(true);
     };
 
-    const handleFormSubmit = (values: MemberFormValues) => {
+    const handleFormSubmit = async (values: MemberFormValues) => {
         const memberData = {
             ...values,
             expertise: values.expertise.split(",").map(e => e.trim()).filter(Boolean),
         };
 
-        if (editingMember) {
-            updateMember(editingMember.id, memberData);
-            toast({ title: "Membre mis à jour", description: `${values.name} a été modifié avec succès.` });
-        } else {
-            addMember(memberData);
-            toast({ title: "Membre ajouté", description: `${values.name} a rejoint l'équipe.` });
+        try {
+            if (editingMember) {
+                await updateMember(editingMember.id, memberData);
+                toast({ title: "Membre mis à jour", description: `${values.name} a été modifié avec succès.` });
+            } else {
+                await addMember(memberData);
+                toast({ title: "Membre ajouté", description: `${values.name} a rejoint l'équipe.` });
+            }
+            setIsDialogOpen(false);
+        } catch (error) {
+            console.error("Error saving member:", error);
+            toast({ title: "Erreur", description: "Impossible d'enregistrer le membre.", variant: "destructive" });
         }
-        setIsDialogOpen(false);
     };
 
     return (
