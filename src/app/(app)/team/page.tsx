@@ -81,23 +81,37 @@ export default function TeamPage() {
     };
 
     const handleFormSubmit = async (values: MemberFormValues) => {
-        const memberData = {
-            ...values,
-            expertise: values.expertise.split(",").map(e => e.trim()).filter(Boolean),
-        };
-
         try {
+            const memberData: Omit<TeamMember, 'id'> = {
+                name: values.name.trim(),
+                role: values.role.trim(),
+                specialty: values.specialty.trim(),
+                status: values.status as "Online" | "Away" | "Offline",
+                expertise: values.expertise.split(",").map((e: string) => e.trim()).filter(Boolean),
+                avatarUrl: values.avatarUrl?.trim() || undefined,
+                email: values.email?.trim() || undefined,
+                phone: values.phone?.trim() || undefined,
+            };
+
+            console.log("💾 Enregistrement:", { editingMember: editingMember?.id, data: memberData });
+
             if (editingMember) {
+                console.log("🔄 Mise à jour:", editingMember.id);
                 await updateMember(editingMember.id, memberData);
-                toast({ title: "Membre mis à jour", description: `${values.name} a été modifié avec succès.` });
+                await new Promise(resolve => setTimeout(resolve, 500));
+                toast({ title: "✅ Succès", description: `${values.name} a été modifié.` });
             } else {
+                console.log("➕ Ajout nouveau");
                 await addMember(memberData);
-                toast({ title: "Membre ajouté", description: `${values.name} a rejoint l'équipe.` });
+                await new Promise(resolve => setTimeout(resolve, 500));
+                toast({ title: "✅ Succès", description: `${values.name} a rejoint l'équipe.` });
             }
             setIsDialogOpen(false);
-        } catch (error) {
-            console.error("Error saving member:", error);
-            toast({ title: "Erreur", description: "Impossible d'enregistrer le membre.", variant: "destructive" });
+            form.reset();
+        } catch (error: any) {
+            console.error("❌ Erreur:", error);
+            const msg = error?.message || "Firebase non configuré. Vérifiez .env.local";
+            toast({ title: "Erreur", description: msg, variant: "destructive" });
         }
     };
 

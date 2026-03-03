@@ -2,11 +2,117 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write access to all documents for any authenticated user.
-    // This is suitable for development and prototyping.
-    // For production, you should implement more granular security rules.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    
+    // ============================================
+    // AUTHENTIFICATION - Vérifier si l'utilisateur est connecté
+    // ============================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // ============================================
+    // TEAM - Membres de l'équipe (lectures publiques, écritures authentifiées)
+    // ============================================
+    match /team/{memberId} {
+      allow read: if true;  // Tout le monde peut lire les profils d'équipe
+      allow create, update, delete: if isAuthenticated();  // Seulement authentifiés pour modifier
+    }
+
+    // ============================================
+    // PLAN - Plan de conformité principal
+    // ============================================
+    match /plan/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================
+    // WORKFLOWS - Diagrammes Mermaid et workflows
+    // ============================================
+    match /workflows/{workflowId} {
+      allow read, write: if isAuthenticated();
+      
+      // Versions du workflow
+      match /versions/{versionId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    // ============================================
+    // DOCUMENTS - Gestion documentaire
+    // ============================================
+    match /documents/{docId} {
+      allow read, write: if isAuthenticated();
+      
+      // Versions des documents
+      match /versions/{versionId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    // ============================================
+    // RISK-MAPPING - Cartographie des risques
+    // ============================================
+    match /risk-mapping/{riskId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================
+    // NEWS - Actualités et veille réglementaire
+    // ============================================
+    match /news/{newsId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================
+    // KEYWORDS - Mots-clés de recherche
+    // ============================================
+    match /keywords/{keywordId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================
+    // REGULATIONS - Réglementations identifiées
+    // ============================================
+    match /regulations/{regId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================
+    // TRAINING - Données de formation
+    // ============================================
+    match /training/{trainingId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================
+    // TIMELINE - Événements de la timeline
+    // ============================================
+    match /timeline/{eventId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================
+    // ECOSYSTEMS - Écosystèmes
+    // ============================================
+    match /ecosystems/{ecosystemId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================
+    // AUDIT LOGS - Logs des actions (append-only)
+    // ============================================
+    match /audit-logs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();  // Seulement créer, pas modifier
+      allow update, delete: if false;  // Jamais modifier ou supprimer
+    }
+
+    // ============================================
+    // CONFIG - Configuration de l'application
+    // ============================================
+    match /config/{document=**} {
+      allow read: if true;  // Config publique
+      allow write: if false;  // Modifiée uniquement par backend
     }
   }
 }

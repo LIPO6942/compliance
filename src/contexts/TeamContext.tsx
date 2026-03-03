@@ -152,17 +152,19 @@ export const TeamProvider = ({ children }: { children: ReactNode }) => {
 
     const updateMember = async (id: string, updates: Partial<TeamMember>) => {
         if (!db) {
-            // Fallback to local state only
+            console.warn("⚠️ Firebase not configured - local state only");
             setTeamMembers(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
             return;
         }
 
         try {
             const memberRef = doc(db, 'team', id);
+            console.log("📝 Firestore update:", { id, updates });
             await setDoc(memberRef, updates, { merge: true });
-            // Local state will be updated via the Firestore listener
-        } catch (error) {
-            console.error("Error updating member:", error);
+            console.log("✅ Firestore OK:", id);
+        } catch (error: any) {
+            console.error("❌ Firestore error:", error);
+            throw new Error(`Firebase: ${error.message}`);
         }
     };
 
@@ -171,32 +173,36 @@ export const TeamProvider = ({ children }: { children: ReactNode }) => {
         const newMember: TeamMember = { ...member, id: newMemberId };
 
         if (!db) {
-            // Fallback to local state only
+            console.warn("⚠️ Firebase not configured - local state only");
             setTeamMembers(prev => [...prev, newMember]);
             return;
         }
 
         try {
             const memberRef = doc(db, 'team', newMemberId);
+            console.log("📝 Firestore add:", newMember);
             await setDoc(memberRef, newMember);
-            // Local state will be updated via the Firestore listener
-        } catch (error) {
-            console.error("Error adding member:", error);
+            console.log("✅ Firestore OK:", newMemberId);
+        } catch (error: any) {
+            console.error("❌ Firestore error:", error);
+            throw new Error(`Firebase: ${error.message}`);
         }
     };
 
     const removeMember = async (id: string) => {
         if (!db) {
-            // Fallback to local state only
+            console.warn("⚠️ Firebase not configured - local state only");
             setTeamMembers(prev => prev.filter(m => m.id !== id));
             return;
         }
 
         try {
+            console.log("📝 Firestore delete:", id);
             await deleteDoc(doc(db, 'team', id));
-            // Local state will be updated via the Firestore listener
-        } catch (error) {
-            console.error("Error removing member:", error);
+            console.log("✅ Firestore OK:", id);
+        } catch (error: any) {
+            console.error("❌ Firestore error:", error);
+            throw new Error(`Firebase: ${error.message}`);
         }
     };
 
