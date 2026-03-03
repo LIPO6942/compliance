@@ -20,10 +20,12 @@ interface TimelineContextType {
     updateEvent: (event: TimelineEvent) => void;
     deleteEvent: (id: string) => void;
     toggleValidation: (id: string) => void;
+    persistChanges: () => Promise<{ success: boolean; error?: string }>;
 }
 
 const STORAGE_KEY = 'compliance_timeline_events';
-const FIRESTORE_PATH = 'appData/timeline';
+const FIRESTORE_COLLECTION = 'timeline';
+const FIRESTORE_DOC = 'events';
 
 const defaultEvents: TimelineEvent[] = [
     { id: 'evt-1', date: '2026-03-31', title: 'Rapport Annuel LCB-FT', category: 'ACPR', color: 'bg-rose-500', validated: false },
@@ -40,12 +42,12 @@ export const TimelineProvider = ({ children }: { children: ReactNode }) => {
     // Load from Firebase or localStorage
     useEffect(() => {
         if (isFirebaseConfigured && db) {
-            const docRef = doc(db, FIRESTORE_PATH);
+            const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC);
             const unsubscribe = onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     setEvents(docSnap.data().events ?? defaultEvents);
                 } else {
-                    setDoc(docRef, { events: defaultEvents });
+                    setDoc(docRef, { events: defaultEvents, updatedAt: new Date().toISOString() });
                     setEvents(defaultEvents);
                 }
                 setLoading(false);
@@ -76,17 +78,32 @@ export const TimelineProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const persist = async (newEvents: TimelineEvent[]) => {
+    const persist = async (newEvents: TimelineEvent[]): Promise<{ success: boolean; error?: string }> => {
         if (isFirebaseConfigured && db) {
             try {
-                await setDoc(doc(db, FIRESTORE_PATH), { events: newEvents });
+                await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC), { 
+                    events: newEvents,
+                    updatedAt: new Date().toISOString()
+                });
+                return { success: true };
             } catch (e) {
+                const errorMsg = e instanceof Error ? e.message : 'Unknown error';
                 console.error("TimelineContext: Failed to save to Firebase:", e);
                 // Fallback to localStorage
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(newEvents));
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(newEvents));
+                    return { success: true };
+                } catch (storageError) {
+                    return { success: false, error: `Storage error: ${errorMsg}` };
+                }
             }
         } else {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newEvents));
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(newEvents));
+                return { success: true };
+            } catch (e) {
+                return { success: false, error: 'Failed to save to localStorage' };
+            }
         }
     };
 
@@ -98,19 +115,19 @@ export const TimelineProvider = ({ children }: { children: ReactNode }) => {
         };
         const updated = [...events, newEvent];
         setEvents(updated);
-        persist(updated);
+        persist(updated).catch(e => console.error("Persist failed:", e));
     };
 
     const updateEvent = (event: TimelineEvent) => {
         const updated = events.map(e => e.id === event.id ? event : e);
         setEvents(updated);
-        persist(updated);
+        persist(updated).catch(e => console.error("Persist failed:", e));
     };
 
     const deleteEvent = (id: string) => {
         const updated = events.filter(e => e.id !== id);
         setEvents(updated);
-        persist(updated);
+        persist(updated).catch(e => console.error("Persist failed:", e));
     };
 
     const toggleValidation = (id: string) => {
@@ -118,11 +135,15 @@ export const TimelineProvider = ({ children }: { children: ReactNode }) => {
             e.id === id ? { ...e, validated: !e.validated } : e
         );
         setEvents(updated);
-        persist(updated);
+        persist(updated).catch(e => console.error("Persist failed:", e));
+    };
+
+    const persistChanges = async () => {
+        return persist(events);
     };
 
     return (
-        <TimelineContext.Provider value={{ events, loading, addEvent, updateEvent, deleteEvent, toggleValidation }}>
+        <TimelineContext.Provider value={{ events, loading, addEvent, updateEvent, deleteEvent, toggleValidation, persistChanges }}>
             {children}
         </TimelineContext.Provider>
     );

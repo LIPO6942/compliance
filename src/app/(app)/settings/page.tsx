@@ -48,7 +48,8 @@ export default function SettingsPage() {
         role: ''
     });
     const { isDarkMode, toggleDarkMode } = useTheme();
-    const { events, updateEvent, addEvent, deleteEvent } = useTimeline();
+    const { events, updateEvent, addEvent, deleteEvent, persistChanges } = useTimeline();
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (isLoaded && user) {
@@ -56,12 +57,35 @@ export default function SettingsPage() {
         }
     }, [user, isLoaded]);
 
-    const handleSaveChanges = () => {
-        updateUser(profile);
-        toast({
-            title: "Paramètres enregistrés",
-            description: "Vos modifications ont été enregistrées avec succès.",
-        });
+    const handleSaveChanges = async () => {
+        setIsSaving(true);
+        try {
+            updateUser(profile);
+            
+            // Persistence des modifications de timeline
+            const result = await persistChanges();
+            
+            if (result.success) {
+                toast({
+                    title: "✓ Paramètres enregistrés",
+                    description: "Toutes vos modifications ont été sauvegardées avec succès.",
+                });
+            } else {
+                toast({
+                    title: "⚠ Erreur de sauvegarde",
+                    description: result.error || "Les modifications locales ont été conservées.",
+                    variant: "destructive",
+                });
+            }
+        } catch (error) {
+            toast({
+                title: "✗ Erreur",
+                description: error instanceof Error ? error.message : "Une erreur est survenue",
+                variant: "destructive",
+            });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,7 +255,20 @@ export default function SettingsPage() {
             </Card>
 
             <div className="flex justify-end">
-                <Button onClick={handleSaveChanges}>Enregistrer les Modifications</Button>
+                <Button 
+                    onClick={handleSaveChanges}
+                    disabled={isSaving}
+                    className="gap-2"
+                >
+                    {isSaving ? (
+                        <>
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            Enregistrement...
+                        </>
+                    ) : (
+                        "✓ Enregistrer les Modifications"
+                    )}
+                </Button>
             </div>
         </div>
     );
