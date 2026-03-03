@@ -158,9 +158,17 @@ export const TeamProvider = ({ children }: { children: ReactNode }) => {
         }
 
         try {
+            // Nettoyer les champs undefined pour Firestore
+            const cleanedUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    acc[key] = value;
+                }
+                return acc;
+            }, {} as Record<string, any>);
+
             const memberRef = doc(db, 'team', id);
-            console.log("📝 Firestore update:", { id, updates });
-            await setDoc(memberRef, updates, { merge: true });
+            console.log("📝 Firestore update:", { id, updates: cleanedUpdates });
+            await setDoc(memberRef, cleanedUpdates, { merge: true });
             console.log("✅ Firestore OK:", id);
         } catch (error: any) {
             console.error("❌ Firestore error:", error);
@@ -170,7 +178,16 @@ export const TeamProvider = ({ children }: { children: ReactNode }) => {
 
     const addMember = async (member: Omit<TeamMember, 'id'>) => {
         const newMemberId = Math.random().toString(36).substr(2, 9);
-        const newMember: TeamMember = { ...member, id: newMemberId };
+        
+        // Nettoyer les champs undefined pour Firestore
+        const cleanedMember = Object.entries(member).reduce((acc, [key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                acc[key] = value;
+            }
+            return acc;
+        }, {} as Record<string, any>);
+
+        const newMember: TeamMember = { ...cleanedMember, id: newMemberId } as TeamMember;
 
         if (!db) {
             console.warn("⚠️ Firebase not configured - local state only");

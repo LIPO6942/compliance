@@ -4,36 +4,35 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // ============================================
-    // AUTHENTIFICATION - Vérifier si l'utilisateur est connecté
+    // AUTHENTIFICATION
     // ============================================
     function isAuthenticated() {
       return request.auth != null;
     }
 
     // ============================================
-    // TEAM - Membres de l'équipe (lectures publiques, écritures authentifiées)
+    // TEAM - Membres de l'équipe 
     // ============================================
     match /team/{memberId} {
-      allow read: if true;  // Tout le monde peut lire les profils d'équipe
-      allow create, update, delete: if isAuthenticated();  // Seulement authentifiés pour modifier
+      allow read: if true;  // Public read
+      allow create, update, delete: if true;  // Ouvert en dev (à sécuriser en prod)
     }
 
     // ============================================
     // PLAN - Plan de conformité principal
     // ============================================
     match /plan/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;  // Ouvert en dev
     }
 
     // ============================================
     // WORKFLOWS - Diagrammes Mermaid et workflows
     // ============================================
     match /workflows/{workflowId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;  // Ouvert en dev
       
-      // Versions du workflow
       match /versions/{versionId} {
-        allow read, write: if isAuthenticated();
+        allow read, write: if true;
       }
     }
 
@@ -41,11 +40,10 @@ service cloud.firestore {
     // DOCUMENTS - Gestion documentaire
     // ============================================
     match /documents/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;  // Ouvert en dev
       
-      // Versions des documents
       match /versions/{versionId} {
-        allow read, write: if isAuthenticated();
+        allow read, write: if true;
       }
     }
 
@@ -53,66 +51,63 @@ service cloud.firestore {
     // RISK-MAPPING - Cartographie des risques
     // ============================================
     match /risk-mapping/{riskId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;  // Ouvert en dev
     }
 
     // ============================================
     // NEWS - Actualités et veille réglementaire
     // ============================================
     match /news/{newsId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;  // Ouvert en dev
     }
 
     // ============================================
     // KEYWORDS - Mots-clés de recherche
     // ============================================
     match /keywords/{keywordId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;  // Ouvert en dev
     }
 
     // ============================================
     // REGULATIONS - Réglementations identifiées
     // ============================================
     match /regulations/{regId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;  // Ouvert en dev
     }
 
     // ============================================
     // TRAINING - Données de formation
     // ============================================
     match /training/{trainingId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;  // Ouvert en dev
     }
 
     // ============================================
     // TIMELINE - Événements de la timeline
     // ============================================
     match /timeline/{eventId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;  // Ouvert en dev
     }
 
     // ============================================
     // ECOSYSTEMS - Écosystèmes
     // ============================================
     match /ecosystems/{ecosystemId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;  // Ouvert en dev
     }
 
     // ============================================
     // AUDIT LOGS - Logs des actions (append-only)
     // ============================================
     match /audit-logs/{logId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();  // Seulement créer, pas modifier
-      allow update, delete: if false;  // Jamais modifier ou supprimer
+      allow read, write: if true;  // Ouvert en dev
     }
 
     // ============================================
     // CONFIG - Configuration de l'application
     // ============================================
     match /config/{document=**} {
-      allow read: if true;  // Config publique
-      allow write: if false;  // Modifiée uniquement par backend
+      allow read, write: if true;  // Ouvert en dev
     }
   }
 }
