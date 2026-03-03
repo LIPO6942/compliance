@@ -1,6 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
+import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 
 export interface TeamMember {
     id: string;
@@ -14,7 +16,7 @@ export interface TeamMember {
     phone?: string;
 }
 
-const initialTeam: TeamMember[] = [
+const defaultTeam: TeamMember[] = [
     {
         id: "1",
         name: "Moslem G.",
@@ -62,44 +64,144 @@ interface TeamContextType {
     updateMember: (id: string, updates: Partial<TeamMember>) => void;
     addMember: (member: Omit<TeamMember, 'id'>) => void;
     removeMember: (id: string) => void;
+    isLoading: boolean;
 }
 
 const TeamContext = createContext<TeamContextType | undefined>(undefined);
 
 export const TeamProvider = ({ children }: { children: ReactNode }) => {
-    const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeam);
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isInitialized, setIsInitialized] = useState(false);
 
-    // Persist to local storage for demo purposes if no backend
+    // Load team data from Firestore with real-time sync
     useEffect(() => {
-        const saved = localStorage.getItem('compliance_team');
-        if (saved) {
-            try {
-                setTeamMembers(JSON.parse(saved));
-            } catch (e) {
-                console.error("Failed to load team from storage", e);
+        if (!isFirebaseConfigured || !db) {
+            // Fallback to localStorage if Firebase not configured
+            console.warn("Firebase not configured, using localStorage fallback");
+            const saved = localStorage.getItem('compliance_team');
+            if (saved) {
+                try {
+                    setTeamMembers(JSON.parse(saved));
+                } catch (e) {
+                    console.error("Failed to load team from storage", e);
+                    setTeamMembers(defaultTeam);
+                }
+            } else {
+                setTeamMembers(defaultTeam);
             }
+            setIsLoading(false);
+            return;
         }
-    }, []);
 
-    useEffect(() => {
-        localStorage.setItem('compliance_team', JSON.stringify(teamMembers));
-    }, [teamMembers]);
+        // Load from Firestore with real-time subscription
+        const unsubscribe = onSnapshot(
+            collection(db, 'team'),
+            (snapshot) => {
+                if (snapshot.empty) {
+                    // Initialize Firestore with default team on first load
+                    if (!isInitialized) {
+                        initializeFirestoreTeam();
+                        setIsInitialized(true);
+                    }
+                } else {
+                    const members = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    } as TeamMember));
+                    setTeamMembers(members);
+                }
+                setIsLoading(false);
+            },
+            (error) => {
+                console.error("Error loading team from Firestore:", error);
+                // Fallback to localStorage
+                const saved = localStorage.getItem('compliance_team');
+                if (saved) {
+                    try {
+                        setTeamMembers(JSON.parse(saved));
+                    } catch (e) {
+                        setTeamMembers(defaultTeam);
+                    }
+                } else {
+                    setTeamMembers(defaultTeam);
+                }
+                setIsLoading(false);
+            }
+        );
 
-    const updateMember = (id: string, updates: Partial<TeamMember>) => {
-        setTeamMembers(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+        return () => unsubscribe();
+    }, [isInitialized]);
+
+    // Initialize Firestore with default team
+    const initializeFirestoreTeam = async () => {
+        if (!db) return;
+        try {
+            const batch = writeBatch(db);
+            defaultTeam.forEach((member) => {
+                const docRef = doc(db, 'team', member.id);
+                batch.set(docRef, member);
+            });
+            await batch.commit();
+            setTeamMembers(defaultTeam);
+        } catch (error) {
+            console.error("Error initializing Firestore team:", error);
+            setTeamMembers(defaultTeam);
+        }
     };
 
-    const addMember = (member: Omit<TeamMember, 'id'>) => {
-        const newMember = { ...member, id: Math.random().toString(36).substr(2, 9) };
-        setTeamMembers(prev => [...prev, newMember]);
+    const updateMember = async (id: string, updates: Partial<TeamMember>) => {
+        if (!db) {
+            // Fallback to local state only
+            setTeamMembers(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+            return;
+        }
+
+        try {
+            const memberRef = doc(db, 'team', id);
+            await setDoc(memberRef, updates, { merge: true });
+            // Local state will be updated via the Firestore listener
+        } catch (error) {
+            console.error("Error updating member:", error);
+        }
     };
 
-    const removeMember = (id: string) => {
-        setTeamMembers(prev => prev.filter(m => m.id !== id));
+    const addMember = async (member: Omit<TeamMember, 'id'>) => {
+        const newMemberId = Math.random().toString(36).substr(2, 9);
+        const newMember: TeamMember = { ...member, id: newMemberId };
+
+        if (!db) {
+            // Fallback to local state only
+            setTeamMembers(prev => [...prev, newMember]);
+            return;
+        }
+
+        try {
+            const memberRef = doc(db, 'team', newMemberId);
+            await setDoc(memberRef, newMember);
+            // Local state will be updated via the Firestore listener
+        } catch (error) {
+            console.error("Error adding member:", error);
+        }
+    };
+
+    const removeMember = async (id: string) => {
+        if (!db) {
+            // Fallback to local state only
+            setTeamMembers(prev => prev.filter(m => m.id !== id));
+            return;
+        }
+
+        try {
+            await deleteDoc(doc(db, 'team', id));
+            // Local state will be updated via the Firestore listener
+        } catch (error) {
+            console.error("Error removing member:", error);
+        }
     };
 
     return (
-        <TeamContext.Provider value={{ teamMembers, updateMember, addMember, removeMember }}>
+        <TeamContext.Provider value={{ teamMembers, updateMember, addMember, removeMember, isLoading }}>
             {children}
         </TeamContext.Provider>
     );

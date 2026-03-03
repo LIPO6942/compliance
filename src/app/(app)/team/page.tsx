@@ -33,7 +33,7 @@ const memberSchema = z.object({
 type MemberFormValues = z.infer<typeof memberSchema>;
 
 export default function TeamPage() {
-    const { teamMembers, updateMember, addMember, removeMember } = useTeam();
+    const { teamMembers, updateMember, addMember, removeMember, isLoading } = useTeam();
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [editingMember, setEditingMember] = React.useState<TeamMember | null>(null);
@@ -120,6 +120,21 @@ export default function TeamPage() {
             </div>
 
             {/* Team Grid */}
+            {isLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    {[...Array(4)].map((_, i) => (
+                        <Card key={i} className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-slate-100 dark:border-slate-800 rounded-3xl shadow-xl">
+                            <CardHeader className="pt-12 pb-4 text-center">
+                                <div className="relative mx-auto mb-4">
+                                    <div className="h-24 w-24 rounded-full bg-slate-300 dark:bg-slate-700 animate-pulse mx-auto" />
+                                </div>
+                                <div className="h-6 bg-slate-300 dark:bg-slate-700 rounded animate-pulse mb-2" />
+                                <div className="h-4 bg-slate-300 dark:bg-slate-700 rounded animate-pulse" />
+                            </CardHeader>
+                        </Card>
+                    ))}
+                </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 {teamMembers.map((member) => (
                     <div key={member.id} className="group relative">
@@ -201,8 +216,7 @@ export default function TeamPage() {
                         </Card>
                     </div>
                 ))}
-            </div>
-
+            </div>            )}
             {/* Collaboration Board */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <Card className="lg:col-span-2 border-none bg-slate-900 text-white rounded-[2rem] shadow-2xl overflow-hidden relative min-h-[300px]">
