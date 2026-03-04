@@ -430,7 +430,7 @@ export default function RiskMappingPage() {
                     <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[35%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Direction</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Probabilité</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Probabilité / Fréquence</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Impact</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Score</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Propriétaire du risque</TableHead>
@@ -657,7 +657,7 @@ export default function RiskMappingPage() {
                             const probaLabel = probabiliteLabels[probaValue as keyof typeof probabiliteLabels];
                             return (
                               <FormItem>
-                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Probabilité / Fréquence</FormLabel>
+                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Probabilité / Fréquence</FormLabel>
                                 <Select onValueChange={(v) => field.onChange(Number(v))} value={String(probaValue)}>
                                   <FormControl>
                                     <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
@@ -700,7 +700,7 @@ export default function RiskMappingPage() {
                             const impactLabel = impactLabels[impactValue as keyof typeof impactLabels];
                             return (
                               <FormItem>
-                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Impact</FormLabel>
+                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Impact</FormLabel>
                                 <Select onValueChange={(v) => field.onChange(Number(v))} value={String(impactValue)}>
                                   <FormControl>
                                     <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
