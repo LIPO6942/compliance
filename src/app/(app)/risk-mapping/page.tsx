@@ -648,7 +648,7 @@ export default function RiskMappingPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Left: numeric inputs + live score */}
                     <div className="bg-slate-50/60 dark:bg-slate-900/30 p-6 rounded-3xl space-y-6 border-2 border-slate-100 dark:border-slate-800/50 shadow-inner">
-                      <div className="grid grid-cols-2 gap-6">
+                      <div className="grid grid-cols-2 gap-8">
                         <FormField
                           control={form.control}
                           name="probabilite"
@@ -657,7 +657,7 @@ export default function RiskMappingPage() {
                             const probaLabel = probabiliteLabels[probaValue as keyof typeof probabiliteLabels];
                             return (
                               <FormItem>
-                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Probabilité / Fréquence</FormLabel>
+                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap mr-2">Probabilité / Fréquence</FormLabel>
                                 <Select onValueChange={(v) => field.onChange(Number(v))} value={String(probaValue)}>
                                   <FormControl>
                                     <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
