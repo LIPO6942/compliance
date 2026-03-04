@@ -164,6 +164,7 @@ export interface RiskMappingItem {
   expectedAction: string;
   owner: string;
   lastUpdated: string;
+  documentId?: string; // Optional linked document
 }
 
 export interface CustomKeyword {

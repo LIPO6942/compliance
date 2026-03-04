@@ -48,6 +48,7 @@ const riskSchema = z.object({
   impact: z.coerce.number().min(1, "Min: 1").max(4, "Max: 4"),
   expectedAction: z.string().min(1, "L'action attendue est requise."),
   owner: z.string().min(1, "Le propriétaire est requis."),
+  documentId: z.string().optional(),
 });
 
 type RiskFormValues = z.infer<typeof riskSchema>;
@@ -80,6 +81,22 @@ const riskLevelColors: Record<RiskLevel, string> = {
 
 const departmentOptions = ["Juridiques", "Finances", "Comptabilité", "Sinistres matériels", "Sinistre corporel", "Equipements", "RH", "DSI", "Audit", "Organisation", "Qualité Vie", "Commercial", "Recouvrement", "Inspection"];
 const categoryOptions: RiskCategory[] = ["Clients", "Produits et Services", "Pays et Zones Géographiques", "Canaux de Distribution"];
+
+// Labels pour probabilité
+const probabiliteLabels: Record<number, { label: string; description: string }> = {
+  1: { label: "Improbable", description: "Une fois 1An / 5 ans" },
+  2: { label: "Rarement", description: "Semestrielle/annuelle" },
+  3: { label: "Fréquent", description: "Mensuelle à semestrielle" },
+  4: { label: "Souvent", description: "Hebdomadaire/Quotidien" },
+};
+
+// Labels pour impact
+const impactLabels: Record<number, { label: string; description: string }> = {
+  1: { label: "Faible", description: "Menace mineure" },
+  2: { label: "Modéré", description: "Menace raisonnable" },
+  3: { label: "Élevé", description: "Menace importante" },
+  4: { label: "Très élevé", description: "Menace majeure" },
+};
 
 // Numeric input with clamp 1-4
 const NumericRiskInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
@@ -141,6 +158,7 @@ export default function RiskMappingPage() {
         impact: data.impact ?? 1,
         expectedAction: data.expectedAction,
         owner: data.owner,
+        documentId: data.documentId || "",
       });
     } else {
       form.reset({
@@ -151,6 +169,7 @@ export default function RiskMappingPage() {
         riskDescription: "",
         expectedAction: "",
         owner: "",
+        documentId: "",
       });
     }
   };
@@ -167,7 +186,8 @@ export default function RiskMappingPage() {
         category: values.category || "Clients",
         riskDescription: values.riskDescription || "",
         expectedAction: values.expectedAction || "",
-        owner: values.owner || ""
+        owner: values.owner || "",
+        documentId: values.documentId && values.documentId !== "none" ? values.documentId : undefined,
       };
 
       if (dialogState.mode === "add") {
@@ -363,7 +383,7 @@ export default function RiskMappingPage() {
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 flex flex-wrap items-center gap-2 w-full bg-white/50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div className="flex-1 flex flex-nowrap items-center gap-2 w-full overflow-x-auto scrollbar-hide bg-white/50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
             <div className="relative w-full sm:w-[240px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               <Input
@@ -374,10 +394,10 @@ export default function RiskMappingPage() {
               />
             </div>
 
-            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block" />
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block shrink-0" />
 
             <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-              <SelectTrigger className="h-9 w-[150px] rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
+              <SelectTrigger className="h-9 w-[130px] shrink-0 rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
                 <SelectValue placeholder="Ttes Directions" />
               </SelectTrigger>
               <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
@@ -387,7 +407,7 @@ export default function RiskMappingPage() {
             </Select>
 
             <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="h-9 w-[150px] rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
+              <SelectTrigger className="h-9 w-[130px] shrink-0 rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
                 <SelectValue placeholder="Ttes Catégories" />
               </SelectTrigger>
               <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
@@ -397,7 +417,7 @@ export default function RiskMappingPage() {
             </Select>
 
             <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
-              <SelectTrigger className="h-9 w-[150px] rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
+              <SelectTrigger className="h-9 w-[120px] shrink-0 rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
                 <SelectValue placeholder="Ts Niveaux" />
               </SelectTrigger>
               <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
@@ -651,31 +671,45 @@ export default function RiskMappingPage() {
                         <FormField
                           control={form.control}
                           name="probabilite"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 text-center block">Probabilité (1–4)</FormLabel>
-                              <FormControl>
-                                <NumericRiskInput {...field} />
-                              </FormControl>
-                              <FormDescription className="text-center text-[9px] text-slate-400">Fréquence estimée</FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
+                          render={({ field }) => {
+                            const probaValue = Number(field.value) || 1;
+                            const probaLabel = probabiliteLabels[probaValue as keyof typeof probabiliteLabels];
+                            return (
+                              <FormItem>
+                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 text-center block">Probabilité (1–4)</FormLabel>
+                                <FormControl>
+                                  <NumericRiskInput {...field} />
+                                </FormControl>
+                                <div className="text-center mt-1">
+                                  <p className="text-[10px] font-bold text-slate-600">{probaLabel?.label}</p>
+                                  <p className="text-[9px] text-slate-400">{probaLabel?.description}</p>
+                                </div>
+                                <FormMessage />
+                              </FormItem>
+                            );
+                          }}
                         />
 
                         <FormField
                           control={form.control}
                           name="impact"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 text-center block">Impact (1–4)</FormLabel>
-                              <FormControl>
-                                <NumericRiskInput {...field} />
-                              </FormControl>
-                              <FormDescription className="text-center text-[9px] text-slate-400">Gravité estimée</FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
+                          render={({ field }) => {
+                            const impactValue = Number(field.value) || 1;
+                            const impactLabel = impactLabels[impactValue as keyof typeof impactLabels];
+                            return (
+                              <FormItem>
+                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 text-center block">Impact (1–4)</FormLabel>
+                                <FormControl>
+                                  <NumericRiskInput {...field} />
+                                </FormControl>
+                                <div className="text-center mt-1">
+                                  <p className="text-[10px] font-bold text-slate-600">{impactLabel?.label}</p>
+                                  <p className="text-[9px] text-slate-400">{impactLabel?.description}</p>
+                                </div>
+                                <FormMessage />
+                              </FormItem>
+                            );
+                          }}
                         />
                       </div>
 
@@ -701,6 +735,24 @@ export default function RiskMappingPage() {
 
                     {/* Right: action + owner */}
                     <div className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="documentId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document lié (optionnel)</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || "none"}>
+                              <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Aucun document" /></SelectTrigger></FormControl>
+                              <SelectContent className="rounded-xl border-none shadow-2xl">
+                                <SelectItem value="none" className="font-bold text-slate-400">Aucun document</SelectItem>
+                                {documents.map((doc: Document) => <SelectItem key={doc.id} value={doc.id} className="font-bold">{doc.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
                       <FormField
                         control={form.control}
                         name="owner"
