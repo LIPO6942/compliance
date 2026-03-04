@@ -104,6 +104,28 @@ service cloud.firestore {
     }
 
     // ============================================
+    // OTHER COLLECTIONS (Training, Users, etc)
+    // ============================================
+    match /userProfile/{document=**} {
+      allow read, write: if true;
+    }
+    match /trainingRegistry/{document=**} {
+      allow read, write: if true;
+    }
+    match /sensitizationCampaigns/{document=**} {
+      allow read, write: if true;
+    }
+    match /upcomingSessions/{document=**} {
+      allow read, write: if true;
+    }
+    match /documentTypes/{document=**} {
+      allow read, write: if true;
+    }
+    match /riskMappingMeta/{document=**} {
+       allow read, write: if true;
+    }
+    
+    // ============================================
     // CONFIG - Configuration de l'application
     // ============================================
     match /config/{document=**} {
