@@ -50,7 +50,7 @@ service cloud.firestore {
     // ============================================
     // RISK-MAPPING - Cartographie des risques
     // ============================================
-    match /risk-mapping/{riskId} {
+    match /riskMapping/{riskId} {
       allow read, write: if true;  // Ouvert en dev
     }
 
@@ -71,35 +71,7 @@ service cloud.firestore {
     // ============================================
     // REGULATIONS - Réglementations identifiées
     // ============================================
-    match /regulations/{regId} {
-      allow read, write: if true;  // Ouvert en dev
-    }
-
-    // ============================================
-    // TRAINING - Données de formation
-    // ============================================
-    match /training/{trainingId} {
-      allow read, write: if true;  // Ouvert en dev
-    }
-
-    // ============================================
-    // TIMELINE - Événements de la timeline
-    // ============================================
-    match /timeline/{eventId} {
-      allow read, write: if true;  // Ouvert en dev
-    }
-
-    // ============================================
-    // ECOSYSTEMS - Écosystèmes
-    // ============================================
-    match /ecosystems/{ecosystemId} {
-      allow read, write: if true;  // Ouvert en dev
-    }
-
-    // ============================================
-    // AUDIT LOGS - Logs des actions (append-only)
-    // ============================================
-    match /audit-logs/{logId} {
+    match /identifiedRegulations/{regId} {
       allow read, write: if true;  // Ouvert en dev
     }
 
@@ -124,7 +96,28 @@ service cloud.firestore {
     match /riskMappingMeta/{document=**} {
        allow read, write: if true;
     }
-    
+
+    // ============================================
+    // TIMELINE - Événements de la timeline
+    // ============================================
+    match /timeline/{eventId} {
+      allow read, write: if true;  // Ouvert en dev
+    }
+
+    // ============================================
+    // ECOSYSTEMS - Écosystèmes
+    // ============================================
+    match /ecosystems/{ecosystemId} {
+      allow read, write: if true;  // Ouvert en dev
+    }
+
+    // ============================================
+    // AUDIT LOGS - Logs des actions (append-only)
+    // ============================================
+    match /audit-logs/{logId} {
+      allow read, write: if true;  // Ouvert en dev
+    }
+
     // ============================================
     // CONFIG - Configuration de l'application
     // ============================================
