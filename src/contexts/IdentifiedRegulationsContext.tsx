@@ -35,15 +35,15 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
     if (!isLoaded) return;
 
     if (!isFirebaseConfigured || !db) {
-        setIdentifiedRegulations(initialMockRegulations);
-        setLoading(false);
-        console.warn("Firebase not configured. Regulations will use mock data.");
-        return;
+      setIdentifiedRegulations(initialMockRegulations);
+      setLoading(false);
+      console.warn("Firebase not configured. Regulations will use mock data.");
+      return;
     }
 
     const regulationsRef = collection(db, regulationsCollectionName);
     const q = query(regulationsRef, orderBy("publicationDate", "desc"));
-    
+
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
       // This logic ensures we don't re-seed if the user has already interacted with the data.
       if (querySnapshot.empty && loading && initialMockRegulations.length > 0) {
@@ -57,7 +57,7 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
         await batch.commit().catch(e => console.error(`Failed to seed ${regulationsCollectionName}:`, e));
         return;
       }
-      
+
       const regulationsData: IdentifiedRegulation[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as IdentifiedRegulation));
       setIdentifiedRegulations(regulationsData);
       setLoading(false);
@@ -92,13 +92,13 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
     };
     await addDoc(collection(db, regulationsCollectionName), newRegulation);
   };
-  
+
   const updateRegulation = async (regulationId: string, updateData: Partial<Omit<IdentifiedRegulation, 'id'>>) => {
     if (!isFirebaseConfigured || !db) return;
     const docRef = doc(db, regulationsCollectionName, regulationId);
     await updateDoc(docRef, updateData);
   };
-  
+
   const createAlertFromRisk = async (risk: RiskMappingItem) => {
     if (!isFirebaseConfigured || !db) return;
     const mapRiskLevelToCriticality = (riskLevel: RiskLevel): AlertCriticality => {
@@ -120,7 +120,7 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
       source: 'Cartographie des Risques',
       type: 'Risque Interne',
       summary: `Risque: ${risk.riskDescription.substring(0, 100)}${risk.riskDescription.length > 100 ? '...' : ''}`,
-      fullText: `Direction: ${risk.department}\nSujet: ${risk.monitoringSubject}\nDescription: ${risk.riskDescription}\nAction attendue: ${risk.expectedAction}`,
+      fullText: `Direction: ${risk.department}\nCatégorie: ${risk.category}\nDescription: ${risk.riskDescription}\nAction attendue: ${risk.expectedAction}`,
       status: 'Nouveau',
       criticality: mapRiskLevelToCriticality(risk.riskLevel),
       affectedDepartments: [risk.department],
@@ -133,7 +133,7 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
 
     await addDoc(collection(db, regulationsCollectionName), newAlert);
   };
-  
+
   const findAlertByRiskId = (riskId: string): IdentifiedRegulation | undefined => {
     return identifiedRegulations.find(alert => alert.sourceRiskId === riskId);
   };
@@ -142,15 +142,15 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
     if (!isFirebaseConfigured || !db) return;
     const q = query(collection(db, regulationsCollectionName), where("sourceRiskId", "==", riskId));
     const querySnapshot = await getDocs(q);
-    
+
     if (!querySnapshot.empty) {
-        const batch = writeBatch(db);
-        querySnapshot.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-        await batch.commit();
+      const batch = writeBatch(db);
+      querySnapshot.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
     } else {
-        console.warn(`No alert found for riskId: ${riskId}`);
+      console.warn(`No alert found for riskId: ${riskId}`);
     }
   };
 

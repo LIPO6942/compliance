@@ -13,17 +13,17 @@ export const RiskKPIs: React.FC<RiskKPIsProps> = ({ risks }) => {
     const criticalRisks = risks.filter(r => r.riskLevel === 'Élevé' || r.riskLevel === 'Très élevé').length;
     const criticalPercentage = totalRisks > 0 ? Math.round((criticalRisks / totalRisks) * 100) : 0;
 
-    const risksWithoutDocs = risks.filter(r => !r.documentIds || r.documentIds.length === 0).length;
-
-    // Calcul du score moyen
-    const likelihoodMap: Record<string, number> = { "Faible": 1, "Modérée": 2, "Élevée": 3, "Très élevée": 4 };
-    const impactMap: Record<string, number> = { "Faible": 1, "Modéré": 2, "Élevé": 3, "Très élevé": 4 };
-
+    // Average score using numeric probabilite * impact
     const totalScore = risks.reduce((acc, r) => {
-        const score = (likelihoodMap[r.likelihood] || 0) * (impactMap[r.impact] || 0);
+        const score = (r.probabilite || 1) * (r.impact || 1);
         return acc + score;
     }, 0);
     const avgScore = totalRisks > 0 ? (totalScore / totalRisks).toFixed(1) : "0.0";
+
+    // Score le plus élevé
+    const maxScore = totalRisks > 0
+        ? Math.max(...risks.map(r => (r.probabilite || 1) * (r.impact || 1)))
+        : 0;
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
@@ -87,7 +87,7 @@ export const RiskKPIs: React.FC<RiskKPIsProps> = ({ risks }) => {
                 </CardContent>
             </Card>
 
-            {/* Sans Document - Slate Theme */}
+            {/* Score Max - Slate Theme */}
             <Card className="border-none shadow-[0_20px_50px_-12px_rgba(71,85,105,0.1)] bg-white dark:bg-slate-900 overflow-hidden relative group transition-all hover:-translate-y-1 rounded-[2rem]">
                 <div className="absolute -right-6 -top-6 w-24 h-24 bg-slate-500/5 rounded-full blur-2xl group-hover:bg-slate-500/10 transition-all" />
                 <CardContent className="p-8 relative z-10">
@@ -96,8 +96,8 @@ export const RiskKPIs: React.FC<RiskKPIsProps> = ({ risks }) => {
                             <AlertCircle className="h-7 w-7" />
                         </div>
                         <div className="space-y-1">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Sans Document</p>
-                            <p className="text-4xl font-black font-headline tracking-tighter text-slate-900 dark:text-white">{risksWithoutDocs}</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Score Max</p>
+                            <p className="text-4xl font-black font-headline tracking-tighter text-slate-900 dark:text-white">{maxScore}</p>
                         </div>
                     </div>
                     <div className="absolute right-8 bottom-8 opacity-[0.03] group-hover:opacity-10 transition-opacity">

@@ -5,14 +5,17 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import type { RiskMappingItem } from '@/types/compliance';
 import { initialMockRiskMapping } from '@/data/mockRiskMapping';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, writeBatch, getDocs } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, writeBatch, setDoc, getDoc } from "firebase/firestore";
 import { useUser } from './UserContext';
 
 const risksCollectionName = "riskMapping";
+const metaDocPath = "riskMappingMeta/global";
 
 interface RiskMappingContextType {
   risks: RiskMappingItem[];
   loading: boolean;
+  globalDocumentIds: string[];
+  setGlobalDocumentIds: (ids: string[]) => Promise<void>;
   addRisk: (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => Promise<void>;
   editRisk: (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated'>>) => Promise<void>;
   removeRisk: (riskId: string) => Promise<void>;
@@ -23,6 +26,7 @@ const RiskMappingContext = createContext<RiskMappingContextType | undefined>(und
 export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   const [risks, setRisks] = useState<RiskMappingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [globalDocumentIds, setGlobalDocumentIdsState] = useState<string[]>([]);
   const { isLoaded } = useUser();
 
   useEffect(() => {
@@ -35,20 +39,26 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
+    // Listen for global document IDs
+    const metaRef = doc(db, metaDocPath);
+    const unsubMeta = onSnapshot(metaRef, (snap) => {
+      if (snap.exists()) {
+        setGlobalDocumentIdsState(snap.data().documentIds || []);
+      }
+    });
+
     const q = query(collection(db, risksCollectionName), orderBy("lastUpdated", "desc"));
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
       const dbRisks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RiskMappingItem));
 
       // Only seed when the collection is completely empty (first-time setup).
-      // NEVER reseed based on length comparison — that destroys user modifications.
       if (querySnapshot.empty) {
         console.log(`[${risksCollectionName}] collection is empty. Initial seeding with default data.`);
         const batch = writeBatch(db!);
 
-        // Add mock data
         initialMockRiskMapping.forEach((mockRisk) => {
-          const { id, ...data } = mockRisk; // Exclude mock ID
-          const docRef = doc(collection(db!, risksCollectionName)); // Let Firestore generate ID
+          const { id, ...data } = mockRisk;
+          const docRef = doc(collection(db!, risksCollectionName));
           batch.set(docRef, data);
         });
 
@@ -64,8 +74,18 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubMeta();
+    };
   }, [isLoaded]);
+
+  const setGlobalDocumentIds = async (ids: string[]) => {
+    setGlobalDocumentIdsState(ids);
+    if (!isFirebaseConfigured || !db) return;
+    const metaRef = doc(db, metaDocPath);
+    await setDoc(metaRef, { documentIds: ids }, { merge: true });
+  };
 
   const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => {
     if (!isFirebaseConfigured || !db) return;
@@ -91,7 +111,7 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <RiskMappingContext.Provider value={{ risks, loading, addRisk, editRisk, removeRisk }}>
+    <RiskMappingContext.Provider value={{ risks, loading, globalDocumentIds, setGlobalDocumentIds, addRisk, editRisk, removeRisk }}>
       {children}
     </RiskMappingContext.Provider>
   );

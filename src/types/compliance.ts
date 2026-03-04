@@ -145,20 +145,21 @@ export interface SensitizationCampaign {
 }
 
 // Risk Mapping Types
-export type RiskLikelihood = "Faible" | "Modérée" | "Élevée" | "Très élevée";
-export type RiskImpact = "Faible" | "Modéré" | "Élevé" | "Très élevé";
 export type RiskLevel = "Faible" | "Modéré" | "Élevé" | "Très élevé";
 export type RiskCategory = "Clients" | "Produits et Services" | "Pays et Zones Géographiques" | "Canaux de Distribution";
+
+// Legacy types kept for backward compatibility
+export type RiskLikelihood = "Faible" | "Modérée" | "Élevée" | "Très élevée";
+export type RiskImpact = "Faible" | "Modéré" | "Élevé" | "Très élevé";
 
 export interface RiskMappingItem {
   id: string;
   department: string;
   category: RiskCategory;
-  regulatoryContent?: string; // Keep for backward compatibility of mock data
-  documentIds?: string[];
+  regulatoryContent?: string; // Keep for backward compatibility
   riskDescription: string;
-  likelihood: RiskLikelihood;
-  impact: RiskImpact;
+  probabilite: number; // 1-4
+  impact: number; // 1-4
   riskLevel: RiskLevel;
   expectedAction: string;
   owner: string;

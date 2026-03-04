@@ -10,35 +10,23 @@ interface RiskHeatmapProps {
     onEditRisk: (risk: RiskMappingItem) => void;
 }
 
-const likelihoodLevels = ["Très élevée", "Élevée", "Modérée", "Faible"];
-const impactLevels = ["Faible", "Modéré", "Élevé", "Très élevé"];
+const probabiliteLevels = [4, 3, 2, 1]; // top to bottom (highest first)
+const impactLevels = [1, 2, 3, 4]; // left to right
+const probabiliteLabels: Record<number, string> = { 1: "Faible", 2: "Modérée", 3: "Élevée", 4: "Très élevée" };
+const impactLabels: Record<number, string> = { 1: "Faible", 2: "Modéré", 3: "Élevé", 4: "Très élevé" };
 
-const getCellColor = (probIndex: number, impactIndex: number) => {
-    // probIndex: 0(Très élevée) -> 4, 1 -> 3, 2 -> 2, 3(Faible) -> 1
-    // impactIndex: 0(Faible) -> 1, ... 3(Très élevé) -> 4
-
-    const probScore = 4 - probIndex;
-    const impactScore = impactIndex + 1;
-    const score = probScore * impactScore;
-
+const getCellColor = (probValue: number, impactValue: number) => {
+    const score = probValue * impactValue;
     if (score <= 4) return "bg-emerald-50 hover:bg-emerald-100 border-emerald-200";
     if (score <= 8) return "bg-yellow-50 hover:bg-yellow-100 border-yellow-200";
     if (score <= 12) return "bg-orange-50 hover:bg-orange-100 border-orange-200";
     return "bg-rose-50 hover:bg-rose-100 border-rose-200";
 };
 
-const getScoreColor = (score: number) => {
-    if (score <= 4) return "text-emerald-600";
-    if (score <= 8) return "text-yellow-600";
-    if (score <= 12) return "text-orange-600";
-    return "text-rose-600";
-};
-
 export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({ risks, onEditRisk }) => {
 
-    // Group risks by cell coordinates
-    const getRisksForCell = (likelihood: string, impact: string) => {
-        return risks.filter(r => r.likelihood === likelihood && r.impact === impact);
+    const getRisksForCell = (probValue: number, impactValue: number) => {
+        return risks.filter(r => r.probabilite === probValue && r.impact === impactValue);
     };
 
     return (
@@ -71,29 +59,27 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({ risks, onEditRisk }) =
                         <div className="grid grid-cols-[auto_1fr] gap-2">
                             {/* Y-Axis Scales */}
                             <div className="flex flex-col justify-around h-full pr-2 py-4">
-                                {likelihoodLevels.map((l) => (
-                                    <span key={l} className="text-xs text-slate-500 font-medium text-right h-24 flex items-center justify-end">{l}</span>
+                                {probabiliteLevels.map((p) => (
+                                    <span key={p} className="text-xs text-slate-500 font-medium text-right h-24 flex items-center justify-end">
+                                        {p} — {probabiliteLabels[p]}
+                                    </span>
                                 ))}
                             </div>
 
                             {/* Matrix Grid */}
                             <div className="grid grid-cols-4 grid-rows-4 gap-2 border-l-2 border-b-2 border-slate-300">
-                                {likelihoodLevels.map((likelihood, lIndex) => (
-                                    <React.Fragment key={likelihood}>
-                                        {impactLevels.map((impact, iIndex) => {
-                                            const cellRisks = getRisksForCell(likelihood, impact);
-                                            const cellColor = getCellColor(lIndex, iIndex);
-
-                                            // Calculate cell score range for tooltip or info
-                                            const probScore = 4 - lIndex;
-                                            const impactScore = iIndex + 1;
-                                            const score = probScore * impactScore;
+                                {probabiliteLevels.map((probValue) => (
+                                    <React.Fragment key={probValue}>
+                                        {impactLevels.map((impactValue) => {
+                                            const cellRisks = getRisksForCell(probValue, impactValue);
+                                            const cellColor = getCellColor(probValue, impactValue);
+                                            const score = probValue * impactValue;
 
                                             return (
                                                 <div
-                                                    key={`${likelihood}-${impact}`}
+                                                    key={`${probValue}-${impactValue}`}
                                                     className={`h-24 w-full min-w-[100px] border rounded-lg p-2 transition-all duration-200 cursor-pointer ${cellColor} flex flex-col items-start justify-start gap-1 overflow-hidden relative group`}
-                                                    onClick={() => cellRisks.length > 0 && onEditRisk(cellRisks[0])} // For now just open first, ideally show list
+                                                    onClick={() => cellRisks.length > 0 && onEditRisk(cellRisks[0])}
                                                 >
                                                     <div className="absolute top-1 right-2 text-[10px] font-bold opacity-30 group-hover:opacity-60">{score}</div>
 
@@ -130,9 +116,9 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({ risks, onEditRisk }) =
 
                         {/* X-Axis Label */}
                         <div className="mt-2 ml-10 flex flex-col items-center">
-                            <div className="grid grid-cols-4 w-full gap-2 pl-[42px]"> {/* Align with grid */}
+                            <div className="grid grid-cols-4 w-full gap-2 pl-[42px]">
                                 {impactLevels.map((i) => (
-                                    <span key={i} className="text-xs text-slate-500 font-medium text-center">{i}</span>
+                                    <span key={i} className="text-xs text-slate-500 font-medium text-center">{i} — {impactLabels[i]}</span>
                                 ))}
                             </div>
                             <div className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">
