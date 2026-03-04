@@ -648,7 +648,7 @@ export default function RiskMappingPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Left: numeric inputs + live score */}
                     <div className="bg-slate-50/60 dark:bg-slate-900/30 p-6 rounded-3xl space-y-6 border-2 border-slate-100 dark:border-slate-800/50 shadow-inner">
-                      <div className="grid grid-cols-2 gap-8">
+                      <div className="grid grid-cols-2 gap-12">
                         <FormField
                           control={form.control}
                           name="probabilite"
