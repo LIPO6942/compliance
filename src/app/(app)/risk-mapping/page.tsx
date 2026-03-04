@@ -648,7 +648,7 @@ export default function RiskMappingPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Left: numeric inputs + live score */}
                     <div className="bg-slate-50/60 dark:bg-slate-900/30 p-6 rounded-3xl space-y-6 border-2 border-slate-100 dark:border-slate-800/50 shadow-inner">
-                      <div className="grid grid-cols-2 gap-12">
+                      <div className="grid grid-cols-2 gap-20">
                         <FormField
                           control={form.control}
                           name="probabilite"
@@ -656,11 +656,11 @@ export default function RiskMappingPage() {
                             const probaValue = Number(field.value) || 1;
                             const probaLabel = probabiliteLabels[probaValue as keyof typeof probabiliteLabels];
                             return (
-                              <FormItem>
-                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap mr-2">Probabilité / Fréquence</FormLabel>
+                              <FormItem className="min-w-[150px]">
+                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Probabilité / Fréquence</FormLabel>
                                 <Select onValueChange={(v) => field.onChange(Number(v))} value={String(probaValue)}>
                                   <FormControl>
-                                    <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
+                                    <SelectTrigger className="h-12 w-full min-w-[150px] rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
                                       <div className="flex items-center gap-2">
                                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-black">
                                           {probaValue}
@@ -699,11 +699,11 @@ export default function RiskMappingPage() {
                             const impactValue = Number(field.value) || 1;
                             const impactLabel = impactLabels[impactValue as keyof typeof impactLabels];
                             return (
-                              <FormItem>
+                              <FormItem className="min-w-[150px]">
                                 <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Impact</FormLabel>
                                 <Select onValueChange={(v) => field.onChange(Number(v))} value={String(impactValue)}>
                                   <FormControl>
-                                    <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
+                                    <SelectTrigger className="h-12 w-full min-w-[150px] rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
                                       <div className="flex items-center gap-2">
                                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/10 text-amber-600 text-xs font-black">
                                           {impactValue}
