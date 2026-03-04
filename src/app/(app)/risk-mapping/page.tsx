@@ -657,7 +657,7 @@ export default function RiskMappingPage() {
                             const probaLabel = probabiliteLabels[probaValue as keyof typeof probabiliteLabels];
                             return (
                               <FormItem>
-                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Probabilité</FormLabel>
+                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Probabilité / Fréquence</FormLabel>
                                 <Select onValueChange={(v) => field.onChange(Number(v))} value={String(probaValue)}>
                                   <FormControl>
                                     <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
