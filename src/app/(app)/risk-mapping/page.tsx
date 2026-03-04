@@ -98,25 +98,6 @@ const impactLabels: Record<number, { label: string; description: string }> = {
   4: { label: "Très élevé", description: "Menace majeure" },
 };
 
-// Numeric input with clamp 1-4
-const NumericRiskInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  ({ className, ...props }, ref) => (
-    <Input
-      ref={ref}
-      type="number"
-      min={1}
-      max={4}
-      step={1}
-      className={cn(
-        "h-14 text-3xl font-black text-center rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 shadow-sm focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-        className
-      )}
-      {...props}
-    />
-  )
-);
-NumericRiskInput.displayName = "NumericRiskInput";
-
 export default function RiskMappingPage() {
   const { risks, addRisk, editRisk, removeRisk, globalDocumentIds, setGlobalDocumentIds } = useRiskMapping();
   const { createAlertFromRisk, findAlertByRiskId, removeAlertByRiskId } = useIdentifiedRegulations();
@@ -676,14 +657,35 @@ export default function RiskMappingPage() {
                             const probaLabel = probabiliteLabels[probaValue as keyof typeof probabiliteLabels];
                             return (
                               <FormItem>
-                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 text-center block">Probabilité (1–4)</FormLabel>
-                                <FormControl>
-                                  <NumericRiskInput {...field} />
-                                </FormControl>
-                                <div className="text-center mt-1">
-                                  <p className="text-[10px] font-bold text-slate-600">{probaLabel?.label}</p>
-                                  <p className="text-[9px] text-slate-400">{probaLabel?.description}</p>
-                                </div>
+                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Probabilité</FormLabel>
+                                <Select onValueChange={(v) => field.onChange(Number(v))} value={String(probaValue)}>
+                                  <FormControl>
+                                    <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-black">
+                                          {probaValue}
+                                        </span>
+                                        <span className="text-sm">{probaLabel?.label}</span>
+                                      </div>
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent className="rounded-xl border-none shadow-2xl">
+                                    {[1, 2, 3, 4].map((val) => (
+                                      <SelectItem key={val} value={String(val)} className="font-bold">
+                                        <div className="flex items-center gap-2">
+                                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-black">
+                                            {val}
+                                          </span>
+                                          <div>
+                                            <span className="text-sm font-bold">{probabiliteLabels[val].label}</span>
+                                            <p className="text-[9px] text-slate-400 font-normal">{probabiliteLabels[val].description}</p>
+                                          </div>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-[9px] text-slate-400 mt-1">{probaLabel?.description}</p>
                                 <FormMessage />
                               </FormItem>
                             );
@@ -698,14 +700,41 @@ export default function RiskMappingPage() {
                             const impactLabel = impactLabels[impactValue as keyof typeof impactLabels];
                             return (
                               <FormItem>
-                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 text-center block">Impact (1–4)</FormLabel>
-                                <FormControl>
-                                  <NumericRiskInput {...field} />
-                                </FormControl>
-                                <div className="text-center mt-1">
-                                  <p className="text-[10px] font-bold text-slate-600">{impactLabel?.label}</p>
-                                  <p className="text-[9px] text-slate-400">{impactLabel?.description}</p>
-                                </div>
+                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Impact</FormLabel>
+                                <Select onValueChange={(v) => field.onChange(Number(v))} value={String(impactValue)}>
+                                  <FormControl>
+                                    <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/10 text-amber-600 text-xs font-black">
+                                          {impactValue}
+                                        </span>
+                                        <span className="text-sm">{impactLabel?.label}</span>
+                                      </div>
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent className="rounded-xl border-none shadow-2xl">
+                                    {[1, 2, 3, 4].map((val) => (
+                                      <SelectItem key={val} value={String(val)} className="font-bold">
+                                        <div className="flex items-center gap-2">
+                                          <span className={cn(
+                                            "inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black",
+                                            val === 1 && "bg-emerald-100 text-emerald-600",
+                                            val === 2 && "bg-yellow-100 text-yellow-600",
+                                            val === 3 && "bg-orange-100 text-orange-600",
+                                            val === 4 && "bg-rose-100 text-rose-600"
+                                          )}>
+                                            {val}
+                                          </span>
+                                          <div>
+                                            <span className="text-sm font-bold">{impactLabels[val].label}</span>
+                                            <p className="text-[9px] text-slate-400 font-normal">{impactLabels[val].description}</p>
+                                          </div>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-[9px] text-slate-400 mt-1">{impactLabel?.description}</p>
                                 <FormMessage />
                               </FormItem>
                             );
