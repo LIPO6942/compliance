@@ -159,11 +159,20 @@ export default function RiskMappingPage() {
 
   const handleFormSubmit = async (values: RiskFormValues) => {
     try {
-      const numProba = Number(values.probabilite);
-      const numImpact = Number(values.impact);
+      const numProba = Number(values.probabilite) || 1;
+      const numImpact = Number(values.impact) || 1;
+
+      const sanitizedValues = {
+        department: values.department || "",
+        category: values.category || "Clients",
+        riskDescription: values.riskDescription || "",
+        expectedAction: values.expectedAction || "",
+        owner: values.owner || ""
+      };
+
       if (dialogState.mode === "add") {
         await addRisk({
-          ...values,
+          ...sanitizedValues,
           probabilite: numProba,
           impact: numImpact,
           riskLevel: calculateRiskLevel(numProba, numImpact),
@@ -171,7 +180,7 @@ export default function RiskMappingPage() {
         toast({ title: "Risque identifié", description: "La cartographie a été mise à jour." });
       } else if (dialogState.mode === "edit" && dialogState.data?.id) {
         await editRisk(dialogState.data.id, {
-          ...values,
+          ...sanitizedValues,
           probabilite: numProba,
           impact: numImpact,
           riskLevel: calculateRiskLevel(numProba, numImpact),
@@ -179,8 +188,9 @@ export default function RiskMappingPage() {
         toast({ title: "Risque modifié", description: "Les détails du risque ont été actualisés." });
       }
       closeDialog();
-    } catch (e) {
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer les modifications." });
+    } catch (e: any) {
+      console.error("Erreur lors de la sauvegarde du risque:", e);
+      toast({ variant: "destructive", title: "Erreur", description: `Impossible d'enregistrer les modifications: ${e.message || 'Erreur inconnue'}` });
     }
   };
 
@@ -422,7 +432,7 @@ export default function RiskMappingPage() {
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Probabilité</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Impact</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Score</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Owner</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Propriétaire du risque</TableHead>
                       <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -733,7 +743,7 @@ export default function RiskMappingPage() {
                   <Button type="button" variant="ghost" className="h-12 px-8 rounded-xl font-bold uppercase text-[10px] tracking-widest text-slate-500">Annuler</Button>
                 </DialogClose>
                 <Button type="submit" className="h-12 px-10 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-primary dark:hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-xl transition-all active:scale-95">
-                  {dialogState.mode === "add" ? "Fixer le Scénario" : "Mettre à jour l'Exposition"}
+                  {dialogState.mode === "add" ? "Fixer le Scénario" : "Mettre à jour"}
                 </Button>
               </div>
             </form>
