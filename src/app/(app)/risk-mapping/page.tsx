@@ -312,9 +312,18 @@ export default function RiskMappingPage() {
           <CardContent className="px-6 pb-5 pt-2">
             <div className="flex flex-wrap gap-2">
               {globalDocsDetails.map((doc) => (
-                <div key={doc.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
-                  <FileText className="h-3 w-3 text-indigo-500 flex-shrink-0" />
-                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{doc.name}</span>
+                <div key={doc.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm relative group/doc">
+                  {doc.url ? (
+                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
+                      <FileText className="h-3 w-3 text-indigo-500 flex-shrink-0" />
+                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 group-hover/doc:underline">{doc.name}</span>
+                    </a>
+                  ) : (
+                    <>
+                      <FileText className="h-3 w-3 text-indigo-500 flex-shrink-0" />
+                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{doc.name}</span>
+                    </>
+                  )}
                   <button
                     onClick={() => setGlobalDocumentIds(globalDocumentIds.filter(id => id !== doc.id))}
                     className="ml-1 text-slate-300 hover:text-rose-500 transition-colors text-base leading-none font-bold"
@@ -430,8 +439,8 @@ export default function RiskMappingPage() {
                     <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[35%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Direction</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Probabilité / Fréquence</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Impact</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Probabilité / Fréquence</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Score</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Propriétaire du risque</TableHead>
                       <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Actions</TableHead>
@@ -448,7 +457,27 @@ export default function RiskMappingPage() {
                             <TableCell className="py-3 px-4">
                               <div className="flex items-start gap-2">
                                 <div className="flex flex-col gap-0.5 flex-1">
-                                  <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest leading-none">{risk.category}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest leading-none">{risk.category}</span>
+                                    {risk.documentId && documents.find(d => d.id === risk.documentId) && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          {documents.find(d => d.id === risk.documentId)?.url ? (
+                                            <a href={documents.find(d => d.id === risk.documentId)?.url} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 transition-colors">
+                                              <FileText className="h-3 w-3" />
+                                            </a>
+                                          ) : (
+                                            <div className="text-slate-400">
+                                              <FileText className="h-3 w-3" />
+                                            </div>
+                                          )}
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p className="text-[10px] font-bold">Document: {documents.find(d => d.id === risk.documentId)?.name}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                  </div>
                                   <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 leading-tight group-hover:underline cursor-pointer decoration-primary/30" onClick={() => openDialog('edit', risk)}>
                                     {risk.riskDescription}
                                   </span>
@@ -474,11 +503,11 @@ export default function RiskMappingPage() {
                               </span>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
-                              <span className="text-xl font-black text-slate-700 dark:text-slate-300">{risk.probabilite}</span>
+                              <span className="text-xl font-black text-slate-700 dark:text-slate-300">{risk.impact}</span>
                               <span className="text-[9px] text-slate-400 block">/4</span>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
-                              <span className="text-xl font-black text-slate-700 dark:text-slate-300">{risk.impact}</span>
+                              <span className="text-xl font-black text-slate-700 dark:text-slate-300">{risk.probabilite}</span>
                               <span className="text-[9px] text-slate-400 block">/4</span>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
@@ -651,49 +680,6 @@ export default function RiskMappingPage() {
                       <div className="grid grid-cols-2 gap-10">
                         <FormField
                           control={form.control}
-                          name="probabilite"
-                          render={({ field }) => {
-                            const probaValue = Number(field.value) || 1;
-                            const probaLabel = probabiliteLabels[probaValue as keyof typeof probabiliteLabels];
-                            return (
-                              <FormItem className="w-full">
-                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Probabilité / Fréquence</FormLabel>
-                                <Select onValueChange={(v) => field.onChange(Number(v))} value={String(probaValue)}>
-                                  <FormControl>
-                                    <SelectTrigger className="h-12 w-full rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
-                                      <div className="flex items-center gap-2">
-                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-black">
-                                          {probaValue}
-                                        </span>
-                                        <span className="text-sm">{probaLabel?.label}</span>
-                                      </div>
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent className="rounded-xl border-none shadow-2xl">
-                                    {[1, 2, 3, 4].map((val) => (
-                                      <SelectItem key={val} value={String(val)} className="font-bold">
-                                        <div className="flex items-center gap-2">
-                                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-black">
-                                            {val}
-                                          </span>
-                                          <div>
-                                            <span className="text-sm font-bold">{probabiliteLabels[val].label}</span>
-                                            <p className="text-[9px] text-slate-400 font-normal">{probabiliteLabels[val].description}</p>
-                                          </div>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <p className="text-[9px] text-slate-400 mt-1">{probaLabel?.description}</p>
-                                <FormMessage />
-                              </FormItem>
-                            );
-                          }}
-                        />
-
-                        <FormField
-                          control={form.control}
                           name="impact"
                           render={({ field }) => {
                             const impactValue = Number(field.value) || 1;
@@ -735,6 +721,49 @@ export default function RiskMappingPage() {
                                   </SelectContent>
                                 </Select>
                                 <p className="text-[9px] text-slate-400 mt-1">{impactLabel?.description}</p>
+                                <FormMessage />
+                              </FormItem>
+                            );
+                          }}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="probabilite"
+                          render={({ field }) => {
+                            const probaValue = Number(field.value) || 1;
+                            const probaLabel = probabiliteLabels[probaValue as keyof typeof probabiliteLabels];
+                            return (
+                              <FormItem className="w-full">
+                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Probabilité / Fréquence</FormLabel>
+                                <Select onValueChange={(v) => field.onChange(Number(v))} value={String(probaValue)}>
+                                  <FormControl>
+                                    <SelectTrigger className="h-12 w-full rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-black">
+                                          {probaValue}
+                                        </span>
+                                        <span className="text-sm">{probaLabel?.label}</span>
+                                      </div>
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent className="rounded-xl border-none shadow-2xl">
+                                    {[1, 2, 3, 4].map((val) => (
+                                      <SelectItem key={val} value={String(val)} className="font-bold">
+                                        <div className="flex items-center gap-2">
+                                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-black">
+                                            {val}
+                                          </span>
+                                          <div>
+                                            <span className="text-sm font-bold">{probabiliteLabels[val].label}</span>
+                                            <p className="text-[9px] text-slate-400 font-normal">{probabiliteLabels[val].description}</p>
+                                          </div>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-[9px] text-slate-400 mt-1">{probaLabel?.description}</p>
                                 <FormMessage />
                               </FormItem>
                             );
