@@ -15,6 +15,7 @@ export interface TeamMember {
     email?: string;
     secondaryEmail?: string;
     phone?: string;
+    order?: number;
 }
 
 const defaultTeam: TeamMember[] = [
@@ -27,7 +28,8 @@ const defaultTeam: TeamMember[] = [
         expertise: ["Audit", "Anti-Corruption", "Risk Management"],
         email: "moslem@compliancenav.com",
         secondaryEmail: "moslem.gouia@mae.tn",
-        phone: "+33 1 23 45 67 89"
+        phone: "+33 1 23 45 67 89",
+        order: 1
     },
     {
         id: "2",
@@ -37,7 +39,8 @@ const defaultTeam: TeamMember[] = [
         status: "Online",
         expertise: ["RGPD", "Privacy by Design", "DPO"],
         email: "sarah@compliancenav.com",
-        phone: "+33 1 23 45 67 90"
+        phone: "+33 1 23 45 67 90",
+        order: 2
     },
     {
         id: "3",
@@ -47,7 +50,8 @@ const defaultTeam: TeamMember[] = [
         status: "Online",
         expertise: ["Veille 24/7", "Matching de Preuves", "Scoring"],
         avatarUrl: "/ai-avatar.png",
-        email: "ai@compliancenav.ai"
+        email: "ai@compliancenav.ai",
+        order: 99
     },
     {
         id: "4",
@@ -57,7 +61,8 @@ const defaultTeam: TeamMember[] = [
         status: "Away",
         expertise: ["LCB-FT", "Due Diligence", "Sanctions"],
         email: "karim@compliancenav.com",
-        phone: "+33 1 23 45 67 91"
+        phone: "+33 1 23 45 67 91",
+        order: 3
     }
 ];
 

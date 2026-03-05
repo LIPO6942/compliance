@@ -29,6 +29,7 @@ const memberSchema = z.object({
     email: z.string().email("Veuillez entrer une adresse email valide.").optional().or(z.literal('')),
     secondaryEmail: z.string().email("Veuillez entrer une adresse email valide.").optional().or(z.literal('')),
     phone: z.string().optional(),
+    order: z.coerce.number().optional().default(10),
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
@@ -51,6 +52,7 @@ export default function TeamPage() {
             email: "",
             secondaryEmail: "",
             phone: "",
+            order: 10,
         }
     });
 
@@ -66,6 +68,7 @@ export default function TeamPage() {
                 email: member.email || "",
                 secondaryEmail: member.secondaryEmail || "",
                 phone: member.phone || "",
+                order: member.order || 10,
             });
         } else {
             setEditingMember(null);
@@ -79,6 +82,7 @@ export default function TeamPage() {
                 email: "",
                 secondaryEmail: "",
                 phone: "",
+                order: 10,
             });
         }
         setIsDialogOpen(true);
@@ -96,6 +100,7 @@ export default function TeamPage() {
                 email: values.email?.trim() || undefined,
                 secondaryEmail: values.secondaryEmail?.trim() || undefined,
                 phone: values.phone?.trim() || undefined,
+                order: values.order,
             };
 
             console.log("💾 Enregistrement:", { editingMember: editingMember?.id, data: memberData });
@@ -160,7 +165,7 @@ export default function TeamPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    {teamMembers.map((member) => (
+                    {teamMembers.sort((a, b) => (a.order || 10) - (b.order || 10)).map((member) => (
                         <div key={member.id} className="group relative">
                             {/* Holographic Card Background */}
                             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-indigo-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -453,6 +458,13 @@ export default function TeamPage() {
                                             <FormItem className="space-y-1">
                                                 <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Téléphone</FormLabel>
                                                 <FormControl><Input {...field} placeholder="55 555 555" className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="order" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Ordre d'affichage (numérique)</FormLabel>
+                                                <FormControl><Input type="number" {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />

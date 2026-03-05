@@ -37,7 +37,7 @@ interface ActivityLogContextType {
     isAdmin: (email: string) => boolean;
 }
 
-const ADMIN_EMAIL = 'moslem.gouia@mae.tn';
+const ADMIN_EMAILS = ['moslem.gouia@mae.tn', 'moslem.gouia@gmail.com'];
 const LOCAL_KEY = 'compliance_activity_log';
 const MAX_LOCAL_LOGS = 200;
 
@@ -96,7 +96,7 @@ export const ActivityLogProvider = ({ children }: { children: ReactNode }) => {
         }
     }, []);
 
-    const isAdmin = useCallback((email: string) => email === ADMIN_EMAIL, []);
+    const isAdmin = useCallback((email: string) => ADMIN_EMAILS.includes(email), []);
 
     return (
         <ActivityLogContext.Provider value={{ logs, logAction, isAdmin }}>
