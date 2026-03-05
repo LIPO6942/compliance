@@ -11,7 +11,7 @@ export interface TeamMember {
     specialty: string;
     status: "Online" | "Away" | "Offline";
     expertise: string[];
-    avatarUrl?: string;
+    avatarUrl?: string | null;
     email?: string;
     secondaryEmail?: string;
     phone?: string;

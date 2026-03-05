@@ -26,7 +26,7 @@ const memberSchema = z.object({
     specialty: z.string().min(1, "La spécialité est requise."),
     status: z.enum(["Online", "Away", "Offline"]),
     expertise: z.string().min(1, "Au moins une compétence est requise."),
-    avatarUrl: z.string().optional(),
+    avatarUrl: z.string().nullable().optional(),
     email: z.string().email("Veuillez entrer une adresse email valide.").optional().or(z.literal('')),
     secondaryEmail: z.string().email("Veuillez entrer une adresse email valide.").optional().or(z.literal('')),
     phone: z.string().optional(),
@@ -36,17 +36,17 @@ const memberSchema = z.object({
 type MemberFormValues = z.infer<typeof memberSchema>;
 
 const AVATAR_COLLECTION = [
-    // Notionists (Ultra-Professional & Modern)
-    { id: 'n1', url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Liam' },
-    { id: 'n2', url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Noah' },
-    { id: 'n3', url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Oliver' },
-    { id: 'n4', url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Emma' },
-    { id: 'n5', url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Ava' },
-    { id: 'n6', url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Sophia' },
-    // Bottts (Modern Cybernetic)
-    { id: 'r1', url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Buster&backgroundColor=b6e3f4' },
-    { id: 'r2', url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Sparky&backgroundColor=c0aede' },
-    { id: 'r3', url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Hoppy&backgroundColor=d1d4f9' },
+    // Personas (Highly Professional, Minimalist, Enterprise)
+    { id: 'p1', url: 'https://api.dicebear.com/7.x/personas/svg?seed=9' },
+    { id: 'p2', url: 'https://api.dicebear.com/7.x/personas/svg?seed=11' },
+    { id: 'p3', url: 'https://api.dicebear.com/7.x/personas/svg?seed=17' },
+    { id: 'p4', url: 'https://api.dicebear.com/7.x/personas/svg?seed=10' },
+    { id: 'p5', url: 'https://api.dicebear.com/7.x/personas/svg?seed=2' },
+    { id: 'p6', url: 'https://api.dicebear.com/7.x/personas/svg?seed=8' },
+    // Bottts (Sleek & Professional AI)
+    { id: 'r1', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=H1' },
+    { id: 'r2', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=I2' },
+    { id: 'r3', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=J3' },
 ];
 
 export default function TeamPage() {
@@ -113,7 +113,7 @@ export default function TeamPage() {
                 specialty: values.specialty.trim(),
                 status: values.status as "Online" | "Away" | "Offline",
                 expertise: values.expertise.split(",").map((e: string) => e.trim()).filter(Boolean),
-                avatarUrl: selectedAvatar || undefined,
+                avatarUrl: selectedAvatar || null,
                 email: values.email?.trim() || undefined,
                 secondaryEmail: values.secondaryEmail?.trim() || undefined,
                 phone: values.phone?.trim() || undefined,
@@ -182,7 +182,7 @@ export default function TeamPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    {teamMembers.sort((a, b) => (a.order || 0) - (b.order || 0)).map((member) => (
+                    {[...teamMembers].sort((a, b) => (a.order || 0) - (b.order || 0)).map((member) => (
                         <div key={member.id} className="group relative">
                             {/* Holographic Card Background */}
                             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-indigo-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
