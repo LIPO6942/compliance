@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
+import { Logo } from '@/components/icons/Logo';
 
 export default function LoginPage() {
     const { login, isLoaded, user } = useUser();
@@ -55,8 +56,8 @@ export default function LoginPage() {
         <div className="flex min-h-screen items-center justify-center p-4 bg-slate-50">
             <Card className="w-full max-w-md border-2 border-slate-100 shadow-xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300">
                 <CardHeader className="text-center pt-10">
-                    <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4 text-primary">
-                        <Mail className="h-8 w-8" />
+                    <div className="mx-auto mb-4 flex justify-center">
+                        <Logo className="h-20 w-20 shadow-2xl shadow-primary/20 rounded-3xl" />
                     </div>
                     <CardTitle className="text-3xl font-black tracking-tight">Bienvenue</CardTitle>
                     <CardDescription className="text-slate-500 font-medium px-6">

@@ -19,7 +19,10 @@ import {
     Calendar,
     ChevronRight,
     Database,
-    Eye
+    Eye,
+    LogOut,
+    Settings,
+    Trash2
 } from "lucide-react";
 import { useActivityLog, ActivityAction } from "@/contexts/ActivityLogContext";
 import { useUser } from "@/contexts/UserContext";
@@ -33,18 +36,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const actionColors: Record<ActivityAction, { bg: string, text: string, icon: any }> = {
     'LOGIN': { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-400', icon: User },
-    'LOGOUT': { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400', icon: ShieldAlert },
+    'LOGOUT': { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-400', icon: LogOut },
     'RISK_ADD': { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-400', icon: Activity },
     'RISK_EDIT': { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-400', icon: Activity },
-    'RISK_DELETE': { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-400', icon: Activity },
+    'RISK_DELETE': { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-400', icon: Trash2 },
     'DOCUMENT_ADD': { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-400', icon: Database },
     'DOCUMENT_EDIT': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-400', icon: Database },
-    'DOCUMENT_DELETE': { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-400', icon: Database },
+    'DOCUMENT_DELETE': { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-400', icon: Trash2 },
     'DOCUMENT_STATUS': { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-400', icon: Eye },
     'ALERT_CREATE': { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-400', icon: ShieldAlert },
     'ALERT_REMOVE': { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400', icon: ShieldAlert },
     'PLAN_UPDATE': { bg: 'bg-violet-100 dark:bg-violet-900/30', text: 'text-violet-700 dark:text-violet-400', icon: Layers },
-    'SETTINGS_UPDATE': { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400', icon: Layers },
+    'SETTINGS_UPDATE': { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400', icon: Settings },
     'OTHER': { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400', icon: Activity },
 };
 
@@ -57,12 +60,12 @@ export default function AdminActivityPage() {
 
     // Security check: only moslem.gouia@mae.tn can see this
     React.useEffect(() => {
-        if (!isAdmin(user.email)) {
+        if (user?.email && !isAdmin(user.email)) {
             router.push("/dashboard");
         }
-    }, [user.email, isAdmin, router]);
+    }, [user?.email, isAdmin, router]);
 
-    if (!isAdmin(user.email)) return null;
+    if (!user?.email || !isAdmin(user.email)) return null;
 
     const filteredLogs = logs.filter(log => {
         const matchesSearch =

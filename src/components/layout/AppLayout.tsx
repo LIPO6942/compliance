@@ -77,7 +77,7 @@ const navItems = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
-  const { user, isLoaded } = useUser();
+  const { user, isLoaded, logout } = useUser();
   const { isAdmin } = useActivityLog();
   const { identifiedRegulations } = useIdentifiedRegulations();
 
@@ -155,7 +155,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               ))}
 
               {/* Admin Section */}
-              {isAdmin(user.email) && (
+              {user?.email && isAdmin(user.email) && (
                 <>
                   <div className="px-4 py-2 mt-4 group-data-[collapsible=icon]:hidden">
                     <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Administration</p>
@@ -196,8 +196,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                   </Avatar>
                   <div className="group-data-[collapsible=icon]:hidden text-left">
-                    <p className="text-sm font-medium text-sidebar-foreground">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">{user.role}</p>
+                    <p className="text-sm font-medium text-sidebar-foreground">{user?.name}</p>
+                    <p className="text-xs text-muted-foreground">{user?.role}</p>
                   </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -210,7 +210,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <span>Paramètres</span>
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="font-body text-red-600 hover:!text-red-600 focus:!text-red-600 focus:!bg-red-50 dark:text-red-500 dark:hover:!text-red-500 dark:focus:!text-red-500 dark:focus:!bg-red-900/50">
+                <DropdownMenuItem
+                  onClick={() => logout()}
+                  className="font-body text-red-600 hover:!text-red-600 focus:!text-red-600 focus:!bg-red-50 dark:text-red-500 dark:hover:!text-red-500 dark:focus:!text-red-500 dark:focus:!bg-red-900/50 cursor-pointer"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Déconnexion</span>
                 </DropdownMenuItem>
