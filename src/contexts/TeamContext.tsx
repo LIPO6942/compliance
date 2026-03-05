@@ -15,6 +15,7 @@ export interface TeamMember {
     email?: string;
     secondaryEmail?: string;
     phone?: string;
+    order?: number;
 }
 
 const defaultTeam: TeamMember[] = [
@@ -27,7 +28,8 @@ const defaultTeam: TeamMember[] = [
         expertise: ["Audit", "Anti-Corruption", "Risk Management"],
         email: "moslem@compliancenav.com",
         secondaryEmail: "moslem.gouia@mae.tn",
-        phone: "+33 1 23 45 67 89"
+        phone: "+33 1 23 45 67 89",
+        order: 1
     },
     {
         id: "2",
@@ -37,7 +39,8 @@ const defaultTeam: TeamMember[] = [
         status: "Online",
         expertise: ["RGPD", "Privacy by Design", "DPO"],
         email: "sarah@compliancenav.com",
-        phone: "+33 1 23 45 67 90"
+        phone: "+33 1 23 45 67 90",
+        order: 2
     },
     {
         id: "3",
@@ -47,7 +50,8 @@ const defaultTeam: TeamMember[] = [
         status: "Online",
         expertise: ["Veille 24/7", "Matching de Preuves", "Scoring"],
         avatarUrl: "/ai-avatar.png",
-        email: "ai@compliancenav.ai"
+        email: "ai@compliancenav.ai",
+        order: 0
     },
     {
         id: "4",
@@ -57,7 +61,8 @@ const defaultTeam: TeamMember[] = [
         status: "Away",
         expertise: ["LCB-FT", "Due Diligence", "Sanctions"],
         email: "karim@compliancenav.com",
-        phone: "+33 1 23 45 67 91"
+        phone: "+33 1 23 45 67 91",
+        order: 3
     }
 ];
 
@@ -164,7 +169,8 @@ export const TeamProvider = ({ children }: { children: ReactNode }) => {
         try {
             // Nettoyer les champs undefined pour Firestore
             const cleanedUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
-                if (value !== undefined && value !== null && value !== '') {
+                // Allow null or empty string to pass through to clear fields (like avatarUrl)
+                if (value !== undefined) {
                     acc[key] = value;
                 }
                 return acc;
@@ -185,7 +191,7 @@ export const TeamProvider = ({ children }: { children: ReactNode }) => {
 
         // Nettoyer les champs undefined pour Firestore
         const cleanedMember = Object.entries(member).reduce((acc, [key, value]) => {
-            if (value !== undefined && value !== null && value !== '') {
+            if (value !== undefined) {
                 acc[key] = value;
             }
             return acc;

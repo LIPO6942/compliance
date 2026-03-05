@@ -30,6 +30,7 @@ const memberSchema = z.object({
     email: z.string().email("Veuillez entrer une adresse email valide.").optional().or(z.literal('')),
     secondaryEmail: z.string().email("Veuillez entrer une adresse email valide.").optional().or(z.literal('')),
     phone: z.string().optional(),
+    order: z.coerce.number().optional().default(10),
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
@@ -38,9 +39,14 @@ const AVATAR_COLLECTION = [
     { id: 'av1', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix' },
     { id: 'av2', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka' },
     { id: 'av3', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack' },
-    { id: 'av4', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mimi' },
     { id: 'av5', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Luna' },
     { id: 'av6', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver' },
+    { id: 'av7', url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Bear' },
+    { id: 'av8', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Zoe' },
+    { id: 'av9', url: 'https://api.dicebear.com/7.x/micah/svg?seed=Lilly' },
+    { id: 'av10', url: 'https://api.dicebear.com/7.x/initials/svg?seed=Compliance' },
+    { id: 'av11', url: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Lucky' },
+    { id: 'av12', url: 'https://api.dicebear.com/7.x/big-smile/svg?seed=Happy' },
 ];
 
 export default function TeamPage() {
@@ -78,6 +84,7 @@ export default function TeamPage() {
                 email: member.email || "",
                 secondaryEmail: member.secondaryEmail || "",
                 phone: member.phone || "",
+                order: member.order || 10,
             });
         } else {
             setEditingMember(null);
@@ -92,6 +99,7 @@ export default function TeamPage() {
                 email: "",
                 secondaryEmail: "",
                 phone: "",
+                order: 10,
             });
         }
         setIsDialogOpen(true);
@@ -109,6 +117,7 @@ export default function TeamPage() {
                 email: values.email?.trim() || undefined,
                 secondaryEmail: values.secondaryEmail?.trim() || undefined,
                 phone: values.phone?.trim() || undefined,
+                order: values.order,
             };
 
             console.log("💾 Enregistrement:", { editingMember: editingMember?.id, data: memberData });
@@ -173,7 +182,7 @@ export default function TeamPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    {teamMembers.map((member) => (
+                    {teamMembers.sort((a, b) => (a.order || 0) - (b.order || 0)).map((member) => (
                         <div key={member.id} className="group relative">
                             {/* Holographic Card Background */}
                             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-indigo-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -491,6 +500,13 @@ export default function TeamPage() {
                                             <FormItem className="space-y-1">
                                                 <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Téléphone</FormLabel>
                                                 <FormControl><Input {...field} placeholder="55 555 555" className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="order" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Priorité (Ordre)</FormLabel>
+                                                <FormControl><Input type="number" {...field} className="h-10 rounded-lg bg-slate-100/50 dark:bg-slate-800/50 border-none font-bold text-center w-24" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />

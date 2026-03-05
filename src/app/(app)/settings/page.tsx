@@ -51,7 +51,8 @@ export default function SettingsPage() {
     // Filter out human members only (exclude AI)
     const humanMembers = useMemo(
         () => teamMembers
-            .filter(m => !m.email?.endsWith('.ai') && !m.role.toLowerCase().includes('intelligent')),
+            .filter(m => !m.email?.endsWith('.ai') && !m.role.toLowerCase().includes('intelligent'))
+            .sort((a, b) => (a.order || 0) - (b.order || 0)),
         [teamMembers]
     );
 
