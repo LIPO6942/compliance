@@ -36,17 +36,18 @@ const memberSchema = z.object({
 type MemberFormValues = z.infer<typeof memberSchema>;
 
 const AVATAR_COLLECTION = [
-    // Personas (Highly Professional, Minimalist, Enterprise)
-    { id: 'p1', url: 'https://api.dicebear.com/7.x/personas/svg?seed=9' },
-    { id: 'p2', url: 'https://api.dicebear.com/7.x/personas/svg?seed=11' },
-    { id: 'p3', url: 'https://api.dicebear.com/7.x/personas/svg?seed=17' },
-    { id: 'p4', url: 'https://api.dicebear.com/7.x/personas/svg?seed=10' },
-    { id: 'p5', url: 'https://api.dicebear.com/7.x/personas/svg?seed=2' },
-    { id: 'p6', url: 'https://api.dicebear.com/7.x/personas/svg?seed=8' },
-    // Bottts (Sleek & Professional AI)
-    { id: 'r1', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=H1' },
-    { id: 'r2', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=I2' },
-    { id: 'r3', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=J3' },
+    // Formal Business Men (Avataaars - Refined)
+    { id: 'm1', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jasper&topType=shortHair&accessoriesType=none&hairColor=Black&facialHairType=none&clotheType=BlazerShirt&eyeType=Default&eyebrowType=Default&mouthType=Default' },
+    { id: 'm2', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Caleb&topType=shortHair&accessoriesType=none&hairColor=Black&facialHairType=none&clotheType=BlazerShirt&eyeType=Default&eyebrowType=Default&mouthType=Default' },
+    { id: 'm3', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Leo&topType=shortHair&accessoriesType=none&hairColor=Brown&facialHairType=none&clotheType=BlazerShirt&eyeType=Default&eyebrowType=Default&mouthType=Default' },
+    // Formal Business Women (Avataaars - Refined)
+    { id: 'w1', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena&topType=longHairStraight&accessoriesType=none&hairColor=Black&clotheType=BlazerShirt&eyeType=Default&eyebrowType=Default&mouthType=Default' },
+    { id: 'w2', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Maya&topType=longHairStraight&accessoriesType=none&hairColor=Brown&clotheType=BlazerShirt&eyeType=Default&eyebrowType=Default&mouthType=Default' },
+    { id: 'w3', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aria&topType=longHairStraight&accessoriesType=none&hairColor=Black&clotheType=BlazerShirt&eyeType=Default&eyebrowType=Default&mouthType=Default' },
+    // Simplified Professional Robots (Bottts Neutral)
+    { id: 'r1', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Admin1&backgroundColor=f1f5f9' },
+    { id: 'r2', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Admin2&backgroundColor=f1f5f9' },
+    { id: 'r3', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Admin3&backgroundColor=f1f5f9' },
 ];
 
 export default function TeamPage() {
