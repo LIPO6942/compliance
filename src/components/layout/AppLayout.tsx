@@ -52,6 +52,8 @@ import { useUser } from "@/contexts/UserContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
+import { useActivityLog } from "@/contexts/ActivityLogContext";
+import { Activity } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
@@ -76,6 +78,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const { user, isLoaded } = useUser();
+  const { isAdmin } = useActivityLog();
   const { identifiedRegulations } = useIdentifiedRegulations();
 
   const newAlertsCount = React.useMemo(() => {
@@ -150,6 +153,37 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   )}
                 </SidebarMenuItem>
               ))}
+
+              {/* Admin Section */}
+              {isAdmin(user.email) && (
+                <>
+                  <div className="px-4 py-2 mt-4 group-data-[collapsible=icon]:hidden">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Administration</p>
+                  </div>
+                  <SidebarMenuItem>
+                    <Link href="/settings/admin/activity">
+                      <SidebarMenuButton
+                        isActive={pathname.startsWith('/settings/admin/activity')}
+                        tooltip={{ children: "Journal d'Activité", className: "font-black uppercase tracking-widest text-[10px]" }}
+                        className={cn(
+                          "h-12 rounded-xl transition-all duration-300 px-4 group/btn",
+                          pathname.startsWith('/settings/admin/activity')
+                            ? "bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-950 shadow-lg shadow-slate-900/20 dark:shadow-slate-50/20"
+                            : "hover:bg-slate-100 dark:hover:bg-slate-800/50"
+                        )}
+                      >
+                        <Activity className={cn(
+                          "h-5 w-5 transition-transform group-hover/btn:scale-110",
+                          pathname.startsWith('/settings/admin/activity') ? "text-primary" : "text-slate-400"
+                        )} />
+                        <span className="font-extrabold text-[11px] uppercase tracking-tighter italic">
+                          Journal d'Activité
+                        </span>
+                      </SidebarMenuButton>
+                    </Link>
+                  </SidebarMenuItem>
+                </>
+              )}
             </SidebarMenu>
           </ScrollArea>
         </SidebarContent>

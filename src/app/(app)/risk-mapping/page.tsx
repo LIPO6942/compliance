@@ -27,6 +27,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from "@/hooks/use-toast";
 import type { RiskMappingItem, RiskLevel, RiskCategory, Document } from '@/types/compliance';
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
+import { useActivityLog } from "@/contexts/ActivityLogContext";
+import { useUser } from "@/contexts/UserContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import Link from "next/link";
@@ -66,7 +68,7 @@ const calculateRiskLevel = (probabilite: number, impact: number): RiskLevel => {
   return "Très élevé";
 };
 
-const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[]) => {
+const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any) => {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Compliance Navigator";
   wb.created = new Date();
@@ -240,6 +242,17 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
   a.download = `Cartographie_Risques_${today}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
+
+  // LOG ACTION
+  if (user) {
+    logAction({
+      userEmail: user.email,
+      userName: user.name,
+      action: 'OTHER',
+      label: `A exporté la cartographie des risques (${risks.length} lignes)`,
+      module: 'Cartographie des Risques'
+    });
+  }
 };
 
 const getRiskScoreStyle = (score: number): { bg: string; text: string; border: string; label: string } => {
@@ -280,6 +293,8 @@ export default function RiskMappingPage() {
   const { createAlertFromRisk, findAlertByRiskId, removeAlertByRiskId } = useIdentifiedRegulations();
   const { documents } = useDocuments();
   const { toast } = useToast();
+  const { logAction } = useActivityLog();
+  const { user } = useUser();
 
   const [isClient, setIsClient] = React.useState(false);
   React.useEffect(() => { setIsClient(true) }, []);
@@ -356,6 +371,16 @@ export default function RiskMappingPage() {
           riskLevel: calculateRiskLevel(numProba, numImpact),
         });
         toast({ title: "Risque identifié", description: "La cartographie a été mise à jour." });
+        if (user) {
+          logAction({
+            userEmail: user.email,
+            userName: user.name,
+            action: 'RISK_ADD',
+            label: `A ajouté un risque : ${sanitizedValues.riskDescription}`,
+            detail: sanitizedValues.category,
+            module: 'Cartographie des Risques'
+          });
+        }
       } else if (dialogState.mode === "edit" && dialogState.data?.id) {
         await editRisk(dialogState.data.id, {
           ...sanitizedValues,
@@ -364,6 +389,16 @@ export default function RiskMappingPage() {
           riskLevel: calculateRiskLevel(numProba, numImpact),
         });
         toast({ title: "Risque modifié", description: "Les détails du risque ont été actualisés." });
+        if (user) {
+          logAction({
+            userEmail: user.email,
+            userName: user.name,
+            action: 'RISK_EDIT',
+            label: `A modifié un risque : ${sanitizedValues.riskDescription}`,
+            detail: sanitizedValues.category,
+            module: 'Cartographie des Risques'
+          });
+        }
       }
       closeDialog();
     } catch (e: any) {
@@ -372,12 +407,21 @@ export default function RiskMappingPage() {
     }
   };
 
-  const handleDeleteRisk = async (id: string) => {
+  const handleDeleteRisk = async (id: string, riskDescription: string) => {
     try {
       const alert = findAlertByRiskId(id);
       if (alert) await removeAlertByRiskId(id);
       await removeRisk(id);
       toast({ title: "Risque supprimé", description: "Le risque a été retiré de la cartographie." });
+      if (user) {
+        logAction({
+          userEmail: user.email,
+          userName: user.name,
+          action: 'RISK_DELETE',
+          label: `A supprimé un risque : ${riskDescription}`,
+          module: 'Cartographie des Risques'
+        });
+      }
     } catch (e) {
       toast({ variant: "destructive", title: "Erreur", description: "Action impossible." });
     }
@@ -433,7 +477,7 @@ export default function RiskMappingPage() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => exportToExcel(filteredRisks)}
+              onClick={() => exportToExcel(filteredRisks, logAction, user)}
               className="h-9 px-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
             >
               <Download className="mr-1.5 h-3.5 w-3.5" /> Exporter Excel
@@ -1075,7 +1119,7 @@ export default function RiskMappingPage() {
           <AlertDialogFooter className="pt-8 gap-3">
             <AlertDialogCancel className="h-14 px-8 rounded-2xl font-black uppercase text-xs tracking-widest border-slate-200">Annuler</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => dialogState.data && handleDeleteRisk(dialogState.data.id)}
+              onClick={() => dialogState.data && handleDeleteRisk(dialogState.data.id, dialogState.data.riskDescription)}
               className="h-14 px-8 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black uppercase text-xs tracking-widest shadow-xl shadow-rose-600/20"
             >
               Supprimer définitivement

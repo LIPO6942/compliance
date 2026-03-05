@@ -13,6 +13,7 @@ import { NewsProvider } from "@/contexts/NewsContext";
 import { TeamProvider } from "@/contexts/TeamContext";
 import { TimelineProvider } from "@/contexts/TimelineContext";
 import { EcosystemProvider } from "@/contexts/EcosystemContext";
+import { ActivityLogProvider } from "@/contexts/ActivityLogContext";
 
 
 export default function ApplicationGroupLayout({
@@ -22,31 +23,33 @@ export default function ApplicationGroupLayout({
 }) {
   return (
     <ThemeProvider>
-      <UserProvider>
-        <PlanDataProvider>
-          <DocumentsProvider>
-            <DocumentTypesProvider>
-              <IdentifiedRegulationsProvider>
-                <TrainingDataProvider>
-                  <RiskMappingProvider>
-                    <KeywordsProvider>
-                      <NewsProvider>
-                        <TeamProvider>
-                          <TimelineProvider>
-                            <EcosystemProvider>
-                              <AppLayout>{children}</AppLayout>
-                            </EcosystemProvider>
-                          </TimelineProvider>
-                        </TeamProvider>
-                      </NewsProvider>
-                    </KeywordsProvider>
-                  </RiskMappingProvider>
-                </TrainingDataProvider>
-              </IdentifiedRegulationsProvider>
-            </DocumentTypesProvider>
-          </DocumentsProvider>
-        </PlanDataProvider>
-      </UserProvider>
+      <ActivityLogProvider>
+        <UserProvider>
+          <PlanDataProvider>
+            <DocumentsProvider>
+              <DocumentTypesProvider>
+                <IdentifiedRegulationsProvider>
+                  <TrainingDataProvider>
+                    <RiskMappingProvider>
+                      <KeywordsProvider>
+                        <NewsProvider>
+                          <TeamProvider>
+                            <TimelineProvider>
+                              <EcosystemProvider>
+                                <AppLayout>{children}</AppLayout>
+                              </EcosystemProvider>
+                            </TimelineProvider>
+                          </TeamProvider>
+                        </NewsProvider>
+                      </KeywordsProvider>
+                    </RiskMappingProvider>
+                  </TrainingDataProvider>
+                </IdentifiedRegulationsProvider>
+              </DocumentTypesProvider>
+            </DocumentsProvider>
+          </PlanDataProvider>
+        </UserProvider>
+      </ActivityLogProvider>
     </ThemeProvider>
   );
 }

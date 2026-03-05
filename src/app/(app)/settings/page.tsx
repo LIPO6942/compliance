@@ -12,10 +12,13 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { useUser } from "@/contexts/UserContext";
-import { useState, useEffect } from "react";
+import { useTeam } from "@/contexts/TeamContext";
+import { useActivityLog } from "@/contexts/ActivityLogContext";
+import { useState, useEffect, useMemo } from "react";
 import { useTimeline } from "@/contexts/TimelineContext";
-import { Trash2, Plus, Calendar, Bookmark, Palette, Settings as SettingsIcon, FileType, ChevronRight } from "lucide-react";
+import { Trash2, Plus, Calendar, Bookmark, Palette, Settings as SettingsIcon, FileType, ChevronRight, UserCheck, ShieldCheck, Activity } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { UserProfile } from "@/contexts/UserContext";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -42,6 +45,15 @@ const availableTimelineColors = [
 export default function SettingsPage() {
     const { toast } = useToast();
     const { user, updateUser, isLoaded } = useUser();
+    const { teamMembers } = useTeam();
+    const { logAction, isAdmin } = useActivityLog();
+
+    // Filter out human members only (exclude AI)
+    const humanMembers = useMemo(
+        () => teamMembers.filter(m => !m.email?.endsWith('.ai') && !m.role.toLowerCase().includes('intelligent')),
+        [teamMembers]
+    );
+
     const [profile, setProfile] = useState<Partial<UserProfile>>({
         name: '',
         email: '',
@@ -57,18 +69,56 @@ export default function SettingsPage() {
         }
     }, [user, isLoaded]);
 
+    const handleSelectIdentity = (member: { name: string; email: string; role: string }) => {
+        setProfile({
+            name: member.name,
+            email: member.email,
+            role: member.role
+        });
+
+        // Immediate log for identity selection
+        logAction({
+            userEmail: member.email,
+            userName: member.name,
+            action: 'LOGIN',
+            label: `S'est identifié en tant que ${member.name}`,
+            module: 'Paramètres'
+        });
+
+        toast({
+            title: "Identité sélectionnée",
+            description: `Vous naviguez maintenant en tant que ${member.name}.`,
+        });
+    };
+
+    const getInitials = (name: string): string => {
+        if (!name) return 'U';
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    };
+
     const handleSaveChanges = async () => {
         setIsSaving(true);
         try {
-            updateUser(profile);
-            
+            await updateUser(profile);
+            logAction({
+                userEmail: profile.email || '',
+                userName: profile.name || '',
+                action: 'SETTINGS_UPDATE',
+                label: `A mis à jour son profil utilisateur`,
+                module: 'Paramètres'
+            });
+            toast({
+                title: "Profil mis à jour",
+                description: "Vos modifications ont été enregistrées avec succès.",
+            });
+
             // Persistence des modifications de timeline
             const result = await persistChanges();
-            
+
             if (result.success) {
                 toast({
-                    title: "✓ Paramètres enregistrés",
-                    description: "Toutes vos modifications ont été sauvegardées avec succès.",
+                    title: "✓ Timeline enregistrée",
+                    description: "Les modifications de la timeline ont été sauvegardées avec succès.",
                 });
             } else {
                 toast({
@@ -108,6 +158,70 @@ export default function SettingsPage() {
             </div>
 
             <Separator />
+
+            {/* Section Sélection d'Identité */}
+            <Card className="border-2 border-primary/20 shadow-md">
+                <CardHeader className="bg-primary/5">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="text-xl flex items-center gap-2">
+                                <UserCheck className="h-5 w-5 text-primary" />
+                                Qui êtes-vous ?
+                            </CardTitle>
+                            <CardDescription>Sélectionnez votre profil parmi les membres de l'équipe pour personnaliser votre expérience.</CardDescription>
+                        </div>
+                        {isAdmin(profile.email || '') && (
+                            <Link href="/settings/admin/activity">
+                                <Button variant="outline" size="sm" className="gap-2 font-bold border-primary/30 text-primary hover:bg-primary/5">
+                                    <Activity className="h-4 w-4" />
+                                    Journal d'Activité Admin
+                                </Button>
+                            </Link>
+                        )}
+                    </div>
+                </CardHeader>
+                <CardContent className="pt-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        {humanMembers.map((member) => {
+                            const isActive = profile.email === member.email;
+                            return (
+                                <button
+                                    key={member.id}
+                                    onClick={() => handleSelectIdentity({
+                                        name: member.name,
+                                        email: member.email || '',
+                                        role: member.role
+                                    })}
+                                    className={cn(
+                                        "flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left",
+                                        isActive
+                                            ? "border-primary bg-primary/5 ring-4 ring-primary/10 shadow-lg scale-[1.02]"
+                                            : "border-slate-100 hover:border-primary/40 hover:bg-slate-50 shadow-sm"
+                                    )}
+                                >
+                                    <Avatar className={cn("h-12 w-12 border-2", isActive ? "border-primary" : "border-slate-200")}>
+                                        <AvatarFallback className={cn("font-black", isActive ? "bg-primary text-white" : "bg-slate-100")}>
+                                            {getInitials(member.name)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={cn("font-bold truncate", isActive ? "text-primary" : "text-slate-900")}>
+                                            {member.name}
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">{member.role}</p>
+                                        {isActive && (
+                                            <div className="flex items-center gap-1 mt-1">
+                                                <ShieldCheck className="h-3 w-3 text-primary" />
+                                                <span className="text-[9px] font-bold text-primary uppercase">Moi (Actif)</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </CardContent>
+            </Card>
 
             <Card>
                 <CardHeader>
@@ -255,7 +369,7 @@ export default function SettingsPage() {
             </Card>
 
             <div className="flex justify-end">
-                <Button 
+                <Button
                     onClick={handleSaveChanges}
                     disabled={isSaving}
                     className="gap-2"

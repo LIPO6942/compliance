@@ -27,6 +27,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { Document, DocumentStatus, DocumentType } from '@/types/compliance';
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { useTeam } from "@/contexts/TeamContext";
+import { useActivityLog } from "@/contexts/ActivityLogContext";
+import { useUser } from "@/contexts/UserContext";
 import { Logo } from "@/components/icons/Logo";
 import { Suspense } from 'react';
 import { useDocumentTypes } from "@/contexts/DocumentTypesContext";
@@ -70,6 +72,8 @@ function DocumentsComponent() {
   // owner field mode: 'select' shows dropdown, 'manual' shows free text input
   const [ownerMode, setOwnerMode] = React.useState<'select' | 'manual'>('select');
   const { toast } = useToast();
+  const { logAction } = useActivityLog();
+  const { user } = useUser();
 
   const [dialogState, setDialogState] = React.useState<{ mode: "add" | "edit" | null; data?: Document }>({ mode: null });
   const [isClient, setIsClient] = React.useState(false);
@@ -107,9 +111,23 @@ function DocumentsComponent() {
     try {
       if (dialogState.mode === "add") {
         await addDocument(documentData);
+        logAction({
+          userEmail: user?.email,
+          userName: user?.name,
+          action: 'DOCUMENT_ADD',
+          label: `A ajouté un document : ${documentData.name}`,
+          module: 'Gestion Documentaire'
+        });
         toast({ title: "Document ajouté", description: `Le document "${values.name}" a été ajouté.` });
       } else if (dialogState.mode === "edit" && dialogState.data?.id) {
         await editDocument(dialogState.data.id, documentData);
+        logAction({
+          userEmail: user?.email,
+          userName: user?.name,
+          action: 'DOCUMENT_EDIT',
+          label: `A modifié un document : ${documentData.name}`,
+          module: 'Gestion Documentaire'
+        });
         toast({ title: "Document modifié", description: `Le document "${values.name}" a été mis à jour.` });
       }
     } catch (error) {
@@ -119,21 +137,35 @@ function DocumentsComponent() {
     closeDialog();
   };
 
-  const handleRemoveDocument = async (documentId: string) => {
+  const handleRemoveDocument = async (id: string, name: string) => {
     try {
-      await removeDocument(documentId);
+      await removeDocument(id);
+      logAction({
+        userEmail: user?.email,
+        userName: user?.name,
+        action: 'DOCUMENT_DELETE',
+        label: `A supprimé un document : ${name}`,
+        module: 'Gestion Documentaire'
+      });
       toast({ title: "Document supprimé", description: "Le document a été supprimé avec succès." });
     } catch (error) {
       toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le document." });
     }
   };
 
-  const handleChangeDocumentStatus = async (documentId: string, newStatus: DocumentStatus) => {
+  const handleChangeDocumentStatus = async (id: string, name: string, status: DocumentStatus) => {
     try {
-      await updateDocumentStatus(documentId, newStatus);
+      await updateDocumentStatus(id, status);
+      logAction({
+        userEmail: user?.email,
+        userName: user?.name,
+        action: 'DOCUMENT_STATUS',
+        label: `A changé le statut de "${name}" en "${status}"`,
+        module: 'Gestion Documentaire'
+      });
       toast({
         title: "Statut modifié",
-        description: `Le statut du document a été changé en "${newStatus}".`,
+        description: `Le statut du document a été changé en "${status}".`,
       });
     } catch (error) {
       toast({ variant: "destructive", title: "Erreur", description: "Impossible de modifier le statut." });
@@ -311,7 +343,7 @@ function DocumentsComponent() {
                                   doc.status !== statusValue && (
                                     <DropdownMenuItem
                                       key={statusValue}
-                                      onClick={() => handleChangeDocumentStatus(doc.id, statusValue)}
+                                      onClick={() => handleChangeDocumentStatus(doc.id, doc.name, statusValue)}
                                       className="rounded-xl cursor-pointer font-bold text-xs py-2.5"
                                     >
                                       {statusValue === "Validé" && <CheckCircle className="mr-3 h-4 w-4 text-emerald-500" />}
@@ -370,7 +402,7 @@ function DocumentsComponent() {
                                   </AlertDialogHeader>
                                   <AlertDialogFooter className="pt-6">
                                     <AlertDialogCancel className="rounded-xl font-bold h-12 border-slate-200">Annuler</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleRemoveDocument(doc.id)} className="rounded-xl font-bold h-12 bg-rose-600 hover:bg-rose-700 shadow-xl shadow-rose-600/20">
+                                    <AlertDialogAction onClick={() => handleRemoveDocument(doc.id, doc.name)} className="rounded-xl font-bold h-12 bg-rose-600 hover:bg-rose-700 shadow-xl shadow-rose-600/20">
                                       Confirmer la suppression
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
