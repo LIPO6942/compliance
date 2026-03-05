@@ -172,27 +172,27 @@ function DocumentsComponent() {
           </Button>
         </div>
 
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Modern Quick Stats Grid - Compact Style */}
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
           <StatCard
             icon={FileStack}
             label="Total Documents"
             value={documents.length.toString()}
-            color="bg-indigo-600"
+            variant="indigo"
             description="Actifs dans le système"
           />
           <StatCard
             icon={ShieldCheck}
             label="Validés"
             value={documents.filter(d => d.status === "Validé").length.toString()}
-            color="bg-emerald-600"
+            variant="emerald"
             description="Preuves de conformité OK"
           />
           <StatCard
             icon={AlertCircle}
             label="En Retard / Révision"
             value={documents.filter(d => d.status === "En Révision").length.toString()}
-            color="bg-amber-600"
+            variant="amber"
             description="Nécessite votre attention"
           />
         </div>
@@ -522,23 +522,59 @@ function DocumentsComponent() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, color, description }: { icon: any, label: string, value: string, color: string, description: string }) {
+function StatCard({ icon: Icon, label, value, variant, description }: { icon: any, label: string, value: string, variant: string, description: string }) {
+  // Map our generic variants to specific Tailwind class sets matching the Cartographie des Risques KPIs
+  const styleMap: Record<string, { bgGlow: string, iconBg: string, iconText: string, iconBorder: string, valueColor: string }> = {
+    indigo: {
+      bgGlow: "bg-indigo-500/5 group-hover:bg-indigo-500/10",
+      iconBg: "bg-indigo-50 dark:bg-indigo-950/40",
+      iconText: "text-indigo-600 dark:text-indigo-400",
+      iconBorder: "border-indigo-100/50 dark:border-indigo-900/50",
+      valueColor: "text-slate-900 dark:text-white",
+    },
+    emerald: {
+      bgGlow: "bg-emerald-500/5 group-hover:bg-emerald-500/10",
+      iconBg: "bg-emerald-50 dark:bg-emerald-950/40",
+      iconText: "text-emerald-600 dark:text-emerald-400",
+      iconBorder: "border-emerald-100/50 dark:border-emerald-900/50",
+      valueColor: "text-emerald-600",
+    },
+    amber: {
+      bgGlow: "bg-amber-500/5 group-hover:bg-amber-500/10",
+      iconBg: "bg-amber-50 dark:bg-amber-950/40",
+      iconText: "text-amber-600 dark:text-amber-400",
+      iconBorder: "border-amber-100/50 dark:border-amber-900/50",
+      valueColor: "text-amber-600",
+    },
+    rose: {
+      bgGlow: "bg-rose-500/5 group-hover:bg-rose-500/10",
+      iconBg: "bg-rose-50 dark:bg-rose-950/40",
+      iconText: "text-rose-600 dark:text-rose-400",
+      iconBorder: "border-rose-100/50 dark:border-rose-900/50",
+      valueColor: "text-rose-600",
+    },
+  };
+
+  const style = styleMap[variant] || styleMap.indigo;
+
   return (
-    <Card className="shadow-xl border-none bg-white dark:bg-slate-900 overflow-hidden relative group">
-      <div className={`absolute top-0 right-0 w-24 h-24 ${color} opacity-5 rounded-bl-[4rem] group-hover:scale-110 transition-transform`} />
-      <CardContent className="p-8">
-        <div className="flex items-center gap-5">
-          <div className={`p-4 rounded-2xl ${color} text-white shadow-lg shadow-current/20 group-hover:rotate-12 transition-transform`}>
-            <Icon className="h-6 w-6" />
+    <Card className="border-none shadow-md bg-white dark:bg-slate-900 overflow-hidden relative group transition-all hover:-translate-y-1 rounded-xl">
+      <div className={`absolute -right-4 -top-4 w-16 h-16 rounded-full blur-2xl transition-all ${style.bgGlow}`} />
+      <CardContent className="p-4 relative z-10">
+        <div className="flex items-center gap-3">
+          <div className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-sm border ${style.iconBg} ${style.iconText} ${style.iconBorder}`}>
+            <Icon className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">{label}</p>
-            <p className="text-4xl font-black tracking-tighter">{value}</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{label}</p>
+            <div className="flex items-baseline gap-1">
+              <p className={`text-2xl font-black font-headline tracking-tighter ${style.valueColor}`}>{value}</p>
+            </div>
           </div>
         </div>
-        <p className="mt-6 text-[11px] font-bold text-slate-400 border-t border-slate-50 dark:border-slate-800 pt-4 flex items-center gap-2">
-          <ShieldCheck className="h-3 w-3 text-primary" /> {description}
-        </p>
+        <div className="absolute right-8 bottom-8 opacity-[0.03] group-hover:opacity-10 transition-opacity text-slate-500">
+          <Icon className="h-20 w-20" />
+        </div>
       </CardContent>
     </Card>
   );
