@@ -89,8 +89,12 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
 
   const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => {
     if (!isFirebaseConfigured || !db) return;
+    // Remove undefined fields (e.g., documentId) to avoid Firestore errors
+    const cleanRisk = Object.fromEntries(
+      Object.entries(risk).filter(([, value]) => value !== undefined)
+    );
     const newRisk = {
-      ...risk,
+      ...cleanRisk,
       lastUpdated: new Date().toISOString().split('T')[0],
     };
     await addDoc(collection(db, risksCollectionName), newRisk);
@@ -99,8 +103,12 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   const editRisk = async (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated'>>) => {
     if (!isFirebaseConfigured || !db) return;
     const docRef = doc(db, risksCollectionName, riskId);
+    // Remove undefined fields to avoid Firestore errors
+    const cleanUpdate = Object.fromEntries(
+      Object.entries(riskUpdate).filter(([, value]) => value !== undefined)
+    );
     await updateDoc(docRef, {
-      ...riskUpdate,
+      ...cleanUpdate,
       lastUpdated: new Date().toISOString().split('T')[0],
     });
   };
