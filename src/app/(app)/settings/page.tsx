@@ -190,9 +190,12 @@ export default function SettingsPage() {
                 <CardContent className="pt-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         {humanMembers.map((member) => {
-                            // Match against authEmail if available, otherwise fallback to profile email
+                            // Match against authEmail or current profile email
                             const loginEmail = user?.authEmail || user?.email;
-                            const isActive = loginEmail === member.email || loginEmail === member.secondaryEmail;
+                            const isEmailMatch = loginEmail === member.email || loginEmail === member.secondaryEmail;
+                            const isNameMatch = user?.name === member.name;
+                            const isActive = isEmailMatch && isNameMatch;
+                            const isSuggested = isEmailMatch && !isNameMatch;
 
                             return (
                                 <button
@@ -203,14 +206,16 @@ export default function SettingsPage() {
                                         role: member.role
                                     })}
                                     className={cn(
-                                        "flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left",
+                                        "flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left relative overflow-hidden",
                                         isActive
                                             ? "border-primary bg-primary/5 ring-4 ring-primary/10 shadow-lg scale-[1.02]"
-                                            : "border-slate-100 hover:border-primary/40 hover:bg-slate-50 shadow-sm"
+                                            : isSuggested
+                                                ? "border-amber-200 bg-amber-50/50 hover:border-amber-400 animate-pulse-subtle shadow-inner"
+                                                : "border-slate-100 hover:border-primary/40 hover:bg-slate-50 shadow-sm"
                                     )}
                                 >
-                                    <Avatar className={cn("h-12 w-12 border-2", isActive ? "border-primary" : "border-slate-200")}>
-                                        <AvatarFallback className={cn("font-black", isActive ? "bg-primary text-white" : "bg-slate-100")}>
+                                    <Avatar className={cn("h-12 w-12 border-2", isActive ? "border-primary" : isSuggested ? "border-amber-400" : "border-slate-200")}>
+                                        <AvatarFallback className={cn("font-black", isActive ? "bg-primary text-white" : isSuggested ? "bg-amber-500 text-white" : "bg-slate-100")}>
                                             {getInitials(member.name)}
                                         </AvatarFallback>
                                     </Avatar>
@@ -225,7 +230,18 @@ export default function SettingsPage() {
                                                 <span className="text-[9px] font-bold text-primary uppercase">Moi (Actif)</span>
                                             </div>
                                         )}
+                                        {isSuggested && (
+                                            <div className="flex items-center gap-1 mt-1">
+                                                <UserCheck className="h-3 w-3 text-amber-600" />
+                                                <span className="text-[9px] font-black text-amber-600 uppercase">C'est vous ? Cliquez ici</span>
+                                            </div>
+                                        )}
                                     </div>
+                                    {isSuggested && (
+                                        <div className="absolute top-0 right-0 p-1">
+                                            <div className="bg-amber-500 w-2 h-2 rounded-full animate-ping" />
+                                        </div>
+                                    )}
                                 </button>
                             );
                         })}

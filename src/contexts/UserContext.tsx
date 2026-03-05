@@ -7,7 +7,7 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink
 } from "firebase/auth";
-import { doc, getDoc, setDoc, onSnapshot, collection } from "firebase/firestore";
+import { doc, getDoc, setDoc, onSnapshot, collection, getDocs } from "firebase/firestore";
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
 import { getDeviceId, getDeviceInfo } from '@/lib/deviceHelper';
 
@@ -83,23 +83,62 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         const deviceRef = doc(db!, 'users', authUser.uid, 'devices', deviceId);
         await setDoc(deviceRef, getDeviceInfo(), { merge: true });
 
-        const unsubscribeSnapshot = onSnapshot(userDocRef, (docSnap) => {
+        const unsubscribeSnapshot = onSnapshot(userDocRef, async (docSnap) => {
           if (docSnap.exists()) {
+            const data = docSnap.data() as UserProfile;
+
+            // Auto-upgrade "Utilisateur" name if team data exists and we haven't checked yet
+            if (data.name === 'Utilisateur' && authUser.email) {
+              try {
+                const teamSnap = await getDocs(collection(db!, 'team'));
+                const matchingMember = teamSnap.docs.find(d => {
+                  const mData = d.data();
+                  return mData.email === authUser.email || mData.secondaryEmail === authUser.email;
+                });
+
+                if (matchingMember) {
+                  const mData = matchingMember.data();
+                  const updatedData = { ...data, name: mData.name, role: mData.role };
+                  await setDoc(userDocRef, updatedData, { merge: true });
+                  // The snapshot will fire again, but we update locally for immediate effect
+                  setUser({ ...updatedData, uid: authUser.uid, authEmail: authUser.email });
+                  return;
+                }
+              } catch (err: unknown) { // Fixed 'any' type
+                console.warn("Failed to auto-upgrade profile:", err);
+              }
+            }
+
             setUser({
-              ...docSnap.data() as UserProfile,
+              ...data,
               uid: authUser.uid,
               authEmail: authUser.email || undefined
             });
           } else {
-            // Create profile if first time
-            const newProfile = {
-              ...defaultUser,
-              email: authUser.email || '',
-              authEmail: authUser.email || '',
-              uid: authUser.uid
-            };
-            setDoc(userDocRef, newProfile);
-            setUser(newProfile);
+            // Try to find matching team member for auto-initialization
+            let initialProfile = { ...defaultUser, email: authUser.email || '', authEmail: authUser.email || '', uid: authUser.uid };
+
+            try {
+              const teamSnap = await getDocs(collection(db!, 'team'));
+              const matchingMember = teamSnap.docs.find(d => {
+                const data = d.data();
+                return data.email === authUser.email || data.secondaryEmail === authUser.email;
+              });
+
+              if (matchingMember) {
+                const memberData = matchingMember.data();
+                initialProfile = {
+                  ...initialProfile,
+                  name: memberData.name,
+                  role: memberData.role,
+                };
+              }
+            } catch (err) {
+              console.warn("Could not auto-match team member:", err);
+            }
+
+            await setDoc(userDocRef, initialProfile);
+            setUser(initialProfile);
           }
           setIsLoaded(true);
         }, (err) => {
