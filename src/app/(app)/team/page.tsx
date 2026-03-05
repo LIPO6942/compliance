@@ -36,17 +36,18 @@ const memberSchema = z.object({
 type MemberFormValues = z.infer<typeof memberSchema>;
 
 const AVATAR_COLLECTION = [
-    { id: 'av1', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix' },
-    { id: 'av2', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka' },
-    { id: 'av3', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack' },
-    { id: 'av5', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Luna' },
-    { id: 'av6', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver' },
-    { id: 'av7', url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Bear' },
-    { id: 'av8', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Zoe' },
-    { id: 'av9', url: 'https://api.dicebear.com/7.x/micah/svg?seed=Lilly' },
-    { id: 'av10', url: 'https://api.dicebear.com/7.x/initials/svg?seed=Compliance' },
-    { id: 'av11', url: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Lucky' },
-    { id: 'av12', url: 'https://api.dicebear.com/7.x/big-smile/svg?seed=Happy' },
+    // Men (Miniavs)
+    { id: 'm1', url: 'https://api.dicebear.com/7.x/miniavs/svg?seed=Felix' },
+    { id: 'm2', url: 'https://api.dicebear.com/7.x/miniavs/svg?seed=Jack' },
+    { id: 'm3', url: 'https://api.dicebear.com/7.x/miniavs/svg?seed=Crockett' },
+    // Women (Miniavs)
+    { id: 'w1', url: 'https://api.dicebear.com/7.x/miniavs/svg?seed=Aneka' },
+    { id: 'w2', url: 'https://api.dicebear.com/7.x/miniavs/svg?seed=Luna' },
+    { id: 'w3', url: 'https://api.dicebear.com/7.x/miniavs/svg?seed=Sasha' },
+    // Robots (Bottts Neutral - Premium)
+    { id: 'r1', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Robo1' },
+    { id: 'r2', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Robo2' },
+    { id: 'r3', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Robo3' },
 ];
 
 export default function TeamPage() {
