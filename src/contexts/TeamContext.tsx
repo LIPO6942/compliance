@@ -13,6 +13,7 @@ export interface TeamMember {
     expertise: string[];
     avatarUrl?: string;
     email?: string;
+    secondaryEmail?: string;
     phone?: string;
 }
 
@@ -25,6 +26,7 @@ const defaultTeam: TeamMember[] = [
         status: "Online",
         expertise: ["Audit", "Anti-Corruption", "Risk Management"],
         email: "moslem@compliancenav.com",
+        secondaryEmail: "moslem.gouia@mae.tn",
         phone: "+33 1 23 45 67 89"
     },
     {
@@ -139,8 +141,10 @@ export const TeamProvider = ({ children }: { children: ReactNode }) => {
         try {
             const batch = writeBatch(db);
             defaultTeam.forEach((member) => {
-                const docRef = doc(db, 'team', member.id);
-                batch.set(docRef, member);
+                if (db) {
+                    const docRef = doc(db, 'team', member.id);
+                    batch.set(docRef, member);
+                }
             });
             await batch.commit();
             setTeamMembers(defaultTeam);
@@ -178,7 +182,7 @@ export const TeamProvider = ({ children }: { children: ReactNode }) => {
 
     const addMember = async (member: Omit<TeamMember, 'id'>) => {
         const newMemberId = Math.random().toString(36).substr(2, 9);
-        
+
         // Nettoyer les champs undefined pour Firestore
         const cleanedMember = Object.entries(member).reduce((acc, [key, value]) => {
             if (value !== undefined && value !== null && value !== '') {

@@ -5,15 +5,12 @@ import { DocumentsProvider } from "@/contexts/DocumentsContext";
 import { IdentifiedRegulationsProvider } from "@/contexts/IdentifiedRegulationsContext";
 import { TrainingDataProvider } from "@/contexts/TrainingDataContext";
 import { RiskMappingProvider } from "@/contexts/RiskMappingContext";
-import { UserProvider } from "@/contexts/UserContext";
-import { ThemeProvider } from "@/contexts/ThemeContext";
 import { KeywordsProvider } from "@/contexts/KeywordsContext";
 import { DocumentTypesProvider } from "@/contexts/DocumentTypesContext";
 import { NewsProvider } from "@/contexts/NewsContext";
 import { TeamProvider } from "@/contexts/TeamContext";
 import { TimelineProvider } from "@/contexts/TimelineContext";
 import { EcosystemProvider } from "@/contexts/EcosystemContext";
-import { ActivityLogProvider } from "@/contexts/ActivityLogContext";
 
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
@@ -24,37 +21,31 @@ export default function ApplicationGroupLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ThemeProvider>
-      <ActivityLogProvider>
-        <UserProvider>
-          <AuthGuard>
-            <PlanDataProvider>
-              <DocumentsProvider>
-                <DocumentTypesProvider>
-                  <IdentifiedRegulationsProvider>
-                    <TrainingDataProvider>
-                      <RiskMappingProvider>
-                        <KeywordsProvider>
-                          <NewsProvider>
-                            <TeamProvider>
-                              <TimelineProvider>
-                                <EcosystemProvider>
-                                  <AppLayout>{children}</AppLayout>
-                                </EcosystemProvider>
-                              </TimelineProvider>
-                            </TeamProvider>
-                          </NewsProvider>
-                        </KeywordsProvider>
-                      </RiskMappingProvider>
-                    </TrainingDataProvider>
-                  </IdentifiedRegulationsProvider>
-                </DocumentTypesProvider>
-              </DocumentsProvider>
-            </PlanDataProvider>
-          </AuthGuard>
-        </UserProvider>
-      </ActivityLogProvider>
-    </ThemeProvider>
+    <AuthGuard>
+      <PlanDataProvider>
+        <DocumentsProvider>
+          <DocumentTypesProvider>
+            <IdentifiedRegulationsProvider>
+              <TrainingDataProvider>
+                <RiskMappingProvider>
+                  <KeywordsProvider>
+                    <NewsProvider>
+                      <TeamProvider>
+                        <TimelineProvider>
+                          <EcosystemProvider>
+                            <AppLayout>{children}</AppLayout>
+                          </EcosystemProvider>
+                        </TimelineProvider>
+                      </TeamProvider>
+                    </NewsProvider>
+                  </KeywordsProvider>
+                </RiskMappingProvider>
+              </TrainingDataProvider>
+            </IdentifiedRegulationsProvider>
+          </DocumentTypesProvider>
+        </DocumentsProvider>
+      </PlanDataProvider>
+    </AuthGuard>
   );
 }
 
