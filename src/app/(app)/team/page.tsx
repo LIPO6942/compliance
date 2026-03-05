@@ -18,6 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const memberSchema = z.object({
     name: z.string().min(1, "Le nom est requis."),
@@ -29,16 +30,25 @@ const memberSchema = z.object({
     email: z.string().email("Veuillez entrer une adresse email valide.").optional().or(z.literal('')),
     secondaryEmail: z.string().email("Veuillez entrer une adresse email valide.").optional().or(z.literal('')),
     phone: z.string().optional(),
-    order: z.coerce.number().optional().default(10),
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
+
+const AVATAR_COLLECTION = [
+    { id: 'av1', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix' },
+    { id: 'av2', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka' },
+    { id: 'av3', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack' },
+    { id: 'av4', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mimi' },
+    { id: 'av5', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Luna' },
+    { id: 'av6', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver' },
+];
 
 export default function TeamPage() {
     const { teamMembers, updateMember, addMember, removeMember, isLoading } = useTeam();
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [editingMember, setEditingMember] = React.useState<TeamMember | null>(null);
+    const [selectedAvatar, setSelectedAvatar] = React.useState<string | null>(null);
 
     const form = useForm<MemberFormValues>({
         resolver: zodResolver(memberSchema),
@@ -52,7 +62,6 @@ export default function TeamPage() {
             email: "",
             secondaryEmail: "",
             phone: "",
-            order: 10,
         }
     });
 
@@ -62,16 +71,17 @@ export default function TeamPage() {
     const openDialog = (member?: TeamMember) => {
         if (member) {
             setEditingMember(member);
+            setSelectedAvatar(member.avatarUrl || null);
             form.reset({
                 ...member,
                 expertise: member.expertise.join(", "),
                 email: member.email || "",
                 secondaryEmail: member.secondaryEmail || "",
                 phone: member.phone || "",
-                order: member.order || 10,
             });
         } else {
             setEditingMember(null);
+            setSelectedAvatar(null);
             form.reset({
                 name: "",
                 role: "",
@@ -82,7 +92,6 @@ export default function TeamPage() {
                 email: "",
                 secondaryEmail: "",
                 phone: "",
-                order: 10,
             });
         }
         setIsDialogOpen(true);
@@ -96,11 +105,10 @@ export default function TeamPage() {
                 specialty: values.specialty.trim(),
                 status: values.status as "Online" | "Away" | "Offline",
                 expertise: values.expertise.split(",").map((e: string) => e.trim()).filter(Boolean),
-                avatarUrl: values.avatarUrl?.trim() || undefined,
+                avatarUrl: selectedAvatar || undefined,
                 email: values.email?.trim() || undefined,
                 secondaryEmail: values.secondaryEmail?.trim() || undefined,
                 phone: values.phone?.trim() || undefined,
-                order: values.order,
             };
 
             console.log("💾 Enregistrement:", { editingMember: editingMember?.id, data: memberData });
@@ -165,7 +173,7 @@ export default function TeamPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    {teamMembers.sort((a, b) => (a.order || 10) - (b.order || 10)).map((member) => (
+                    {teamMembers.map((member) => (
                         <div key={member.id} className="group relative">
                             {/* Holographic Card Background */}
                             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-indigo-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -428,13 +436,38 @@ export default function TeamPage() {
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
-                                        <FormField control={form.control} name="avatarUrl" render={({ field }) => (
-                                            <FormItem className="space-y-1">
-                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">URL Avatar</FormLabel>
-                                                <FormControl><Input {...field} placeholder="https://..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
+                                        <div className="space-y-4">
+                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Collection d'Avatars</Label>
+                                            <div className="flex flex-wrap gap-3 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-inner">
+                                                {AVATAR_COLLECTION.map((av) => (
+                                                    <button
+                                                        key={av.id}
+                                                        type="button"
+                                                        onClick={() => setSelectedAvatar(av.url)}
+                                                        className={cn(
+                                                            "relative h-12 w-12 rounded-xl overflow-hidden border-2 transition-all hover:scale-110",
+                                                            selectedAvatar === av.url ? "border-primary ring-2 ring-primary/20 scale-110" : "border-transparent"
+                                                        )}
+                                                    >
+                                                        <Avatar className="h-full w-full rounded-none">
+                                                            <AvatarImage src={av.url} />
+                                                        </Avatar>
+                                                    </button>
+                                                ))}
+                                                {selectedAvatar && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => setSelectedAvatar(null)}
+                                                        className="h-12 w-12 rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-600"
+                                                        title="Supprimer l'avatar"
+                                                    >
+                                                        <Trash2 className="h-5 w-5" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -458,13 +491,6 @@ export default function TeamPage() {
                                             <FormItem className="space-y-1">
                                                 <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Téléphone</FormLabel>
                                                 <FormControl><Input {...field} placeholder="55 555 555" className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                        <FormField control={form.control} name="order" render={({ field }) => (
-                                            <FormItem className="space-y-1">
-                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Ordre d'affichage (numérique)</FormLabel>
-                                                <FormControl><Input type="number" {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
