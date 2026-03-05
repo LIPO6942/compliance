@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { FileText, PlusCircle, Search, ArrowUpDown, MoreHorizontal, Download, Edit, Trash2, CheckCircle, Edit3, Archive, FileX, ShieldCheck, Link as LinkIcon, AlertCircle, FileStack } from "lucide-react";
+import { FileText, PlusCircle, Search, ArrowUpDown, MoreHorizontal, Download, Edit, Trash2, CheckCircle, Edit3, Archive, FileX, ShieldCheck, Link as LinkIcon, AlertCircle, FileStack, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -26,6 +26,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from "@/hooks/use-toast";
 import type { Document, DocumentStatus, DocumentType } from '@/types/compliance';
 import { useDocuments } from "@/contexts/DocumentsContext";
+import { useTeam } from "@/contexts/TeamContext";
 import { Logo } from "@/components/icons/Logo";
 import { Suspense } from 'react';
 import { useDocumentTypes } from "@/contexts/DocumentTypesContext";
@@ -56,10 +57,18 @@ const allPossibleStatuses: DocumentStatus[] = ["Validé", "En Révision", "Archi
 function DocumentsComponent() {
   const { documents, loading, updateDocumentStatus, addDocument, editDocument, removeDocument } = useDocuments();
   const { documentTypes, loading: typesLoading } = useDocumentTypes();
+  const { teamMembers } = useTeam();
+  // Team members excluding AI (identified by email ending in .ai or role containing "IA" / "Intelligent")
+  const humanMembers = React.useMemo(
+    () => teamMembers.filter(m => !m.email?.endsWith('.ai') && !m.role.toLowerCase().includes('intelligent')),
+    [teamMembers]
+  );
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = React.useState("");
   const [filterType, setFilterType] = React.useState<string>("all");
   const [filterStatus, setFilterStatus] = React.useState<string>("all");
+  // owner field mode: 'select' shows dropdown, 'manual' shows free text input
+  const [ownerMode, setOwnerMode] = React.useState<'select' | 'manual'>('select');
   const { toast } = useToast();
 
   const [dialogState, setDialogState] = React.useState<{ mode: "add" | "edit" | null; data?: Document }>({ mode: null });
@@ -79,8 +88,12 @@ function DocumentsComponent() {
     setDialogState({ mode, data });
     if (mode === "edit" && data) {
       form.reset({ ...data, tags: data.tags?.join(', ') || '', url: data.url || '' });
+      // Check if the existing owner matches a team member
+      const isTeamMember = humanMembers.some(m => m.name === data.owner);
+      setOwnerMode(isTeamMember ? 'select' : 'manual');
     } else {
       form.reset({ name: "", type: documentTypes[0]?.id || "", version: "1.0", owner: "", tags: "", url: "" });
+      setOwnerMode('select');
     }
   };
   const closeDialog = () => setDialogState({ mode: null });
@@ -489,7 +502,61 @@ function DocumentsComponent() {
                       <FormField control={form.control} name="owner" render={({ field }) => (
                         <FormItem className="space-y-1">
                           <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Propriétaire / Indexeur</FormLabel>
-                          <FormControl><Input {...field} placeholder="Nom du responsable..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50" /></FormControl>
+                          <div className="space-y-2">
+                            {ownerMode === 'select' ? (
+                              <>
+                                <Select
+                                  value={field.value}
+                                  onValueChange={(val) => {
+                                    if (val === '__manual__') {
+                                      setOwnerMode('manual');
+                                      field.onChange('');
+                                    } else {
+                                      field.onChange(val);
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50">
+                                    <SelectValue placeholder="Sélectionner un membre..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="rounded-xl border-none shadow-2xl">
+                                    {humanMembers.map(m => (
+                                      <SelectItem key={m.id} value={m.name} className="font-bold">
+                                        <div className="flex items-center gap-2">
+                                          <div className="h-5 w-5 rounded-full bg-primary/10 text-primary text-[9px] font-black flex items-center justify-center">
+                                            {m.name.charAt(0)}
+                                          </div>
+                                          <span>{m.name}</span>
+                                          <span className="text-[9px] text-slate-400 font-normal">{m.role}</span>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                    <SelectItem value="__manual__" className="font-bold text-indigo-600 border-t border-slate-100 mt-1 pt-1">
+                                      ✏️ Saisir manuellement un autre nom
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </>
+                            ) : (
+                              <div className="flex gap-2">
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    autoFocus
+                                    placeholder="Nom du responsable..."
+                                    className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm focus:border-primary/50"
+                                  />
+                                </FormControl>
+                                <button
+                                  type="button"
+                                  onClick={() => { setOwnerMode('select'); field.onChange(''); }}
+                                  className="h-12 px-3 rounded-xl border-2 border-slate-100 text-[10px] font-bold text-slate-400 hover:text-primary hover:border-primary/30 transition-all whitespace-nowrap"
+                                >
+                                  ← Liste
+                                </button>
+                              </div>
+                            )}
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )} />
