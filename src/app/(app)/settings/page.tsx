@@ -70,11 +70,16 @@ export default function SettingsPage() {
     }, [user, isLoaded]);
 
     const handleSelectIdentity = (member: { name: string; email: string; role: string }) => {
-        setProfile({
+        const newProfile = {
             name: member.name,
             email: member.email,
             role: member.role
-        });
+        };
+
+        setProfile(newProfile);
+
+        // Update global user state immediately so sidebar reflects the change
+        updateUser(newProfile);
 
         // Immediate log for identity selection
         logAction({

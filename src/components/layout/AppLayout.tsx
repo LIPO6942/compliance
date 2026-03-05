@@ -177,7 +177,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                           pathname.startsWith('/settings/admin/activity') ? "text-primary" : "text-slate-400"
                         )} />
                         <span className="font-extrabold text-[11px] uppercase tracking-tighter italic">
-                          Journal d'Activité
+                          Journal d'Activité Admin
                         </span>
                       </SidebarMenuButton>
                     </Link>
