@@ -78,7 +78,7 @@ service cloud.firestore {
     // ============================================
     // OTHER COLLECTIONS (Training, Users, etc)
     // ============================================
-    match /userProfile/{document=**} {
+    match /users/{document=**} {
       allow read, write: if true;
     }
     match /trainingRegistry/{document=**} {
@@ -90,7 +90,7 @@ service cloud.firestore {
     match /upcomingSessions/{document=**} {
       allow read, write: if true;
     }
-    match /documentTypes/{document=**} {
+    match /documentData/{document=**} {
       allow read, write: if true;
     }
     match /riskMappingMeta/{document=**} {
@@ -114,7 +114,7 @@ service cloud.firestore {
     // ============================================
     // AUDIT LOGS - Logs des actions (append-only)
     // ============================================
-    match /audit-logs/{logId} {
+    match /activity_logs/{logId} {
       allow read, write: if true;  // Ouvert en dev
     }
 
