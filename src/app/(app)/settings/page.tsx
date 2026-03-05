@@ -190,13 +190,16 @@ export default function SettingsPage() {
                 <CardContent className="pt-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         {humanMembers.map((member) => {
-                            const isActive = profile.email === member.email;
+                            // Match against authEmail if available, otherwise fallback to profile email
+                            const loginEmail = user?.authEmail || user?.email;
+                            const isActive = loginEmail === member.email || loginEmail === member.secondaryEmail;
+
                             return (
                                 <button
                                     key={member.id}
                                     onClick={() => handleSelectIdentity({
                                         name: member.name,
-                                        email: member.email || '',
+                                        email: loginEmail || member.email || '',
                                         role: member.role
                                     })}
                                     className={cn(

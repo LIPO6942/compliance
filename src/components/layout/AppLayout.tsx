@@ -155,7 +155,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               ))}
 
               {/* Admin Section */}
-              {user?.email && isAdmin(user.email) && (
+              {user && isAdmin(user.authEmail || user.email || '') && (
                 <>
                   <div className="px-4 py-2 mt-4 group-data-[collapsible=icon]:hidden">
                     <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Administration</p>
@@ -193,7 +193,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
                   <Avatar key="user-profile-avatar" className="h-8 w-8">
-                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                    <AvatarFallback>{user ? getInitials(user.name) : 'U'}</AvatarFallback>
                   </Avatar>
                   <div className="group-data-[collapsible=icon]:hidden text-left">
                     <p className="text-sm font-medium text-sidebar-foreground">{user?.name}</p>

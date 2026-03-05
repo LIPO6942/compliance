@@ -15,6 +15,7 @@ export interface UserProfile {
   name: string;
   role: string;
   email: string;
+  authEmail?: string;
   uid?: string;
 }
 
@@ -84,10 +85,19 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
         const unsubscribeSnapshot = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
-            setUser({ ...docSnap.data() as UserProfile, uid: authUser.uid });
+            setUser({
+              ...docSnap.data() as UserProfile,
+              uid: authUser.uid,
+              authEmail: authUser.email || undefined
+            });
           } else {
             // Create profile if first time
-            const newProfile = { ...defaultUser, email: authUser.email || '', uid: authUser.uid };
+            const newProfile = {
+              ...defaultUser,
+              email: authUser.email || '',
+              authEmail: authUser.email || '',
+              uid: authUser.uid
+            };
             setDoc(userDocRef, newProfile);
             setUser(newProfile);
           }
