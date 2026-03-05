@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck, FolderOpen, Info } from "lucide-react";
+import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck, FolderOpen, Info, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
@@ -63,6 +64,222 @@ const calculateRiskLevel = (probabilite: number, impact: number): RiskLevel => {
   if (score <= 8) return "Modéré";
   if (score <= 12) return "Élevé";
   return "Très élevé";
+};
+
+const exportToExcel = (risks: import('@/types/compliance').RiskMappingItem[]) => {
+  const wb = XLSX.utils.book_new();
+
+  // ── SHEET 1 : Cartographie ──────────────────────────────────────────────────
+  const headers = [
+    "N°",
+    "Scénario de Risque",
+    "Catégorie",
+    "Direction",
+    "Probabilité (valeur)",
+    "Probabilité (libellé)",
+    "Impact (valeur)",
+    "Impact (libellé)",
+    "Score",
+    "Niveau de Risque",
+    "Propriétaire du Risque",
+    "Mesure d'atténuation",
+  ];
+
+  const probLabels: Record<number, string> = {
+    1: "Improbable",
+    2: "Rarement",
+    3: "Fréquent",
+    4: "Souvent",
+  };
+  const impLabels: Record<number, string> = {
+    1: "Faible",
+    2: "Modéré",
+    3: "Élevé",
+    4: "Très élevé",
+  };
+
+  const dataRows = risks.map((risk, i) => {
+    const score = calculateRiskScore(risk.probabilite, risk.impact);
+    const level = calculateRiskLevel(risk.probabilite, risk.impact);
+    return [
+      i + 1,
+      risk.riskDescription,
+      risk.category,
+      risk.department,
+      risk.probabilite,
+      probLabels[risk.probabilite] ?? "",
+      risk.impact,
+      impLabels[risk.impact] ?? "",
+      score,
+      level,
+      risk.owner,
+      risk.expectedAction,
+    ];
+  });
+
+  const ws1 = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+
+  // Column widths
+  ws1["!cols"] = [
+    { wch: 5 },   // N°
+    { wch: 50 },  // Scénario
+    { wch: 30 },  // Catégorie
+    { wch: 18 },  // Direction
+    { wch: 20 },  // Proba valeur
+    { wch: 18 },  // Proba libellé
+    { wch: 16 },  // Impact valeur
+    { wch: 16 },  // Impact libellé
+    { wch: 8 },   // Score
+    { wch: 14 },  // Niveau
+    { wch: 25 },  // Propriétaire
+    { wch: 50 },  // Mesure
+  ];
+
+  // Color fills per risk level (ARGB)
+  const levelFills: Record<string, { fgColor: { rgb: string } }> = {
+    "Faible": { fgColor: { rgb: "D1FAE5" } }, // emerald-100
+    "Modéré": { fgColor: { rgb: "FEF9C3" } }, // yellow-100
+    "Élevé": { fgColor: { rgb: "FFEDD5" } }, // orange-100
+    "Très élevé": { fgColor: { rgb: "FFE4E6" } }, // rose-100
+  };
+  const levelFonts: Record<string, { color: { rgb: string }; bold: boolean }> = {
+    "Faible": { color: { rgb: "065F46" }, bold: true },
+    "Modéré": { color: { rgb: "78350F" }, bold: true },
+    "Élevé": { color: { rgb: "9A3412" }, bold: true },
+    "Très élevé": { color: { rgb: "881337" }, bold: true },
+  };
+
+  // Apply header style
+  headers.forEach((_, colIdx) => {
+    const cellAddr = XLSX.utils.encode_cell({ r: 0, c: colIdx });
+    if (!ws1[cellAddr]) return;
+    ws1[cellAddr].s = {
+      font: { bold: true, color: { rgb: "FFFFFF" } },
+      fill: { fgColor: { rgb: "1E293B" } },
+      alignment: { horizontal: "center", vertical: "center", wrapText: true },
+      border: {
+        top: { style: "thin", color: { rgb: "94A3B8" } },
+        bottom: { style: "thin", color: { rgb: "94A3B8" } },
+        left: { style: "thin", color: { rgb: "94A3B8" } },
+        right: { style: "thin", color: { rgb: "94A3B8" } },
+      },
+    };
+  });
+
+  // Apply data row styles
+  dataRows.forEach((row, rowIdx) => {
+    const level = row[9] as string; // "Niveau de Risque" column index 9
+    row.forEach((_, colIdx) => {
+      const cellAddr = XLSX.utils.encode_cell({ r: rowIdx + 1, c: colIdx });
+      if (!ws1[cellAddr]) return;
+      const isLevelCol = colIdx === 9;
+      ws1[cellAddr].s = {
+        font: isLevelCol ? levelFonts[level] : { color: { rgb: "1E293B" } },
+        fill: isLevelCol ? levelFills[level] : { fgColor: { rgb: rowIdx % 2 === 0 ? "F8FAFC" : "FFFFFF" } },
+        alignment: { vertical: "center", wrapText: true, horizontal: colIdx === 0 ? "center" : "left" },
+        border: {
+          top: { style: "thin", color: { rgb: "E2E8F0" } },
+          bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+          left: { style: "thin", color: { rgb: "E2E8F0" } },
+          right: { style: "thin", color: { rgb: "E2E8F0" } },
+        },
+      };
+    });
+  });
+
+  XLSX.utils.book_append_sheet(wb, ws1, "Cartographie");
+
+  // ── SHEET 2 : Légende ───────────────────────────────────────────────────────
+  const legendData = [
+    ["LÉGENDE — GRILLE DE COTATION DES RISQUES", "", "", ""],
+    [""],
+    ["1. GRILLE DE PROBABILITÉ / FRÉQUENCE", "", "", ""],
+    ["Valeur", "Libellé", "Description", ""],
+    ["1", "Improbable", "Une fois tous les 1 à 5 ans", ""],
+    ["2", "Rarement", "Semestrielle / Annuelle", ""],
+    ["3", "Fréquent", "Mensuelle à Semestrielle", ""],
+    ["4", "Souvent", "Hebdomadaire / Quotidien", ""],
+    [""],
+    ["2. GRILLE D'IMPACT", "", "", ""],
+    ["Valeur", "Libellé", "Description", ""],
+    ["1", "Faible", "Menace mineure", ""],
+    ["2", "Modéré", "Menace raisonnable", ""],
+    ["3", "Élevé", "Menace importante", ""],
+    ["4", "Très élevé", "Menace majeure", ""],
+    [""],
+    ["3. GRILLE SCORE → NIVEAU DE RISQUE", "", "", ""],
+    ["Score (Probabilité × Impact)", "Niveau de Risque", "Couleur", "Interprétation"],
+    ["≤ 4", "Faible", "Vert", "Risque résiduel acceptable"],
+    ["5 – 8", "Modéré", "Jaune", "Surveillance recommandée"],
+    ["9 – 12", "Élevé", "Orange", "Action corrective requise"],
+    ["≥ 13", "Très élevé", "Rouge", "Escalade immédiate nécessaire"],
+  ];
+
+  const ws2 = XLSX.utils.aoa_to_sheet(legendData);
+  ws2["!cols"] = [{ wch: 35 }, { wch: 18 }, { wch: 35 }, { wch: 32 }];
+
+  // Style title rows
+  const titleRows = [0, 2, 9, 16];
+  titleRows.forEach((r) => {
+    const addr = XLSX.utils.encode_cell({ r, c: 0 });
+    if (!ws2[addr]) return;
+    ws2[addr].s = {
+      font: { bold: true, color: { rgb: "FFFFFF" }, sz: 12 },
+      fill: { fgColor: { rgb: "1E293B" } },
+      alignment: { horizontal: "left", vertical: "center" },
+    };
+  });
+
+  // Sub-header rows (Valeur / Libellé / Description)
+  const subHeaders = [3, 10, 17];
+  subHeaders.forEach((r) => {
+    [0, 1, 2, 3].forEach((c) => {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if (!ws2[addr]) return;
+      ws2[addr].s = {
+        font: { bold: true, color: { rgb: "1E293B" } },
+        fill: { fgColor: { rgb: "CBD5E1" } },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "94A3B8" } },
+          bottom: { style: "thin", color: { rgb: "94A3B8" } },
+          left: { style: "thin", color: { rgb: "94A3B8" } },
+          right: { style: "thin", color: { rgb: "94A3B8" } },
+        },
+      };
+    });
+  });
+
+  // Color level rows in Légende
+  const levelRowMap: Array<{ row: number; level: string }> = [
+    { row: 18, level: "Faible" },
+    { row: 19, level: "Modéré" },
+    { row: 20, level: "Élevé" },
+    { row: 21, level: "Très élevé" },
+  ];
+  levelRowMap.forEach(({ row, level }) => {
+    [0, 1, 2, 3].forEach((c) => {
+      const addr = XLSX.utils.encode_cell({ r: row, c });
+      if (!ws2[addr]) return;
+      ws2[addr].s = {
+        font: levelFonts[level] ?? { bold: true },
+        fill: levelFills[level] ?? { fgColor: { rgb: "FFFFFF" } },
+        alignment: { vertical: "center", horizontal: c === 0 ? "center" : "left" },
+        border: {
+          top: { style: "thin", color: { rgb: "E2E8F0" } },
+          bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+          left: { style: "thin", color: { rgb: "E2E8F0" } },
+          right: { style: "thin", color: { rgb: "E2E8F0" } },
+        },
+      };
+    });
+  });
+
+  XLSX.utils.book_append_sheet(wb, ws2, "Légende");
+
+  // ── Download ────────────────────────────────────────────────────────────────
+  const today = new Date().toISOString().split("T")[0];
+  XLSX.writeFile(wb, `Cartographie_Risques_${today}.xlsx`, { bookType: "xlsx", cellStyles: true });
 };
 
 const getRiskScoreStyle = (score: number): { bg: string; text: string; border: string; label: string } => {
@@ -252,13 +469,23 @@ export default function RiskMappingPage() {
               Pilotage stratégique de l'exposition réglementaire et opérationnelle en temps réel.
             </p>
           </div>
-          <Button
-            size="lg"
-            onClick={() => openDialog('add')}
-            className="h-14 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-lg transition-all hover:scale-[1.02]"
-          >
-            <PlusCircle className="mr-2 h-4 w-4" /> Identifier un Risque
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => exportToExcel(filteredRisks)}
+              className="h-14 px-6 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs shadow-sm transition-all hover:scale-[1.02]"
+            >
+              <Download className="mr-2 h-4 w-4" /> Exporter Excel
+            </Button>
+            <Button
+              size="lg"
+              onClick={() => openDialog('add')}
+              className="h-14 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-lg transition-all hover:scale-[1.02]"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> Identifier un Risque
+            </Button>
+          </div>
         </div>
       </div>
 
