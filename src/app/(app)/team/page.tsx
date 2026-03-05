@@ -36,18 +36,17 @@ const memberSchema = z.object({
 type MemberFormValues = z.infer<typeof memberSchema>;
 
 const AVATAR_COLLECTION = [
-    // Men (Miniavs)
-    { id: 'm1', url: 'https://api.dicebear.com/7.x/miniavs/svg?seed=Felix' },
-    { id: 'm2', url: 'https://api.dicebear.com/7.x/miniavs/svg?seed=Jack' },
-    { id: 'm3', url: 'https://api.dicebear.com/7.x/miniavs/svg?seed=Crockett' },
-    // Women (Miniavs)
-    { id: 'w1', url: 'https://api.dicebear.com/7.x/miniavs/svg?seed=Aneka' },
-    { id: 'w2', url: 'https://api.dicebear.com/7.x/miniavs/svg?seed=Luna' },
-    { id: 'w3', url: 'https://api.dicebear.com/7.x/miniavs/svg?seed=Sasha' },
-    // Robots (Bottts Neutral - Premium)
-    { id: 'r1', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Robo1' },
-    { id: 'r2', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Robo2' },
-    { id: 'r3', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Robo3' },
+    // Notionists (Ultra-Professional & Modern)
+    { id: 'n1', url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Liam' },
+    { id: 'n2', url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Noah' },
+    { id: 'n3', url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Oliver' },
+    { id: 'n4', url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Emma' },
+    { id: 'n5', url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Ava' },
+    { id: 'n6', url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Sophia' },
+    // Bottts (Modern Cybernetic)
+    { id: 'r1', url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Buster&backgroundColor=b6e3f4' },
+    { id: 'r2', url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Sparky&backgroundColor=c0aede' },
+    { id: 'r3', url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Hoppy&backgroundColor=d1d4f9' },
 ];
 
 export default function TeamPage() {
