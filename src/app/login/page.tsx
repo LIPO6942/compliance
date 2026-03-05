@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
 import { Logo } from '@/components/icons/Logo';
+import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
     const { login, isLoaded, user } = useUser();
+    const { toast } = useToast();
     const [email, setEmail] = useState('');
     const [isSent, setIsSent] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -22,8 +24,13 @@ export default function LoginPage() {
         try {
             await login(email);
             setIsSent(true);
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
+            toast({
+                title: "Erreur d'envoi",
+                description: "Une erreur est survenue lors de l'envoi du mail. Vérifiez votre connexion ou la configuration Firebase.",
+                variant: "destructive",
+            });
         } finally {
             setLoading(false);
         }
