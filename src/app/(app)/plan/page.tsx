@@ -6,6 +6,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { usePlanData } from "@/contexts/PlanDataContext";
+import { useActivityLog } from "@/contexts/ActivityLogContext";
+import { useUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
 import type { ComplianceTask, ComplianceCategory, ComplianceSubCategory, Document } from "@/types/compliance";
 import type { DialogState, ViewMode } from "@/components/plan/types";
@@ -137,6 +139,8 @@ export default function PlanPage() {
   const router = useRouter();
   const { documents, loading: docsLoading } = useDocuments();
   const { risks: allRisks } = useRiskMapping();
+  const { logAction } = useActivityLog();
+  const { user } = useUser();
   const { toast } = useToast();
 
   const [isClient, setIsClient] = React.useState(false);
@@ -213,16 +217,38 @@ export default function PlanPage() {
   const onSubmitCategory = async (values: CategoryFormValues) => {
     if (dialogState.mode === 'add') {
       await addCategory(values);
+      logAction({
+        userEmail: user.email,
+        userName: user.name,
+        action: 'PLAN_UPDATE',
+        label: `A créé la catégorie : ${values.name}`,
+        module: 'Plan de Conformité'
+      });
       toast({ title: "Catégorie ajoutée" });
     } else if (dialogState.data?.id) {
       await editCategory(dialogState.data.id, values);
+      logAction({
+        userEmail: user.email,
+        userName: user.name,
+        action: 'PLAN_UPDATE',
+        label: `A modifié la catégorie : ${values.name}`,
+        module: 'Plan de Conformité'
+      });
       toast({ title: "Catégorie modifiée" });
     }
     closeDialog();
   };
 
   const handleRemoveCategory = async (categoryId: string) => {
+    const categoryName = deleteDialog.name || categoryId;
     await removeCategory(categoryId);
+    logAction({
+      userEmail: user.email,
+      userName: user.name,
+      action: 'PLAN_UPDATE',
+      label: `A supprimé la catégorie : ${categoryName}`,
+      module: 'Plan de Conformité'
+    });
     toast({ title: "Catégorie supprimée" });
     closeDeleteDialog();
   };
@@ -230,16 +256,38 @@ export default function PlanPage() {
   const onSubmitSubCategory = async (values: SubCategoryFormValues) => {
     if (dialogState.mode === 'add' && dialogState.parentId) {
       await addSubCategory(dialogState.parentId, values);
+      logAction({
+        userEmail: user.email,
+        userName: user.name,
+        action: 'PLAN_UPDATE',
+        label: `A ajouté la sous-catégorie : ${values.name}`,
+        module: 'Plan de Conformité'
+      });
       toast({ title: "Sous-catégorie ajoutée" });
     } else if (dialogState.mode === 'edit' && dialogState.grandParentId && dialogState.data?.id) {
       await editSubCategory(dialogState.grandParentId, dialogState.data.id, values);
+      logAction({
+        userEmail: user.email,
+        userName: user.name,
+        action: 'PLAN_UPDATE',
+        label: `A modifié la sous-catégorie : ${values.name}`,
+        module: 'Plan de Conformité'
+      });
       toast({ title: "Sous-catégorie modifiée" });
     }
     closeDialog();
   };
 
   const handleRemoveSubCategory = async (categoryId: string, subCategoryId: string) => {
+    const subCategoryName = deleteDialog.name || subCategoryId;
     await removeSubCategory(categoryId, subCategoryId);
+    logAction({
+      userEmail: user.email,
+      userName: user.name,
+      action: 'PLAN_UPDATE',
+      label: `A supprimé la sous-catégorie : ${subCategoryName}`,
+      module: 'Plan de Conformité'
+    });
     toast({ title: "Sous-catégorie supprimée" });
     closeDeleteDialog();
   };
@@ -264,9 +312,23 @@ export default function PlanPage() {
 
       if (dialogState.mode === 'add') {
         await addTask(dialogState.grandParentId, dialogState.parentId, taskData);
+        logAction({
+          userEmail: user.email,
+          userName: user.name,
+          action: 'PLAN_UPDATE',
+          label: `A créé la tâche : ${taskData.name}`,
+          module: 'Plan de Conformité'
+        });
         toast({ title: "Tâche ajoutée" });
       } else if (dialogState.data?.id) {
         await editTask(dialogState.grandParentId, dialogState.parentId, dialogState.data.id, taskData);
+        logAction({
+          userEmail: user.email,
+          userName: user.name,
+          action: 'PLAN_UPDATE',
+          label: `A modifié la tâche : ${taskData.name}`,
+          module: 'Plan de Conformité'
+        });
         toast({ title: "Tâche modifiée" });
       }
     }
@@ -274,13 +336,28 @@ export default function PlanPage() {
   };
 
   const handleRemoveTask = async (categoryId: string, subCategoryId: string, taskId: string) => {
+    const taskName = deleteDialog.name || taskId;
     await removeTask(categoryId, subCategoryId, taskId);
+    logAction({
+      userEmail: user.email,
+      userName: user.name,
+      action: 'PLAN_UPDATE',
+      label: `A supprimé la tâche : ${taskName}`,
+      module: 'Plan de Conformité'
+    });
     toast({ title: "Tâche supprimée" });
     closeDeleteDialog();
   };
 
-  const handleToggleTaskCompletion = async (categoryId: string, subCategoryId: string, taskId: string, completed: boolean) => {
+  const handleToggleTaskCompletion = async (categoryId: string, subCategoryId: string, taskId: string, completed: boolean, taskName?: string) => {
     await updateTaskCompletion(categoryId, subCategoryId, taskId, completed);
+    logAction({
+      userEmail: user.email,
+      userName: user.name,
+      action: 'PLAN_UPDATE',
+      label: `${completed ? 'A validé' : 'A annulé la validation de'} la tâche : ${taskName || taskId}`,
+      module: 'Plan de Conformité'
+    });
     toast({ title: "Statut de la tâche modifié" });
   };
 
@@ -508,7 +585,7 @@ export default function PlanPage() {
                                   const riskStyle = taskRiskLevel ? riskBadgeStyles[taskRiskLevel] : null;
                                   return (
                                     <li key={task.id} className="flex items-start bg-white dark:bg-slate-900/50 p-4 rounded-2xl border-2 border-slate-50 dark:border-slate-800/50 hover:border-primary/20 hover:shadow-xl hover:shadow-slate-200/20 transition-all group/task relative pr-12">
-                                      <Checkbox id={`task-${task.id}`} checked={task.completed} onCheckedChange={() => handleToggleTaskCompletion(category.id, subCategory.id, task.id, !task.completed)} className="mr-2.5 mt-1 flex-shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" aria-labelledby={`task-label-${task.id}`} />
+                                      <Checkbox id={`task-${task.id}`} checked={task.completed} onCheckedChange={() => handleToggleTaskCompletion(category.id, subCategory.id, task.id, !task.completed, task.name)} className="mr-2.5 mt-1 flex-shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" aria-labelledby={`task-label-${task.id}`} />
                                       <label htmlFor={`task-${task.id}`} id={`task-label-${task.id}`} className="cursor-pointer flex-grow">
                                         <div className="flex items-center gap-2 flex-wrap">
                                           <span className={`${task.completed ? 'line-through text-muted-foreground/70' : ''} ${isClient && isTaskOverdue(task) ? "text-destructive font-medium" : "text-foreground"}`}>{task.name}</span>

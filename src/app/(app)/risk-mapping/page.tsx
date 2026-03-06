@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck, FolderOpen, Info } from "lucide-react";
+import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck, FolderOpen, Info, Download } from "lucide-react";
+import ExcelJS from "exceljs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
@@ -26,6 +27,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from "@/hooks/use-toast";
 import type { RiskMappingItem, RiskLevel, RiskCategory, Document } from '@/types/compliance';
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
+import { useActivityLog } from "@/contexts/ActivityLogContext";
+import { useUser } from "@/contexts/UserContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import Link from "next/link";
@@ -62,6 +65,191 @@ const calculateRiskLevel = (probabilite: number, impact: number): RiskLevel => {
   if (score <= 8) return "Modéré";
   if (score <= 12) return "Élevé";
   return "Très élevé";
+};
+
+const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any) => {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Compliance Navigator";
+  wb.created = new Date();
+
+  const probLabels: Record<number, string> = { 1: "Improbable", 2: "Rarement", 3: "Fréquent", 4: "Souvent" };
+  const impLabels: Record<number, string> = { 1: "Faible", 2: "Modéré", 3: "Élevé", 4: "Très élevé" };
+
+  // ── Risk level styles ───────────────────────────────────────────────────────
+  type ExcelColor = { argb: string };
+  const levelBg: Record<string, ExcelColor> = {
+    "Faible": { argb: "FFD1FAE5" },  // emerald-100
+    "Modéré": { argb: "FFFEF9C3" },  // yellow-100
+    "Élevé": { argb: "FFFFEDD5" },  // orange-100
+    "Très élevé": { argb: "FFFFE4E6" },  // rose-100
+  };
+  const levelFont: Record<string, ExcelColor> = {
+    "Faible": { argb: "FF065F46" },
+    "Modéré": { argb: "FF78350F" },
+    "Élevé": { argb: "FF9A3412" },
+    "Très élevé": { argb: "FF881337" },
+  };
+
+  const applyBorder = (cell: ExcelJS.Cell, color = "FFE2E8F0") => {
+    const side = { style: "thin" as const, color: { argb: color } };
+    cell.border = { top: side, bottom: side, left: side, right: side };
+  };
+
+  // ── SHEET 1 : Cartographie ──────────────────────────────────────────────────
+  const ws1 = wb.addWorksheet("Cartographie");
+
+  ws1.columns = [
+    { header: "N°", key: "num", width: 5 },
+    { header: "Scénario de Risque", key: "desc", width: 52 },
+    { header: "Catégorie", key: "cat", width: 30 },
+    { header: "Direction", key: "dept", width: 18 },
+    { header: "Probabilité (valeur)", key: "pv", width: 22 },
+    { header: "Probabilité (libellé)", key: "pl", width: 20 },
+    { header: "Impact (valeur)", key: "iv", width: 16 },
+    { header: "Impact (libellé)", key: "il", width: 16 },
+    { header: "Score", key: "score", width: 8 },
+    { header: "Niveau de Risque", key: "level", width: 16 },
+    { header: "Mesure d'atténuation", key: "action", width: 52 },
+  ];
+
+  // Style header row
+  const headerRow = ws1.getRow(1);
+  headerRow.height = 28;
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+    cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+    applyBorder(cell, "FF94A3B8");
+  });
+
+  // Data rows
+  risks.forEach((risk, i) => {
+    const score = calculateRiskScore(risk.probabilite, risk.impact);
+    const level = calculateRiskLevel(risk.probabilite, risk.impact);
+    const rowBg = i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
+
+    const row = ws1.addRow({
+      num: i + 1,
+      desc: risk.riskDescription,
+      cat: risk.category,
+      dept: risk.department,
+      pv: risk.probabilite,
+      pl: probLabels[risk.probabilite] ?? "",
+      iv: risk.impact,
+      il: impLabels[risk.impact] ?? "",
+      score,
+      level,
+      action: risk.expectedAction,
+    });
+    row.height = 36;
+
+    row.eachCell((cell, colNumber) => {
+      cell.alignment = { vertical: "middle", wrapText: true, horizontal: colNumber === 1 ? "center" : "left" };
+      applyBorder(cell);
+      if (colNumber === 9) {
+        // Level column — color by risk level
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[level] || { argb: "FFFFFFFF" } };
+        cell.font = { bold: true, color: levelFont[level] || { argb: "FF000000" }, size: 10 };
+      } else {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+        cell.font = { color: { argb: "FF1E293B" }, size: 10 };
+      }
+    });
+  });
+
+  // ── SHEET 2 : Légende ───────────────────────────────────────────────────────
+  const ws2 = wb.addWorksheet("Légende");
+  ws2.columns = [
+    { key: "a", width: 35 },
+    { key: "b", width: 20 },
+    { key: "c", width: 35 },
+    { key: "d", width: 33 },
+  ];
+
+  const addTitle = (text: string) => {
+    const r = ws2.addRow([text]);
+    r.height = 26;
+    const cell = r.getCell(1);
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+    cell.alignment = { vertical: "middle" };
+  };
+
+  const addSubHeader = (cols: string[]) => {
+    const r = ws2.addRow(cols);
+    r.height = 22;
+    r.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: "FF1E293B" }, size: 10 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCBD5E1" } };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+      applyBorder(cell, "FF94A3B8");
+    });
+  };
+
+  const addDataRow2 = (cols: (string | number)[], level?: string) => {
+    const r = ws2.addRow(cols);
+    r.height = 20;
+    r.eachCell((cell, col) => {
+      cell.alignment = { vertical: "middle", horizontal: col === 1 ? "center" : "left" };
+      applyBorder(cell);
+      if (level) {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[level] || { argb: "FFFFFFFF" } };
+        cell.font = { bold: true, color: levelFont[level] || { argb: "FF000000" }, size: 10 };
+      } else {
+        cell.font = { color: { argb: "FF1E293B" }, size: 10 };
+      }
+    });
+  };
+
+  // Grille Probabilité
+  addTitle("LÉGENDE — GRILLE DE COTATION DES RISQUES");
+  ws2.addRow([]);
+  addTitle("1. GRILLE DE PROBABILITÉ / FRÉQUENCE");
+  addSubHeader(["Valeur", "Libellé", "Description", ""]);
+  addDataRow2(["1", "Improbable", "Une fois tous les 1 à 5 ans", ""]);
+  addDataRow2(["2", "Rarement", "Semestrielle / Annuelle", ""]);
+  addDataRow2(["3", "Fréquent", "Mensuelle à Semestrielle", ""]);
+  addDataRow2(["4", "Souvent", "Hebdomadaire / Quotidien", ""]);
+
+  // Grille Impact
+  ws2.addRow([]);
+  addTitle("2. GRILLE D'IMPACT");
+  addSubHeader(["Valeur", "Libellé", "Description", ""]);
+  addDataRow2(["1", "Faible", "Menace mineure", ""]);
+  addDataRow2(["2", "Modéré", "Menace raisonnable", ""]);
+  addDataRow2(["3", "Élevé", "Menace importante", ""]);
+  addDataRow2(["4", "Très élevé", "Menace majeure", ""]);
+
+  // Grille Score
+  ws2.addRow([]);
+  addTitle("3. GRILLE SCORE → NIVEAU DE RISQUE");
+  addSubHeader(["Score (Probabilité × Impact)", "Niveau de Risque", "Couleur", "Interprétation"]);
+  addDataRow2(["≤ 4", "Faible", "Vert", "Risque résiduel acceptable"], "Faible");
+  addDataRow2(["5 – 8", "Modéré", "Jaune", "Surveillance recommandée"], "Modéré");
+  addDataRow2(["9 – 12", "Élevé", "Orange", "Action corrective requise"], "Élevé");
+  addDataRow2(["≥ 13", "Très élevé", "Rouge", "Escalade immédiate nécessaire"], "Très élevé");
+
+  // ── Download ────────────────────────────────────────────────────────────────
+  const today = new Date().toISOString().split("T")[0];
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Cartographie_Risques_${today}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  // LOG ACTION
+  if (user) {
+    logAction({
+      userEmail: user.email,
+      userName: user.name,
+      action: 'OTHER',
+      label: `A exporté la cartographie des risques (${risks.length} lignes)`,
+      module: 'Cartographie des Risques'
+    });
+  }
 };
 
 const getRiskScoreStyle = (score: number): { bg: string; text: string; border: string; label: string } => {
@@ -102,6 +290,8 @@ export default function RiskMappingPage() {
   const { createAlertFromRisk, findAlertByRiskId, removeAlertByRiskId } = useIdentifiedRegulations();
   const { documents } = useDocuments();
   const { toast } = useToast();
+  const { logAction } = useActivityLog();
+  const { user } = useUser();
 
   const [isClient, setIsClient] = React.useState(false);
   React.useEffect(() => { setIsClient(true) }, []);
@@ -175,6 +365,16 @@ export default function RiskMappingPage() {
           riskLevel: calculateRiskLevel(numProba, numImpact),
         });
         toast({ title: "Risque identifié", description: "La cartographie a été mise à jour." });
+        if (user) {
+          logAction({
+            userEmail: user.email,
+            userName: user.name,
+            action: 'RISK_ADD',
+            label: `A ajouté un risque : ${sanitizedValues.riskDescription}`,
+            detail: sanitizedValues.category,
+            module: 'Cartographie des Risques'
+          });
+        }
       } else if (dialogState.mode === "edit" && dialogState.data?.id) {
         await editRisk(dialogState.data.id, {
           ...sanitizedValues,
@@ -183,6 +383,16 @@ export default function RiskMappingPage() {
           riskLevel: calculateRiskLevel(numProba, numImpact),
         });
         toast({ title: "Risque modifié", description: "Les détails du risque ont été actualisés." });
+        if (user) {
+          logAction({
+            userEmail: user.email,
+            userName: user.name,
+            action: 'RISK_EDIT',
+            label: `A modifié un risque : ${sanitizedValues.riskDescription}`,
+            detail: sanitizedValues.category,
+            module: 'Cartographie des Risques'
+          });
+        }
       }
       closeDialog();
     } catch (e: any) {
@@ -191,12 +401,21 @@ export default function RiskMappingPage() {
     }
   };
 
-  const handleDeleteRisk = async (id: string) => {
+  const handleDeleteRisk = async (id: string, riskDescription: string) => {
     try {
       const alert = findAlertByRiskId(id);
       if (alert) await removeAlertByRiskId(id);
       await removeRisk(id);
       toast({ title: "Risque supprimé", description: "Le risque a été retiré de la cartographie." });
+      if (user) {
+        logAction({
+          userEmail: user.email,
+          userName: user.name,
+          action: 'RISK_DELETE',
+          label: `A supprimé un risque : ${riskDescription}`,
+          module: 'Cartographie des Risques'
+        });
+      }
     } catch (e) {
       toast({ variant: "destructive", title: "Erreur", description: "Action impossible." });
     }
@@ -248,13 +467,23 @@ export default function RiskMappingPage() {
               Pilotage stratégique de l'exposition réglementaire et opérationnelle en temps réel.
             </p>
           </div>
-          <Button
-            size="lg"
-            onClick={() => openDialog('add')}
-            className="h-14 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-lg transition-all hover:scale-[1.02]"
-          >
-            <PlusCircle className="mr-2 h-4 w-4" /> Identifier un Risque
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => exportToExcel(filteredRisks, logAction, user)}
+              className="h-9 px-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" /> Exporter Excel
+            </Button>
+            <Button
+              size="lg"
+              onClick={() => openDialog('add')}
+              className="h-14 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-lg transition-all hover:scale-[1.02]"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> Identifier un Risque
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -862,7 +1091,7 @@ export default function RiskMappingPage() {
           <AlertDialogFooter className="pt-8 gap-3">
             <AlertDialogCancel className="h-14 px-8 rounded-2xl font-black uppercase text-xs tracking-widest border-slate-200">Annuler</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => dialogState.data && handleDeleteRisk(dialogState.data.id)}
+              onClick={() => dialogState.data && handleDeleteRisk(dialogState.data.id, dialogState.data.riskDescription)}
               className="h-14 px-8 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black uppercase text-xs tracking-widest shadow-xl shadow-rose-600/20"
             >
               Supprimer définitivement

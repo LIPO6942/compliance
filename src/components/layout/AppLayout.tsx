@@ -53,6 +53,8 @@ import { useTeam } from "@/contexts/TeamContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
+import { useActivityLog } from "@/contexts/ActivityLogContext";
+import { Activity } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
@@ -76,15 +78,16 @@ const navItems = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
-  const { user, isLoaded } = useUser();
+  const { user, isLoaded, logout } = useUser();
   const { teamMembers } = useTeam();
+  const { isAdmin } = useActivityLog();
   const { identifiedRegulations } = useIdentifiedRegulations();
 
   const linkedTeamMember = React.useMemo(() => {
     return teamMembers.find(m => m.name === user.name || (m.email && user.email && m.email === user.email));
   }, [teamMembers, user]);
 
-  const displayRole = linkedTeamMember?.role || user.role;
+  const displayRole = linkedTeamMember?.officialFunction || user?.officialFunction || linkedTeamMember?.role || user?.role;
 
   const newAlertsCount = React.useMemo(() => {
     return identifiedRegulations.filter(reg => reg.status === 'Nouveau').length;
@@ -158,6 +161,37 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   )}
                 </SidebarMenuItem>
               ))}
+
+              {/* Admin Section */}
+              {user && isAdmin(user.authEmail || user.email || '') && (
+                <>
+                  <div className="px-4 py-2 mt-4 group-data-[collapsible=icon]:hidden">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Administration</p>
+                  </div>
+                  <SidebarMenuItem>
+                    <Link href="/settings/admin/activity">
+                      <SidebarMenuButton
+                        isActive={pathname.startsWith('/settings/admin/activity')}
+                        tooltip={{ children: "Journal d'Activité", className: "font-black uppercase tracking-widest text-[10px]" }}
+                        className={cn(
+                          "h-12 rounded-xl transition-all duration-300 px-4 group/btn",
+                          pathname.startsWith('/settings/admin/activity')
+                            ? "bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-950 shadow-lg shadow-slate-900/20 dark:shadow-slate-50/20"
+                            : "hover:bg-slate-100 dark:hover:bg-slate-800/50"
+                        )}
+                      >
+                        <Activity className={cn(
+                          "h-5 w-5 transition-transform group-hover/btn:scale-110",
+                          pathname.startsWith('/settings/admin/activity') ? "text-primary" : "text-slate-400"
+                        )} />
+                        <span className="font-extrabold text-[11px] uppercase tracking-tighter italic">
+                          Journal d'Activité Admin
+                        </span>
+                      </SidebarMenuButton>
+                    </Link>
+                  </SidebarMenuItem>
+                </>
+              )}
             </SidebarMenu>
           </ScrollArea>
         </SidebarContent>
@@ -167,10 +201,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
                   <Avatar key="user-profile-avatar" className="h-8 w-8">
-                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                    <AvatarFallback>{user ? getInitials(user.name) : 'U'}</AvatarFallback>
                   </Avatar>
                   <div className="group-data-[collapsible=icon]:hidden text-left">
-                    <p className="text-sm font-medium text-sidebar-foreground">{user.name}</p>
+                    <p className="text-sm font-medium text-sidebar-foreground">{user?.name}</p>
                     <p className="text-xs text-muted-foreground">{displayRole}</p>
                   </div>
                 </Button>
@@ -184,7 +218,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <span>Paramètres</span>
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="font-body text-red-600 hover:!text-red-600 focus:!text-red-600 focus:!bg-red-50 dark:text-red-500 dark:hover:!text-red-500 dark:focus:!text-red-500 dark:focus:!bg-red-900/50">
+                <DropdownMenuItem
+                  onClick={() => logout()}
+                  className="font-body text-red-600 hover:!text-red-600 focus:!text-red-600 focus:!bg-red-50 dark:text-red-500 dark:hover:!text-red-500 dark:focus:!text-red-500 dark:focus:!bg-red-900/50 cursor-pointer"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Déconnexion</span>
                 </DropdownMenuItem>

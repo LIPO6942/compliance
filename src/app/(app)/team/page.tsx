@@ -18,36 +18,58 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const memberSchema = z.object({
     name: z.string().min(1, "Le nom est requis."),
     role: z.string().min(1, "Le rôle est requis."),
+    officialFunction: z.string().optional(),
     specialty: z.string().min(1, "La spécialité est requise."),
     status: z.enum(["Online", "Away", "Offline"]),
     expertise: z.string().min(1, "Au moins une compétence est requise."),
-    avatarUrl: z.string().optional(),
+    avatarUrl: z.string().nullable().optional(),
     email: z.string().email("Veuillez entrer une adresse email valide.").optional().or(z.literal('')),
+    secondaryEmail: z.string().email("Veuillez entrer une adresse email valide.").optional().or(z.literal('')),
     phone: z.string().optional(),
+    order: z.coerce.number().optional().default(10),
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
+
+const AVATAR_COLLECTION = [
+    // Formal Business Men (Avataaars - Refined)
+    { id: 'm1', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jasper&topType=shortHair&accessoriesType=none&hairColor=Black&facialHairType=none&clotheType=BlazerShirt&eyeType=Default&eyebrowType=Default&mouthType=Default' },
+    { id: 'm2', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Caleb&topType=shortHair&accessoriesType=none&hairColor=Black&facialHairType=none&clotheType=BlazerShirt&eyeType=Default&eyebrowType=Default&mouthType=Default' },
+    { id: 'm3', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Leo&topType=shortHair&accessoriesType=none&hairColor=Brown&facialHairType=none&clotheType=BlazerShirt&eyeType=Default&eyebrowType=Default&mouthType=Default' },
+    // Formal Business Women (Avataaars - Refined)
+    { id: 'w1', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena&topType=longHairStraight&accessoriesType=none&hairColor=Black&clotheType=BlazerShirt&eyeType=Default&eyebrowType=Default&mouthType=Default' },
+    { id: 'w2', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Maya&topType=longHairStraight&accessoriesType=none&hairColor=Brown&clotheType=BlazerShirt&eyeType=Default&eyebrowType=Default&mouthType=Default' },
+    { id: 'w3', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aria&topType=longHairStraight&accessoriesType=none&hairColor=Black&clotheType=BlazerShirt&eyeType=Default&eyebrowType=Default&mouthType=Default' },
+    // Simplified Professional Robots (Bottts Neutral)
+    { id: 'r1', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Admin1&backgroundColor=f1f5f9' },
+    { id: 'r2', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Admin2&backgroundColor=f1f5f9' },
+    { id: 'r3', url: 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Admin3&backgroundColor=f1f5f9' },
+];
 
 export default function TeamPage() {
     const { teamMembers, updateMember, addMember, removeMember, isLoading } = useTeam();
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [editingMember, setEditingMember] = React.useState<TeamMember | null>(null);
+    const [selectedAvatar, setSelectedAvatar] = React.useState<string | null>(null);
 
     const form = useForm<MemberFormValues>({
         resolver: zodResolver(memberSchema),
         defaultValues: {
             name: "",
             role: "",
+            officialFunction: "",
             specialty: "",
             status: "Online",
             expertise: "",
             avatarUrl: "",
             email: "",
+            secondaryEmail: "",
             phone: "",
         }
     });
@@ -58,23 +80,31 @@ export default function TeamPage() {
     const openDialog = (member?: TeamMember) => {
         if (member) {
             setEditingMember(member);
+            setSelectedAvatar(member.avatarUrl || null);
             form.reset({
                 ...member,
+                officialFunction: member.officialFunction || "",
                 expertise: member.expertise.join(", "),
                 email: member.email || "",
+                secondaryEmail: member.secondaryEmail || "",
                 phone: member.phone || "",
+                order: member.order || 10,
             });
         } else {
             setEditingMember(null);
+            setSelectedAvatar(null);
             form.reset({
                 name: "",
                 role: "",
+                officialFunction: "",
                 specialty: "",
                 status: "Online",
                 expertise: "",
                 avatarUrl: "",
                 email: "",
+                secondaryEmail: "",
                 phone: "",
+                order: 10,
             });
         }
         setIsDialogOpen(true);
@@ -85,12 +115,15 @@ export default function TeamPage() {
             const memberData: Omit<TeamMember, 'id'> = {
                 name: values.name.trim(),
                 role: values.role.trim(),
+                officialFunction: values.officialFunction?.trim() || undefined,
                 specialty: values.specialty.trim(),
                 status: values.status as "Online" | "Away" | "Offline",
                 expertise: values.expertise.split(",").map((e: string) => e.trim()).filter(Boolean),
-                avatarUrl: values.avatarUrl?.trim() || undefined,
+                avatarUrl: selectedAvatar || null,
                 email: values.email?.trim() || undefined,
+                secondaryEmail: values.secondaryEmail?.trim() || undefined,
                 phone: values.phone?.trim() || undefined,
+                order: values.order,
             };
 
             console.log("💾 Enregistrement:", { editingMember: editingMember?.id, data: memberData });
@@ -154,88 +187,100 @@ export default function TeamPage() {
                     ))}
                 </div>
             ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                {teamMembers.map((member) => (
-                    <div key={member.id} className="group relative">
-                        {/* Holographic Card Background */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-indigo-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    {[...teamMembers].sort((a, b) => (a.order || 0) - (b.order || 0)).map((member) => (
+                        <div key={member.id} className="group relative">
+                            {/* Holographic Card Background */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-indigo-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-                        <Card className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-slate-100 dark:border-slate-800 rounded-3xl shadow-xl overflow-hidden hover:-translate-y-2 transition-transform duration-500">
-                            {/* Actions Overlay */}
-                            <div className="absolute top-4 left-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                <Button variant="secondary" size="icon" onClick={() => openDialog(member)} className="h-8 w-8 rounded-lg bg-white/90 dark:bg-slate-800/90 shadow-sm border-none">
-                                    <Edit className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button variant="destructive" size="icon" onClick={() => removeMember(member.id)} className="h-8 w-8 rounded-lg shadow-sm border-none">
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                            </div>
-
-                            {/* Status Indicator */}
-                            <div className="absolute top-4 right-4 flex items-center gap-1.5 z-20">
-                                <div className={`w-2 h-2 rounded-full ${member.status === 'Online' ? 'bg-emerald-500 animate-pulse' : member.status === 'Away' ? 'bg-amber-500' : 'bg-slate-300'}`} />
-                                <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{member.status}</span>
-                            </div>
-
-                            <CardHeader className="pt-12 pb-4 text-center">
-                                <div className="relative mx-auto mb-4">
-                                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-lg group-hover:blur-xl transition-all" />
-                                    <Avatar className="h-24 w-24 border-4 border-white dark:border-slate-800 shadow-2xl mx-auto relative z-10">
-                                        <AvatarImage src={member.avatarUrl} />
-                                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-primary text-white text-2xl font-black">
-                                            {member.name.split(' ').map(n => n[0]).join('')}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    {member.name.toLowerCase().includes('ai') && (
-                                        <div className="absolute -bottom-2 -right-2 bg-slate-900 text-white p-1.5 rounded-lg shadow-lg border border-white/20 z-20">
-                                            <Zap className="h-4 w-4 text-amber-500 fill-amber-500" />
-                                        </div>
-                                    )}
-                                </div>
-                                <CardTitle className="text-xl font-black tracking-tight">{member.name}</CardTitle>
-                                <CardDescription className="font-bold text-primary uppercase text-[11px] tracking-[0.1em]">{member.role}</CardDescription>
-                            </CardHeader>
-
-                            <CardContent className="space-y-6">
-                                <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-2 flex items-center gap-2">
-                                        <Shield className="h-3 w-3 text-primary" /> Spécialité Maîtresse
-                                    </p>
-                                    <p className="text-sm font-bold">{member.specialty}</p>
+                            <Card className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-slate-100 dark:border-slate-800 rounded-3xl shadow-xl overflow-hidden hover:-translate-y-2 transition-transform duration-500">
+                                {/* Actions Overlay */}
+                                <div className="absolute top-4 left-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                    <Button variant="secondary" size="icon" onClick={() => openDialog(member)} className="h-8 w-8 rounded-lg bg-white/90 dark:bg-slate-800/90 shadow-sm border-none">
+                                        <Edit className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="destructive" size="icon" onClick={() => removeMember(member.id)} className="h-8 w-8 rounded-lg shadow-sm border-none">
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <p className="text-[10px] font-black uppercase text-muted-foreground px-1 tracking-widest">Compétences GRC</p>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {member.expertise.map((exp, i) => (
-                                            <Badge key={i} variant="secondary" className="bg-white dark:bg-slate-800 text-[9px] font-bold py-0.5 px-2 border-none shadow-sm capitalize">
-                                                {exp}
-                                            </Badge>
-                                        ))}
+                                {/* Status Indicator */}
+                                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-20">
+                                    <div className={`w-2 h-2 rounded-full ${member.status === 'Online' ? 'bg-emerald-500 animate-pulse' : member.status === 'Away' ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{member.status}</span>
+                                </div>
+
+                                <CardHeader className="pt-12 pb-4 text-center">
+                                    <div className="relative mx-auto mb-4">
+                                        <div className="absolute inset-0 bg-primary/20 rounded-full blur-lg group-hover:blur-xl transition-all" />
+                                        <Avatar className="h-24 w-24 border-4 border-white dark:border-slate-800 shadow-2xl mx-auto relative z-10">
+                                            <AvatarImage src={member.avatarUrl} />
+                                            <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-primary text-white text-2xl font-black">
+                                                {member.name.split(' ').map(n => n[0]).join('')}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        {member.name.toLowerCase().includes('ai') && (
+                                            <div className="absolute -bottom-2 -right-2 bg-slate-900 text-white p-1.5 rounded-lg shadow-lg border border-white/20 z-20">
+                                                <Zap className="h-4 w-4 text-amber-500 fill-amber-500" />
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
+                                    <CardTitle className="text-xl font-black tracking-tight">{member.name}</CardTitle>
+                                    <CardDescription className="font-bold text-primary uppercase text-[11px] tracking-[0.1em]">
+                                        {member.officialFunction || member.role}
+                                    </CardDescription>
+                                </CardHeader>
 
-                                <div className="flex gap-2 pt-2">
-                                    {member.email && (
-                                        <Button asChild variant="outline" size="icon" className="flex-1 h-10 rounded-xl border-slate-100 dark:border-slate-800 hover:bg-primary hover:text-white transition-all">
-                                            <a href={`mailto:${member.email}`}>
-                                                <Mail className="h-4 w-4" />
-                                            </a>
-                                        </Button>
-                                    )}
-                                    {member.phone && (
-                                        <Button asChild variant="outline" size="icon" className="flex-1 h-10 rounded-xl border-slate-100 dark:border-slate-800 hover:bg-primary hover:text-white transition-all">
-                                            <a href={`tel:${member.phone}`}>
-                                                <Phone className="h-4 w-4" />
-                                            </a>
-                                        </Button>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                ))}
-            </div>            )}
+                                <CardContent className="space-y-6">
+                                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground mb-2 flex items-center gap-2">
+                                            <Shield className="h-3 w-3 text-primary" /> Spécialité Maîtresse
+                                        </p>
+                                        <p className="text-sm font-bold">{member.specialty}</p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground px-1 tracking-widest">Compétences GRC</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {member.expertise.map((exp, i) => (
+                                                <Badge key={i} variant="secondary" className="bg-white dark:bg-slate-800 text-[9px] font-bold py-0.5 px-2 border-none shadow-sm capitalize">
+                                                    {exp}
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-2">
+                                        {member.email && (
+                                            <Button asChild variant="outline" size="icon" className="flex-1 h-10 rounded-xl border-slate-100 dark:border-slate-800 hover:bg-primary hover:text-white transition-all shadow-sm" title={member.email}>
+                                                <a href={`mailto:${member.email}`}>
+                                                    <Mail className="h-4 w-4" />
+                                                </a>
+                                            </Button>
+                                        )}
+                                        {member.secondaryEmail && (
+                                            <Button asChild variant="outline" size="icon" className="flex-1 h-10 rounded-xl border-slate-100 dark:border-slate-800 hover:bg-indigo-500 hover:text-white transition-all shadow-sm" title={member.secondaryEmail}>
+                                                <a href={`mailto:${member.secondaryEmail}`}>
+                                                    <div className="relative">
+                                                        <Mail className="h-4 w-4" />
+                                                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-400 rounded-full border border-white" />
+                                                    </div>
+                                                </a>
+                                            </Button>
+                                        )}
+                                        {member.phone && (
+                                            <Button asChild variant="outline" size="icon" className="flex-1 h-10 rounded-xl border-slate-100 dark:border-slate-800 hover:bg-primary hover:text-white transition-all">
+                                                <a href={`tel:${member.phone}`}>
+                                                    <Phone className="h-4 w-4" />
+                                                </a>
+                                            </Button>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    ))}
+                </div>)}
             {/* Collaboration Board */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <Card className="lg:col-span-2 border-none bg-slate-900 text-white rounded-[2rem] shadow-2xl overflow-hidden relative min-h-[300px]">
@@ -348,8 +393,15 @@ export default function TeamPage() {
                                         )} />
                                         <FormField control={form.control} name="role" render={({ field }) => (
                                             <FormItem className="space-y-1">
-                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Fonction officielle</FormLabel>
-                                                <FormControl><Input {...field} className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Rôle GRC / Technique</FormLabel>
+                                                <FormControl><Input {...field} placeholder="ex: Responsable Conformité" className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="officialFunction" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Fonction officielle (si différente)</FormLabel>
+                                                <FormControl><Input {...field} placeholder="ex: Directeur Général" className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
@@ -408,27 +460,68 @@ export default function TeamPage() {
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
-                                        <FormField control={form.control} name="avatarUrl" render={({ field }) => (
-                                            <FormItem className="space-y-1">
-                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">URL Avatar</FormLabel>
-                                                <FormControl><Input {...field} placeholder="https://..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
+                                        <div className="space-y-4">
+                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Collection d'Avatars</Label>
+                                            <div className="flex flex-wrap gap-3 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-inner">
+                                                {AVATAR_COLLECTION.map((av) => (
+                                                    <button
+                                                        key={av.id}
+                                                        type="button"
+                                                        onClick={() => setSelectedAvatar(av.url)}
+                                                        className={cn(
+                                                            "relative h-12 w-12 rounded-xl overflow-hidden border-2 transition-all hover:scale-110",
+                                                            selectedAvatar === av.url ? "border-primary ring-2 ring-primary/20 scale-110" : "border-transparent"
+                                                        )}
+                                                    >
+                                                        <Avatar className="h-full w-full rounded-none">
+                                                            <AvatarImage src={av.url} />
+                                                        </Avatar>
+                                                    </button>
+                                                ))}
+                                                {selectedAvatar && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => setSelectedAvatar(null)}
+                                                        className="h-12 w-12 rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-600"
+                                                        title="Supprimer l'avatar"
+                                                    >
+                                                        <Trash2 className="h-5 w-5" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <FormField control={form.control} name="email" render={({ field }) => (
                                             <FormItem className="space-y-1">
-                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Email professionnel</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Email principal</FormLabel>
                                                 <FormControl><Input {...field} placeholder="prenom.nom@mae.tn" className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
+                                        <FormField control={form.control} name="secondaryEmail" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Email secondaire (optionnel)</FormLabel>
+                                                <FormControl><Input {...field} placeholder="autre.email@domaine.com" className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                                         <FormField control={form.control} name="phone" render={({ field }) => (
                                             <FormItem className="space-y-1">
                                                 <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Téléphone</FormLabel>
                                                 <FormControl><Input {...field} placeholder="55 555 555" className="h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="order" render={({ field }) => (
+                                            <FormItem className="space-y-1">
+                                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Priorité (Ordre)</FormLabel>
+                                                <FormControl><Input type="number" {...field} className="h-10 rounded-lg bg-slate-100/50 dark:bg-slate-800/50 border-none font-bold text-center w-24" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />

@@ -23,6 +23,10 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 
+import { UserProvider } from "@/contexts/UserContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { ActivityLogProvider } from "@/contexts/ActivityLogContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -35,8 +39,14 @@ export default function RootLayout({
         <Script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js" strategy="beforeInteractive" />
       </head>
       <body className="font-body antialiased min-h-screen flex flex-col">
-        {children}
-        <Toaster />
+        <ThemeProvider>
+          <ActivityLogProvider>
+            <UserProvider>
+              {children}
+              <Toaster />
+            </UserProvider>
+          </ActivityLogProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
