@@ -59,6 +59,8 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
           setMaePositionsState(data.maePositions);
         }
       }
+    }, (error) => {
+      console.error("Error fetching risk mapping metadata:", error);
     });
 
     const q = query(collection(db, risksCollectionName), orderBy("lastUpdated", "desc"));
