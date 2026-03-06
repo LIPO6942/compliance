@@ -32,6 +32,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -300,8 +301,8 @@ export default function RiskMappingPage() {
   const { toast } = useToast();
   const { logAction } = useActivityLog();
   const { user } = useUser();
-  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-  const initialTab = searchParams?.get('tab') as "table" | "heatmap" | "analysis" | "dmr" | null;
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab') as "table" | "heatmap" | "analysis" | "dmr" | null;
 
   const [isClient, setIsClient] = React.useState(false);
   React.useEffect(() => { setIsClient(true) }, []);
@@ -322,11 +323,13 @@ export default function RiskMappingPage() {
   const [filterDepartment, setFilterDepartment] = React.useState<string>("all");
   const [filterCategory, setFilterCategory] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState<string>("");
-  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis" | "dmr">(initialTab || "table");
+  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis" | "dmr">(tabParam || "table");
 
   React.useEffect(() => {
-    if (initialTab) setViewMode(initialTab);
-  }, [initialTab]);
+    if (tabParam && tabParam !== viewMode) {
+      setViewMode(tabParam);
+    }
+  }, [tabParam, viewMode]);
 
   // Global documents popover state
   const [globalDocsOpen, setGlobalDocsOpen] = React.useState(false);
