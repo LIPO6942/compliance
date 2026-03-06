@@ -121,7 +121,8 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
       { header: "Probabilité (V)", key: "pv", width: 12 },
       { header: "Impact (V)", key: "iv", width: 10 },
       { header: "Score Brut", key: "scoreBrut", width: 10 },
-      { header: "Niveau Brut", key: "levelBrut", width: 15 }
+      { header: "Niveau Brut", key: "levelBrut", width: 15 },
+      { header: "Mesure d'atténuation", key: "action", width: 45 }
     );
   }
 
@@ -139,9 +140,8 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     );
   }
 
-  if (mode === 'principal' || mode === 'combined') {
-    columns.push({ header: "Mesure d'atténuation", key: "action", width: 45 });
-  }
+  // Removed separate push for action at the end
+
 
   ws1.columns = columns;
 
