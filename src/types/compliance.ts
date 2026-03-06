@@ -162,7 +162,7 @@ export interface RiskMappingItem {
   impact: number; // 1-4
   riskLevel: RiskLevel;
   expectedAction: string;
-  owner: string;
+  owner?: string;
   lastUpdated: string;
   documentId?: string; // Optional linked document
 }

@@ -47,7 +47,6 @@ const riskSchema = z.object({
   probabilite: z.coerce.number().min(1, "Min: 1").max(4, "Max: 4"),
   impact: z.coerce.number().min(1, "Min: 1").max(4, "Max: 4"),
   expectedAction: z.string().min(1, "L'action attendue est requise."),
-  owner: z.string().min(1, "Le propriétaire est requis."),
   documentId: z.string().optional(),
 });
 
@@ -138,7 +137,6 @@ export default function RiskMappingPage() {
         probabilite: data.probabilite ?? 1,
         impact: data.impact ?? 1,
         expectedAction: data.expectedAction,
-        owner: data.owner,
         documentId: data.documentId || "",
       });
     } else {
@@ -149,7 +147,6 @@ export default function RiskMappingPage() {
         impact: 2,
         riskDescription: "",
         expectedAction: "",
-        owner: "",
         documentId: "",
       });
     }
@@ -167,7 +164,6 @@ export default function RiskMappingPage() {
         category: values.category || "Clients",
         riskDescription: values.riskDescription || "",
         expectedAction: values.expectedAction || "",
-        owner: values.owner || "",
         documentId: values.documentId && values.documentId !== "none" ? values.documentId : undefined,
       };
 
@@ -442,7 +438,6 @@ export default function RiskMappingPage() {
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Impact</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Probabilité / Fréquence</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Score</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Propriétaire du risque</TableHead>
                       <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -514,14 +509,6 @@ export default function RiskMappingPage() {
                               <div className={cn("inline-flex flex-col items-center justify-center w-14 h-14 rounded-xl border-2", style.bg, style.border)}>
                                 <span className={cn("text-2xl font-black leading-none", style.text)}>{score}</span>
                                 <span className={cn("text-[8px] font-bold uppercase leading-tight", style.text)}>{style.label}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3 px-4">
-                              <div className="flex items-center gap-2">
-                                <div className="h-5 w-5 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center text-[9px] font-black uppercase">
-                                  {risk.owner[0]}
-                                </div>
-                                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{risk.owner}</span>
                               </div>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-right">
@@ -811,19 +798,6 @@ export default function RiskMappingPage() {
                         )}
                       />
 
-                      <FormField
-                        control={form.control}
-                        name="owner"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Propriétaire du Risque</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Identité du responsable..." className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
 
                       <FormField
                         control={form.control}

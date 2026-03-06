@@ -11,7 +11,6 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     impact: 3,
     riskLevel: 'Modéré',
     expectedAction: 'Mise à jour des supports de vente + formation du réseau commercial',
-    owner: 'Direction Commerciale',
     lastUpdated: '2024-07-20',
   },
   {
@@ -23,7 +22,6 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     impact: 4,
     riskLevel: 'Modéré',
     expectedAction: 'Réaliser un audit de sécurité annuel et des tests de pénétration.',
-    owner: 'RSSI',
     lastUpdated: '2024-06-15',
   },
   {
@@ -35,7 +33,6 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     impact: 3,
     riskLevel: 'Modéré',
     expectedAction: 'Renforcement des scénarios de détection dans l\'outil de surveillance des transactions.',
-    owner: 'Responsable Conformité',
     lastUpdated: '2024-05-10',
   },
   {
@@ -47,7 +44,6 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     impact: 2,
     riskLevel: 'Modéré',
     expectedAction: 'Automatiser une partie du suivi des dossiers et former les gestionnaires sur les nouvelles jurisprudences.',
-    owner: 'Direction Sinistres',
     lastUpdated: '2024-07-01',
   },
 ];

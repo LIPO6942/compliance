@@ -61,10 +61,10 @@ export default function SettingsPage() {
         setIsSaving(true);
         try {
             updateUser(profile);
-            
+
             // Persistence des modifications de timeline
             const result = await persistChanges();
-            
+
             if (result.success) {
                 toast({
                     title: "✓ Paramètres enregistrés",
@@ -118,19 +118,6 @@ export default function SettingsPage() {
                     <div className="space-y-2">
                         <Label htmlFor="name">Nom</Label>
                         <Input id="name" value={profile.name || ''} onChange={handleInputChange} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="role">Rôle</Label>
-                        <Select value={profile.role || ''} onValueChange={handleRoleChange}>
-                            <SelectTrigger id="role">
-                                <SelectValue placeholder="Choisir un rôle" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {availableRoles.map(role => (
-                                    <SelectItem key={role} value={role}>{role}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
@@ -255,7 +242,7 @@ export default function SettingsPage() {
             </Card>
 
             <div className="flex justify-end">
-                <Button 
+                <Button
                     onClick={handleSaveChanges}
                     disabled={isSaving}
                     className="gap-2"

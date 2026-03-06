@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/contexts/UserContext";
+import { useTeam } from "@/contexts/TeamContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
@@ -76,7 +77,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const { user, isLoaded } = useUser();
+  const { teamMembers } = useTeam();
   const { identifiedRegulations } = useIdentifiedRegulations();
+
+  const linkedTeamMember = React.useMemo(() => {
+    return teamMembers.find(m => m.name === user.name || (m.email && user.email && m.email === user.email));
+  }, [teamMembers, user]);
+
+  const displayRole = linkedTeamMember?.role || user.role;
 
   const newAlertsCount = React.useMemo(() => {
     return identifiedRegulations.filter(reg => reg.status === 'Nouveau').length;
@@ -163,7 +171,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   </Avatar>
                   <div className="group-data-[collapsible=icon]:hidden text-left">
                     <p className="text-sm font-medium text-sidebar-foreground">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">{user.role}</p>
+                    <p className="text-xs text-muted-foreground">{displayRole}</p>
                   </div>
                 </Button>
               </DropdownMenuTrigger>
