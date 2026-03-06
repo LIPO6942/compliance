@@ -78,7 +78,7 @@ const calculateRiskLevel = (probabilite: number, impact: number): RiskLevel => {
   return "Très élevé";
 };
 
-const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any, mode: 'principal' | 'dmr' | 'combined' = 'principal') => {
+const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any, maePositions: Record<number, string>, mode: 'principal' | 'dmr' | 'combined' = 'principal') => {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Compliance Navigator";
   wb.created = new Date();
@@ -100,6 +100,13 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     "Modéré": { argb: "FF78350F" },
     "Élevé": { argb: "FF9A3412" },
     "Très élevé": { argb: "FF881337" },
+  };
+
+  const getMAEPosForScore = (score: number): string => {
+    if (score <= 4) return maePositions[1];
+    if (score <= 8) return maePositions[2];
+    if (score <= 12) return maePositions[3];
+    return maePositions[4];
   };
 
   const applyBorder = (cell: ExcelJS.Cell, color = "FFE2E8F0") => {
@@ -163,7 +170,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     const dmrProb = (risk as any).dmrProbability || risk.probabilite || 2;
     const scoreRes = dmrEff * dmrProb;
     const styleRes = getRiskScoreStyle(scoreRes);
-    const maePos = getMAEPosition(scoreRes);
+    const maePos = getMAEPosition(scoreRes, maePositions);
 
     const rowData: any = { num: i + 1 };
 
@@ -295,10 +302,10 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     ws2.addRow([]);
     addTitle((mode === 'combined' ? "5" : "2") + ". POSITION DE LA MAE (RÉSIDUEL)");
     addSubHeader(["Score", "Niveau", "Description", ""]);
-    addDataRow2(["≤ 4", "Faible", getMAEPosition(4), ""], "Faible");
-    addDataRow2(["5 – 8", "Modéré", getMAEPosition(8), ""], "Modéré");
-    addDataRow2(["9 – 12", "Élevé", getMAEPosition(12), ""], "Élevé");
-    addDataRow2(["≥ 13", "Très élevé", getMAEPosition(16), ""], "Très élevé");
+    addDataRow2(["≤ 4", "Faible", getMAEPosForScore(4), ""], "Faible");
+    addDataRow2(["5 – 8", "Modéré", getMAEPosForScore(8), ""], "Modéré");
+    addDataRow2(["9 – 12", "Élevé", getMAEPosForScore(12), ""], "Élevé");
+    addDataRow2(["≥ 13", "Très élevé", getMAEPosForScore(16), ""], "Très élevé");
   }
 
   // ── Download ────────────────────────────────────────────────────────────────
@@ -332,11 +339,11 @@ const getRiskScoreStyle = (score: number): { bg: string; text: string; border: s
   return { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", label: "Très élevé" };
 };
 
-const getMAEPosition = (score: number): string => {
-  if (score <= 4) return "Accepté – contrôles standards";
-  if (score <= 8) return "Accepté sous conditions – contrôles renforcés";
-  if (score <= 12) return "Tolérance très limitée – validation Direction Générale";
-  return "Acceptable uniquement suite à dérogation légale validée par l'organe de gouvernance";
+const getMAEPosition = (score: number, maePositions: Record<number, string>): string => {
+  if (score <= 4) return maePositions[1] || "Accepté – contrôles standards";
+  if (score <= 8) return maePositions[2] || "Accepté sous conditions – contrôles renforcés";
+  if (score <= 12) return maePositions[3] || "Tolérance très limitée – validation Direction Générale";
+  return maePositions[4] || "Acceptable uniquement suite à dérogation légale validée par l'organe de gouvernance";
 };
 
 const riskLevelColors: Record<RiskLevel, string> = {
@@ -366,7 +373,7 @@ const impactLabels: Record<number, { label: string; description: string }> = {
 };
 
 export default function RiskMappingPage() {
-  const { risks, addRisk, editRisk, removeRisk, globalDocumentIds, setGlobalDocumentIds } = useRiskMapping();
+  const { risks, addRisk, editRisk, removeRisk, globalDocumentIds, setGlobalDocumentIds, maePositions, updateMaePosition } = useRiskMapping();
   const { createAlertFromRisk, findAlertByRiskId, removeAlertByRiskId } = useIdentifiedRegulations();
   const { documents } = useDocuments();
   const { toast } = useToast();
@@ -394,7 +401,13 @@ export default function RiskMappingPage() {
   const [filterDepartment, setFilterDepartment] = React.useState<string>("all");
   const [filterCategory, setFilterCategory] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState<string>("");
-  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis" | "dmr">(tabParam || "table");
+  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis" | "dmr" | "settings">(tabParam || "table");
+
+  const [tempMaePositions, setTempMaePositions] = React.useState<Record<number, string>>(maePositions);
+
+  React.useEffect(() => {
+    setTempMaePositions(maePositions);
+  }, [maePositions]);
 
   React.useEffect(() => {
     setViewMode(tabParam || "table");
@@ -578,7 +591,7 @@ export default function RiskMappingPage() {
               <DropdownMenuContent align="end" className="w-64 rounded-xl shadow-2xl p-2 border-none">
                 <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 px-3 py-2">Choisir le format d'export</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
-                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, 'principal')} className="rounded-lg py-3 cursor-pointer group">
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, 'principal')} className="rounded-lg py-3 cursor-pointer group">
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
                       <List className="h-4 w-4" />
@@ -589,7 +602,7 @@ export default function RiskMappingPage() {
                     </div>
                   </div>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, 'dmr')} className="rounded-lg py-3 cursor-pointer group">
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, 'dmr')} className="rounded-lg py-3 cursor-pointer group">
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
                       <ShieldCheck className="h-4 w-4" />
@@ -601,7 +614,7 @@ export default function RiskMappingPage() {
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
-                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, 'combined')} className="rounded-lg py-3 cursor-pointer group bg-slate-50 hover:bg-slate-100">
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, 'combined')} className="rounded-lg py-3 cursor-pointer group bg-slate-50 hover:bg-slate-100">
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                       <LayoutGrid className="h-4 w-4" />
@@ -734,6 +747,15 @@ export default function RiskMappingPage() {
             <TabsTrigger value="heatmap" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <LayoutGrid className="h-3.5 w-3.5 mr-2" /> Heatmap
             </TabsTrigger>
+            <TabsTrigger value="analysis" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+              <Activity className="h-3.5 w-3.5 mr-2" /> Analyse
+            </TabsTrigger>
+            <TabsTrigger value="dmr" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+              <ShieldCheck className="h-3.5 w-3.5 mr-2" /> DMR
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+              <Activity className="h-3.5 w-3.5 mr-2" /> Paramètres
+            </TabsTrigger>
           </TabsList>
 
           <div className="flex-1 flex flex-nowrap items-center gap-2 w-full overflow-x-auto scrollbar-hide bg-white/50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
@@ -826,7 +848,7 @@ export default function RiskMappingPage() {
                         const dmrPro = (risk as any).dmrProbability || risk.probabilite || 2;
                         const score = dmrEff * dmrPro;
                         const style = getRiskScoreStyle(score);
-                        const maePosition = getMAEPosition(score);
+                        const maePosition = getMAEPosition(score, maePositions);
                         const hasAlert = !!findAlertByRiskId(risk.id);
                         return (
                           <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 divide-x divide-slate-100 dark:divide-slate-800">
@@ -938,6 +960,69 @@ export default function RiskMappingPage() {
                     )}
                   </TableBody>
                 </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="mt-0 focus-visible:ring-0">
+          <Card className="shadow-2xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <CardHeader className="pb-6 pt-8 px-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-100 dark:border-indigo-800/50">
+                  <Activity className="h-6 w-6" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl font-black tracking-tight text-slate-800 dark:text-white">Paramètres Généraux des Risques</CardTitle>
+                  <CardDescription className="text-[13px] font-semibold text-slate-500 mt-1.5 flex items-center gap-2">
+                    Configuration des textes de la <span className="text-indigo-500 dark:text-indigo-400 font-bold decoration-indigo-200 underline underline-offset-4 decoration-2">Position de la MAE Assurance</span>
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-10 space-y-10">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {[
+                  { level: 1, label: "Score ≤ 4 (Faible)", icon: "🛡️", color: "border-emerald-500/30 bg-emerald-50/30 text-emerald-700" },
+                  { level: 2, label: "Score 5 – 8 (Modéré)", icon: "⚠️", color: "border-yellow-500/30 bg-yellow-50/30 text-yellow-700" },
+                  { level: 3, label: "Score 9 – 12 (Élevé)", icon: "🔥", color: "border-orange-500/30 bg-orange-50/30 text-orange-700" },
+                  { level: 4, label: "Score ≥ 13 (Très élevé)", icon: "🚨", color: "border-rose-500/30 bg-rose-50/30 text-rose-700" },
+                ].map((item) => (
+                  <div key={item.level} className={cn("p-6 rounded-3xl border-2 transition-all hover:shadow-lg space-y-4", item.color)}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{item.icon}</span>
+                      <Label className="text-[11px] font-black uppercase tracking-widest opacity-70">{item.label}</Label>
+                    </div>
+                    <Textarea
+                      placeholder="Définir le texte pour ce niveau..."
+                      value={tempMaePositions[item.level] || ""}
+                      onChange={(e) => setTempMaePositions({ ...tempMaePositions, [item.level]: e.target.value })}
+                      className="min-h-[100px] bg-white/80 dark:bg-slate-900/80 border-none shadow-inner rounded-xl font-bold text-sm leading-relaxed focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-3 text-slate-400 italic text-[11px] font-medium">
+                  <Info className="h-4 w-4" />
+                  Ces textes seront utilisés dans le tableau DMR et lors de l'export Excel.
+                </div>
+                <Button
+                  onClick={async () => {
+                    for (const [level, text] of Object.entries(tempMaePositions)) {
+                      await updateMaePosition(Number(level), text);
+                    }
+                    toast({
+                      title: "Paramètres enregistrés",
+                      description: "Les positions de la MAE ont été mises à jour avec succès.",
+                      variant: "default",
+                    });
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest px-10 h-12 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
+                >
+                  <Save className="mr-2 h-4 w-4" /> Enregistrer les modifications
+                </Button>
               </div>
             </CardContent>
           </Card>

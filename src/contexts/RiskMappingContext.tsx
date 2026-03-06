@@ -15,11 +15,20 @@ interface RiskMappingContextType {
   risks: RiskMappingItem[];
   loading: boolean;
   globalDocumentIds: string[];
+  maePositions: Record<number, string>;
   setGlobalDocumentIds: (ids: string[]) => Promise<void>;
+  updateMaePosition: (level: number, text: string) => Promise<void>;
   addRisk: (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => Promise<void>;
   editRisk: (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated'>>) => Promise<void>;
   removeRisk: (riskId: string) => Promise<void>;
 }
+
+const defaultMaePositions: Record<number, string> = {
+  1: "Accepté – contrôles standards",
+  2: "Accepté sous conditions – contrôles renforcés",
+  3: "Tolérance très limitée – validation Direction Générale",
+  4: "Acceptable uniquement suite à dérogation légale validée par l'organe de gouvernance",
+};
 
 const RiskMappingContext = createContext<RiskMappingContextType | undefined>(undefined);
 
@@ -27,6 +36,7 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   const [risks, setRisks] = useState<RiskMappingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [globalDocumentIds, setGlobalDocumentIdsState] = useState<string[]>([]);
+  const [maePositions, setMaePositionsState] = useState<Record<number, string>>(defaultMaePositions);
   const { isLoaded } = useUser();
 
   useEffect(() => {
@@ -39,11 +49,15 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    // Listen for global document IDs
+    // Listen for global meta (document IDs and MAE positions)
     const metaRef = doc(db, metaDocPath);
     const unsubMeta = onSnapshot(metaRef, (snap) => {
       if (snap.exists()) {
-        setGlobalDocumentIdsState(snap.data().documentIds || []);
+        const data = snap.data();
+        setGlobalDocumentIdsState(data.documentIds || []);
+        if (data.maePositions) {
+          setMaePositionsState(data.maePositions);
+        }
       }
     });
 
@@ -87,6 +101,14 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
     await setDoc(metaRef, { documentIds: ids }, { merge: true });
   };
 
+  const updateMaePosition = async (level: number, text: string) => {
+    const newPositions = { ...maePositions, [level]: text };
+    setMaePositionsState(newPositions);
+    if (!isFirebaseConfigured || !db) return;
+    const metaRef = doc(db, metaDocPath);
+    await setDoc(metaRef, { maePositions: newPositions }, { merge: true });
+  };
+
   const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => {
     if (!isFirebaseConfigured || !db) return;
     // Remove undefined fields (e.g., documentId) to avoid Firestore errors
@@ -119,7 +141,7 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <RiskMappingContext.Provider value={{ risks, loading, globalDocumentIds, setGlobalDocumentIds, addRisk, editRisk, removeRisk }}>
+    <RiskMappingContext.Provider value={{ risks, loading, globalDocumentIds, maePositions, setGlobalDocumentIds, updateMaePosition, addRisk, editRisk, removeRisk }}>
       {children}
     </RiskMappingContext.Provider>
   );
