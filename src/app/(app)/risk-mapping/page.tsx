@@ -259,6 +259,13 @@ const getRiskScoreStyle = (score: number): { bg: string; text: string; border: s
   return { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", label: "Très élevé" };
 };
 
+const getMAEPosition = (score: number): string => {
+  if (score <= 4) return "Accepté – contrôles standards";
+  if (score <= 8) return "Accepté sous conditions – contrôles renforcés";
+  if (score <= 12) return "Tolérance très limitée – validation Direction Générale";
+  return "Acceptable uniquement suite à dérogation légale validée par l'organe de gouvernance";
+};
+
 const riskLevelColors: Record<RiskLevel, string> = {
   "Faible": "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-800/20 dark:text-emerald-300 dark:border-emerald-700/50",
   "Modéré": "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-800/20 dark:text-yellow-300 dark:border-yellow-700/50",
@@ -312,7 +319,7 @@ export default function RiskMappingPage() {
   const [filterDepartment, setFilterDepartment] = React.useState<string>("all");
   const [filterCategory, setFilterCategory] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState<string>("");
-  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis">("table");
+  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis" | "dmr">("table");
 
   // Global documents popover state
   const [globalDocsOpen, setGlobalDocsOpen] = React.useState(false);
@@ -593,6 +600,9 @@ export default function RiskMappingPage() {
             <TabsTrigger value="table" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <List className="h-3.5 w-3.5 mr-2" /> Inventaire
             </TabsTrigger>
+            <TabsTrigger value="dmr" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+              <ShieldCheck className="h-3.5 w-3.5 mr-2" /> DMR & EER
+            </TabsTrigger>
             <TabsTrigger value="heatmap" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <LayoutGrid className="h-3.5 w-3.5 mr-2" /> Heatmap
             </TabsTrigger>
@@ -652,6 +662,100 @@ export default function RiskMappingPage() {
 
         <TabsContent value="heatmap" className="mt-0 focus-visible:ring-0">
           <RiskHeatmap risks={filteredRisks} onEditRisk={(risk) => openDialog('edit', risk)} />
+        </TabsContent>
+
+        <TabsContent value="dmr" className="mt-0 focus-visible:ring-0">
+          <RiskKPIs risks={filteredRisks} />
+          <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <CardHeader className="pb-4 pt-6 px-8 border-b border-slate-50 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-bold text-slate-800 dark:text-white">Dispositif de Management des Risques (DMR)</CardTitle>
+                  <CardDescription className="text-xs text-slate-500 mt-1">Évaluation du risque résiduel et position de la MAE Assurance</CardDescription>
+                </div>
+                <Badge variant="outline" className="h-7 px-3 rounded-lg border-2 border-indigo-100 bg-indigo-50 text-indigo-700 font-bold text-[10px]">
+                  {filteredRisks.length} Scénarios identifiés
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table className="border-collapse">
+                  <TableHeader>
+                    <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[25%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[20%]">Dispositif de Management (DMR)</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Impact</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Proba.</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Score</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[12%]">Risque Résiduel</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[19%]">Position de la MAE Assurance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRisks.length > 0 ? (
+                      filteredRisks.map((risk) => {
+                        const score = calculateRiskScore(risk.probabilite, risk.impact);
+                        const style = getRiskScoreStyle(score);
+                        const maePosition = getMAEPosition(score);
+                        return (
+                          <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 divide-x divide-slate-100 dark:divide-slate-800">
+                            <TableCell className="py-3 px-4">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest leading-none">{risk.category}</span>
+                                <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+                                  {risk.riskDescription}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <span className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed italic">
+                                {risk.expectedAction || "Non défini"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{risk.impact}</span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{risk.probabilite}</span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg border font-bold text-xs", style.bg, style.text, style.border)}>
+                                {score}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <Badge className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5", style.bg, style.text, style.border, "border-2")}>
+                                {style.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <div className="flex items-start gap-2">
+                                <div className={cn("mt-1.5 h-1.5 w-1.5 rounded-full shrink-0",
+                                  score <= 4 ? "bg-emerald-500" :
+                                    score <= 8 ? "bg-yellow-500" :
+                                      score <= 12 ? "bg-orange-500" : "bg-rose-500"
+                                )} />
+                                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 leading-tight">
+                                  {maePosition}
+                                </span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-40 text-center text-slate-400 text-sm font-bold">
+                          Aucun risque ne correspond aux filtres
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="table" className="mt-0 focus-visible:ring-0">
