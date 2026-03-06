@@ -78,13 +78,14 @@ const calculateRiskLevel = (probabilite: number, impact: number): RiskLevel => {
   return "Très élevé";
 };
 
-const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any) => {
+const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any, mode: 'principal' | 'dmr' | 'combined' = 'principal') => {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Compliance Navigator";
   wb.created = new Date();
 
   const probLabels: Record<number, string> = { 1: "Improbable", 2: "Rarement", 3: "Fréquent", 4: "Souvent" };
   const impLabels: Record<number, string> = { 1: "Faible", 2: "Modéré", 3: "Élevé", 4: "Très élevé" };
+  const effLabels: Record<number, string> = { 1: "Très efficace", 2: "Moyennement efficace", 3: "Peu efficace", 4: "Défaillant" };
 
   // ── Risk level styles ───────────────────────────────────────────────────────
   type ExcelColor = { argb: string };
@@ -106,26 +107,47 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     cell.border = { top: side, bottom: side, left: side, right: side };
   };
 
-  // ── SHEET 1 : Cartographie ──────────────────────────────────────────────────
-  const ws1 = wb.addWorksheet("Cartographie");
+  // ── SHEET 1 : Cartographie/DMR ──────────────────────────────────────────────
+  const sheetName = mode === 'principal' ? "Cartographie" : (mode === 'dmr' ? "DMR" : "Cartographie & DMR");
+  const ws1 = wb.addWorksheet(sheetName);
 
-  ws1.columns = [
-    { header: "N°", key: "num", width: 5 },
-    { header: "Scénario de Risque", key: "desc", width: 52 },
-    { header: "Catégorie", key: "cat", width: 30 },
-    { header: "Direction", key: "dept", width: 18 },
-    { header: "Probabilité (valeur)", key: "pv", width: 22 },
-    { header: "Probabilité (libellé)", key: "pl", width: 20 },
-    { header: "Impact (valeur)", key: "iv", width: 16 },
-    { header: "Impact (libellé)", key: "il", width: 16 },
-    { header: "Score", key: "score", width: 8 },
-    { header: "Niveau de Risque", key: "level", width: 16 },
-    { header: "Mesure d'atténuation", key: "action", width: 52 },
-  ];
+  const columns: any[] = [{ header: "N°", key: "num", width: 5 }];
+
+  if (mode === 'principal' || mode === 'combined') {
+    columns.push(
+      { header: "Scénario de Risque", key: "desc", width: 45 },
+      { header: "Catégorie", key: "cat", width: 25 },
+      { header: "Direction", key: "dept", width: 15 },
+      { header: "Probabilité (V)", key: "pv", width: 12 },
+      { header: "Impact (V)", key: "iv", width: 10 },
+      { header: "Score Brut", key: "scoreBrut", width: 10 },
+      { header: "Niveau Brut", key: "levelBrut", width: 15 }
+    );
+  }
+
+  if (mode === 'dmr' || mode === 'combined') {
+    if (mode === 'dmr') {
+      columns.push({ header: "Scénario de Risque", key: "desc", width: 45 });
+    }
+    columns.push(
+      { header: "Efficacité DMR (V)", key: "effV", width: 15 },
+      { header: "Efficacité DMR (L)", key: "effL", width: 20 },
+      { header: "Probabilité DMR", key: "dmrProb", width: 15 },
+      { header: "Score Résiduel", key: "scoreRes", width: 15 },
+      { header: "Niveau Résiduel", key: "levelRes", width: 15 },
+      { header: "Position MAE", key: "maePos", width: 45 }
+    );
+  }
+
+  if (mode === 'principal' || mode === 'combined') {
+    columns.push({ header: "Mesure d'atténuation", key: "action", width: 45 });
+  }
+
+  ws1.columns = columns;
 
   // Style header row
   const headerRow = ws1.getRow(1);
-  headerRow.height = 28;
+  headerRow.height = 32;
   headerRow.eachCell((cell) => {
     cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
@@ -135,35 +157,57 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
 
   // Data rows
   risks.forEach((risk, i) => {
-    const score = calculateRiskScore(risk.probabilite, risk.impact);
-    const level = calculateRiskLevel(risk.probabilite, risk.impact);
+    const scoreBrut = calculateRiskScore(risk.probabilite, risk.impact);
+    const levelBrut = calculateRiskLevel(risk.probabilite, risk.impact);
+    const dmrEff = (risk as any).dmrEfficiency || 2;
+    const dmrProb = (risk as any).dmrProbability || risk.probabilite || 2;
+    const scoreRes = dmrEff * dmrProb;
+    const styleRes = getRiskScoreStyle(scoreRes);
+    const maePos = getMAEPosition(scoreRes);
+
+    const rowData: any = { num: i + 1 };
+
+    if (mode === 'principal' || mode === 'combined' || mode === 'dmr') {
+      rowData.desc = risk.riskDescription;
+    }
+    if (mode === 'principal' || mode === 'combined') {
+      rowData.cat = risk.category;
+      rowData.dept = risk.department;
+      rowData.pv = risk.probabilite;
+      rowData.iv = risk.impact;
+      rowData.scoreBrut = scoreBrut;
+      rowData.levelBrut = levelBrut;
+      rowData.action = risk.expectedAction;
+    }
+    if (mode === 'dmr' || mode === 'combined') {
+      rowData.effV = dmrEff;
+      rowData.effL = effLabels[dmrEff] ?? "";
+      rowData.dmrProb = dmrProb;
+      rowData.scoreRes = scoreRes;
+      rowData.levelRes = styleRes.label;
+      rowData.maePos = maePos;
+    }
+
+    const row = ws1.addRow(rowData);
+    row.height = 40;
     const rowBg = i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
 
-    const row = ws1.addRow({
-      num: i + 1,
-      desc: risk.riskDescription,
-      cat: risk.category,
-      dept: risk.department,
-      pv: risk.probabilite,
-      pl: probLabels[risk.probabilite] ?? "",
-      iv: risk.impact,
-      il: impLabels[risk.impact] ?? "",
-      score,
-      level,
-      action: risk.expectedAction,
-    });
-    row.height = 36;
-
     row.eachCell((cell, colNumber) => {
-      cell.alignment = { vertical: "middle", wrapText: true, horizontal: colNumber === 1 ? "center" : "left" };
+      cell.alignment = { vertical: "middle", wrapText: true, horizontal: "left" };
       applyBorder(cell);
-      if (colNumber === 9) {
-        // Level column — color by risk level
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[level] || { argb: "FFFFFFFF" } };
-        cell.font = { bold: true, color: levelFont[level] || { argb: "FF000000" }, size: 10 };
+      const colKey = columns[colNumber - 1]?.key;
+
+      if (colKey === "levelBrut") {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[levelBrut] || { argb: "FFFFFFFF" } };
+        cell.font = { bold: true, color: levelFont[levelBrut] || { argb: "FF000000" }, size: 9 };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+      } else if (colKey === "levelRes") {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[styleRes.label] || { argb: "FFFFFFFF" } };
+        cell.font = { bold: true, color: levelFont[styleRes.label] || { argb: "FF000000" }, size: 9 };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
       } else {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
-        cell.font = { color: { argb: "FF1E293B" }, size: 10 };
+        cell.font = { color: { argb: "FF1E293B" }, size: 9 };
       }
     });
   });
@@ -212,33 +256,50 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     });
   };
 
-  // Grille Probabilité
-  addTitle("LÉGENDE — GRILLE DE COTATION DES RISQUES");
-  ws2.addRow([]);
-  addTitle("1. GRILLE DE PROBABILITÉ / FRÉQUENCE");
-  addSubHeader(["Valeur", "Libellé", "Description", ""]);
-  addDataRow2(["1", "Improbable", "Une fois tous les 1 à 5 ans", ""]);
-  addDataRow2(["2", "Rarement", "Semestrielle / Annuelle", ""]);
-  addDataRow2(["3", "Fréquent", "Mensuelle à Semestrielle", ""]);
-  addDataRow2(["4", "Souvent", "Hebdomadaire / Quotidien", ""]);
+  addTitle("LÉGENDE — RÉFÉRENTIEL DE GESTION DES RISQUES");
 
-  // Grille Impact
-  ws2.addRow([]);
-  addTitle("2. GRILLE D'IMPACT");
-  addSubHeader(["Valeur", "Libellé", "Description", ""]);
-  addDataRow2(["1", "Faible", "Menace mineure", ""]);
-  addDataRow2(["2", "Modéré", "Menace raisonnable", ""]);
-  addDataRow2(["3", "Élevé", "Menace importante", ""]);
-  addDataRow2(["4", "Très élevé", "Menace majeure", ""]);
+  if (mode === 'principal' || mode === 'combined') {
+    ws2.addRow([]);
+    addTitle("1. GRILLE DE PROBABILITÉ / FRÉQUENCE");
+    addSubHeader(["Valeur", "Libellé", "Description", ""]);
+    addDataRow2(["1", "Improbable", "Une fois tous les 1 à 5 ans", ""]);
+    addDataRow2(["2", "Rarement", "Semestrielle / Annuelle", ""]);
+    addDataRow2(["3", "Fréquent", "Mensuelle à Semestrielle", ""]);
+    addDataRow2(["4", "Souvent", "Hebdomadaire / Quotidien", ""]);
 
-  // Grille Score
-  ws2.addRow([]);
-  addTitle("3. GRILLE SCORE → NIVEAU DE RISQUE");
-  addSubHeader(["Score (Probabilité × Impact)", "Niveau de Risque", "Couleur", "Interprétation"]);
-  addDataRow2(["≤ 4", "Faible", "Vert", "Risque résiduel acceptable"], "Faible");
-  addDataRow2(["5 – 8", "Modéré", "Jaune", "Surveillance recommandée"], "Modéré");
-  addDataRow2(["9 – 12", "Élevé", "Orange", "Action corrective requise"], "Élevé");
-  addDataRow2(["≥ 13", "Très élevé", "Rouge", "Escalade immédiate nécessaire"], "Très élevé");
+    ws2.addRow([]);
+    addTitle("2. GRILLE D'IMPACT");
+    addSubHeader(["Valeur", "Libellé", "Description", ""]);
+    addDataRow2(["1", "Faible", "Menace mineure", ""]);
+    addDataRow2(["2", "Modéré", "Menace raisonnable", ""]);
+    addDataRow2(["3", "Élevé", "Menace importante", ""]);
+    addDataRow2(["4", "Très élevé", "Menace majeure", ""]);
+
+    ws2.addRow([]);
+    addTitle("3. SCORE BRUT → NIVEAU DE RISQUE");
+    addSubHeader(["Score", "Niveau", "Couleur", "Interprétation"]);
+    addDataRow2(["≤ 4", "Faible", "Vert", "Risque acceptable"], "Faible");
+    addDataRow2(["5 – 8", "Modéré", "Jaune", "Surveillance recommandée"], "Modéré");
+    addDataRow2(["9 – 12", "Élevé", "Orange", "Action corrective requise"], "Élevé");
+    addDataRow2(["≥ 13", "Très élevé", "Rouge", "Escalade immédiate"], "Très élevé");
+  }
+
+  if (mode === 'dmr' || mode === 'combined') {
+    ws2.addRow([]);
+    addTitle((mode === 'combined' ? "4" : "1") + ". NIVEAU D'EFFICACITÉ (DMR)");
+    addSubHeader(["Valeur", "Libellé", "Description", ""]);
+    dmrEfficiencyLevels.forEach(l => {
+      addDataRow2([l.value, l.label, l.description, ""]);
+    });
+
+    ws2.addRow([]);
+    addTitle((mode === 'combined' ? "5" : "2") + ". POSITION DE LA MAE (RÉSIDUEL)");
+    addSubHeader(["Score", "Niveau", "Description", ""]);
+    addDataRow2(["≤ 4", "Faible", getMAEPosition(4), ""], "Faible");
+    addDataRow2(["5 – 8", "Modéré", getMAEPosition(8), ""], "Modéré");
+    addDataRow2(["9 – 12", "Élevé", getMAEPosition(12), ""], "Élevé");
+    addDataRow2(["≥ 13", "Très élevé", getMAEPosition(16), ""], "Très élevé");
+  }
 
   // ── Download ────────────────────────────────────────────────────────────────
   const today = new Date().toISOString().split("T")[0];
@@ -247,7 +308,8 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Cartographie_Risques_${today}.xlsx`;
+  const filename = mode === 'principal' ? 'Cartographie' : (mode === 'dmr' ? 'DMR' : 'Cartographie_Complet');
+  a.download = `${filename}_${today}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 
@@ -257,7 +319,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
       userEmail: user.email,
       userName: user.name,
       action: 'OTHER',
-      label: `A exporté la cartographie des risques (${risks.length} lignes)`,
+      label: `A exporté ${mode === 'principal' ? 'la cartographie' : (mode === 'dmr' ? 'le tableau DMR' : 'le tableau complet')} (${risks.length} lignes)`,
       module: 'Cartographie des Risques'
     });
   }
@@ -503,14 +565,55 @@ export default function RiskMappingPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => exportToExcel(filteredRisks, logAction, user)}
-              className="h-9 px-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
-            >
-              <Download className="mr-1.5 h-3.5 w-3.5" /> Exporter Excel
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 px-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
+                >
+                  <Download className="mr-1.5 h-3.5 w-3.5" /> Exporter Excel
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 rounded-xl shadow-2xl p-2 border-none">
+                <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 px-3 py-2">Choisir le format d'export</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, 'principal')} className="rounded-lg py-3 cursor-pointer group">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                      <List className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-700">Tableau Principal</span>
+                      <span className="text-[9px] text-slate-400">Inventaire et cotation brute</span>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, 'dmr')} className="rounded-lg py-3 cursor-pointer group">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                      <ShieldCheck className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-700">Tableau DMR</span>
+                      <span className="text-[9px] text-slate-400">Efficacité et risque résiduel</span>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, 'combined')} className="rounded-lg py-3 cursor-pointer group bg-slate-50 hover:bg-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <LayoutGrid className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-900">Tableau Complet</span>
+                      <span className="text-[9px] text-slate-500">Cartographie brute + Volet DMR</span>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               size="lg"
               onClick={() => openDialog('add')}
@@ -710,11 +813,10 @@ export default function RiskMappingPage() {
                     <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[35%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[12%]">Niveau d'efficacité</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[7%]">Proba.</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[7%]">Score</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[12%]">Risque Résiduel</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[23%]">Position de la MAE Assurance</TableHead>
-                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[4%]">Actions</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Proba. DMR</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Score Résiduel</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[28%]">Position de la MAE Assurance</TableHead>
+                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[5%]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -776,48 +878,8 @@ export default function RiskMappingPage() {
                               </div>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
-                              {(() => {
-                                const eff = dmrEfficiencyLevels.find(l => l.value === (risk as any).dmrEfficiency) || dmrEfficiencyLevels[1];
-                                return (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Badge className={cn("text-[9px] font-bold uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-sm transition-all hover:scale-105 cursor-help", eff.color)}>
-                                          {eff.label}
-                                        </Badge>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top" className="bg-slate-900 text-white border-none p-2 rounded-lg shadow-xl">
-                                        <p className="text-[10px] font-semibold">{eff.description}</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                );
-                              })()}
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <div className="flex items-center justify-center gap-1.5">
-                                <Badge className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5", style.bg, style.text, style.border, "border-2")}>
-                                  {style.label}
-                                </Badge>
-                                {(risk as any).justification && (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button className="h-5 w-5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all shadow-sm">
-                                          <Info className="h-3 w-3" />
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top" className="max-w-[280px] p-3 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 shadow-2xl">
-                                        <div className="space-y-1.5">
-                                          <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500 underline decoration-indigo-200 decoration-2 underline-offset-4 mb-2">Justification Réglementaire</p>
-                                          <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 leading-relaxed italic">
-                                            "{(risk as any).justification}"
-                                          </p>
-                                        </div>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
+                              <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg border font-bold text-xs", style.bg, style.text, style.border)}>
+                                {score}
                               </div>
                             </TableCell>
                             <TableCell className="py-3 px-4">
@@ -869,7 +931,7 @@ export default function RiskMappingPage() {
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-40 text-center text-slate-400 text-sm font-bold">
+                        <TableCell colSpan={6} className="h-40 text-center text-slate-400 text-sm font-bold">
                           Aucun risque ne correspond aux filtres
                         </TableCell>
                       </TableRow>
