@@ -54,6 +54,7 @@ const riskSchema = z.object({
   justification: z.string().optional(),
   documentId: z.string().optional(),
   dmrEfficiency: z.coerce.number().min(1).max(4).optional(),
+  dmrProbability: z.coerce.number().min(1).max(4).optional(),
 });
 
 type RiskFormValues = z.infer<typeof riskSchema>;
@@ -353,6 +354,7 @@ export default function RiskMappingPage() {
         justification: (data as any).justification || "",
         documentId: data.documentId || "",
         dmrEfficiency: (data as any).dmrEfficiency || 2,
+        dmrProbability: (data as any).dmrProbability || (data.probabilite ?? 2),
       });
     } else {
       form.reset({
@@ -365,6 +367,7 @@ export default function RiskMappingPage() {
         justification: "",
         documentId: "",
         dmrEfficiency: 2,
+        dmrProbability: 2,
       });
     }
   };
@@ -391,6 +394,7 @@ export default function RiskMappingPage() {
           probabilite: numProba,
           impact: numImpact,
           dmrEfficiency: Number(values.dmrEfficiency) || 2,
+          dmrProbability: Number(values.dmrProbability) || numProba,
           riskLevel: calculateRiskLevel(numProba, numImpact),
         });
         toast({ title: "Risque identifié", description: "La cartographie a été mise à jour." });
@@ -410,6 +414,7 @@ export default function RiskMappingPage() {
           probabilite: numProba,
           impact: numImpact,
           dmrEfficiency: Number(values.dmrEfficiency) || 2,
+          dmrProbability: Number(values.dmrProbability) || numProba,
           riskLevel: calculateRiskLevel(numProba, numImpact),
         });
         toast({ title: "Risque modifié", description: "Les détails du risque ont été actualisés." });
@@ -703,24 +708,21 @@ export default function RiskMappingPage() {
                 <Table className="border-collapse">
                   <TableHeader>
                     <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[30%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[7%]">Impact</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[35%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[12%]">Niveau d'efficacité</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[7%]">Proba.</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[7%]">Score</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[15%]">Niveau DMR</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[12%]">Risque Résiduel</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[18%]">Position de la MAE Assurance</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[23%]">Position de la MAE Assurance</TableHead>
                       <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[4%]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredRisks.length > 0 ? (
                       filteredRisks.map((risk) => {
-                        const rawImp = Number(risk.impact);
-                        const rawPro = Number(risk.probabilite);
-                        const imp = isNaN(rawImp) ? 1 : rawImp;
-                        const pro = isNaN(rawPro) ? 1 : rawPro;
-                        const score = imp * pro;
+                        const dmrEff = (risk as any).dmrEfficiency || 2;
+                        const dmrPro = (risk as any).dmrProbability || risk.probabilite || 2;
+                        const score = dmrEff * dmrPro;
                         const style = getRiskScoreStyle(score);
                         const maePosition = getMAEPosition(score);
                         const hasAlert = !!findAlertByRiskId(risk.id);
@@ -739,19 +741,33 @@ export default function RiskMappingPage() {
                               </div>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
-                              <button
-                                onClick={() => openDialog('edit', risk)}
-                                className="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary transition-colors border-b border-dashed border-slate-300 hover:border-primary"
-                              >
-                                {imp}
-                              </button>
+                              {(() => {
+                                const eff = dmrEfficiencyLevels.find(l => l.value === dmrEff) || dmrEfficiencyLevels[1];
+                                return (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); openDialog('edit', risk); }}
+                                          className={cn("text-[9px] font-bold uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-sm transition-all hover:scale-110 cursor-pointer underline decoration-dotted", eff.color)}
+                                        >
+                                          {dmrEff} - {eff.label}
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="bg-slate-900 text-white border-none p-2 rounded-lg shadow-xl">
+                                        <p className="text-[10px] font-semibold">{eff.description}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
                               <button
-                                onClick={() => openDialog('edit', risk)}
-                                className="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary transition-colors border-b border-dashed border-slate-300 hover:border-primary"
+                                onClick={(e) => { e.stopPropagation(); openDialog('edit', risk); }}
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-all hover:scale-110 font-black text-xs text-slate-700 shadow-sm cursor-pointer underline decoration-dotted"
                               >
-                                {pro}
+                                {dmrPro}
                               </button>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
@@ -1094,234 +1110,164 @@ export default function RiskMappingPage() {
 
                 <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
 
-                {/* SECTION 2: SCORING */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-1 bg-amber-500 rounded-full" />
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Cotation du Risque</h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Left: numeric inputs + live score */}
-                    <div className="bg-slate-50/60 dark:bg-slate-900/30 p-6 rounded-3xl space-y-6 border-2 border-slate-100 dark:border-slate-800/50 shadow-inner">
-                      <div className="grid grid-cols-2 gap-10">
-                        <FormField
-                          control={form.control}
-                          name="impact"
-                          render={({ field }) => {
-                            const impactValue = Number(field.value) || 1;
-                            const impactLabel = impactLabels[impactValue as keyof typeof impactLabels];
-                            return (
-                              <FormItem className="w-full">
-                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Impact</FormLabel>
-                                <Select onValueChange={(v) => field.onChange(Number(v))} value={String(impactValue)}>
-                                  <FormControl>
-                                    <SelectTrigger className="h-12 w-full rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
-                                      <div className="flex items-center gap-2">
-                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/10 text-amber-600 text-xs font-black">
-                                          {impactValue}
-                                        </span>
-                                        <span className="text-sm">{impactLabel?.label}</span>
-                                      </div>
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent className="rounded-xl border-none shadow-2xl">
-                                    {[1, 2, 3, 4].map((val) => (
-                                      <SelectItem key={val} value={String(val)} className="font-bold">
-                                        <div className="flex items-center gap-2">
-                                          <span className={cn(
-                                            "inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black",
-                                            val === 1 && "bg-emerald-100 text-emerald-600",
-                                            val === 2 && "bg-yellow-100 text-yellow-600",
-                                            val === 3 && "bg-orange-100 text-orange-600",
-                                            val === 4 && "bg-rose-100 text-rose-600"
-                                          )}>
-                                            {val}
-                                          </span>
-                                          <div>
-                                            <span className="text-sm font-bold">{impactLabels[val].label}</span>
-                                            <p className="text-[9px] text-slate-400 font-normal">{impactLabels[val].description}</p>
-                                          </div>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <p className="text-[9px] text-slate-400 mt-1">{impactLabel?.description}</p>
-                                <FormMessage />
-                              </FormItem>
-                            );
-                          }}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="probabilite"
-                          render={({ field }) => {
-                            const probaValue = Number(field.value) || 1;
-                            const probaLabel = probabiliteLabels[probaValue as keyof typeof probabiliteLabels];
-                            return (
-                              <FormItem className="w-full">
-                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Probabilité / Fréquence</FormLabel>
-                                <Select onValueChange={(v) => field.onChange(Number(v))} value={String(probaValue)}>
-                                  <FormControl>
-                                    <SelectTrigger className="h-12 w-full rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
-                                      <div className="flex items-center gap-2">
-                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-black">
-                                          {probaValue}
-                                        </span>
-                                        <span className="text-sm">{probaLabel?.label}</span>
-                                      </div>
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent className="rounded-xl border-none shadow-2xl">
-                                    {[1, 2, 3, 4].map((val) => (
-                                      <SelectItem key={val} value={String(val)} className="font-bold">
-                                        <div className="flex items-center gap-2">
-                                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-black">
-                                            {val}
-                                          </span>
-                                          <div>
-                                            <span className="text-sm font-bold">{probabiliteLabels[val].label}</span>
-                                            <p className="text-[9px] text-slate-400 font-normal">{probabiliteLabels[val].description}</p>
-                                          </div>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <p className="text-[9px] text-slate-400 mt-1">{probaLabel?.description}</p>
-                                <FormMessage />
-                              </FormItem>
-                            );
-                          }}
-                        />
-                      </div>
-
-                      {/* Live score display */}
-                      <div className="flex flex-col items-center gap-1 pt-2">
-                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Score calculé</span>
-                        {liveScore !== null ? (() => {
-                          const style = getRiskScoreStyle(liveScore);
-                          return (
-                            <div className={cn("flex flex-col items-center justify-center w-24 h-24 rounded-2xl border-2 transition-all", style.bg, style.border)}>
-                              <span className={cn("text-4xl font-black leading-none", style.text)}>{liveScore}</span>
-                              <span className={cn("text-[9px] font-black uppercase leading-tight mt-1", style.text)}>{style.label}</span>
-                            </div>
-                          );
-                        })() : (
-                          <div className="flex flex-col items-center justify-center w-24 h-24 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50">
-                            <span className="text-3xl font-black text-slate-300">—</span>
-                          </div>
-                        )}
-                        <p className="text-[9px] text-slate-400 mt-1">Probabilité × Impact</p>
-                      </div>
+                {/* SECTION 2: ÉVALUATIONS DES RISQUES */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Evaluation Brute */}
+                  <div className="space-y-4 bg-slate-50/50 dark:bg-slate-900/40 p-6 rounded-[2rem] border border-slate-200/60 dark:border-slate-800 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-4 w-1 bg-amber-500 rounded-full" />
+                      <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Évaluation Brute</h3>
                     </div>
 
-                    {/* Right: action + owner */}
-                    <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="documentId"
+                        name="impact"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document lié (optionnel)</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || "none"}>
-                              <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Aucun document" /></SelectTrigger></FormControl>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Impact</FormLabel>
+                            <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 1)}>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
                               <SelectContent className="rounded-xl border-none shadow-2xl">
-                                <SelectItem value="none" className="font-bold text-slate-400">Aucun document</SelectItem>
-                                {documents.map((doc: Document) => <SelectItem key={doc.id} value={doc.id} className="font-bold">{doc.name}</SelectItem>)}
+                                {[1, 2, 3, 4].map((v) => <SelectItem key={v} value={String(v)} className="font-bold">{v} - {impactLabels[v].label}</SelectItem>)}
                               </SelectContent>
                             </Select>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
+                      <FormField
+                        control={form.control}
+                        name="probabilite"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Probabilité</FormLabel>
+                            <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 1)}>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
+                              <SelectContent className="rounded-xl border-none shadow-2xl">
+                                {[1, 2, 3, 4].map((v) => <SelectItem key={v} value={String(v)} className="font-bold">{v} - {probabiliteLabels[v].label}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Score Brut</span>
+                      <div className={cn("px-3 py-1 rounded-lg border font-black text-sm", getRiskScoreStyle(Number(form.watch('impact') || 1) * Number(form.watch('probabilite') || 1)).bg, getRiskScoreStyle(Number(form.watch('impact') || 1) * Number(form.watch('probabilite') || 1)).text)}>
+                        {Number(form.watch('impact') || 1) * Number(form.watch('probabilite') || 1)}
+                      </div>
+                    </div>
+                  </div>
 
+                  {/* Evaluation Résiduelle (DMR) */}
+                  <div className="space-y-4 bg-primary/5 dark:bg-primary/10 p-6 rounded-[2rem] border border-primary/20 dark:border-primary/40 relative overflow-hidden shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-4 w-1 bg-primary rounded-full" />
+                      <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Évaluation Résiduelle (DMR)</h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="dmrEfficiency"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Niveau d'efficacité du contrôle (DMR)</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Niveau d'efficacité</FormLabel>
                             <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 2)}>
-                              <FormControl>
-                                <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
-                                  <SelectValue placeholder="Sélectionner un niveau" />
-                                </SelectTrigger>
-                              </FormControl>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-primary/20 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
                               <SelectContent className="rounded-xl border-none shadow-2xl">
                                 {dmrEfficiencyLevels.map((level) => (
-                                  <SelectItem key={level.value} value={String(level.value)} className="font-bold py-3">
-                                    <div className="flex flex-col gap-0.5">
-                                      <span className={cn("text-xs uppercase tracking-tight", level.color.split(' ')[0])}>
-                                        {level.value}. {level.label}
-                                      </span>
-                                      <p className="text-[9px] text-slate-400 font-normal leading-tight italic">{level.description}</p>
+                                  <SelectItem key={level.value} value={String(level.value)} className="font-bold py-2">
+                                    <div className="flex flex-col">
+                                      <span className="text-[10px] uppercase">{level.value} - {level.label}</span>
+                                      <span className="text-[8px] font-normal opacity-60 italic leading-tight">{level.description}</span>
                                     </div>
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
-
                       <FormField
                         control={form.control}
-                        name="expectedAction"
+                        name="dmrProbability"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mesure d'atténuation</FormLabel>
-                            <FormControl>
-                              <Textarea
-                                {...field}
-                                placeholder="Mesures prévues pour réduire le risque..."
-                                className="min-h-[110px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-semibold text-sm shadow-sm leading-relaxed"
-                                onChange={(e) => {
-                                  let val = e.target.value;
-
-                                  // Auto-format into bullet points
-                                  if (val.length > 0) {
-                                    // If the text doesn't start with a bullet, add one
-                                    if (!val.startsWith('• ')) {
-                                      val = '• ' + val;
-                                    }
-
-                                    // If user pressed Enter, add a bullet on the new line
-                                    val = val.replace(/\n(?!\• )/g, '\n• ');
-                                  }
-
-                                  field.onChange(val);
-                                }}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="justification"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Justifications réglementaires et Procédurales</FormLabel>
-                            <FormControl>
-                              <Textarea
-                                {...field}
-                                placeholder="Base légale ou procédure interne justifiant cette évaluation..."
-                                className="min-h-[110px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-semibold text-sm shadow-sm leading-relaxed"
-                              />
-                            </FormControl>
-                            <FormMessage />
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Proba. DMR</FormLabel>
+                            <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 1)}>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-primary/20 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
+                              <SelectContent className="rounded-xl border-none shadow-2xl">
+                                {[1, 2, 3, 4].map((v) => <SelectItem key={v} value={String(v)} className="font-bold">{v} - {probabiliteLabels[v].label}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
                           </FormItem>
                         )}
                       />
                     </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-primary/20">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-primary/60">Score Résiduel</span>
+                      <div className={cn("px-3 py-1 rounded-lg border font-black text-sm", getRiskScoreStyle(Number(form.watch('dmrEfficiency') || 2) * Number(form.watch('dmrProbability') || form.watch('probabilite') || 1)).bg, getRiskScoreStyle(Number(form.watch('dmrEfficiency') || 2) * Number(form.watch('dmrProbability') || form.watch('probabilite') || 1)).text)}>
+                        {Number(form.watch('dmrEfficiency') || 2) * Number(form.watch('dmrProbability') || form.watch('probabilite') || 1)}
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                {/* SECTION 3: ACTIONS & DETAILS */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <FormField
+                      control={form.control}
+                      name="documentId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document lié (optionnel)</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || "none"}>
+                            <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Aucun document" /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-xl border-none shadow-2xl">
+                              <SelectItem value="none" className="font-bold text-slate-400">Aucun document</SelectItem>
+                              {documents.map((doc: any) => <SelectItem key={doc.id} value={doc.id} className="font-bold">{doc.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="expectedAction"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mesure d'atténuation (DMR)</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              {...field}
+                              placeholder="Mesures prévues pour réduire le risque..."
+                              className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="justification"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Justifications réglementaires et Procédurales</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            placeholder="Base légale ou procédure interne justifiant cette évaluation..."
+                            className="min-h-[160px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </div>
 

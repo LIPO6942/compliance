@@ -167,6 +167,7 @@ export interface RiskMappingItem {
   lastUpdated: string;
   documentId?: string; // Optional linked document
   dmrEfficiency?: number; // 1 to 4
+  dmrProbability?: number; // 1 to 4
 }
 
 export interface CustomKeyword {
