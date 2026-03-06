@@ -53,9 +53,17 @@ const riskSchema = z.object({
   expectedAction: z.string().min(1, "L'action attendue est requise."),
   justification: z.string().optional(),
   documentId: z.string().optional(),
+  dmrEfficiency: z.coerce.number().min(1).max(4).optional(),
 });
 
 type RiskFormValues = z.infer<typeof riskSchema>;
+
+const dmrEfficiencyLevels = [
+  { value: 1, label: "Très efficace", color: "text-emerald-600 bg-emerald-50 border-emerald-100", description: "Mesures optimales, contrôles robustes et conformité totale." },
+  { value: 2, label: "Moyennement efficace", color: "text-blue-600 bg-blue-50 border-blue-100", description: "Dispositif satisfaisant," },
+  { value: 3, label: "Peu efficace", color: "text-orange-600 bg-orange-50 border-orange-100", description: "Lacunes notables dans la mise en œuvre ou la conception des contrôles." },
+  { value: 4, label: "Défaillant", color: "text-rose-600 bg-rose-50 border-rose-100", description: "Défaillances majeures ou absence totale de mesures d'atténuation." },
+];
 
 const calculateRiskScore = (probabilite: number, impact: number): number => {
   return (probabilite || 1) * (impact || 1);
@@ -342,8 +350,9 @@ export default function RiskMappingPage() {
         probabilite: data.probabilite ?? 1,
         impact: data.impact ?? 1,
         expectedAction: data.expectedAction,
-        justification: data.justification || "",
+        justification: (data as any).justification || "",
         documentId: data.documentId || "",
+        dmrEfficiency: (data as any).dmrEfficiency || 2,
       });
     } else {
       form.reset({
@@ -355,6 +364,7 @@ export default function RiskMappingPage() {
         expectedAction: "",
         justification: "",
         documentId: "",
+        dmrEfficiency: 2,
       });
     }
   };
@@ -380,6 +390,7 @@ export default function RiskMappingPage() {
           ...sanitizedValues,
           probabilite: numProba,
           impact: numImpact,
+          dmrEfficiency: Number(values.dmrEfficiency) || 2,
           riskLevel: calculateRiskLevel(numProba, numImpact),
         });
         toast({ title: "Risque identifié", description: "La cartographie a été mise à jour." });
@@ -398,6 +409,7 @@ export default function RiskMappingPage() {
           ...sanitizedValues,
           probabilite: numProba,
           impact: numImpact,
+          dmrEfficiency: Number(values.dmrEfficiency) || 2,
           riskLevel: calculateRiskLevel(numProba, numImpact),
         });
         toast({ title: "Risque modifié", description: "Les détails du risque ont été actualisés." });
@@ -691,13 +703,14 @@ export default function RiskMappingPage() {
                 <Table className="border-collapse">
                   <TableHeader>
                     <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[40%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Impact</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Proba.</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Score</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[30%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[7%]">Impact</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[7%]">Proba.</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[7%]">Score</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[15%]">Niveau DMR</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[12%]">Risque Résiduel</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[18%]">Position de la MAE Assurance</TableHead>
-                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[5%]">Actions</TableHead>
+                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[4%]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -745,6 +758,25 @@ export default function RiskMappingPage() {
                               <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg border font-bold text-xs", style.bg, style.text, style.border)}>
                                 {score}
                               </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              {(() => {
+                                const eff = dmrEfficiencyLevels.find(l => l.value === (risk as any).dmrEfficiency) || dmrEfficiencyLevels[1];
+                                return (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge className={cn("text-[9px] font-bold uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-sm transition-all hover:scale-105 cursor-help", eff.color)}>
+                                          {eff.label}
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="bg-slate-900 text-white border-none p-2 rounded-lg shadow-xl">
+                                        <p className="text-[10px] font-semibold">{eff.description}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
                               <div className="flex items-center justify-center gap-1.5">
@@ -1206,6 +1238,36 @@ export default function RiskMappingPage() {
                         )}
                       />
 
+
+                      <FormField
+                        control={form.control}
+                        name="dmrEfficiency"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Niveau d'efficacité du contrôle (DMR)</FormLabel>
+                            <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 2)}>
+                              <FormControl>
+                                <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
+                                  <SelectValue placeholder="Sélectionner un niveau" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="rounded-xl border-none shadow-2xl">
+                                {dmrEfficiencyLevels.map((level) => (
+                                  <SelectItem key={level.value} value={String(level.value)} className="font-bold py-3">
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className={cn("text-xs uppercase tracking-tight", level.color.split(' ')[0])}>
+                                        {level.value}. {level.label}
+                                      </span>
+                                      <p className="text-[9px] text-slate-400 font-normal leading-tight italic">{level.description}</p>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
                       <FormField
                         control={form.control}
