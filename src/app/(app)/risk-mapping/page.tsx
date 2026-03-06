@@ -873,13 +873,13 @@ export default function RiskMappingPage() {
                               </button>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
-                              <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg border font-bold text-xs", style.bg, style.text, style.border)}>
-                                {score}
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg border font-bold text-xs", style.bg, style.text, style.border)}>
-                                {score}
+                              <div className="flex flex-col items-center gap-1">
+                                <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg border font-bold text-xs", style.bg, style.text, style.border)}>
+                                  {score}
+                                </div>
+                                <span className={cn("text-[9px] font-bold uppercase tracking-tight", style.text)}>
+                                  {style.label}
+                                </span>
                               </div>
                             </TableCell>
                             <TableCell className="py-3 px-4">
@@ -889,7 +889,7 @@ export default function RiskMappingPage() {
                                     score <= 8 ? "bg-yellow-500" :
                                       score <= 12 ? "bg-orange-500" : "bg-rose-500"
                                 )} />
-                                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 leading-tight">
+                                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 leading-tight">
                                   {maePosition}
                                 </span>
                               </div>
