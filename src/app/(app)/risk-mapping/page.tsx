@@ -326,10 +326,8 @@ export default function RiskMappingPage() {
   const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis" | "dmr">(tabParam || "table");
 
   React.useEffect(() => {
-    if (tabParam && tabParam !== viewMode) {
-      setViewMode(tabParam);
-    }
-  }, [tabParam, viewMode]);
+    setViewMode(tabParam || "table");
+  }, [tabParam]);
 
   // Global documents popover state
   const [globalDocsOpen, setGlobalDocsOpen] = React.useState(false);
@@ -697,18 +695,22 @@ export default function RiskMappingPage() {
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Impact</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Proba.</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Score</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[15%]">Risque Résiduel</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[20%]">Position de la MAE Assurance</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[12%]">Risque Résiduel</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[18%]">Position de la MAE Assurance</TableHead>
+                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[5%]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredRisks.length > 0 ? (
                       filteredRisks.map((risk) => {
-                        const imp = Number(risk.impact) || 1;
-                        const pro = Number(risk.probabilite) || 1;
+                        const rawImp = Number(risk.impact);
+                        const rawPro = Number(risk.probabilite);
+                        const imp = isNaN(rawImp) ? 1 : rawImp;
+                        const pro = isNaN(rawPro) ? 1 : rawPro;
                         const score = imp * pro;
                         const style = getRiskScoreStyle(score);
                         const maePosition = getMAEPosition(score);
+                        const hasAlert = !!findAlertByRiskId(risk.id);
                         return (
                           <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 divide-x divide-slate-100 dark:divide-slate-800">
                             <TableCell className="py-3 px-4">
@@ -780,6 +782,38 @@ export default function RiskMappingPage() {
                                 <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 leading-tight">
                                   {maePosition}
                                 </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleToggleAlert(risk)}
+                                  className={cn("h-7 w-7 rounded transition-all", hasAlert ? "text-rose-500 bg-rose-50" : "text-slate-400 hover:bg-slate-100")}
+                                >
+                                  {hasAlert ? <Bell className="h-4 w-4 fill-current" /> : <BellOff className="h-4 w-4" />}
+                                </Button>
+
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-7 w-7 p-0 rounded hover:bg-slate-100">
+                                      <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-40 rounded-lg shadow-xl">
+                                    <DropdownMenuItem onClick={() => openDialog('edit', risk)} className="text-xs font-bold py-2">
+                                      <Edit className="mr-2 h-3.5 w-3.5 text-indigo-500" /> Modifier
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => openDialog('delete', risk)}
+                                      className="text-rose-600 text-xs font-bold py-2 focus:text-rose-600 focus:bg-rose-50"
+                                    >
+                                      <Trash2 className="mr-2 h-3.5 w-3.5" /> Supprimer
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </div>
                             </TableCell>
                           </TableRow>

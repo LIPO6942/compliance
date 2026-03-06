@@ -11,6 +11,7 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     impact: 3,
     riskLevel: 'Modéré',
     expectedAction: 'Mise à jour des supports de vente + formation du réseau commercial',
+    justification: 'Conformité avec la circulaire n°2021-05 de la BCT sur la protection des consommateurs.',
     lastUpdated: '2024-07-20',
   },
   {
@@ -22,6 +23,7 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     impact: 4,
     riskLevel: 'Modéré',
     expectedAction: 'Réaliser un audit de sécurité annuel et des tests de pénétration.',
+    justification: 'Exigence de la Loi Organique n° 2004-63 relative à la protection des données à caractère personnel.',
     lastUpdated: '2024-06-15',
   },
   {
@@ -33,6 +35,7 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     impact: 3,
     riskLevel: 'Modéré',
     expectedAction: 'Renforcement des scénarios de détection dans l\'outil de surveillance des transactions.',
+    justification: 'Décret n° 2017-1090 fixant les procédures de gel des avoirs des terroristes.',
     lastUpdated: '2024-05-10',
   },
   {
@@ -44,6 +47,7 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     impact: 2,
     riskLevel: 'Modéré',
     expectedAction: 'Automatiser une partie du suivi des dossiers et former les gestionnaires sur les nouvelles jurisprudences.',
+    justification: 'Code des Assurances - Titre IV : De l\'indemnisation des victimes d\'accidents de la circulation.',
     lastUpdated: '2024-07-01',
   },
 ];
