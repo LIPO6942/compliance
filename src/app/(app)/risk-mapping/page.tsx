@@ -610,9 +610,6 @@ export default function RiskMappingPage() {
             <TabsTrigger value="table" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <List className="h-3.5 w-3.5 mr-2" /> Inventaire
             </TabsTrigger>
-            <TabsTrigger value="dmr" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <ShieldCheck className="h-3.5 w-3.5 mr-2" /> dmr <span className="text-[8px] ml-1 lowercase font-normal">(Dispositif de Management des Risques)</span>
-            </TabsTrigger>
             <TabsTrigger value="heatmap" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <LayoutGrid className="h-3.5 w-3.5 mr-2" /> Heatmap
             </TabsTrigger>
@@ -693,19 +690,20 @@ export default function RiskMappingPage() {
                 <Table className="border-collapse">
                   <TableHeader>
                     <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[25%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[20%]">Dispositif de Management (DMR)</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Impact</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Proba.</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Score</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[12%]">Risque Résiduel</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[19%]">Position de la MAE Assurance</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[40%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Impact</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Proba.</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Score</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[15%]">Risque Résiduel</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[20%]">Position de la MAE Assurance</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredRisks.length > 0 ? (
                       filteredRisks.map((risk) => {
-                        const score = calculateRiskScore(risk.probabilite, risk.impact);
+                        const imp = Number(risk.impact) || 1;
+                        const pro = Number(risk.probabilite) || 1;
+                        const score = imp * pro;
                         const style = getRiskScoreStyle(score);
                         const maePosition = getMAEPosition(score);
                         return (
@@ -722,17 +720,12 @@ export default function RiskMappingPage() {
                                 </button>
                               </div>
                             </TableCell>
-                            <TableCell className="py-3 px-4">
-                              <span className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed italic">
-                                {risk.expectedAction || "Non défini"}
-                              </span>
-                            </TableCell>
                             <TableCell className="py-3 px-4 text-center">
                               <button
                                 onClick={() => openDialog('edit', risk)}
                                 className="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary transition-colors border-b border-dashed border-slate-300 hover:border-primary"
                               >
-                                {risk.impact}
+                                {imp}
                               </button>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
@@ -740,7 +733,7 @@ export default function RiskMappingPage() {
                                 onClick={() => openDialog('edit', risk)}
                                 className="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary transition-colors border-b border-dashed border-slate-300 hover:border-primary"
                               >
-                                {risk.probabilite}
+                                {pro}
                               </button>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
@@ -753,11 +746,11 @@ export default function RiskMappingPage() {
                                 <Badge className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5", style.bg, style.text, style.border, "border-2")}>
                                   {style.label}
                                 </Badge>
-                                {risk.justification && (
+                                {(risk as any).justification && (
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <button className="h-5 w-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors">
+                                        <button className="h-5 w-5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all shadow-sm">
                                           <Info className="h-3 w-3" />
                                         </button>
                                       </TooltipTrigger>
@@ -765,7 +758,7 @@ export default function RiskMappingPage() {
                                         <div className="space-y-1.5">
                                           <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500 underline decoration-indigo-200 decoration-2 underline-offset-4 mb-2">Justification Réglementaire</p>
                                           <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 leading-relaxed italic">
-                                            "{risk.justification}"
+                                            "{(risk as any).justification}"
                                           </p>
                                         </div>
                                       </TooltipContent>

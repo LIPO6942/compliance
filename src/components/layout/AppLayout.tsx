@@ -77,7 +77,6 @@ const navItems = [
     label: "Cartographie des Risques",
     title: "Cartographie des Risques",
     subItems: [
-      { href: "/risk-mapping?tab=table", icon: List, label: "Inventaire" },
       { href: "/risk-mapping?tab=dmr", icon: ShieldCheck, label: "DMR" },
     ]
   },
@@ -154,7 +153,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       </span>
                     </SidebarMenuButton>
                   </Link>
-                  {item.subItems && (
+                  {item.subItems && pathname.startsWith(item.href) && (
                     <SidebarMenuSub>
                       {item.subItems.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.href}>
