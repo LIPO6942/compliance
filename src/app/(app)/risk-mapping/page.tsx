@@ -50,6 +50,7 @@ const riskSchema = z.object({
   probabilite: z.coerce.number().min(1, "Min: 1").max(4, "Max: 4"),
   impact: z.coerce.number().min(1, "Min: 1").max(4, "Max: 4"),
   expectedAction: z.string().min(1, "L'action attendue est requise."),
+  justification: z.string().optional(),
   documentId: z.string().optional(),
 });
 
@@ -299,6 +300,8 @@ export default function RiskMappingPage() {
   const { toast } = useToast();
   const { logAction } = useActivityLog();
   const { user } = useUser();
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const initialTab = searchParams?.get('tab') as "table" | "heatmap" | "analysis" | "dmr" | null;
 
   const [isClient, setIsClient] = React.useState(false);
   React.useEffect(() => { setIsClient(true) }, []);
@@ -319,7 +322,11 @@ export default function RiskMappingPage() {
   const [filterDepartment, setFilterDepartment] = React.useState<string>("all");
   const [filterCategory, setFilterCategory] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState<string>("");
-  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis" | "dmr">("table");
+  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis" | "dmr">(initialTab || "table");
+
+  React.useEffect(() => {
+    if (initialTab) setViewMode(initialTab);
+  }, [initialTab]);
 
   // Global documents popover state
   const [globalDocsOpen, setGlobalDocsOpen] = React.useState(false);
@@ -334,6 +341,7 @@ export default function RiskMappingPage() {
         probabilite: data.probabilite ?? 1,
         impact: data.impact ?? 1,
         expectedAction: data.expectedAction,
+        justification: data.justification || "",
         documentId: data.documentId || "",
       });
     } else {
@@ -344,6 +352,7 @@ export default function RiskMappingPage() {
         impact: 2,
         riskDescription: "",
         expectedAction: "",
+        justification: "",
         documentId: "",
       });
     }
@@ -361,6 +370,7 @@ export default function RiskMappingPage() {
         category: values.category || "Clients",
         riskDescription: values.riskDescription || "",
         expectedAction: values.expectedAction || "",
+        justification: values.justification || "",
         documentId: values.documentId && values.documentId !== "none" ? values.documentId : undefined,
       };
 
@@ -601,7 +611,7 @@ export default function RiskMappingPage() {
               <List className="h-3.5 w-3.5 mr-2" /> Inventaire
             </TabsTrigger>
             <TabsTrigger value="dmr" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <ShieldCheck className="h-3.5 w-3.5 mr-2" /> DMR & EER
+              <ShieldCheck className="h-3.5 w-3.5 mr-2" /> dmr <span className="text-[8px] ml-1 lowercase font-normal">(Dispositif de Management des Risques)</span>
             </TabsTrigger>
             <TabsTrigger value="heatmap" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <LayoutGrid className="h-3.5 w-3.5 mr-2" /> Heatmap
@@ -703,9 +713,13 @@ export default function RiskMappingPage() {
                             <TableCell className="py-3 px-4">
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest leading-none">{risk.category}</span>
-                                <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+                                <button
+                                  onClick={() => setViewMode("table")}
+                                  className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight text-left hover:text-primary transition-colors hover:underline flex items-center gap-1 group/link"
+                                >
                                   {risk.riskDescription}
-                                </span>
+                                  <LinkIcon className="h-2.5 w-2.5 opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                                </button>
                               </div>
                             </TableCell>
                             <TableCell className="py-3 px-4">
@@ -714,10 +728,20 @@ export default function RiskMappingPage() {
                               </span>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
-                              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{risk.impact}</span>
+                              <button
+                                onClick={() => openDialog('edit', risk)}
+                                className="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary transition-colors border-b border-dashed border-slate-300 hover:border-primary"
+                              >
+                                {risk.impact}
+                              </button>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
-                              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{risk.probabilite}</span>
+                              <button
+                                onClick={() => openDialog('edit', risk)}
+                                className="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary transition-colors border-b border-dashed border-slate-300 hover:border-primary"
+                              >
+                                {risk.probabilite}
+                              </button>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
                               <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg border font-bold text-xs", style.bg, style.text, style.border)}>
@@ -725,9 +749,30 @@ export default function RiskMappingPage() {
                               </div>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
-                              <Badge className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5", style.bg, style.text, style.border, "border-2")}>
-                                {style.label}
-                              </Badge>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <Badge className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5", style.bg, style.text, style.border, "border-2")}>
+                                  {style.label}
+                                </Badge>
+                                {risk.justification && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button className="h-5 w-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors">
+                                          <Info className="h-3 w-3" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-[280px] p-3 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 shadow-2xl">
+                                        <div className="space-y-1.5">
+                                          <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500 underline decoration-indigo-200 decoration-2 underline-offset-4 mb-2">Justification Réglementaire</p>
+                                          <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                            "{risk.justification}"
+                                          </p>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell className="py-3 px-4">
                               <div className="flex items-start gap-2">
@@ -1159,6 +1204,24 @@ export default function RiskMappingPage() {
 
                                   field.onChange(val);
                                 }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="justification"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Justifications réglementaires et Procédurales</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                {...field}
+                                placeholder="Base légale ou procédure interne justifiant cette évaluation..."
+                                className="min-h-[110px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-semibold text-sm shadow-sm leading-relaxed"
                               />
                             </FormControl>
                             <FormMessage />

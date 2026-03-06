@@ -37,6 +37,8 @@ import {
   Map,
   AlertTriangle,
   Workflow,
+  List,
+  ShieldCheck,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -69,7 +71,16 @@ const navItems = [
   },
   { href: "/ecosystem", icon: Users, label: "Cartographie des Acteurs", title: "Cartographie des Acteurs" },
   { href: "/regulatory-watch", icon: SearchCheck, label: "Assistance Conformité IA", title: "Assistance Conformité IA" },
-  { href: "/risk-mapping", icon: Map, label: "Cartographie des Risques", title: "Cartographie des Risques" },
+  {
+    href: "/risk-mapping",
+    icon: Map,
+    label: "Cartographie des Risques",
+    title: "Cartographie des Risques",
+    subItems: [
+      { href: "/risk-mapping?tab=table", icon: List, label: "Inventaire" },
+      { href: "/risk-mapping?tab=dmr", icon: ShieldCheck, label: "DMR" },
+    ]
+  },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },
   { href: "/training", icon: Users, label: "Formations", title: "Formations et Sensibilisation" },
   { href: "/reports", icon: FilePieChart, label: "Reporting Automatisé", title: "Reporting Automatisé" },
