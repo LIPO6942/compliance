@@ -96,7 +96,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { identifiedRegulations } = useIdentifiedRegulations();
 
   const linkedTeamMember = React.useMemo(() => {
-    return teamMembers.find(m => m.name === user.name || (m.email && user.email && m.email === user.email));
+    return teamMembers.find(m => m.name === user?.name || (m.email && user?.email && m.email === user?.email));
   }, [teamMembers, user]);
 
   const displayRole = linkedTeamMember?.officialFunction || user?.officialFunction || linkedTeamMember?.role || user?.role;
