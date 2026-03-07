@@ -83,7 +83,7 @@ const calculateRiskLevel = (probabilite: number, impact: number): RiskLevel => {
   return "Très élevé";
 };
 
-const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any, maePositions: Record<number, string>, mode: 'principal' | 'dmr' | 'combined' = 'principal') => {
+const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any, maePositions: Record<number, string>, mode: 'principal' | 'dmr' | 'plan-actions' | 'combined' = 'principal') => {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Compliance Navigator";
   wb.created = new Date();
@@ -224,6 +224,70 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     });
   });
 
+  // ── SHEET : Plan d'actions ──────────────────────────────────────────────────
+  if (mode === 'plan-actions' || mode === 'combined') {
+    const wsPlan = wb.addWorksheet("Plan d'actions");
+    wsPlan.columns = [
+      { header: "N°", key: "num", width: 5 },
+      { header: "Scénario de Risque", key: "desc", width: 40 },
+      { header: "Catégorie", key: "cat", width: 25 },
+      { header: "Direction", key: "dept", width: 15 },
+      { header: "Point de faiblesse", key: "weakness", width: 35 },
+      { header: "Action corrective prévue", key: "action", width: 45 },
+      { header: "Échéance", key: "deadline", width: 15 },
+      { header: "Responsable", key: "resp", width: 20 },
+      { header: "Niveau d'avancement", key: "comp", width: 20 }
+    ];
+
+    // Style header
+    const planHeaderRow = wsPlan.getRow(1);
+    planHeaderRow.height = 32;
+    planHeaderRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+      cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+      applyBorder(cell, "FF94A3B8");
+    });
+
+    // Plan Data
+    risks.forEach((risk, i) => {
+      const row = wsPlan.addRow({
+        num: i + 1,
+        desc: risk.riskDescription,
+        cat: risk.category,
+        dept: risk.department,
+        weakness: risk.weaknessPoint || "-",
+        action: (risk as any).actionCorrective || "-",
+        deadline: risk.deadline || "-",
+        resp: risk.responsible || "-",
+        comp: `${risk.completionLevel || 0}%`
+      });
+      row.height = 35;
+      const rowBg = i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
+      row.eachCell((cell, colNumber) => {
+        cell.alignment = { vertical: "middle", wrapText: true, horizontal: "left" };
+        applyBorder(cell);
+
+        // Color completion
+        if (wsPlan.columns[colNumber - 1]?.key === "comp") {
+          const lv = risk.completionLevel || 0;
+          let color = "FF94A3B8"; // gris
+          if (lv > 0 && lv <= 20) color = "FFF43F5E"; // rose
+          else if (lv > 20 && lv <= 40) color = "FFF97316"; // orange
+          else if (lv > 40 && lv <= 60) color = "FFF59E0B"; // ambre
+          else if (lv > 60 && lv <= 80) color = "FF84CC16"; // lime
+          else if (lv > 80 && lv <= 100) color = "FF10B981"; // emerald
+
+          cell.font = { bold: true, color: { argb: color }, size: 10 };
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+        } else {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+          cell.font = { color: { argb: "FF1E293B" }, size: 9 };
+        }
+      });
+    });
+  }
+
   // ── SHEET 2 : Légende ───────────────────────────────────────────────────────
   const ws2 = wb.addWorksheet("Légende");
   ws2.columns = [
@@ -320,7 +384,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  const filename = mode === 'principal' ? 'Cartographie' : (mode === 'dmr' ? 'DMR' : 'Cartographie_Complet');
+  const filename = mode === 'principal' ? 'Cartographie' : (mode === 'dmr' ? 'DMR' : (mode === 'plan-actions' ? 'Plan_Actions' : 'Cartographie_Complet'));
   a.download = `${filename}_${today}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
@@ -331,7 +395,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
       userEmail: user.email,
       userName: user.name,
       action: 'OTHER',
-      label: `A exporté ${mode === 'principal' ? 'la cartographie' : (mode === 'dmr' ? 'le tableau DMR' : 'le tableau complet')} (${risks.length} lignes)`,
+      label: `A exporté ${mode === 'principal' ? 'la cartographie' : (mode === 'dmr' ? 'le tableau DMR' : (mode === 'plan-actions' ? 'le plan d\'actions' : 'le tableau complet'))} (${risks.length} lignes)`,
       module: 'Cartographie des Risques'
     });
   }
@@ -639,6 +703,17 @@ export default function RiskMappingPage() {
                     <div className="flex flex-col">
                       <span className="text-xs font-bold text-slate-700">Tableau DMR</span>
                       <span className="text-[9px] text-slate-400">Efficacité et risque résiduel</span>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, 'plan-actions')} className="rounded-lg py-3 cursor-pointer group">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                      <Target className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-700">Plan d'Actions</span>
+                      <span className="text-[9px] text-slate-400">Actions et avancement</span>
                     </div>
                   </div>
                 </DropdownMenuItem>
