@@ -78,6 +78,7 @@ const navItems = [
     title: "Cartographie des Risques",
     subItems: [
       { href: "/risk-mapping?tab=dmr", icon: ShieldCheck, label: "DMR" },
+      { href: "/risk-mapping?tab=analysis", icon: Activity, label: "Analyse" },
     ]
   },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },
@@ -119,7 +120,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider defaultOpen={!isMobile} open={isMobile ? false : undefined}>
-      <Sidebar collapsible="icon" side="left" variant="sidebar" className="border-r border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl">
+      <Sidebar collapsible="icon" side="left" variant="sidebar" className="z-40 border-r border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl">
         <SidebarHeader className="p-4 border-b border-sidebar-border">
           <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
             <Logo className="h-8 w-8" />

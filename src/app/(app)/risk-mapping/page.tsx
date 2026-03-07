@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck, FolderOpen, Info, Download, Save } from "lucide-react";
+import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck, FolderOpen, Info, Download, Save, Settings } from "lucide-react";
 import ExcelJS from "exceljs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -628,6 +628,20 @@ export default function RiskMappingPage() {
               </DropdownMenuContent>
             </DropdownMenu>
             <Button
+              size="icon"
+              variant="outline"
+              onClick={() => setViewMode('settings')}
+              className={cn(
+                "h-14 w-14 rounded-xl border-2 transition-all hover:scale-[1.02] shadow-lg",
+                viewMode === 'settings'
+                  ? "bg-slate-900 border-slate-900 text-white"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              )}
+              title="Paramètres"
+            >
+              <Settings className="h-6 w-6" />
+            </Button>
+            <Button
               size="lg"
               onClick={() => openDialog('add')}
               className="h-14 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-lg transition-all hover:scale-[1.02]"
@@ -746,15 +760,6 @@ export default function RiskMappingPage() {
             </TabsTrigger>
             <TabsTrigger value="heatmap" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <LayoutGrid className="h-3.5 w-3.5 mr-2" /> Heatmap
-            </TabsTrigger>
-            <TabsTrigger value="analysis" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <Activity className="h-3.5 w-3.5 mr-2" /> Analyse
-            </TabsTrigger>
-            <TabsTrigger value="dmr" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <ShieldCheck className="h-3.5 w-3.5 mr-2" /> DMR
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <Activity className="h-3.5 w-3.5 mr-2" /> Paramètres
             </TabsTrigger>
           </TabsList>
 
