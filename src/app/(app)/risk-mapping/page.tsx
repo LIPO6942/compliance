@@ -56,6 +56,7 @@ const riskSchema = z.object({
   dmrEfficiency: z.coerce.number().min(1).max(4).optional(),
   dmrProbability: z.coerce.number().min(1).max(4).optional(),
   weaknessPoint: z.string().optional(),
+  actionCorrective: z.string().optional(),
   deadline: z.string().optional(),
   responsible: z.string().optional(),
   completionLevel: z.coerce.number().min(0).max(100).optional(),
@@ -435,6 +436,7 @@ export default function RiskMappingPage() {
         dmrEfficiency: (data as any).dmrEfficiency || 2,
         dmrProbability: (data as any).dmrProbability || (data.probabilite ?? 2),
         weaknessPoint: data.weaknessPoint || "",
+        actionCorrective: (data as any).actionCorrective || "",
         deadline: data.deadline || "",
         responsible: data.responsible || "",
         completionLevel: data.completionLevel || 0,
@@ -447,6 +449,7 @@ export default function RiskMappingPage() {
         impact: 2,
         riskDescription: "",
         expectedAction: "",
+        actionCorrective: "",
         justification: "",
         documentId: "",
         dmrEfficiency: 2,
@@ -889,7 +892,7 @@ export default function RiskMappingPage() {
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
                               <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 leading-tight">
-                                {risk.expectedAction}
+                                {(risk as any).actionCorrective || "-"}
                               </span>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
@@ -1140,10 +1143,10 @@ export default function RiskMappingPage() {
                         <TableCell className="py-4 px-6">
                           <Textarea
                             className="text-xs font-semibold bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 min-h-[60px] rounded-xl"
-                            defaultValue={risk.expectedAction}
+                            defaultValue={(risk as any).actionCorrective || ""}
                             onBlur={(e) => {
-                              if (e.target.value !== risk.expectedAction) {
-                                editRisk(risk.id, { expectedAction: e.target.value });
+                              if (e.target.value !== (risk as any).actionCorrective) {
+                                editRisk(risk.id, { actionCorrective: e.target.value } as any);
                                 toast({ title: "Action mise à jour", description: "Le plan d'action a été actualisé." });
                               }
                             }}
@@ -1439,19 +1442,34 @@ export default function RiskMappingPage() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <FormField
-                      control={form.control}
-                      name="riskDescription"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Scénario de Risque</FormLabel>
-                          <FormControl>
-                            <Textarea {...field} placeholder="Décrivez le scénario redouté..." className="min-h-[120px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all shadow-sm" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="riskDescription"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Scénario de Risque</FormLabel>
+                            <FormControl>
+                              <Textarea {...field} placeholder="Décrivez le scénario redouté..." className="min-h-[120px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all shadow-sm" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="expectedAction"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mesure d'atténuation (existante)</FormLabel>
+                            <FormControl>
+                              <Textarea {...field} placeholder="Dispositif en place pour atténuer le risque..." className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all shadow-sm" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
                     <div className="space-y-6">
                       <FormField
@@ -1622,13 +1640,14 @@ export default function RiskMappingPage() {
                       />
                       <FormField
                         control={form.control}
-                        name="expectedAction"
+                        name="actionCorrective"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Action corrective prévue</FormLabel>
                             <FormControl>
                               <Textarea
                                 {...field}
+                                value={field.value || ""}
                                 placeholder="Mesures pour réduire le risque..."
                                 className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
                               />
