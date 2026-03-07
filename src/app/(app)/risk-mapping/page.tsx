@@ -777,9 +777,6 @@ export default function RiskMappingPage() {
             <TabsTrigger value="heatmap" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <LayoutGrid className="h-3.5 w-3.5 mr-2" /> Heatmap
             </TabsTrigger>
-            <TabsTrigger value="plan-actions" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <ClipboardList className="h-3.5 w-3.5 mr-2" /> Plan d'actions
-            </TabsTrigger>
           </TabsList>
 
           <div className="flex-1 flex flex-nowrap items-center gap-2 w-full overflow-x-auto scrollbar-hide bg-white/50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
@@ -924,10 +921,11 @@ export default function RiskMappingPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => openDialog('edit', risk)}
+                                  onClick={() => setViewMode('settings')}
                                   className="h-8 w-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-indigo-600 transition-colors"
+                                  title="Paramétrer ce plan d'actions"
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  <Settings className="h-4 w-4" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -1107,66 +1105,6 @@ export default function RiskMappingPage() {
           <Card className="shadow-2xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
             <CardHeader className="pb-6 pt-8 px-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-100 dark:border-indigo-800/50">
-                  <Activity className="h-6 w-6" />
-                </div>
-                <div>
-                  <CardTitle className="text-2xl font-black tracking-tight text-slate-800 dark:text-white">Paramètres Généraux des Risques</CardTitle>
-                  <CardDescription className="text-[13px] font-semibold text-slate-500 mt-1.5 flex items-center gap-2">
-                    Configuration des textes de la <span className="text-indigo-500 dark:text-indigo-400 font-bold decoration-indigo-200 underline underline-offset-4 decoration-2">Position de la MAE Assurance</span>
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-10 space-y-10">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {[
-                  { level: 1, label: "Score ≤ 4 (Faible)", icon: "🛡️", color: "border-emerald-500/30 bg-emerald-50/30 text-emerald-700" },
-                  { level: 2, label: "Score 5 – 8 (Modéré)", icon: "⚠️", color: "border-yellow-500/30 bg-yellow-50/30 text-yellow-700" },
-                  { level: 3, label: "Score 9 – 12 (Élevé)", icon: "🔥", color: "border-orange-500/30 bg-orange-50/30 text-orange-700" },
-                  { level: 4, label: "Score ≥ 13 (Très élevé)", icon: "🚨", color: "border-rose-500/30 bg-rose-50/30 text-rose-700" },
-                ].map((item) => (
-                  <div key={item.level} className={cn("p-6 rounded-3xl border-2 transition-all hover:shadow-lg space-y-4", item.color)}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">{item.icon}</span>
-                      <Label className="text-[11px] font-black uppercase tracking-widest opacity-70">{item.label}</Label>
-                    </div>
-                    <Textarea
-                      placeholder="Définir le texte pour ce niveau..."
-                      value={tempMaePositions[item.level] || ""}
-                      onChange={(e) => setTempMaePositions({ ...tempMaePositions, [item.level]: e.target.value })}
-                      className="min-h-[100px] bg-white/80 dark:bg-slate-900/80 border-none shadow-inner rounded-xl font-bold text-sm leading-relaxed focus:ring-2 focus:ring-indigo-500/20"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-3 text-slate-400 italic text-[11px] font-medium">
-                  <Info className="h-4 w-4" />
-                  Ces textes seront utilisés dans le tableau DMR et lors de l'export Excel.
-                </div>
-                <Button
-                  onClick={async () => {
-                    for (const [level, text] of Object.entries(tempMaePositions)) {
-                      await updateMaePosition(Number(level), text);
-                    }
-                    toast({
-                      title: "Paramètres enregistrés",
-                      description: "Les positions de la MAE ont été mises à jour avec succès.",
-                    });
-                  }}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest px-10 h-12 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
-                >
-                  <Save className="mr-2 h-4 w-4" /> Enregistrer les positions
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-2xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
-            <CardHeader className="pb-6 pt-8 px-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
-              <div className="flex items-center gap-4">
                 <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 shadow-sm border border-amber-100 dark:border-amber-800/50">
                   <ClipboardList className="h-6 w-6" />
                 </div>
@@ -1263,6 +1201,66 @@ export default function RiskMappingPage() {
               <Info className="h-3.5 w-3.5 mr-2 inline" />
               Les modifications sont enregistrées automatiquement lorsque vous quittez un champ de saisie (onBlur).
             </CardFooter>
+          </Card>
+
+          <Card className="shadow-2xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <CardHeader className="pb-6 pt-8 px-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-100 dark:border-indigo-800/50">
+                  <Activity className="h-6 w-6" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl font-black tracking-tight text-slate-800 dark:text-white">Paramètres Généraux des Risques</CardTitle>
+                  <CardDescription className="text-[13px] font-semibold text-slate-500 mt-1.5 flex items-center gap-2">
+                    Configuration des textes de la <span className="text-indigo-500 dark:text-indigo-400 font-bold decoration-indigo-200 underline underline-offset-4 decoration-2">Position de la MAE Assurance</span>
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-10 space-y-10">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {[
+                  { level: 1, label: "Score ≤ 4 (Faible)", icon: "🛡️", color: "border-emerald-500/30 bg-emerald-50/30 text-emerald-700" },
+                  { level: 2, label: "Score 5 – 8 (Modéré)", icon: "⚠️", color: "border-yellow-500/30 bg-yellow-50/30 text-yellow-700" },
+                  { level: 3, label: "Score 9 – 12 (Élevé)", icon: "🔥", color: "border-orange-500/30 bg-orange-50/30 text-orange-700" },
+                  { level: 4, label: "Score ≥ 13 (Très élevé)", icon: "🚨", color: "border-rose-500/30 bg-rose-50/30 text-rose-700" },
+                ].map((item) => (
+                  <div key={item.level} className={cn("p-6 rounded-3xl border-2 transition-all hover:shadow-lg space-y-4", item.color)}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{item.icon}</span>
+                      <Label className="text-[11px] font-black uppercase tracking-widest opacity-70">{item.label}</Label>
+                    </div>
+                    <Textarea
+                      placeholder="Définir le texte pour ce niveau..."
+                      value={tempMaePositions[item.level] || ""}
+                      onChange={(e) => setTempMaePositions({ ...tempMaePositions, [item.level]: e.target.value })}
+                      className="min-h-[100px] bg-white/80 dark:bg-slate-900/80 border-none shadow-inner rounded-xl font-bold text-sm leading-relaxed focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-3 text-slate-400 italic text-[11px] font-medium">
+                  <Info className="h-4 w-4" />
+                  Ces textes seront utilisés dans le tableau DMR et lors de l'export Excel.
+                </div>
+                <Button
+                  onClick={async () => {
+                    for (const [level, text] of Object.entries(tempMaePositions)) {
+                      await updateMaePosition(Number(level), text);
+                    }
+                    toast({
+                      title: "Paramètres enregistrés",
+                      description: "Les positions de la MAE ont été mises à jour avec succès.",
+                    });
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest px-10 h-12 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
+                >
+                  <Save className="mr-2 h-4 w-4" /> Enregistrer les positions
+                </Button>
+              </div>
+            </CardContent>
           </Card>
         </TabsContent>
 
