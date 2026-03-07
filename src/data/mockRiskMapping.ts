@@ -15,6 +15,10 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     dmrEfficiency: 2,
     dmrProbability: 2,
     lastUpdated: '2024-07-20',
+    weaknessPoint: 'Manque de clarté des fiches produits',
+    deadline: '2024-12-31',
+    responsible: 'Direction Commerciale',
+    completionLevel: 45,
   },
   {
     id: 'risk002',

@@ -39,6 +39,7 @@ import {
   Workflow,
   List,
   ShieldCheck,
+  ClipboardList,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -78,7 +79,7 @@ const navItems = [
     title: "Cartographie des Risques",
     subItems: [
       { href: "/risk-mapping?tab=dmr", icon: ShieldCheck, label: "DMR" },
-      { href: "/risk-mapping?tab=analysis", icon: Activity, label: "Analyse" },
+      { href: "/risk-mapping?tab=plan-actions", icon: ClipboardList, label: "Plan d'actions" },
     ]
   },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },

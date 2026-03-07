@@ -55,6 +55,10 @@ const riskSchema = z.object({
   documentId: z.string().optional(),
   dmrEfficiency: z.coerce.number().min(1).max(4).optional(),
   dmrProbability: z.coerce.number().min(1).max(4).optional(),
+  weaknessPoint: z.string().optional(),
+  deadline: z.string().optional(),
+  responsible: z.string().optional(),
+  completionLevel: z.coerce.number().min(0).max(100).optional(),
 });
 
 type RiskFormValues = z.infer<typeof riskSchema>;
@@ -380,7 +384,7 @@ export default function RiskMappingPage() {
   const { logAction } = useActivityLog();
   const { user } = useUser();
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get('tab') as "table" | "heatmap" | "analysis" | "dmr" | null;
+  const tabParam = searchParams.get('tab') as "table" | "heatmap" | "plan-actions" | "dmr" | null;
 
   const [isClient, setIsClient] = React.useState(false);
   React.useEffect(() => { setIsClient(true) }, []);
@@ -401,7 +405,7 @@ export default function RiskMappingPage() {
   const [filterDepartment, setFilterDepartment] = React.useState<string>("all");
   const [filterCategory, setFilterCategory] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState<string>("");
-  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis" | "dmr" | "settings">(tabParam || "table");
+  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "plan-actions" | "dmr" | "settings">(tabParam || "table");
 
   const [tempMaePositions, setTempMaePositions] = React.useState<Record<number, string>>(maePositions);
 
@@ -430,6 +434,10 @@ export default function RiskMappingPage() {
         documentId: data.documentId || "",
         dmrEfficiency: (data as any).dmrEfficiency || 2,
         dmrProbability: (data as any).dmrProbability || (data.probabilite ?? 2),
+        weaknessPoint: data.weaknessPoint || "",
+        deadline: data.deadline || "",
+        responsible: data.responsible || "",
+        completionLevel: data.completionLevel || 0,
       });
     } else {
       form.reset({
@@ -443,6 +451,10 @@ export default function RiskMappingPage() {
         documentId: "",
         dmrEfficiency: 2,
         dmrProbability: 2,
+        weaknessPoint: "",
+        deadline: "",
+        responsible: "",
+        completionLevel: 0,
       });
     }
   };
@@ -461,6 +473,10 @@ export default function RiskMappingPage() {
         expectedAction: values.expectedAction || "",
         justification: values.justification || "",
         documentId: values.documentId && values.documentId !== "none" ? values.documentId : undefined,
+        weaknessPoint: values.weaknessPoint || "",
+        deadline: values.deadline || "",
+        responsible: values.responsible || "",
+        completionLevel: values.completionLevel || 0,
       };
 
       if (dialogState.mode === "add") {
@@ -754,12 +770,15 @@ export default function RiskMappingPage() {
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full">
         {/* Navigation & Advanced Filters */}
         <div className="flex flex-col xl:flex-row items-center gap-4 mb-6">
-          <TabsList className="bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl h-12 w-full xl:w-auto border border-slate-200 dark:border-slate-800">
+          <TabsList className="bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl h-12 w-full xl:w-auto border border-slate-200 dark:border-slate-800 shrink-0">
             <TabsTrigger value="table" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <List className="h-3.5 w-3.5 mr-2" /> Inventaire
             </TabsTrigger>
             <TabsTrigger value="heatmap" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <LayoutGrid className="h-3.5 w-3.5 mr-2" /> Heatmap
+            </TabsTrigger>
+            <TabsTrigger value="plan-actions" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+              <ClipboardList className="h-3.5 w-3.5 mr-2" /> Plan d'actions
             </TabsTrigger>
           </TabsList>
 
@@ -811,8 +830,122 @@ export default function RiskMappingPage() {
           </div>
         </div>
 
-        <TabsContent value="analysis" className="mt-0 focus-visible:ring-0">
+        <TabsContent value="plan-actions" className="mt-0 focus-visible:ring-0">
           <RiskKPIs risks={filteredRisks} />
+          <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <CardHeader className="pb-4 pt-6 px-8 border-b border-slate-50 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-bold text-slate-800 dark:text-white">Plan d'actions de Contrôle</CardTitle>
+                  <CardDescription className="text-xs text-slate-500 mt-1">Suivi et pilotage des mesures d'atténuation et de leur avancement</CardDescription>
+                </div>
+                <Badge variant="outline" className="h-7 px-3 rounded-lg border-2 border-primary/10 bg-primary/5 text-primary font-bold text-[10px]">
+                  {filteredRisks.length} Actions planifiées
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table className="border-collapse">
+                  <TableHeader>
+                    <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[12%]">Facteur de risque</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[18%]">Risque identifié</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Cotation Net</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[12%]">Point de faiblesse</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[18%]">Action corrective</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Échéance</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[10%]">Responsable</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[10%] text-center">Niveau d'avancement</TableHead>
+                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[4%]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRisks.length > 0 ? (
+                      filteredRisks.map((risk) => {
+                        const dmrEff = (risk as any).dmrEfficiency || 2;
+                        const dmrPro = (risk as any).dmrProbability || risk.probabilite || 2;
+                        const scoreRes = dmrEff * dmrPro;
+                        const styleRes = getRiskScoreStyle(scoreRes);
+                        const completion = (risk as any).completionLevel || 0;
+
+                        return (
+                          <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 divide-x divide-slate-100 dark:divide-slate-800">
+                            <TableCell className="py-3 px-4">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{risk.category}</span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+                                {risk.riskDescription}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <div className={cn("inline-flex flex-col items-center justify-center w-10 h-10 rounded-lg border", styleRes.bg, styleRes.text, styleRes.border)}>
+                                <span className="text-sm font-black">{scoreRes}</span>
+                                <span className="text-[7px] font-bold uppercase">{styleRes.label}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <span className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight italic">
+                                {(risk as any).weaknessPoint || "-"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 leading-tight">
+                                {risk.expectedAction}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <span className="text-[11px] font-bold text-slate-500">
+                                {(risk as any).deadline || "-"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <Badge variant="ghost" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-none font-bold text-[10px]">
+                                {(risk as any).responsible || "-"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <div className="flex flex-col gap-1.5 items-center">
+                                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                  <div
+                                    className={cn(
+                                      "h-full transition-all duration-500",
+                                      completion < 30 ? "bg-rose-500" : completion < 70 ? "bg-amber-500" : "bg-emerald-500"
+                                    )}
+                                    style={{ width: `${completion}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] font-black">{completion}%</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-right">
+                              <div className="flex justify-end">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openDialog('edit', risk)}
+                                  className="h-8 w-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-indigo-600 transition-colors"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={9} className="h-40 text-center text-slate-400 text-sm font-bold">
+                          Aucune action planifiée correspondante
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="heatmap" className="mt-0 focus-visible:ring-0">
@@ -1368,15 +1501,105 @@ export default function RiskMappingPage() {
                   </div>
                 </div>
 
-                {/* SECTION 3: ACTIONS & DETAILS */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-6">
+                {/* SECTION 3: PLAN D'ACTIONS & DETAILS */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-1 bg-indigo-500 rounded-full" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">Plan d'actions & Suivi</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="weaknessPoint"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Point de faiblesse identifié</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Ex: Absence de procédure formalisée..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="expectedAction"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Action corrective prévue</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                {...field}
+                                placeholder="Mesures pour réduire le risque..."
+                                className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="deadline"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Échéance</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="date" className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-xs shadow-sm" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="responsible"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Responsable</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Nom ou Direction..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-xs shadow-sm" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="completionLevel"
+                        render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                              <span>Niveau d'avancement</span>
+                              <span className="text-primary">{field.value}%</span>
+                            </FormLabel>
+                            <FormControl>
+                              <div className="flex items-center gap-4">
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="100"
+                                  step="5"
+                                  value={field.value || 0}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                  className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full appearance-none cursor-pointer accent-primary"
+                                />
+                              </div>
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
                     <FormField
                       control={form.control}
                       name="documentId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document lié (optionnel)</FormLabel>
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document de référence</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value || "none"}>
                             <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Aucun document" /></SelectTrigger></FormControl>
                             <SelectContent className="rounded-xl border-none shadow-2xl">
@@ -1389,37 +1612,21 @@ export default function RiskMappingPage() {
                     />
                     <FormField
                       control={form.control}
-                      name="expectedAction"
+                      name="justification"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mesure d'atténuation (DMR)</FormLabel>
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Justification complémentaire</FormLabel>
                           <FormControl>
                             <Textarea
                               {...field}
-                              placeholder="Mesures prévues pour réduire le risque..."
-                              className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
+                              placeholder="Base légale ou procédure interne..."
+                              className="min-h-[80px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
                             />
                           </FormControl>
                         </FormItem>
                       )}
                     />
                   </div>
-                  <FormField
-                    control={form.control}
-                    name="justification"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Justifications réglementaires et Procédurales</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            {...field}
-                            placeholder="Base légale ou procédure interne justifiant cette évaluation..."
-                            className="min-h-[160px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
                 </div>
               </div>
 
