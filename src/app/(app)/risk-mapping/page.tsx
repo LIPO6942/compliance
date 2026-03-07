@@ -377,6 +377,16 @@ const impactLabels: Record<number, { label: string; description: string }> = {
   4: { label: "Très élevé", description: "Menace majeure" },
 };
 
+// Options d'avancement du Plan d'actions (pas de 20%)
+const completionOptions = [
+  { value: 0, label: "0% - Non commencé", color: "bg-slate-400", text: "text-slate-500" },
+  { value: 20, label: "20% - Initié", color: "bg-rose-500", text: "text-rose-600" },
+  { value: 40, label: "40% - En cours", color: "bg-orange-500", text: "text-orange-600" },
+  { value: 60, label: "60% - Avancé", color: "bg-amber-500", text: "text-amber-600" },
+  { value: 80, label: "80% - Presque achevé", color: "bg-lime-500", text: "text-lime-600" },
+  { value: 100, label: "100% - Terminé", color: "bg-emerald-500", text: "text-emerald-600" }
+];
+
 export default function RiskMappingPage() {
   const { risks, addRisk, editRisk, removeRisk, globalDocumentIds, setGlobalDocumentIds, maePositions, updateMaePosition } = useRiskMapping();
   const { createAlertFromRisk, findAlertByRiskId, removeAlertByRiskId } = useIdentifiedRegulations();
@@ -907,16 +917,16 @@ export default function RiskMappingPage() {
                             </TableCell>
                             <TableCell className="py-3 px-4">
                               <div className="flex flex-col gap-1.5 items-center">
+                                <span className={cn("text-[10px] font-black", completionOptions.find(o => o.value === completion)?.text || "text-slate-500")}>{completion}%</span>
                                 <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                   <div
                                     className={cn(
                                       "h-full transition-all duration-500",
-                                      completion < 30 ? "bg-rose-500" : completion < 70 ? "bg-amber-500" : "bg-emerald-500"
+                                      completionOptions.find(o => o.value === completion)?.color || "bg-slate-400"
                                     )}
                                     style={{ width: `${completion}%` }}
                                   />
                                 </div>
-                                <span className="text-[10px] font-black">{completion}%</span>
                               </div>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-right">
@@ -1178,20 +1188,28 @@ export default function RiskMappingPage() {
                           />
                         </TableCell>
                         <TableCell className="py-4 px-6">
-                          <div className="flex flex-col items-center gap-2">
-                            <input
-                              type="range"
-                              min="0" max="100" step="10"
-                              className="w-full h-1 bg-slate-100 rounded-full appearance-none accent-indigo-500"
-                              defaultValue={(risk as any).completionLevel || 0}
-                              onMouseUp={(e: any) => {
-                                const val = Number(e.target.value);
-                                if (val !== (risk as any).completionLevel) {
-                                  editRisk(risk.id, { completionLevel: val } as any);
-                                }
+                          <div className="flex w-full min-w-[130px] justify-center">
+                            <Select
+                              value={String((risk as any).completionLevel || 0)}
+                              onValueChange={(v) => {
+                                editRisk(risk.id, { completionLevel: Number(v) } as any);
+                                toast({ title: "Avancement mis à jour" });
                               }}
-                            />
-                            <span className="text-[10px] font-black">{(risk as any).completionLevel || 0}%</span>
+                            >
+                              <SelectTrigger className="h-9 w-full bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 font-bold text-[10px] rounded-lg shadow-none">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl shadow-2xl">
+                                {completionOptions.map(opt => (
+                                  <SelectItem key={opt.value} value={String(opt.value)} className="font-bold text-[10px]">
+                                    <div className="flex items-center gap-2">
+                                      <div className={cn("w-2 h-2 rounded-full", opt.color)} />
+                                      <span>{opt.label}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1692,17 +1710,21 @@ export default function RiskMappingPage() {
                               <span className="text-primary">{field.value}%</span>
                             </FormLabel>
                             <FormControl>
-                              <div className="flex items-center gap-4">
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="100"
-                                  step="5"
-                                  value={field.value || 0}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
-                                  className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full appearance-none cursor-pointer accent-primary"
-                                />
-                              </div>
+                              <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 0)}>
+                                <SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-xs shadow-sm">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border-none shadow-2xl">
+                                  {completionOptions.map(opt => (
+                                    <SelectItem key={opt.value} value={String(opt.value)} className="font-bold">
+                                      <div className="flex items-center gap-2">
+                                        <div className={cn("w-2.5 h-2.5 rounded-full", opt.color)} />
+                                        <span>{opt.label}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </FormControl>
                           </FormItem>
                         )}
