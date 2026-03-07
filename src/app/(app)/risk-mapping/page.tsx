@@ -1103,7 +1103,7 @@ export default function RiskMappingPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="settings" className="mt-0 focus-visible:ring-0">
+        <TabsContent value="settings" className="mt-0 focus-visible:ring-0 space-y-6">
           <Card className="shadow-2xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
             <CardHeader className="pb-6 pt-8 px-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
               <div className="flex items-center gap-4">
@@ -1154,15 +1154,115 @@ export default function RiskMappingPage() {
                     toast({
                       title: "Paramètres enregistrés",
                       description: "Les positions de la MAE ont été mises à jour avec succès.",
-                      variant: "default",
                     });
                   }}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest px-10 h-12 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
                 >
-                  <Save className="mr-2 h-4 w-4" /> Enregistrer les modifications
+                  <Save className="mr-2 h-4 w-4" /> Enregistrer les positions
                 </Button>
               </div>
             </CardContent>
+          </Card>
+
+          <Card className="shadow-2xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <CardHeader className="pb-6 pt-8 px-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 shadow-sm border border-amber-100 dark:border-amber-800/50">
+                  <ClipboardList className="h-6 w-6" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl font-black tracking-tight text-slate-800 dark:text-white">Configuration du Plan d'actions</CardTitle>
+                  <CardDescription className="text-[13px] font-semibold text-slate-500 mt-1.5">
+                    Gestion centralisée des mesures correctives, responsables et échéances pour chaque risque identifié.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[30%]">Risque</TableHead>
+                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[30%]">Action Corrective</TableHead>
+                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[15%]">Responsable</TableHead>
+                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[15%]">Échéance</TableHead>
+                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 text-center w-[10%]">%</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {risks.map((risk) => (
+                      <TableRow key={risk.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 divide-x divide-slate-100 dark:divide-slate-800">
+                        <TableCell className="py-4 px-6">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none">{risk.category}</span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-tight line-clamp-2">{risk.riskDescription}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <Textarea
+                            className="text-xs font-semibold bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 min-h-[60px] rounded-xl"
+                            defaultValue={risk.expectedAction}
+                            onBlur={(e) => {
+                              if (e.target.value !== risk.expectedAction) {
+                                editRisk(risk.id, { expectedAction: e.target.value });
+                                toast({ title: "Action mise à jour", description: "Le plan d'action a été actualisé." });
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <Input
+                            className="text-xs font-bold bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 h-9 rounded-lg"
+                            defaultValue={(risk as any).responsible}
+                            onBlur={(e) => {
+                              if (e.target.value !== (risk as any).responsible) {
+                                editRisk(risk.id, { responsible: e.target.value } as any);
+                                toast({ title: "Responsable mis à jour" });
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <Input
+                            type="date"
+                            className="text-xs font-bold bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 h-9 rounded-lg"
+                            defaultValue={(risk as any).deadline}
+                            onBlur={(e) => {
+                              if (e.target.value !== (risk as any).deadline) {
+                                editRisk(risk.id, { deadline: e.target.value } as any);
+                                toast({ title: "Échéance mise à jour" });
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <div className="flex flex-col items-center gap-2">
+                            <input
+                              type="range"
+                              min="0" max="100" step="10"
+                              className="w-full h-1 bg-slate-100 rounded-full appearance-none accent-indigo-500"
+                              defaultValue={(risk as any).completionLevel || 0}
+                              onMouseUp={(e: any) => {
+                                const val = Number(e.target.value);
+                                if (val !== (risk as any).completionLevel) {
+                                  editRisk(risk.id, { completionLevel: val } as any);
+                                }
+                              }}
+                            />
+                            <span className="text-[10px] font-black">{(risk as any).completionLevel || 0}%</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+            <CardFooter className="p-6 bg-slate-50/50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-800 italic text-[11px] text-slate-400 font-medium">
+              <Info className="h-3.5 w-3.5 mr-2 inline" />
+              Les modifications sont enregistrées automatiquement lorsque vous quittez un champ de saisie (onBlur).
+            </CardFooter>
           </Card>
         </TabsContent>
 
