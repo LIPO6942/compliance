@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck, FolderOpen, Info, Download } from "lucide-react";
+import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck, FolderOpen, Info, Download, Save, Settings, ClipboardList } from "lucide-react";
 import ExcelJS from "exceljs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -32,6 +32,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -50,10 +51,25 @@ const riskSchema = z.object({
   probabilite: z.coerce.number().min(1, "Min: 1").max(4, "Max: 4"),
   impact: z.coerce.number().min(1, "Min: 1").max(4, "Max: 4"),
   expectedAction: z.string().min(1, "L'action attendue est requise."),
+  justification: z.string().optional(),
   documentId: z.string().optional(),
+  dmrEfficiency: z.coerce.number().min(1).max(4).optional(),
+  dmrProbability: z.coerce.number().min(1).max(4).optional(),
+  weaknessPoint: z.string().optional(),
+  actionCorrective: z.string().optional(),
+  deadline: z.string().optional(),
+  responsible: z.string().optional(),
+  completionLevel: z.coerce.number().min(0).max(100).optional(),
 });
 
 type RiskFormValues = z.infer<typeof riskSchema>;
+
+const dmrEfficiencyLevels = [
+  { value: 1, label: "Très efficace", color: "text-emerald-600 bg-emerald-50 border-emerald-100", description: "Mesures optimales, contrôles robustes et conformité totale." },
+  { value: 2, label: "Moyennement efficace", color: "text-blue-600 bg-blue-50 border-blue-100", description: "Dispositif satisfaisant," },
+  { value: 3, label: "Peu efficace", color: "text-orange-600 bg-orange-50 border-orange-100", description: "Lacunes notables dans la mise en œuvre ou la conception des contrôles." },
+  { value: 4, label: "Défaillant", color: "text-rose-600 bg-rose-50 border-rose-100", description: "Défaillances majeures ou absence totale de mesures d'atténuation." },
+];
 
 const calculateRiskScore = (probabilite: number, impact: number): number => {
   return (probabilite || 1) * (impact || 1);
@@ -67,13 +83,14 @@ const calculateRiskLevel = (probabilite: number, impact: number): RiskLevel => {
   return "Très élevé";
 };
 
-const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any) => {
+const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any, maePositions: Record<number, string>, mode: 'principal' | 'dmr' | 'plan-actions' | 'combined' = 'principal') => {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Compliance Navigator";
   wb.created = new Date();
 
   const probLabels: Record<number, string> = { 1: "Improbable", 2: "Rarement", 3: "Fréquent", 4: "Souvent" };
   const impLabels: Record<number, string> = { 1: "Faible", 2: "Modéré", 3: "Élevé", 4: "Très élevé" };
+  const effLabels: Record<number, string> = { 1: "Très efficace", 2: "Moyennement efficace", 3: "Peu efficace", 4: "Défaillant" };
 
   // ── Risk level styles ───────────────────────────────────────────────────────
   type ExcelColor = { argb: string };
@@ -90,31 +107,59 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     "Très élevé": { argb: "FF881337" },
   };
 
+  const getMAEPosForScore = (score: number): string => {
+    if (score <= 4) return maePositions[1];
+    if (score <= 8) return maePositions[2];
+    if (score <= 12) return maePositions[3];
+    return maePositions[4];
+  };
+
   const applyBorder = (cell: ExcelJS.Cell, color = "FFE2E8F0") => {
     const side = { style: "thin" as const, color: { argb: color } };
     cell.border = { top: side, bottom: side, left: side, right: side };
   };
 
-  // ── SHEET 1 : Cartographie ──────────────────────────────────────────────────
-  const ws1 = wb.addWorksheet("Cartographie");
+  // ── SHEET 1 : Cartographie/DMR ──────────────────────────────────────────────
+  const sheetName = mode === 'principal' ? "Cartographie" : (mode === 'dmr' ? "DMR" : "Cartographie & DMR");
+  const ws1 = wb.addWorksheet(sheetName);
 
-  ws1.columns = [
-    { header: "N°", key: "num", width: 5 },
-    { header: "Scénario de Risque", key: "desc", width: 52 },
-    { header: "Catégorie", key: "cat", width: 30 },
-    { header: "Direction", key: "dept", width: 18 },
-    { header: "Probabilité (valeur)", key: "pv", width: 22 },
-    { header: "Probabilité (libellé)", key: "pl", width: 20 },
-    { header: "Impact (valeur)", key: "iv", width: 16 },
-    { header: "Impact (libellé)", key: "il", width: 16 },
-    { header: "Score", key: "score", width: 8 },
-    { header: "Niveau de Risque", key: "level", width: 16 },
-    { header: "Mesure d'atténuation", key: "action", width: 52 },
-  ];
+  const columns: any[] = [{ header: "N°", key: "num", width: 5 }];
+
+  if (mode === 'principal' || mode === 'combined') {
+    columns.push(
+      { header: "Scénario de Risque", key: "desc", width: 45 },
+      { header: "Catégorie", key: "cat", width: 25 },
+      { header: "Direction", key: "dept", width: 15 },
+      { header: "Probabilité (V)", key: "pv", width: 12 },
+      { header: "Impact (V)", key: "iv", width: 10 },
+      { header: "Score Brut", key: "scoreBrut", width: 10 },
+      { header: "Niveau Brut", key: "levelBrut", width: 15 },
+      { header: "Mesure d'atténuation", key: "action", width: 45 }
+    );
+  }
+
+  if (mode === 'dmr' || mode === 'combined') {
+    if (mode === 'dmr') {
+      columns.push({ header: "Scénario de Risque", key: "desc", width: 45 });
+    }
+    columns.push(
+      { header: "Efficacité DMR (V)", key: "effV", width: 15 },
+      { header: "Efficacité DMR (L)", key: "effL", width: 20 },
+      { header: "Probabilité DMR", key: "dmrProb", width: 15 },
+      { header: "Score Résiduel", key: "scoreRes", width: 15 },
+      { header: "Niveau Résiduel", key: "levelRes", width: 15 },
+      { header: "Position MAE", key: "maePos", width: 45 }
+    );
+  }
+
+  // Removed separate push for action at the end
+
+
+  ws1.columns = columns;
 
   // Style header row
   const headerRow = ws1.getRow(1);
-  headerRow.height = 28;
+  headerRow.height = 32;
   headerRow.eachCell((cell) => {
     cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
@@ -124,38 +169,124 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
 
   // Data rows
   risks.forEach((risk, i) => {
-    const score = calculateRiskScore(risk.probabilite, risk.impact);
-    const level = calculateRiskLevel(risk.probabilite, risk.impact);
+    const scoreBrut = calculateRiskScore(risk.probabilite, risk.impact);
+    const levelBrut = calculateRiskLevel(risk.probabilite, risk.impact);
+    const dmrEff = (risk as any).dmrEfficiency || 2;
+    const dmrProb = (risk as any).dmrProbability || risk.probabilite || 2;
+    const scoreRes = dmrEff * dmrProb;
+    const styleRes = getRiskScoreStyle(scoreRes);
+    const maePos = getMAEPosition(scoreRes, maePositions);
+
+    const rowData: any = { num: i + 1 };
+
+    if (mode === 'principal' || mode === 'combined' || mode === 'dmr') {
+      rowData.desc = risk.riskDescription;
+    }
+    if (mode === 'principal' || mode === 'combined') {
+      rowData.cat = risk.category;
+      rowData.dept = risk.department;
+      rowData.pv = risk.probabilite;
+      rowData.iv = risk.impact;
+      rowData.scoreBrut = scoreBrut;
+      rowData.levelBrut = levelBrut;
+      rowData.action = risk.expectedAction;
+    }
+    if (mode === 'dmr' || mode === 'combined') {
+      rowData.effV = dmrEff;
+      rowData.effL = effLabels[dmrEff] ?? "";
+      rowData.dmrProb = dmrProb;
+      rowData.scoreRes = scoreRes;
+      rowData.levelRes = styleRes.label;
+      rowData.maePos = maePos;
+    }
+
+    const row = ws1.addRow(rowData);
+    row.height = 40;
     const rowBg = i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
 
-    const row = ws1.addRow({
-      num: i + 1,
-      desc: risk.riskDescription,
-      cat: risk.category,
-      dept: risk.department,
-      pv: risk.probabilite,
-      pl: probLabels[risk.probabilite] ?? "",
-      iv: risk.impact,
-      il: impLabels[risk.impact] ?? "",
-      score,
-      level,
-      action: risk.expectedAction,
-    });
-    row.height = 36;
-
     row.eachCell((cell, colNumber) => {
-      cell.alignment = { vertical: "middle", wrapText: true, horizontal: colNumber === 1 ? "center" : "left" };
+      cell.alignment = { vertical: "middle", wrapText: true, horizontal: "left" };
       applyBorder(cell);
-      if (colNumber === 9) {
-        // Level column — color by risk level
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[level] || { argb: "FFFFFFFF" } };
-        cell.font = { bold: true, color: levelFont[level] || { argb: "FF000000" }, size: 10 };
+      const colKey = columns[colNumber - 1]?.key;
+
+      if (colKey === "levelBrut") {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[levelBrut] || { argb: "FFFFFFFF" } };
+        cell.font = { bold: true, color: levelFont[levelBrut] || { argb: "FF000000" }, size: 9 };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+      } else if (colKey === "levelRes") {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[styleRes.label] || { argb: "FFFFFFFF" } };
+        cell.font = { bold: true, color: levelFont[styleRes.label] || { argb: "FF000000" }, size: 9 };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
       } else {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
-        cell.font = { color: { argb: "FF1E293B" }, size: 10 };
+        cell.font = { color: { argb: "FF1E293B" }, size: 9 };
       }
     });
   });
+
+  // ── SHEET : Plan d'actions ──────────────────────────────────────────────────
+  if (mode === 'plan-actions' || mode === 'combined') {
+    const wsPlan = wb.addWorksheet("Plan d'actions");
+    wsPlan.columns = [
+      { header: "N°", key: "num", width: 5 },
+      { header: "Scénario de Risque", key: "desc", width: 40 },
+      { header: "Catégorie", key: "cat", width: 25 },
+      { header: "Direction", key: "dept", width: 15 },
+      { header: "Point de faiblesse", key: "weakness", width: 35 },
+      { header: "Action corrective prévue", key: "action", width: 45 },
+      { header: "Échéance", key: "deadline", width: 15 },
+      { header: "Responsable", key: "resp", width: 20 },
+      { header: "Niveau d'avancement", key: "comp", width: 20 }
+    ];
+
+    // Style header
+    const planHeaderRow = wsPlan.getRow(1);
+    planHeaderRow.height = 32;
+    planHeaderRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+      cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+      applyBorder(cell, "FF94A3B8");
+    });
+
+    // Plan Data
+    risks.forEach((risk, i) => {
+      const row = wsPlan.addRow({
+        num: i + 1,
+        desc: risk.riskDescription,
+        cat: risk.category,
+        dept: risk.department,
+        weakness: risk.weaknessPoint || "-",
+        action: (risk as any).actionCorrective || "-",
+        deadline: risk.deadline || "-",
+        resp: risk.responsible || "-",
+        comp: `${risk.completionLevel || 0}%`
+      });
+      row.height = 35;
+      const rowBg = i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
+      row.eachCell((cell, colNumber) => {
+        cell.alignment = { vertical: "middle", wrapText: true, horizontal: "left" };
+        applyBorder(cell);
+
+        // Color completion
+        if (wsPlan.columns[colNumber - 1]?.key === "comp") {
+          const lv = risk.completionLevel || 0;
+          let color = "FF94A3B8"; // gris
+          if (lv > 0 && lv <= 20) color = "FFF43F5E"; // rose
+          else if (lv > 20 && lv <= 40) color = "FFF97316"; // orange
+          else if (lv > 40 && lv <= 60) color = "FFF59E0B"; // ambre
+          else if (lv > 60 && lv <= 80) color = "FF84CC16"; // lime
+          else if (lv > 80 && lv <= 100) color = "FF10B981"; // emerald
+
+          cell.font = { bold: true, color: { argb: color }, size: 10 };
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+        } else {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+          cell.font = { color: { argb: "FF1E293B" }, size: 9 };
+        }
+      });
+    });
+  }
 
   // ── SHEET 2 : Légende ───────────────────────────────────────────────────────
   const ws2 = wb.addWorksheet("Légende");
@@ -201,33 +332,50 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     });
   };
 
-  // Grille Probabilité
-  addTitle("LÉGENDE — GRILLE DE COTATION DES RISQUES");
-  ws2.addRow([]);
-  addTitle("1. GRILLE DE PROBABILITÉ / FRÉQUENCE");
-  addSubHeader(["Valeur", "Libellé", "Description", ""]);
-  addDataRow2(["1", "Improbable", "Une fois tous les 1 à 5 ans", ""]);
-  addDataRow2(["2", "Rarement", "Semestrielle / Annuelle", ""]);
-  addDataRow2(["3", "Fréquent", "Mensuelle à Semestrielle", ""]);
-  addDataRow2(["4", "Souvent", "Hebdomadaire / Quotidien", ""]);
+  addTitle("LÉGENDE — RÉFÉRENTIEL DE GESTION DES RISQUES");
 
-  // Grille Impact
-  ws2.addRow([]);
-  addTitle("2. GRILLE D'IMPACT");
-  addSubHeader(["Valeur", "Libellé", "Description", ""]);
-  addDataRow2(["1", "Faible", "Menace mineure", ""]);
-  addDataRow2(["2", "Modéré", "Menace raisonnable", ""]);
-  addDataRow2(["3", "Élevé", "Menace importante", ""]);
-  addDataRow2(["4", "Très élevé", "Menace majeure", ""]);
+  if (mode === 'principal' || mode === 'combined') {
+    ws2.addRow([]);
+    addTitle("1. GRILLE DE PROBABILITÉ / FRÉQUENCE");
+    addSubHeader(["Valeur", "Libellé", "Description", ""]);
+    addDataRow2(["1", "Improbable", "Une fois tous les 1 à 5 ans", ""]);
+    addDataRow2(["2", "Rarement", "Semestrielle / Annuelle", ""]);
+    addDataRow2(["3", "Fréquent", "Mensuelle à Semestrielle", ""]);
+    addDataRow2(["4", "Souvent", "Hebdomadaire / Quotidien", ""]);
 
-  // Grille Score
-  ws2.addRow([]);
-  addTitle("3. GRILLE SCORE → NIVEAU DE RISQUE");
-  addSubHeader(["Score (Probabilité × Impact)", "Niveau de Risque", "Couleur", "Interprétation"]);
-  addDataRow2(["≤ 4", "Faible", "Vert", "Risque résiduel acceptable"], "Faible");
-  addDataRow2(["5 – 8", "Modéré", "Jaune", "Surveillance recommandée"], "Modéré");
-  addDataRow2(["9 – 12", "Élevé", "Orange", "Action corrective requise"], "Élevé");
-  addDataRow2(["≥ 13", "Très élevé", "Rouge", "Escalade immédiate nécessaire"], "Très élevé");
+    ws2.addRow([]);
+    addTitle("2. GRILLE D'IMPACT");
+    addSubHeader(["Valeur", "Libellé", "Description", ""]);
+    addDataRow2(["1", "Faible", "Menace mineure", ""]);
+    addDataRow2(["2", "Modéré", "Menace raisonnable", ""]);
+    addDataRow2(["3", "Élevé", "Menace importante", ""]);
+    addDataRow2(["4", "Très élevé", "Menace majeure", ""]);
+
+    ws2.addRow([]);
+    addTitle("3. SCORE BRUT → NIVEAU DE RISQUE");
+    addSubHeader(["Score", "Niveau", "Couleur", "Interprétation"]);
+    addDataRow2(["≤ 4", "Faible", "Vert", "Risque acceptable"], "Faible");
+    addDataRow2(["5 – 8", "Modéré", "Jaune", "Surveillance recommandée"], "Modéré");
+    addDataRow2(["9 – 12", "Élevé", "Orange", "Action corrective requise"], "Élevé");
+    addDataRow2(["≥ 13", "Très élevé", "Rouge", "Escalade immédiate"], "Très élevé");
+  }
+
+  if (mode === 'dmr' || mode === 'combined') {
+    ws2.addRow([]);
+    addTitle((mode === 'combined' ? "4" : "1") + ". NIVEAU D'EFFICACITÉ (DMR)");
+    addSubHeader(["Valeur", "Libellé", "Description", ""]);
+    dmrEfficiencyLevels.forEach(l => {
+      addDataRow2([l.value, l.label, l.description, ""]);
+    });
+
+    ws2.addRow([]);
+    addTitle((mode === 'combined' ? "5" : "2") + ". POSITION DE LA MAE (RÉSIDUEL)");
+    addSubHeader(["Score", "Niveau", "Description", ""]);
+    addDataRow2(["≤ 4", "Faible", getMAEPosForScore(4), ""], "Faible");
+    addDataRow2(["5 – 8", "Modéré", getMAEPosForScore(8), ""], "Modéré");
+    addDataRow2(["9 – 12", "Élevé", getMAEPosForScore(12), ""], "Élevé");
+    addDataRow2(["≥ 13", "Très élevé", getMAEPosForScore(16), ""], "Très élevé");
+  }
 
   // ── Download ────────────────────────────────────────────────────────────────
   const today = new Date().toISOString().split("T")[0];
@@ -236,7 +384,8 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Cartographie_Risques_${today}.xlsx`;
+  const filename = mode === 'principal' ? 'Cartographie' : (mode === 'dmr' ? 'DMR' : (mode === 'plan-actions' ? 'Plan_Actions' : 'Cartographie_Complet'));
+  a.download = `${filename}_${today}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 
@@ -246,7 +395,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
       userEmail: user.email,
       userName: user.name,
       action: 'OTHER',
-      label: `A exporté la cartographie des risques (${risks.length} lignes)`,
+      label: `A exporté ${mode === 'principal' ? 'la cartographie' : (mode === 'dmr' ? 'le tableau DMR' : (mode === 'plan-actions' ? 'le plan d\'actions' : 'le tableau complet'))} (${risks.length} lignes)`,
       module: 'Cartographie des Risques'
     });
   }
@@ -259,11 +408,11 @@ const getRiskScoreStyle = (score: number): { bg: string; text: string; border: s
   return { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", label: "Très élevé" };
 };
 
-const getMAEPosition = (score: number): string => {
-  if (score <= 4) return "Accepté – contrôles standards";
-  if (score <= 8) return "Accepté sous conditions – contrôles renforcés";
-  if (score <= 12) return "Tolérance très limitée – validation Direction Générale";
-  return "Acceptable uniquement suite à dérogation légale validée par l'organe de gouvernance";
+const getMAEPosition = (score: number, maePositions: Record<number, string>): string => {
+  if (score <= 4) return maePositions[1] || "Accepté – contrôles standards";
+  if (score <= 8) return maePositions[2] || "Accepté sous conditions – contrôles renforcés";
+  if (score <= 12) return maePositions[3] || "Tolérance très limitée – validation Direction Générale";
+  return maePositions[4] || "Acceptable uniquement suite à dérogation légale validée par l'organe de gouvernance";
 };
 
 const formatMitigationMeasures = (text: string) => {
@@ -312,13 +461,25 @@ const impactLabels: Record<number, { label: string; description: string }> = {
   4: { label: "Très élevé", description: "Menace majeure" },
 };
 
+// Options d'avancement du Plan d'actions (pas de 20%)
+const completionOptions = [
+  { value: 0, label: "0% - Non commencé", color: "bg-slate-400", text: "text-slate-500" },
+  { value: 20, label: "20% - Initié", color: "bg-rose-500", text: "text-rose-600" },
+  { value: 40, label: "40% - En cours", color: "bg-orange-500", text: "text-orange-600" },
+  { value: 60, label: "60% - Avancé", color: "bg-amber-500", text: "text-amber-600" },
+  { value: 80, label: "80% - Presque achevé", color: "bg-lime-500", text: "text-lime-600" },
+  { value: 100, label: "100% - Terminé", color: "bg-emerald-500", text: "text-emerald-600" }
+];
+
 export default function RiskMappingPage() {
-  const { risks, addRisk, editRisk, removeRisk, globalDocumentIds, setGlobalDocumentIds } = useRiskMapping();
+  const { risks, addRisk, editRisk, removeRisk, globalDocumentIds, setGlobalDocumentIds, maePositions, updateMaePosition } = useRiskMapping();
   const { createAlertFromRisk, findAlertByRiskId, removeAlertByRiskId } = useIdentifiedRegulations();
   const { documents } = useDocuments();
   const { toast } = useToast();
   const { logAction } = useActivityLog();
   const { user } = useUser();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab') as "table" | "heatmap" | "plan-actions" | "dmr" | null;
 
   const [isClient, setIsClient] = React.useState(false);
   React.useEffect(() => { setIsClient(true) }, []);
@@ -339,7 +500,17 @@ export default function RiskMappingPage() {
   const [filterDepartment, setFilterDepartment] = React.useState<string>("all");
   const [filterCategory, setFilterCategory] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState<string>("");
-  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "analysis" | "dmr">("table");
+  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "plan-actions" | "dmr" | "settings">(tabParam || "table");
+
+  const [tempMaePositions, setTempMaePositions] = React.useState<Record<number, string>>(maePositions);
+
+  React.useEffect(() => {
+    setTempMaePositions(maePositions);
+  }, [maePositions]);
+
+  React.useEffect(() => {
+    setViewMode(tabParam || "table");
+  }, [tabParam]);
 
   // Global documents popover state
   const [globalDocsOpen, setGlobalDocsOpen] = React.useState(false);
@@ -354,7 +525,15 @@ export default function RiskMappingPage() {
         probabilite: data.probabilite ?? 1,
         impact: data.impact ?? 1,
         expectedAction: data.expectedAction,
+        justification: (data as any).justification || "",
         documentId: data.documentId || "",
+        dmrEfficiency: (data as any).dmrEfficiency || 2,
+        dmrProbability: (data as any).dmrProbability || (data.probabilite ?? 2),
+        weaknessPoint: data.weaknessPoint || "",
+        actionCorrective: (data as any).actionCorrective || "",
+        deadline: data.deadline || "",
+        responsible: data.responsible || "",
+        completionLevel: data.completionLevel || 0,
       });
     } else {
       form.reset({
@@ -364,7 +543,15 @@ export default function RiskMappingPage() {
         impact: 2,
         riskDescription: "",
         expectedAction: "",
+        actionCorrective: "",
+        justification: "",
         documentId: "",
+        dmrEfficiency: 2,
+        dmrProbability: 2,
+        weaknessPoint: "",
+        deadline: "",
+        responsible: "",
+        completionLevel: 0,
       });
     }
   };
@@ -381,7 +568,12 @@ export default function RiskMappingPage() {
         category: values.category || "Clients",
         riskDescription: values.riskDescription || "",
         expectedAction: values.expectedAction || "",
+        justification: values.justification || "",
         documentId: values.documentId && values.documentId !== "none" ? values.documentId : undefined,
+        weaknessPoint: values.weaknessPoint || "",
+        deadline: values.deadline || "",
+        responsible: values.responsible || "",
+        completionLevel: values.completionLevel || 0,
       };
 
       if (dialogState.mode === "add") {
@@ -389,6 +581,8 @@ export default function RiskMappingPage() {
           ...sanitizedValues,
           probabilite: numProba,
           impact: numImpact,
+          dmrEfficiency: Number(values.dmrEfficiency) || 2,
+          dmrProbability: Number(values.dmrProbability) || numProba,
           riskLevel: calculateRiskLevel(numProba, numImpact),
         });
         toast({ title: "Risque identifié", description: "La cartographie a été mise à jour." });
@@ -407,6 +601,8 @@ export default function RiskMappingPage() {
           ...sanitizedValues,
           probabilite: numProba,
           impact: numImpact,
+          dmrEfficiency: Number(values.dmrEfficiency) || 2,
+          dmrProbability: Number(values.dmrProbability) || numProba,
           riskLevel: calculateRiskLevel(numProba, numImpact),
         });
         toast({ title: "Risque modifié", description: "Les détails du risque ont été actualisés." });
@@ -495,13 +691,79 @@ export default function RiskMappingPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 px-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
+                >
+                  <Download className="mr-1.5 h-3.5 w-3.5" /> Exporter Excel
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 rounded-xl shadow-2xl p-2 border-none">
+                <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 px-3 py-2">Choisir le format d'export</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, 'principal')} className="rounded-lg py-3 cursor-pointer group">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                      <List className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-700">Tableau Principal</span>
+                      <span className="text-[9px] text-slate-400">Inventaire et cotation brute</span>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, 'dmr')} className="rounded-lg py-3 cursor-pointer group">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                      <ShieldCheck className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-700">Tableau DMR</span>
+                      <span className="text-[9px] text-slate-400">Efficacité et risque résiduel</span>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, 'plan-actions')} className="rounded-lg py-3 cursor-pointer group">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                      <Target className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-700">Plan d'Actions</span>
+                      <span className="text-[9px] text-slate-400">Actions et avancement</span>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, 'combined')} className="rounded-lg py-3 cursor-pointer group bg-slate-50 hover:bg-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <LayoutGrid className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-900">Tableau Complet</span>
+                      <span className="text-[9px] text-slate-500">Cartographie brute + Volet DMR</span>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
-              size="sm"
+              size="icon"
               variant="outline"
-              onClick={() => exportToExcel(filteredRisks, logAction, user)}
-              className="h-9 px-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
+              onClick={() => setViewMode('settings')}
+              className={cn(
+                "h-14 w-14 rounded-xl border-2 transition-all hover:scale-[1.02] shadow-lg",
+                viewMode === 'settings'
+                  ? "bg-slate-900 border-slate-900 text-white"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              )}
+              title="Paramètres"
             >
-              <Download className="mr-1.5 h-3.5 w-3.5" /> Exporter Excel
+              <Settings className="h-6 w-6" />
             </Button>
             <Button
               size="lg"
@@ -616,12 +878,9 @@ export default function RiskMappingPage() {
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full">
         {/* Navigation & Advanced Filters */}
         <div className="flex flex-col xl:flex-row items-center gap-4 mb-6">
-          <TabsList className="bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl h-12 w-full xl:w-auto border border-slate-200 dark:border-slate-800">
+          <TabsList className="bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl h-12 w-full xl:w-auto border border-slate-200 dark:border-slate-800 shrink-0">
             <TabsTrigger value="table" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <List className="h-3.5 w-3.5 mr-2" /> Inventaire
-            </TabsTrigger>
-            <TabsTrigger value="dmr" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <ShieldCheck className="h-3.5 w-3.5 mr-2" /> DMR & EER
             </TabsTrigger>
             <TabsTrigger value="heatmap" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <LayoutGrid className="h-3.5 w-3.5 mr-2" /> Heatmap
@@ -676,8 +935,123 @@ export default function RiskMappingPage() {
           </div>
         </div>
 
-        <TabsContent value="analysis" className="mt-0 focus-visible:ring-0">
+        <TabsContent value="plan-actions" className="mt-0 focus-visible:ring-0">
           <RiskKPIs risks={filteredRisks} />
+          <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <CardHeader className="pb-4 pt-6 px-8 border-b border-slate-50 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-bold text-slate-800 dark:text-white">Plan d'actions de Contrôle</CardTitle>
+                  <CardDescription className="text-xs text-slate-500 mt-1">Suivi et pilotage des mesures d'atténuation et de leur avancement</CardDescription>
+                </div>
+                <Badge variant="outline" className="h-7 px-3 rounded-lg border-2 border-primary/10 bg-primary/5 text-primary font-bold text-[10px]">
+                  {filteredRisks.length} Actions planifiées
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table className="border-collapse">
+                  <TableHeader>
+                    <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[12%]">Facteur de risque</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[18%]">Risque identifié</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Cotation Net</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[12%]">Point de faiblesse</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[18%]">Action corrective</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Échéance</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[10%]">Responsable</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[10%] text-center">Niveau d'avancement</TableHead>
+                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[4%]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRisks.length > 0 ? (
+                      filteredRisks.map((risk) => {
+                        const dmrEff = (risk as any).dmrEfficiency || 2;
+                        const dmrPro = (risk as any).dmrProbability || risk.probabilite || 2;
+                        const scoreRes = dmrEff * dmrPro;
+                        const styleRes = getRiskScoreStyle(scoreRes);
+                        const completion = (risk as any).completionLevel || 0;
+
+                        return (
+                          <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 divide-x divide-slate-100 dark:divide-slate-800">
+                            <TableCell className="py-3 px-4">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{risk.category}</span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+                                {risk.riskDescription}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <div className={cn("inline-flex flex-col items-center justify-center w-10 h-10 rounded-lg border", styleRes.bg, styleRes.text, styleRes.border)}>
+                                <span className="text-sm font-black">{scoreRes}</span>
+                                <span className="text-[7px] font-bold uppercase">{styleRes.label}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <span className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight italic">
+                                {(risk as any).weaknessPoint || "-"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 leading-tight">
+                                {(risk as any).actionCorrective || "-"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <span className="text-[11px] font-bold text-slate-500">
+                                {(risk as any).deadline || "-"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <Badge variant="ghost" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-none font-bold text-[10px]">
+                                {(risk as any).responsible || "-"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <div className="flex flex-col gap-1.5 items-center">
+                                <span className={cn("text-[10px] font-black", completionOptions.find(o => o.value === completion)?.text || "text-slate-500")}>{completion}%</span>
+                                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                  <div
+                                    className={cn(
+                                      "h-full transition-all duration-500",
+                                      completionOptions.find(o => o.value === completion)?.color || "bg-slate-400"
+                                    )}
+                                    style={{ width: `${completion}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-right">
+                              <div className="flex justify-end">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setViewMode('settings')}
+                                  className="h-8 w-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-indigo-600 transition-colors"
+                                  title="Paramétrer ce plan d'actions"
+                                >
+                                  <Settings className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={9} className="h-40 text-center text-slate-400 text-sm font-bold">
+                          Aucune action planifiée correspondante
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="heatmap" className="mt-0 focus-visible:ring-0">
@@ -703,76 +1077,310 @@ export default function RiskMappingPage() {
                 <Table className="border-collapse">
                   <TableHeader>
                     <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[25%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[20%]">Dispositif de Management (DMR)</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Impact</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Proba.</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Score</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[12%]">Risque Résiduel</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[19%]">Position de la MAE Assurance</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[35%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[12%]">Niveau d'efficacité</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Proba. DMR</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Score Résiduel</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[28%]">Position de la MAE Assurance</TableHead>
+                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[5%]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredRisks.length > 0 ? (
                       filteredRisks.map((risk) => {
-                        const score = calculateRiskScore(risk.probabilite, risk.impact);
+                        const dmrEff = (risk as any).dmrEfficiency || 2;
+                        const dmrPro = (risk as any).dmrProbability || risk.probabilite || 2;
+                        const score = dmrEff * dmrPro;
                         const style = getRiskScoreStyle(score);
-                        const maePosition = getMAEPosition(score);
+                        const maePosition = getMAEPosition(score, maePositions);
+                        const hasAlert = !!findAlertByRiskId(risk.id);
                         return (
                           <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 divide-x divide-slate-100 dark:divide-slate-800">
                             <TableCell className="py-3 px-4">
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest leading-none">{risk.category}</span>
-                                <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+                                <button
+                                  onClick={() => setViewMode("table")}
+                                  className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight text-left hover:text-primary transition-colors hover:underline flex items-center gap-1 group/link"
+                                >
                                   {risk.riskDescription}
+                                  <LinkIcon className="h-2.5 w-2.5 opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                                </button>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              {(() => {
+                                const eff = dmrEfficiencyLevels.find(l => l.value === dmrEff) || dmrEfficiencyLevels[1];
+                                return (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); openDialog('edit', risk); }}
+                                          className={cn("text-[9px] font-bold uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-sm transition-all hover:scale-110 cursor-pointer underline decoration-dotted", eff.color)}
+                                        >
+                                          {dmrEff} - {eff.label}
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="bg-slate-900 text-white border-none p-2 rounded-lg shadow-xl">
+                                        <p className="text-[10px] font-semibold">{eff.description}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openDialog('edit', risk); }}
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-all hover:scale-110 font-black text-xs text-slate-700 shadow-sm cursor-pointer underline decoration-dotted"
+                              >
+                                {dmrPro}
+                              </button>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center">
+                              <div className="flex flex-col items-center gap-1">
+                                <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg border font-bold text-xs", style.bg, style.text, style.border)}>
+                                  {score}
+                                </div>
+                                <span className={cn("text-[9px] font-bold uppercase tracking-tight", style.text)}>
+                                  {style.label}
                                 </span>
                               </div>
                             </TableCell>
                             <TableCell className="py-3 px-4">
-                              <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed italic">
-                                {formatMitigationMeasures(risk.expectedAction)}
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{risk.impact}</span>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{risk.probabilite}</span>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg border font-bold text-xs", style.bg, style.text, style.border)}>
-                                {score}
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <Badge className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5", style.bg, style.text, style.border, "border-2")}>
-                                {style.label}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="py-3 px-4">
-                              <div className="flex items-start gap-2">
-                                <div className={cn("mt-1.5 h-1.5 w-1.5 rounded-full shrink-0",
-                                  score <= 4 ? "bg-emerald-500" :
-                                    score <= 8 ? "bg-yellow-500" :
-                                      score <= 12 ? "bg-orange-500" : "bg-rose-500"
-                                )} />
-                                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 leading-tight">
-                                  {maePosition}
-                                </span>
-                              </div>
-                            </TableCell>
+                              <TableCell className="py-3 px-4">
+                                <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed italic">
+                                  {formatMitigationMeasures(risk.expectedAction)}
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-3 px-4">
+                                <div className="flex items-start gap-2">
+                                  <div className={cn("mt-1.5 h-1.5 w-1.5 rounded-full shrink-0",
+                                    score <= 4 ? "bg-emerald-500" :
+                                      score <= 8 ? "bg-yellow-500" :
+                                        score <= 12 ? "bg-orange-500" : "bg-rose-500"
+                                  )} />
+                                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 leading-tight">
+                                    {maePosition}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-right">
+                                <div className="flex justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleToggleAlert(risk)}
+                                    className={cn("h-7 w-7 rounded transition-all", hasAlert ? "text-rose-500 bg-rose-50" : "text-slate-400 hover:bg-slate-100")}
+                                  >
+                                    {hasAlert ? <Bell className="h-4 w-4 fill-current" /> : <BellOff className="h-4 w-4" />}
+                                  </Button>
+
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" className="h-7 w-7 p-0 rounded hover:bg-slate-100">
+                                        <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-40 rounded-lg shadow-xl">
+                                      <DropdownMenuItem onClick={() => openDialog('edit', risk)} className="text-xs font-bold py-2">
+                                        <Edit className="mr-2 h-3.5 w-3.5 text-indigo-500" /> Modifier
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => openDialog('delete', risk)}
+                                        className="text-rose-600 text-xs font-bold py-2 focus:text-rose-600 focus:bg-rose-50"
+                                      >
+                                        <Trash2 className="mr-2 h-3.5 w-3.5" /> Supprimer
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              </TableCell>
                           </TableRow>
                         );
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-40 text-center text-slate-400 text-sm font-bold">
+                        <TableCell colSpan={6} className="h-40 text-center text-slate-400 text-sm font-bold">
                           Aucun risque ne correspond aux filtres
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="mt-0 focus-visible:ring-0 space-y-6">
+          <Card className="shadow-2xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <CardHeader className="pb-6 pt-8 px-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 shadow-sm border border-amber-100 dark:border-amber-800/50">
+                  <ClipboardList className="h-6 w-6" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl font-black tracking-tight text-slate-800 dark:text-white">Configuration du Plan d'actions</CardTitle>
+                  <CardDescription className="text-[13px] font-semibold text-slate-500 mt-1.5">
+                    Gestion centralisée des mesures correctives, responsables et échéances pour chaque risque identifié.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[30%]">Risque</TableHead>
+                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[30%]">Action Corrective</TableHead>
+                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[15%]">Responsable</TableHead>
+                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[15%]">Échéance</TableHead>
+                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 text-center w-[10%]">%</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {risks.map((risk) => (
+                      <TableRow key={risk.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 divide-x divide-slate-100 dark:divide-slate-800">
+                        <TableCell className="py-4 px-6">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none">{risk.category}</span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-tight line-clamp-2">{risk.riskDescription}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <Textarea
+                            className="text-xs font-semibold bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 min-h-[60px] rounded-xl"
+                            defaultValue={(risk as any).actionCorrective || ""}
+                            onBlur={(e) => {
+                              if (e.target.value !== (risk as any).actionCorrective) {
+                                editRisk(risk.id, { actionCorrective: e.target.value } as any);
+                                toast({ title: "Action mise à jour", description: "Le plan d'action a été actualisé." });
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <Input
+                            className="text-xs font-bold bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 h-9 rounded-lg"
+                            defaultValue={(risk as any).responsible}
+                            onBlur={(e) => {
+                              if (e.target.value !== (risk as any).responsible) {
+                                editRisk(risk.id, { responsible: e.target.value } as any);
+                                toast({ title: "Responsable mis à jour" });
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <Input
+                            type="date"
+                            className="text-xs font-bold bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 h-9 rounded-lg"
+                            defaultValue={(risk as any).deadline}
+                            onBlur={(e) => {
+                              if (e.target.value !== (risk as any).deadline) {
+                                editRisk(risk.id, { deadline: e.target.value } as any);
+                                toast({ title: "Échéance mise à jour" });
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <div className="flex w-full min-w-[130px] justify-center">
+                            <Select
+                              value={String((risk as any).completionLevel || 0)}
+                              onValueChange={(v) => {
+                                editRisk(risk.id, { completionLevel: Number(v) } as any);
+                                toast({ title: "Avancement mis à jour" });
+                              }}
+                            >
+                              <SelectTrigger className="h-9 w-full bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 font-bold text-[10px] rounded-lg shadow-none">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl shadow-2xl">
+                                {completionOptions.map(opt => (
+                                  <SelectItem key={opt.value} value={String(opt.value)} className="font-bold text-[10px]">
+                                    <div className="flex items-center gap-2">
+                                      <div className={cn("w-2 h-2 rounded-full", opt.color)} />
+                                      <span>{opt.label}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+            <CardFooter className="p-6 bg-slate-50/50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-800 italic text-[11px] text-slate-400 font-medium">
+              <Info className="h-3.5 w-3.5 mr-2 inline" />
+              Les modifications sont enregistrées automatiquement lorsque vous quittez un champ de saisie (onBlur).
+            </CardFooter>
+          </Card>
+
+          <Card className="shadow-2xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <CardHeader className="pb-6 pt-8 px-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-100 dark:border-indigo-800/50">
+                  <Activity className="h-6 w-6" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl font-black tracking-tight text-slate-800 dark:text-white">Paramètres Généraux des Risques</CardTitle>
+                  <CardDescription className="text-[13px] font-semibold text-slate-500 mt-1.5 flex items-center gap-2">
+                    Configuration des textes de la <span className="text-indigo-500 dark:text-indigo-400 font-bold decoration-indigo-200 underline underline-offset-4 decoration-2">Position de la MAE Assurance</span>
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-10 space-y-10">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {[
+                  { level: 1, label: "Score ≤ 4 (Faible)", icon: "🛡️", color: "border-emerald-500/30 bg-emerald-50/30 text-emerald-700" },
+                  { level: 2, label: "Score 5 – 8 (Modéré)", icon: "⚠️", color: "border-yellow-500/30 bg-yellow-50/30 text-yellow-700" },
+                  { level: 3, label: "Score 9 – 12 (Élevé)", icon: "🔥", color: "border-orange-500/30 bg-orange-50/30 text-orange-700" },
+                  { level: 4, label: "Score ≥ 13 (Très élevé)", icon: "🚨", color: "border-rose-500/30 bg-rose-50/30 text-rose-700" },
+                ].map((item) => (
+                  <div key={item.level} className={cn("p-6 rounded-3xl border-2 transition-all hover:shadow-lg space-y-4", item.color)}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{item.icon}</span>
+                      <Label className="text-[11px] font-black uppercase tracking-widest opacity-70">{item.label}</Label>
+                    </div>
+                    <Textarea
+                      placeholder="Définir le texte pour ce niveau..."
+                      value={tempMaePositions[item.level] || ""}
+                      onChange={(e) => setTempMaePositions({ ...tempMaePositions, [item.level]: e.target.value })}
+                      className="min-h-[100px] bg-white/80 dark:bg-slate-900/80 border-none shadow-inner rounded-xl font-bold text-sm leading-relaxed focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-3 text-slate-400 italic text-[11px] font-medium">
+                  <Info className="h-4 w-4" />
+                  Ces textes seront utilisés dans le tableau DMR et lors de l'export Excel.
+                </div>
+                <Button
+                  onClick={async () => {
+                    for (const [level, text] of Object.entries(tempMaePositions)) {
+                      await updateMaePosition(Number(level), text);
+                    }
+                    toast({
+                      title: "Paramètres enregistrés",
+                      description: "Les positions de la MAE ont été mises à jour avec succès.",
+                    });
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest px-10 h-12 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
+                >
+                  <Save className="mr-2 h-4 w-4" /> Enregistrer les positions
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -955,19 +1563,34 @@ export default function RiskMappingPage() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <FormField
-                      control={form.control}
-                      name="riskDescription"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Scénario de Risque</FormLabel>
-                          <FormControl>
-                            <Textarea {...field} placeholder="Décrivez le scénario redouté..." className="min-h-[120px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all shadow-sm" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="riskDescription"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Scénario de Risque</FormLabel>
+                            <FormControl>
+                              <Textarea {...field} placeholder="Décrivez le scénario redouté..." className="min-h-[120px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all shadow-sm" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="expectedAction"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mesure d'atténuation (existante)</FormLabel>
+                            <FormControl>
+                              <Textarea {...field} placeholder="Dispositif en place pour atténuer le risque..." className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all shadow-sm" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
                     <div className="space-y-6">
                       <FormField
@@ -1009,185 +1632,242 @@ export default function RiskMappingPage() {
 
                 <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
 
-                {/* SECTION 2: SCORING */}
+                {/* SECTION 2: ÉVALUATIONS DES RISQUES */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Evaluation Brute */}
+                  <div className="space-y-4 bg-slate-50/50 dark:bg-slate-900/40 p-6 rounded-[2rem] border border-slate-200/60 dark:border-slate-800 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-4 w-1 bg-amber-500 rounded-full" />
+                      <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Évaluation Brute</h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="impact"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Impact</FormLabel>
+                            <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 1)}>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
+                              <SelectContent className="rounded-xl border-none shadow-2xl">
+                                {[1, 2, 3, 4].map((v) => <SelectItem key={v} value={String(v)} className="font-bold">{v} - {impactLabels[v].label}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="probabilite"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Probabilité</FormLabel>
+                            <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 1)}>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
+                              <SelectContent className="rounded-xl border-none shadow-2xl">
+                                {[1, 2, 3, 4].map((v) => <SelectItem key={v} value={String(v)} className="font-bold">{v} - {probabiliteLabels[v].label}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Score Brut</span>
+                      <div className={cn("px-3 py-1 rounded-lg border font-black text-sm", getRiskScoreStyle(Number(form.watch('impact') || 1) * Number(form.watch('probabilite') || 1)).bg, getRiskScoreStyle(Number(form.watch('impact') || 1) * Number(form.watch('probabilite') || 1)).text)}>
+                        {Number(form.watch('impact') || 1) * Number(form.watch('probabilite') || 1)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Evaluation Résiduelle (DMR) */}
+                  <div className="space-y-4 bg-primary/5 dark:bg-primary/10 p-6 rounded-[2rem] border border-primary/20 dark:border-primary/40 relative overflow-hidden shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-4 w-1 bg-primary rounded-full" />
+                      <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Évaluation Résiduelle (DMR)</h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="dmrEfficiency"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Niveau d'efficacité</FormLabel>
+                            <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 2)}>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-primary/20 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
+                              <SelectContent className="rounded-xl border-none shadow-2xl">
+                                {dmrEfficiencyLevels.map((level) => (
+                                  <SelectItem key={level.value} value={String(level.value)} className="font-bold py-2">
+                                    <div className="flex flex-col">
+                                      <span className="text-[10px] uppercase">{level.value} - {level.label}</span>
+                                      <span className="text-[8px] font-normal opacity-60 italic leading-tight">{level.description}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="dmrProbability"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Proba. DMR</FormLabel>
+                            <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 1)}>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-primary/20 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
+                              <SelectContent className="rounded-xl border-none shadow-2xl">
+                                {[1, 2, 3, 4].map((v) => <SelectItem key={v} value={String(v)} className="font-bold">{v} - {probabiliteLabels[v].label}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-primary/20">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-primary/60">Score Résiduel</span>
+                      <div className={cn("px-3 py-1 rounded-lg border font-black text-sm", getRiskScoreStyle(Number(form.watch('dmrEfficiency') || 2) * Number(form.watch('dmrProbability') || form.watch('probabilite') || 1)).bg, getRiskScoreStyle(Number(form.watch('dmrEfficiency') || 2) * Number(form.watch('dmrProbability') || form.watch('probabilite') || 1)).text)}>
+                        {Number(form.watch('dmrEfficiency') || 2) * Number(form.watch('dmrProbability') || form.watch('probabilite') || 1)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION 3: PLAN D'ACTIONS & DETAILS */}
                 <div className="space-y-6">
                   <div className="flex items-center gap-2">
-                    <div className="h-4 w-1 bg-amber-500 rounded-full" />
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Cotation du Risque</h3>
+                    <div className="h-4 w-1 bg-indigo-500 rounded-full" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">Plan d'actions & Suivi</h3>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Left: numeric inputs + live score */}
-                    <div className="bg-slate-50/60 dark:bg-slate-900/30 p-6 rounded-3xl space-y-6 border-2 border-slate-100 dark:border-slate-800/50 shadow-inner">
-                      <div className="grid grid-cols-2 gap-10">
-                        <FormField
-                          control={form.control}
-                          name="impact"
-                          render={({ field }) => {
-                            const impactValue = Number(field.value) || 1;
-                            const impactLabel = impactLabels[impactValue as keyof typeof impactLabels];
-                            return (
-                              <FormItem className="w-full">
-                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Impact</FormLabel>
-                                <Select onValueChange={(v) => field.onChange(Number(v))} value={String(impactValue)}>
-                                  <FormControl>
-                                    <SelectTrigger className="h-12 w-full rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
-                                      <div className="flex items-center gap-2">
-                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/10 text-amber-600 text-xs font-black">
-                                          {impactValue}
-                                        </span>
-                                        <span className="text-sm">{impactLabel?.label}</span>
-                                      </div>
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent className="rounded-xl border-none shadow-2xl">
-                                    {[1, 2, 3, 4].map((val) => (
-                                      <SelectItem key={val} value={String(val)} className="font-bold">
-                                        <div className="flex items-center gap-2">
-                                          <span className={cn(
-                                            "inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black",
-                                            val === 1 && "bg-emerald-100 text-emerald-600",
-                                            val === 2 && "bg-yellow-100 text-yellow-600",
-                                            val === 3 && "bg-orange-100 text-orange-600",
-                                            val === 4 && "bg-rose-100 text-rose-600"
-                                          )}>
-                                            {val}
-                                          </span>
-                                          <div>
-                                            <span className="text-sm font-bold">{impactLabels[val].label}</span>
-                                            <p className="text-[9px] text-slate-400 font-normal">{impactLabels[val].description}</p>
-                                          </div>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <p className="text-[9px] text-slate-400 mt-1">{impactLabel?.description}</p>
-                                <FormMessage />
-                              </FormItem>
-                            );
-                          }}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="probabilite"
-                          render={({ field }) => {
-                            const probaValue = Number(field.value) || 1;
-                            const probaLabel = probabiliteLabels[probaValue as keyof typeof probabiliteLabels];
-                            return (
-                              <FormItem className="w-full">
-                                <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Probabilité / Fréquence</FormLabel>
-                                <Select onValueChange={(v) => field.onChange(Number(v))} value={String(probaValue)}>
-                                  <FormControl>
-                                    <SelectTrigger className="h-12 w-full rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm">
-                                      <div className="flex items-center gap-2">
-                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-black">
-                                          {probaValue}
-                                        </span>
-                                        <span className="text-sm">{probaLabel?.label}</span>
-                                      </div>
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent className="rounded-xl border-none shadow-2xl">
-                                    {[1, 2, 3, 4].map((val) => (
-                                      <SelectItem key={val} value={String(val)} className="font-bold">
-                                        <div className="flex items-center gap-2">
-                                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-black">
-                                            {val}
-                                          </span>
-                                          <div>
-                                            <span className="text-sm font-bold">{probabiliteLabels[val].label}</span>
-                                            <p className="text-[9px] text-slate-400 font-normal">{probabiliteLabels[val].description}</p>
-                                          </div>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <p className="text-[9px] text-slate-400 mt-1">{probaLabel?.description}</p>
-                                <FormMessage />
-                              </FormItem>
-                            );
-                          }}
-                        />
-                      </div>
-
-                      {/* Live score display */}
-                      <div className="flex flex-col items-center gap-1 pt-2">
-                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Score calculé</span>
-                        {liveScore !== null ? (() => {
-                          const style = getRiskScoreStyle(liveScore);
-                          return (
-                            <div className={cn("flex flex-col items-center justify-center w-24 h-24 rounded-2xl border-2 transition-all", style.bg, style.border)}>
-                              <span className={cn("text-4xl font-black leading-none", style.text)}>{liveScore}</span>
-                              <span className={cn("text-[9px] font-black uppercase leading-tight mt-1", style.text)}>{style.label}</span>
-                            </div>
-                          );
-                        })() : (
-                          <div className="flex flex-col items-center justify-center w-24 h-24 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50">
-                            <span className="text-3xl font-black text-slate-300">—</span>
-                          </div>
-                        )}
-                        <p className="text-[9px] text-slate-400 mt-1">Probabilité × Impact</p>
-                      </div>
-                    </div>
-
-                    {/* Right: action + owner */}
                     <div className="space-y-6">
                       <FormField
                         control={form.control}
-                        name="documentId"
+                        name="weaknessPoint"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document lié (optionnel)</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || "none"}>
-                              <FormControl><SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Aucun document" /></SelectTrigger></FormControl>
-                              <SelectContent className="rounded-xl border-none shadow-2xl">
-                                <SelectItem value="none" className="font-bold text-slate-400">Aucun document</SelectItem>
-                                {documents.map((doc: Document) => <SelectItem key={doc.id} value={doc.id} className="font-bold">{doc.name}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Point de faiblesse identifié</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Ex: Absence de procédure formalisée..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm" />
+                            </FormControl>
                           </FormItem>
                         )}
                       />
-
-
                       <FormField
                         control={form.control}
-                        name="expectedAction"
+                        name="actionCorrective"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mesure d'atténuation</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Action corrective prévue</FormLabel>
                             <FormControl>
                               <Textarea
                                 {...field}
-                                placeholder="Mesures prévues pour réduire le risque..."
-                                className="min-h-[110px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 font-semibold text-sm shadow-sm leading-relaxed"
-                                onChange={(e) => {
-                                  let val = e.target.value;
-
-                                  // Auto-format into bullet points
-                                  if (val.length > 0) {
-                                    // If the text doesn't start with a bullet, add one
-                                    if (!val.startsWith('• ')) {
-                                      val = '• ' + val;
-                                    }
-
-                                    // If user pressed Enter, add a bullet on the new line
-                                    val = val.replace(/\n(?!\• )/g, '\n• ');
-                                  }
-
-                                  field.onChange(val);
-                                }}
+                                value={field.value || ""}
+                                placeholder="Mesures pour réduire le risque..."
+                                className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
                               />
                             </FormControl>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="deadline"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Échéance</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="date" className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-xs shadow-sm" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="responsible"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Responsable</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Nom ou Direction..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-xs shadow-sm" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="completionLevel"
+                        render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                              <span>Niveau d'avancement</span>
+                              <span className="text-primary">{field.value}%</span>
+                            </FormLabel>
+                            <FormControl>
+                              <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 0)}>
+                                <SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-xs shadow-sm">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border-none shadow-2xl">
+                                  {completionOptions.map(opt => (
+                                    <SelectItem key={opt.value} value={String(opt.value)} className="font-bold">
+                                      <div className="flex items-center gap-2">
+                                        <div className={cn("w-2.5 h-2.5 rounded-full", opt.color)} />
+                                        <span>{opt.label}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+                    <FormField
+                      control={form.control}
+                      name="documentId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document de référence</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || "none"}>
+                            <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Aucun document" /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-xl border-none shadow-2xl">
+                              <SelectItem value="none" className="font-bold text-slate-400">Aucun document</SelectItem>
+                              {documents.map((doc: any) => <SelectItem key={doc.id} value={doc.id} className="font-bold">{doc.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="justification"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Justification complémentaire</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              {...field}
+                              placeholder="Base légale ou procédure interne..."
+                              className="min-h-[80px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 </div>
               </div>

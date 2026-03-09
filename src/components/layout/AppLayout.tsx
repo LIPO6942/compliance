@@ -37,6 +37,9 @@ import {
   Map,
   AlertTriangle,
   Workflow,
+  List,
+  ShieldCheck,
+  ClipboardList,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -69,7 +72,16 @@ const navItems = [
   },
   { href: "/ecosystem", icon: Users, label: "Cartographie des Acteurs", title: "Cartographie des Acteurs" },
   { href: "/regulatory-watch", icon: SearchCheck, label: "Assistance Conformité IA", title: "Assistance Conformité IA" },
-  { href: "/risk-mapping", icon: Map, label: "Cartographie des Risques", title: "Cartographie des Risques" },
+  {
+    href: "/risk-mapping",
+    icon: Map,
+    label: "Cartographie des Risques",
+    title: "Cartographie des Risques",
+    subItems: [
+      { href: "/risk-mapping?tab=dmr", icon: ShieldCheck, label: "DMR" },
+      { href: "/risk-mapping?tab=plan-actions", icon: ClipboardList, label: "Plan d'actions" },
+    ]
+  },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },
   { href: "/training", icon: Users, label: "Formations", title: "Formations et Sensibilisation" },
   { href: "/reports", icon: FilePieChart, label: "Reporting Automatisé", title: "Reporting Automatisé" },
@@ -84,7 +96,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { identifiedRegulations } = useIdentifiedRegulations();
 
   const linkedTeamMember = React.useMemo(() => {
-    return teamMembers.find(m => m.name === user.name || (m.email && user.email && m.email === user.email));
+    return teamMembers.find(m => m.name === user?.name || (m.email && user?.email && m.email === user?.email));
   }, [teamMembers, user]);
 
   const displayRole = linkedTeamMember?.officialFunction || user?.officialFunction || linkedTeamMember?.role || user?.role;
@@ -109,7 +121,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider defaultOpen={!isMobile} open={isMobile ? false : undefined}>
-      <Sidebar collapsible="icon" side="left" variant="sidebar" className="border-r border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl">
+      <Sidebar collapsible="icon" side="left" variant="sidebar" className="z-40 border-r border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl">
         <SidebarHeader className="p-4 border-b border-sidebar-border">
           <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
             <Logo className="h-8 w-8" />
@@ -143,7 +155,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       </span>
                     </SidebarMenuButton>
                   </Link>
-                  {item.subItems && (
+                  {item.subItems && pathname.startsWith(item.href) && (
                     <SidebarMenuSub>
                       {item.subItems.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.href}>

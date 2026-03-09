@@ -162,9 +162,17 @@ export interface RiskMappingItem {
   impact: number; // 1-4
   riskLevel: RiskLevel;
   expectedAction: string;
+  justification?: string;
   owner?: string;
   lastUpdated: string;
   documentId?: string; // Optional linked document
+  dmrEfficiency?: number; // 1 to 4
+  dmrProbability?: number; // 1 to 4
+  weaknessPoint?: string; // Point de faiblesse
+  actionCorrective?: string; // Action corrective
+  deadline?: string; // Échéance
+  responsible?: string; // Responsable
+  completionLevel?: number; // Niveau d'avancement (0-100)
 }
 
 export interface CustomKeyword {

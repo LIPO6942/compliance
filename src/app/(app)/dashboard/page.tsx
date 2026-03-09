@@ -36,7 +36,7 @@ export default function DashboardPage() {
   const { planData, activeWorkflows } = usePlanData();
   const { documents } = useDocuments();
   const { identifiedRegulations } = useIdentifiedRegulations();
-  const { risks } = useRiskMapping();
+  const { risks, editRisk } = useRiskMapping();
   const { news, loading: newsLoading, refetchNews, dismissNewsItem } = useNews();
   const { events: timelineEvents, toggleValidation } = useTimeline();
   const [isLoading, setIsLoading] = React.useState(true);
@@ -404,37 +404,76 @@ export default function DashboardPage() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Card className="rounded-[2.5rem] border-none bg-indigo-600 text-white p-6 overflow-hidden relative group">
-                  <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-700">
-                    <BrainCircuit className="h-28 w-28" />
-                  </div>
-                  <CardHeader className="p-0 pb-4">
-                    <div className="flex items-center gap-2">
-                      <BrainCircuit className="h-5 w-5 text-indigo-200" />
-                      <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-200">Culture GRC</CardTitle>
-                    </div>
+                <Card className="shadow-xl bg-white dark:bg-slate-900 border-none relative overflow-hidden group hover:shadow-primary/5 transition-all">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-[100px] pointer-events-none" />
+                  <CardHeader className="pb-3 border-b border-slate-50 dark:border-slate-800">
+                    <CardTitle className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-800 dark:text-slate-200 flex justify-between items-center">
+                      <span className="flex items-center gap-2">
+                        <Target className="h-4 w-4 text-primary" />
+                        Pilote d'Actions
+                      </span>
+                      <Badge className="bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-[9px] cursor-pointer" onClick={() => handleCardClick('/risk-mapping?tab=plan-actions')}>
+                        VOIR TOUT
+                      </Badge>
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-0 space-y-4">
-                    <div className="flex items-baseline justify-between">
-                      <p className="text-4xl font-black italic tracking-tighter">A-</p>
-                      <Badge className="bg-emerald-500 text-[8px] font-black uppercase">Excellence</Badge>
-                    </div>
-                    <p className="text-[10px] font-medium leading-relaxed opacity-80 uppercase italic">Niveau d'engagement des collaborateurs : <strong>Très élevé</strong>. 88% des formations terminées.</p>
-                    <div className="pt-2">
-                      <div className="flex justify-between text-[8px] font-black uppercase mb-1 opacity-60">
-                        <span>Score de Sensibilisation</span>
-                        <span>88%</span>
-                      </div>
-                      <div className="h-1 bg-white/20 rounded-full">
-                        <div className="h-full bg-white w-[88%] shadow-[0_0_8px_white]" />
-                      </div>
+                  <CardContent className="p-0">
+                    <div className="divide-y divide-slate-50 dark:divide-slate-800 relative z-10">
+                      {risks
+                        .filter(r => (r.completionLevel || 0) < 100 && r.actionCorrective)
+                        .slice(0, 4)
+                        .map(risk => (
+                          <div key={risk.id} className="p-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors group/item">
+                            <div className="flex justify-between items-start gap-4 mb-3">
+                              <p className="text-xs font-bold leading-tight text-slate-700 dark:text-slate-300 line-clamp-2 pr-4">{risk.actionCorrective}</p>
+                              <span className="text-[10px] font-black text-slate-400 whitespace-nowrap bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{risk.completionLevel || 0}%</span>
+                            </div>
+
+                            {/* Le Smart Tracker interactif */}
+                            <div className="flex gap-1.5 h-2 w-full">
+                              {[20, 40, 60, 80, 100].map((step, idx) => {
+                                const currentLevel = risk.completionLevel || 0;
+                                const isFilled = currentLevel >= step;
+                                let fillColor = "bg-slate-200 dark:bg-slate-700"; // par defaut
+                                if (isFilled) {
+                                  if (currentLevel <= 20) fillColor = "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]";
+                                  else if (currentLevel <= 40) fillColor = "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]";
+                                  else if (currentLevel <= 60) fillColor = "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]";
+                                  else if (currentLevel <= 80) fillColor = "bg-lime-500 shadow-[0_0_8px_rgba(132,204,22,0.4)]";
+                                  else if (currentLevel <= 100) fillColor = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]";
+                                }
+
+                                return (
+                                  <div
+                                    key={step}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      editRisk(risk.id, { completionLevel: currentLevel === step && step === 20 ? 0 : step } as any);
+                                      toast({ title: "Avancement validé", description: `Plan d'action mis à jour à ${currentLevel === step && step === 20 ? 0 : step}%` });
+                                    }}
+                                    className={cn(
+                                      "flex-1 rounded-full cursor-pointer transition-all duration-300 hover:scale-y-150 hover:-translate-y-0.5",
+                                      fillColor,
+                                      !isFilled && "hover:bg-slate-300 dark:hover:bg-slate-600"
+                                    )}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      {risks.filter(r => (r.completionLevel || 0) < 100 && r.actionCorrective).length === 0 && (
+                        <div className="p-8 text-center text-slate-400 text-xs italic font-medium">
+                          Aucune action corrective en attente.
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
               </TooltipTrigger>
               <TooltipContent side="right">
-                <p className="font-bold mb-1">Indice de Culture Conformité</p>
-                <p className="text-xs">Mesure l'adhésion et la formation du capital humain.</p>
+                <p className="font-bold mb-1">Actions Correctives (Smart Tracker)</p>
+                <p className="text-xs">Cliquez directement sur un segment pour définir l'avancement (0, 20, 40, 60, 80 ou 100%).</p>
               </TooltipContent>
             </Tooltip>
           </div>
