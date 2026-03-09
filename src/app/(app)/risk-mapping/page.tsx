@@ -1149,55 +1149,49 @@ export default function RiskMappingPage() {
                               </div>
                             </TableCell>
                             <TableCell className="py-3 px-4">
-                              <TableCell className="py-3 px-4">
-                                <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed italic">
-                                  {formatMitigationMeasures(risk.expectedAction)}
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-3 px-4">
-                                <div className="flex items-start gap-2">
-                                  <div className={cn("mt-1.5 h-1.5 w-1.5 rounded-full shrink-0",
-                                    score <= 4 ? "bg-emerald-500" :
-                                      score <= 8 ? "bg-yellow-500" :
-                                        score <= 12 ? "bg-orange-500" : "bg-rose-500"
-                                  )} />
-                                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 leading-tight">
-                                    {maePosition}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-3 px-4 text-right">
-                                <div className="flex justify-end gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleToggleAlert(risk)}
-                                    className={cn("h-7 w-7 rounded transition-all", hasAlert ? "text-rose-500 bg-rose-50" : "text-slate-400 hover:bg-slate-100")}
-                                  >
-                                    {hasAlert ? <Bell className="h-4 w-4 fill-current" /> : <BellOff className="h-4 w-4" />}
-                                  </Button>
+                              <div className="flex items-start gap-2">
+                                <div className={cn("mt-1.5 h-1.5 w-1.5 rounded-full shrink-0",
+                                  score <= 4 ? "bg-emerald-500" :
+                                    score <= 8 ? "bg-yellow-500" :
+                                      score <= 12 ? "bg-orange-500" : "bg-rose-500"
+                                )} />
+                                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 leading-tight">
+                                  {maePosition}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleToggleAlert(risk)}
+                                  className={cn("h-7 w-7 rounded transition-all", hasAlert ? "text-rose-500 bg-rose-50" : "text-slate-400 hover:bg-slate-100")}
+                                >
+                                  {hasAlert ? <Bell className="h-4 w-4 fill-current" /> : <BellOff className="h-4 w-4" />}
+                                </Button>
 
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" className="h-7 w-7 p-0 rounded hover:bg-slate-100">
-                                        <MoreHorizontal className="h-4 w-4 text-slate-400" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-40 rounded-lg shadow-xl">
-                                      <DropdownMenuItem onClick={() => openDialog('edit', risk)} className="text-xs font-bold py-2">
-                                        <Edit className="mr-2 h-3.5 w-3.5 text-indigo-500" /> Modifier
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem
-                                        onClick={() => openDialog('delete', risk)}
-                                        className="text-rose-600 text-xs font-bold py-2 focus:text-rose-600 focus:bg-rose-50"
-                                      >
-                                        <Trash2 className="mr-2 h-3.5 w-3.5" /> Supprimer
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </div>
-                              </TableCell>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-7 w-7 p-0 rounded hover:bg-slate-100">
+                                      <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-40 rounded-lg shadow-xl">
+                                    <DropdownMenuItem onClick={() => openDialog('edit', risk)} className="text-xs font-bold py-2">
+                                      <Edit className="mr-2 h-3.5 w-3.5 text-indigo-500" /> Modifier
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => openDialog('delete', risk)}
+                                      className="text-rose-600 text-xs font-bold py-2 focus:text-rose-600 focus:bg-rose-50"
+                                    >
+                                      <Trash2 className="mr-2 h-3.5 w-3.5" /> Supprimer
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
                           </TableRow>
                         );
                       })
