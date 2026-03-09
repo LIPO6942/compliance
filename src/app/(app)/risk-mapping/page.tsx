@@ -266,6 +266,26 @@ const getMAEPosition = (score: number): string => {
   return "Acceptable uniquement suite à dérogation légale validée par l'organe de gouvernance";
 };
 
+const formatMitigationMeasures = (text: string) => {
+  if (!text) return <span className="italic opacity-50">Aucune mesure définie</span>;
+
+  // Split by common separators: newline, bullet point, plus sign, or semicolon
+  const items = text.split(/[\n\+;•]+/).map(item => item.trim()).filter(item => item.length > 0);
+
+  if (items.length <= 1) return <span>{text}</span>;
+
+  return (
+    <ul className="list-none space-y-1.5">
+      {items.map((item, idx) => (
+        <li key={idx} className="flex items-start gap-2">
+          <span className="text-primary mt-1 flex-shrink-0">•</span>
+          <span className="leading-snug">{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
 const riskLevelColors: Record<RiskLevel, string> = {
   "Faible": "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-800/20 dark:text-emerald-300 dark:border-emerald-700/50",
   "Modéré": "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-800/20 dark:text-yellow-300 dark:border-yellow-700/50",
@@ -709,9 +729,9 @@ export default function RiskMappingPage() {
                               </div>
                             </TableCell>
                             <TableCell className="py-3 px-4">
-                              <span className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed italic">
-                                {risk.expectedAction || "Non défini"}
-                              </span>
+                              <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed italic">
+                                {formatMitigationMeasures(risk.expectedAction)}
+                              </div>
                             </TableCell>
                             <TableCell className="py-3 px-4 text-center">
                               <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{risk.impact}</span>
@@ -818,8 +838,10 @@ export default function RiskMappingPage() {
                                   </TooltipTrigger>
                                   <TooltipContent side="right" className="max-w-sm p-3 rounded-xl">
                                     <div className="space-y-2">
-                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mesure d'atténuation</p>
-                                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{risk.expectedAction || "Aucune mesure définie"}</p>
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mesures d'atténuation</p>
+                                      <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                                        {formatMitigationMeasures(risk.expectedAction)}
+                                      </div>
                                     </div>
                                   </TooltipContent>
                                 </Tooltip>
