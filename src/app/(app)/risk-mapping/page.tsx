@@ -47,7 +47,8 @@ import { Logo } from "@/components/icons/Logo";
 const riskSchema = z.object({
   department: z.string().min(1, "La direction est requise."),
   category: z.enum(["Clients", "Produits et Services", "Pays et Zones Géographiques", "Canaux de Distribution"]),
-  riskDescription: z.string().min(1, "La description du risque est requise."),
+  riskDescription: z.string().min(1, "Les facteurs de risques sont requis."),
+  subFactors: z.string().optional(),
   probabilite: z.coerce.number().min(1, "Min: 1").max(4, "Max: 4"),
   impact: z.coerce.number().min(1, "Min: 1").max(4, "Max: 4"),
   expectedAction: z.string().min(1, "L'action attendue est requise."),
@@ -127,7 +128,8 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
 
   if (mode === 'principal' || mode === 'combined') {
     columns.push(
-      { header: "Scénario de Risque", key: "desc", width: 45 },
+      { header: "Facteurs de risques", key: "desc", width: 45 },
+      { header: "Sous facteurs de risques", key: "sub", width: 45 },
       { header: "Catégorie", key: "cat", width: 25 },
       { header: "Direction", key: "dept", width: 15 },
       { header: "Probabilité (V)", key: "pv", width: 12 },
@@ -140,7 +142,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
 
   if (mode === 'dmr' || mode === 'combined') {
     if (mode === 'dmr') {
-      columns.push({ header: "Scénario de Risque", key: "desc", width: 45 });
+      columns.push({ header: "Facteurs de risques", key: "desc", width: 45 });
     }
     columns.push(
       { header: "Efficacité DMR (V)", key: "effV", width: 15 },
@@ -183,6 +185,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
       rowData.desc = risk.riskDescription;
     }
     if (mode === 'principal' || mode === 'combined') {
+      rowData.sub = risk.subFactors || "-";
       rowData.cat = risk.category;
       rowData.dept = risk.department;
       rowData.pv = risk.probabilite;
@@ -229,7 +232,8 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     const wsPlan = wb.addWorksheet("Plan d'actions");
     wsPlan.columns = [
       { header: "N°", key: "num", width: 5 },
-      { header: "Scénario de Risque", key: "desc", width: 40 },
+      { header: "Facteurs de risques", key: "desc", width: 40 },
+      { header: "Sous facteurs de risques", key: "sub", width: 40 },
       { header: "Catégorie", key: "cat", width: 25 },
       { header: "Direction", key: "dept", width: 15 },
       { header: "Point de faiblesse", key: "weakness", width: 35 },
@@ -254,6 +258,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
       const row = wsPlan.addRow({
         num: i + 1,
         desc: risk.riskDescription,
+        sub: risk.subFactors || "-",
         cat: risk.category,
         dept: risk.department,
         weakness: risk.weaknessPoint || "-",
@@ -522,6 +527,7 @@ export default function RiskMappingPage() {
         department: data.department,
         category: data.category,
         riskDescription: data.riskDescription,
+        subFactors: data.subFactors || "",
         probabilite: data.probabilite ?? 1,
         impact: data.impact ?? 1,
         expectedAction: data.expectedAction,
@@ -542,6 +548,7 @@ export default function RiskMappingPage() {
         probabilite: 2,
         impact: 2,
         riskDescription: "",
+        subFactors: "",
         expectedAction: "",
         actionCorrective: "",
         justification: "",
@@ -567,6 +574,7 @@ export default function RiskMappingPage() {
         department: values.department || "",
         category: values.category || "Clients",
         riskDescription: values.riskDescription || "",
+        subFactors: values.subFactors || "",
         expectedAction: values.expectedAction || "",
         justification: values.justification || "",
         documentId: values.documentId && values.documentId !== "none" ? values.documentId : undefined,
@@ -1388,7 +1396,8 @@ export default function RiskMappingPage() {
                 <Table className="border-collapse">
                   <TableHeader>
                     <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[35%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[28%] bg-slate-50/50 dark:bg-transparent">Facteurs de risques</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[20%]">Sous facteurs de risques</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Direction</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Impact</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Probabilité / Fréquence</TableHead>
@@ -1398,111 +1407,149 @@ export default function RiskMappingPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredRisks.length > 0 ? (
-                      filteredRisks.map((risk) => {
-                        const score = calculateRiskScore(risk.probabilite, risk.impact);
-                        const style = getRiskScoreStyle(score);
-                        const hasAlert = !!findAlertByRiskId(risk.id);
-                        return (
-                          <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 divide-x divide-slate-100 dark:divide-slate-800">
-                            <TableCell className="py-3 px-4">
-                              <div className="flex items-start gap-2">
-                                <div className="flex flex-col gap-0.5 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest leading-none">{risk.category}</span>
-                                    {risk.documentId && documents.find(d => d.id === risk.documentId) && (
+                      (() => {
+                        // Group risks by category
+                        const grouped: Record<string, typeof filteredRisks> = {};
+                        filteredRisks.forEach(risk => {
+                          if (!grouped[risk.category]) grouped[risk.category] = [];
+                          grouped[risk.category].push(risk);
+                        });
+                        return Object.entries(grouped).map(([category, categoryRisks]) => (
+                          <React.Fragment key={category}>
+                            {/* Category header row */}
+                            <TableRow className="bg-primary/5 dark:bg-primary/10 border-y border-primary/10">
+                              <TableCell colSpan={7} className="py-2 px-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-2 w-2 rounded-full bg-primary" />
+                                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{category}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 ml-1">({categoryRisks.length} risque{categoryRisks.length > 1 ? 's' : ''})</span>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            {categoryRisks.map((risk) => {
+                              const score = calculateRiskScore(risk.probabilite, risk.impact);
+                              const style = getRiskScoreStyle(score);
+                              const hasAlert = !!findAlertByRiskId(risk.id);
+                              const dateLabel = risk.lastUpdated && risk.lastUpdated !== risk.createdAt
+                                ? `Modifié le ${new Date(risk.lastUpdated).toLocaleDateString('fr-FR')}`
+                                : risk.createdAt
+                                  ? `Créé le ${new Date(risk.createdAt).toLocaleDateString('fr-FR')}`
+                                  : risk.lastUpdated
+                                    ? `Créé le ${new Date(risk.lastUpdated).toLocaleDateString('fr-FR')}`
+                                    : null;
+                              return (
+                                <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 divide-x divide-slate-100 dark:divide-slate-800">
+                                  <TableCell className="py-3 px-4">
+                                    <div className="flex items-start gap-2">
+                                      <div className="flex flex-col gap-0.5 flex-1">
+                                        <div className="flex items-center gap-2">
+                                          {risk.documentId && documents.find(d => d.id === risk.documentId) && (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                {documents.find(d => d.id === risk.documentId)?.url ? (
+                                                  <a href={documents.find(d => d.id === risk.documentId)?.url} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 transition-colors">
+                                                    <FileText className="h-3 w-3" />
+                                                  </a>
+                                                ) : (
+                                                  <div className="text-slate-400">
+                                                    <FileText className="h-3 w-3" />
+                                                  </div>
+                                                )}
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <p className="text-[10px] font-bold">Document: {documents.find(d => d.id === risk.documentId)?.name}</p>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          )}
+                                        </div>
+                                        <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 leading-tight group-hover:underline cursor-pointer decoration-primary/30" onClick={() => openDialog('edit', risk)}>
+                                          {risk.riskDescription}
+                                        </span>
+                                        {dateLabel && (
+                                          <span className="text-[9px] text-slate-400 font-medium mt-0.5">{dateLabel}</span>
+                                        )}
+                                      </div>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          {documents.find(d => d.id === risk.documentId)?.url ? (
-                                            <a href={documents.find(d => d.id === risk.documentId)?.url} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 transition-colors">
-                                              <FileText className="h-3 w-3" />
-                                            </a>
-                                          ) : (
-                                            <div className="text-slate-400">
-                                              <FileText className="h-3 w-3" />
-                                            </div>
-                                          )}
+                                          <Button variant="ghost" size="icon" className="h-6 w-6 p-0 rounded-full hover:bg-indigo-50 hover:text-indigo-600 flex-shrink-0">
+                                            <Info className="h-4 w-4" />
+                                          </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p className="text-[10px] font-bold">Document: {documents.find(d => d.id === risk.documentId)?.name}</p>
+                                        <TooltipContent side="right" className="max-w-sm p-3 rounded-xl">
+                                          <div className="space-y-2">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mesures d'atténuation</p>
+                                            <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                                              {formatMitigationMeasures(risk.expectedAction)}
+                                            </div>
+                                          </div>
                                         </TooltipContent>
                                       </Tooltip>
-                                    )}
-                                  </div>
-                                  <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 leading-tight group-hover:underline cursor-pointer decoration-primary/30" onClick={() => openDialog('edit', risk)}>
-                                    {risk.riskDescription}
-                                  </span>
-                                </div>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 p-0 rounded-full hover:bg-indigo-50 hover:text-indigo-600 flex-shrink-0">
-                                      <Info className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="right" className="max-w-sm p-3 rounded-xl">
-                                    <div className="space-y-2">
-                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mesures d'atténuation</p>
-                                      <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                                        {formatMitigationMeasures(risk.expectedAction)}
-                                      </div>
                                     </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3 px-4">
-                              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
-                                {risk.department}
-                              </span>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <span className="text-xl font-black text-slate-700 dark:text-slate-300">{risk.impact}</span>
-                              <span className="text-[9px] text-slate-400 block">/4</span>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <span className="text-xl font-black text-slate-700 dark:text-slate-300">{risk.probabilite}</span>
-                              <span className="text-[9px] text-slate-400 block">/4</span>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <div className={cn("inline-flex flex-col items-center justify-center w-14 h-14 rounded-xl border-2", style.bg, style.border)}>
-                                <span className={cn("text-2xl font-black leading-none", style.text)}>{score}</span>
-                                <span className={cn("text-[8px] font-bold uppercase leading-tight", style.text)}>{style.label}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleToggleAlert(risk)}
-                                  className={cn("h-7 w-7 rounded transition-all", hasAlert ? "text-rose-500 bg-rose-50" : "text-slate-400 hover:bg-slate-100")}
-                                >
-                                  {hasAlert ? <Bell className="h-4 w-4 fill-current" /> : <BellOff className="h-4 w-4" />}
-                                </Button>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4">
+                                    {risk.subFactors ? (
+                                      <span className="text-[12px] font-medium text-slate-700 dark:text-slate-300 leading-tight">{risk.subFactors}</span>
+                                    ) : (
+                                      <span className="text-[11px] italic text-slate-300 dark:text-slate-600">—</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4">
+                                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                                      {risk.department}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-center">
+                                    <span className="text-xl font-black text-slate-700 dark:text-slate-300">{risk.impact}</span>
+                                    <span className="text-[9px] text-slate-400 block">/4</span>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-center">
+                                    <span className="text-xl font-black text-slate-700 dark:text-slate-300">{risk.probabilite}</span>
+                                    <span className="text-[9px] text-slate-400 block">/4</span>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-center">
+                                    <div className={cn("inline-flex flex-col items-center justify-center w-14 h-14 rounded-xl border-2", style.bg, style.border)}>
+                                      <span className={cn("text-2xl font-black leading-none", style.text)}>{score}</span>
+                                      <span className={cn("text-[8px] font-bold uppercase leading-tight", style.text)}>{style.label}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-right">
+                                    <div className="flex justify-end gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleToggleAlert(risk)}
+                                        className={cn("h-7 w-7 rounded transition-all", hasAlert ? "text-rose-500 bg-rose-50" : "text-slate-400 hover:bg-slate-100")}
+                                      >
+                                        {hasAlert ? <Bell className="h-4 w-4 fill-current" /> : <BellOff className="h-4 w-4" />}
+                                      </Button>
 
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-7 w-7 p-0 rounded hover:bg-slate-100">
-                                      <MoreHorizontal className="h-4 w-4 text-slate-400" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-40 rounded-lg shadow-xl">
-                                    <DropdownMenuItem onClick={() => openDialog('edit', risk)} className="text-xs font-bold py-2">
-                                      <Edit className="mr-2 h-3.5 w-3.5 text-indigo-500" /> Modifier
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      onClick={() => openDialog('delete', risk)}
-                                      className="text-rose-600 text-xs font-bold py-2 focus:text-rose-600 focus:bg-rose-50"
-                                    >
-                                      <Trash2 className="mr-2 h-3.5 w-3.5" /> Supprimer
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" className="h-7 w-7 p-0 rounded hover:bg-slate-100">
+                                            <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-40 rounded-lg shadow-xl">
+                                          <DropdownMenuItem onClick={() => openDialog('edit', risk)} className="text-xs font-bold py-2">
+                                            <Edit className="mr-2 h-3.5 w-3.5 text-indigo-500" /> Modifier
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem
+                                            onClick={() => openDialog('delete', risk)}
+                                            className="text-rose-600 text-xs font-bold py-2 focus:text-rose-600 focus:bg-rose-50"
+                                          >
+                                            <Trash2 className="mr-2 h-3.5 w-3.5" /> Supprimer
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </React.Fragment>
+                        ));
+                      })()
                     ) : (
                       <TableRow>
                         <TableCell colSpan={7} className="h-40 text-center text-slate-400 text-sm font-bold">
@@ -1563,9 +1610,22 @@ export default function RiskMappingPage() {
                         name="riskDescription"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Scénario de Risque</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Facteurs de risques</FormLabel>
                             <FormControl>
-                              <Textarea {...field} placeholder="Décrivez le scénario redouté..." className="min-h-[120px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all shadow-sm" />
+                              <Textarea {...field} placeholder="Décrivez le facteur de risque principal..." className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all shadow-sm" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="subFactors"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sous facteurs de risques</FormLabel>
+                            <FormControl>
+                              <Textarea {...field} placeholder="Détaillez les sous-facteurs liés à ce risque..." className="min-h-[80px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all shadow-sm" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1578,7 +1638,7 @@ export default function RiskMappingPage() {
                           <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mesure d'atténuation (existante)</FormLabel>
                             <FormControl>
-                              <Textarea {...field} placeholder="Dispositif en place pour atténuer le risque..." className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all shadow-sm" />
+                              <Textarea {...field} placeholder="Dispositif en place pour atténuer le risque..." className="min-h-[80px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all shadow-sm" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

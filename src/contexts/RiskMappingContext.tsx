@@ -18,8 +18,8 @@ interface RiskMappingContextType {
   maePositions: Record<number, string>;
   setGlobalDocumentIds: (ids: string[]) => Promise<void>;
   updateMaePosition: (level: number, text: string) => Promise<void>;
-  addRisk: (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => Promise<void>;
-  editRisk: (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated'>>) => Promise<void>;
+  addRisk: (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt'>) => Promise<void>;
+  editRisk: (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt'>>) => Promise<void>;
   removeRisk: (riskId: string) => Promise<void>;
 }
 
@@ -111,20 +111,22 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
     await setDoc(metaRef, { maePositions: newPositions }, { merge: true });
   };
 
-  const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated'>) => {
+  const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt'>) => {
     if (!isFirebaseConfigured || !db) return;
     // Remove undefined fields (e.g., documentId) to avoid Firestore errors
     const cleanRisk = Object.fromEntries(
       Object.entries(risk).filter(([, value]) => value !== undefined)
     );
+    const today = new Date().toISOString().split('T')[0];
     const newRisk = {
       ...cleanRisk,
-      lastUpdated: new Date().toISOString().split('T')[0],
+      createdAt: today,
+      lastUpdated: today,
     };
     await addDoc(collection(db, risksCollectionName), newRisk);
   };
 
-  const editRisk = async (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated'>>) => {
+  const editRisk = async (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt'>>) => {
     if (!isFirebaseConfigured || !db) return;
     const docRef = doc(db, risksCollectionName, riskId);
     // Remove undefined fields to avoid Firestore errors

@@ -158,6 +158,7 @@ export interface RiskMappingItem {
   category: RiskCategory;
   regulatoryContent?: string; // Keep for backward compatibility
   riskDescription: string;
+  subFactors?: string; // Sous facteurs de risques
   probabilite: number; // 1-4
   impact: number; // 1-4
   riskLevel: RiskLevel;
@@ -165,6 +166,7 @@ export interface RiskMappingItem {
   justification?: string;
   owner?: string;
   lastUpdated: string;
+  createdAt?: string; // Date de création initiale
   documentId?: string; // Optional linked document
   dmrEfficiency?: number; // 1 to 4
   dmrProbability?: number; // 1 to 4
