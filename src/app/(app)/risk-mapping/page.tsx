@@ -961,16 +961,16 @@ export default function RiskMappingPage() {
               <div className="overflow-x-auto">
                 <Table className="border-collapse">
                   <TableHeader>
-                    <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[12%]">Facteur de risque</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[18%]">Risque identifié</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Cotation Net</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[12%]">Point de faiblesse</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[18%]">Action corrective</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[8%]">Échéance</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[10%]">Responsable</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[10%] text-center">Niveau d'avancement</TableHead>
-                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[4%]">Actions</TableHead>
+                    <TableRow className="bg-slate-900 dark:bg-slate-950 border-none">
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none w-[12%]">Catégorie</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none w-[18%]">Facteurs de risques</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none text-center w-[8%]">Cotation Net</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none w-[12%]">Point de faiblesse</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none w-[18%]">Action corrective</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none text-center w-[8%]">Échéance</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none w-[10%]">Responsable</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none w-[10%] text-center">Niveau d'avancement</TableHead>
+                      <TableHead className="py-4 px-4 text-right font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none w-[4%]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -983,7 +983,7 @@ export default function RiskMappingPage() {
                         const completion = (risk as any).completionLevel || 0;
 
                         return (
-                          <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 divide-x divide-slate-100 dark:divide-slate-800">
+                          <TableRow key={risk.id} className="group hover:bg-primary/[0.02] transition-all border-b border-slate-200/60 dark:border-slate-800/60 border-l-2 border-l-transparent hover:border-l-primary divide-x divide-slate-100 dark:divide-slate-800/40">
                             <TableCell className="py-3 px-4">
                               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{risk.category}</span>
                             </TableCell>
@@ -1084,13 +1084,13 @@ export default function RiskMappingPage() {
               <div className="overflow-x-auto">
                 <Table className="border-collapse">
                   <TableHeader>
-                    <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[35%] bg-slate-50/50 dark:bg-transparent">Scénario de Risque</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[12%]">Niveau d'efficacité</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Proba. DMR</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center w-[10%]">Score Résiduel</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[28%]">Position de la MAE Assurance</TableHead>
-                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[5%]">Actions</TableHead>
+                    <TableRow className="bg-slate-900 dark:bg-slate-950 border-none">
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none w-[35%] bg-slate-900 dark:bg-slate-950">Facteurs de risques</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none text-center w-[12%]">Niveau d'efficacité</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none text-center w-[10%]">Proba. DMR</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none text-center w-[10%]">Score Résiduel</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none w-[28%]">Position de la MAE Assurance</TableHead>
+                      <TableHead className="py-4 px-4 text-right font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none w-[5%]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1395,14 +1395,14 @@ export default function RiskMappingPage() {
               <div className="overflow-x-auto">
                 <Table className="border-collapse">
                   <TableHeader>
-                    <TableRow className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 divide-x divide-slate-200 dark:divide-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[28%] bg-slate-50/50 dark:bg-transparent">Facteurs de risques</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 w-[20%]">Sous facteurs de risques</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Direction</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Impact</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Probabilité / Fréquence</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 text-center">Score</TableHead>
-                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400">Actions</TableHead>
+                    <TableRow className="bg-slate-900 dark:bg-slate-950 border-none">
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none w-[28%] bg-slate-900 dark:bg-slate-950">Facteurs de risques</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none w-[20%]">Sous facteurs de risques</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none">Direction</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none text-center">Impact</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none text-center">Probabilité / Fréquence</TableHead>
+                      <TableHead className="py-4 px-4 font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none text-center">Score</TableHead>
+                      <TableHead className="py-4 px-4 text-right font-black uppercase tracking-widest text-[9px] text-slate-100 dark:text-slate-200 border-none">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1417,12 +1417,12 @@ export default function RiskMappingPage() {
                         return Object.entries(grouped).map(([category, categoryRisks]) => (
                           <React.Fragment key={category}>
                             {/* Category header row */}
-                            <TableRow className="bg-primary/5 dark:bg-primary/10 border-y border-primary/10">
-                              <TableCell colSpan={7} className="py-2 px-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="h-2 w-2 rounded-full bg-primary" />
-                                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{category}</span>
-                                  <span className="text-[9px] font-bold text-slate-400 ml-1">({categoryRisks.length} risque{categoryRisks.length > 1 ? 's' : ''})</span>
+                            <TableRow className="bg-slate-50/80 dark:bg-slate-900/40 border-y border-slate-200/50 dark:border-slate-800/50 group/cat">
+                              <TableCell colSpan={7} className="py-2.5 px-4 border-l-4 border-l-primary">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200">{category}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 ml-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800">{categoryRisks.length} Scénario{categoryRisks.length > 1 ? 's' : ''}</span>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -1438,7 +1438,7 @@ export default function RiskMappingPage() {
                                     ? `Créé le ${new Date(risk.lastUpdated).toLocaleDateString('fr-FR')}`
                                     : null;
                               return (
-                                <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 divide-x divide-slate-100 dark:divide-slate-800">
+                                <TableRow key={risk.id} className="group hover:bg-primary/[0.02] transition-all border-b border-slate-200/60 dark:border-slate-800/60 border-l-2 border-l-transparent hover:border-l-primary divide-x divide-slate-100 dark:divide-slate-800/40">
                                   <TableCell className="py-3 px-4">
                                     <div className="flex items-start gap-2">
                                       <div className="flex flex-col gap-0.5 flex-1">
