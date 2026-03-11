@@ -1,6 +1,5 @@
-'use client';
-
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { toast } from '@/components/ui/use-toast';
 import { auth, db, isFirebaseConfigured } from '@/lib/firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
 
@@ -88,8 +87,9 @@ export const ActivityLogProvider = ({ children }: { children: ReactNode }) => {
                 serverTimestamp: serverTimestamp(),
             }).then(() => {
                 console.log("[ActivityLog] Successfully logged action:", full.action);
-            }).catch((err) => {
+            }).catch((err: any) => {
                 console.error("[ActivityLog] Failed to log action to Firestore:", err);
+                toast({ variant: "destructive", title: "Erreur Historisation", description: err.message || "Impossible de sauvegarder l'action." });
             });
         } else {
             // Persist to localStorage (cap at MAX_LOCAL_LOGS)
