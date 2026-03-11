@@ -962,92 +962,107 @@ export default function RiskMappingPage() {
                 <Table className="border-collapse">
                   <TableHeader>
                     <TableRow className="bg-slate-50/80 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[12%]">Catégorie</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[18%]">Facteurs de risques</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[20%]">Facteurs de risques</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[8%]">Cotation Net</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[12%]">Point de faiblesse</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[18%]">Action corrective</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[20%]">Action corrective</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[8%]">Échéance</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[10%]">Responsable</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[10%] text-center">Niveau d'avancement</TableHead>
-                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[4%]">Actions</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[12%] text-center">Niveau d'avancement</TableHead>
+                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[5%]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredRisks.length > 0 ? (
-                      filteredRisks.map((risk) => {
-                        const dmrEff = (risk as any).dmrEfficiency || 2;
-                        const dmrPro = (risk as any).dmrProbability || risk.probabilite || 2;
-                        const scoreRes = dmrEff * dmrPro;
-                        const styleRes = getRiskScoreStyle(scoreRes);
-                        const completion = (risk as any).completionLevel || 0;
-
-                        return (
-                          <TableRow key={risk.id} className="group hover:bg-primary/[0.02] transition-all border-b border-slate-200/60 dark:border-slate-800/60 border-l-2 border-l-transparent hover:border-l-primary divide-x divide-slate-100 dark:divide-slate-800/40">
-                            <TableCell className="py-3 px-4">
-                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{risk.category}</span>
-                            </TableCell>
-                            <TableCell className="py-3 px-4">
-                              <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
-                                {risk.riskDescription}
-                              </span>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <div className={cn("inline-flex flex-col items-center justify-center w-10 h-10 rounded-lg border", styleRes.bg, styleRes.text, styleRes.border)}>
-                                <span className="text-sm font-black">{scoreRes}</span>
-                                <span className="text-[7px] font-bold uppercase">{styleRes.label}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3 px-4">
-                              <span className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight italic">
-                                {(risk as any).weaknessPoint || "-"}
-                              </span>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 leading-tight">
-                                {(risk as any).actionCorrective || "-"}
-                              </span>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <span className="text-[11px] font-bold text-slate-500">
-                                {(risk as any).deadline || "-"}
-                              </span>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <Badge variant="ghost" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-none font-bold text-[10px]">
-                                {(risk as any).responsible || "-"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="py-3 px-4">
-                              <div className="flex flex-col gap-1.5 items-center">
-                                <span className={cn("text-[10px] font-black", completionOptions.find(o => o.value === completion)?.text || "text-slate-500")}>{completion}%</span>
-                                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                  <div
-                                    className={cn(
-                                      "h-full transition-all duration-500",
-                                      completionOptions.find(o => o.value === completion)?.color || "bg-slate-400"
-                                    )}
-                                    style={{ width: `${completion}%` }}
-                                  />
+                      (() => {
+                        const grouped: Record<string, typeof filteredRisks> = {};
+                        filteredRisks.forEach(risk => {
+                          if (!grouped[risk.category]) grouped[risk.category] = [];
+                          grouped[risk.category].push(risk);
+                        });
+                        return Object.entries(grouped).map(([category, categoryRisks]) => (
+                          <React.Fragment key={category}>
+                            <TableRow className="bg-slate-50/80 dark:bg-slate-900/40 border-y border-slate-200/50 dark:border-slate-800/50">
+                              <TableCell colSpan={9} className="py-2.5 px-4 border-l-4 border-l-primary">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200">{category}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 ml-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800">{categoryRisks.length} Action{categoryRisks.length > 1 ? 's' : ''}</span>
                                 </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-right">
-                              <div className="flex justify-end">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => setViewMode('settings')}
-                                  className="h-8 w-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-indigo-600 transition-colors"
-                                  title="Paramétrer ce plan d'actions"
-                                >
-                                  <Settings className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
+                              </TableCell>
+                            </TableRow>
+                            {categoryRisks.map((risk) => {
+                              const dmrEff = (risk as any).dmrEfficiency || 2;
+                              const dmrPro = (risk as any).dmrProbability || risk.probabilite || 2;
+                              const scoreRes = dmrEff * dmrPro;
+                              const styleRes = getRiskScoreStyle(scoreRes);
+                              const completion = (risk as any).completionLevel || 0;
+                              return (
+                                <TableRow key={risk.id} className="group hover:bg-primary/[0.02] transition-all border-b border-slate-200/60 dark:border-slate-800/60 border-l-2 border-l-transparent hover:border-l-primary divide-x divide-slate-100 dark:divide-slate-800/40">
+                                  <TableCell className="py-3 px-4">
+                                    <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+                                      {risk.riskDescription}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-center">
+                                    <div className={cn("inline-flex flex-col items-center justify-center w-10 h-10 rounded-lg border", styleRes.bg, styleRes.text, styleRes.border)}>
+                                      <span className="text-sm font-black">{scoreRes}</span>
+                                      <span className="text-[7px] font-bold uppercase">{styleRes.label}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4">
+                                    <span className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight italic">
+                                      {(risk as any).weaknessPoint || "-"}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-center">
+                                    <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 leading-tight">
+                                      {(risk as any).actionCorrective || "-"}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-center">
+                                    <span className="text-[11px] font-bold text-slate-500">
+                                      {(risk as any).deadline || "-"}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-center">
+                                    <Badge variant="ghost" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-none font-bold text-[10px]">
+                                      {(risk as any).responsible || "-"}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4">
+                                    <div className="flex flex-col gap-1.5 items-center">
+                                      <span className={cn("text-[10px] font-black", completionOptions.find(o => o.value === completion)?.text || "text-slate-500")}>{completion}%</span>
+                                      <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                        <div
+                                          className={cn(
+                                            "h-full transition-all duration-500",
+                                            completionOptions.find(o => o.value === completion)?.color || "bg-slate-400"
+                                          )}
+                                          style={{ width: `${completion}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-right">
+                                    <div className="flex justify-end">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setViewMode('settings')}
+                                        className="h-8 w-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-indigo-600 transition-colors"
+                                        title="Paramétrer ce plan d'actions"
+                                      >
+                                        <Settings className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </React.Fragment>
+                        ));
+                      })()
                     ) : (
                       <TableRow>
                         <TableCell colSpan={9} className="h-40 text-center text-slate-400 text-sm font-bold">
@@ -1095,114 +1110,131 @@ export default function RiskMappingPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredRisks.length > 0 ? (
-                      filteredRisks.map((risk) => {
-                        const dmrEff = (risk as any).dmrEfficiency || 2;
-                        const dmrPro = (risk as any).dmrProbability || risk.probabilite || 2;
-                        const score = dmrEff * dmrPro;
-                        const style = getRiskScoreStyle(score);
-                        const maePosition = getMAEPosition(score, maePositions);
-                        const hasAlert = !!findAlertByRiskId(risk.id);
-                        return (
-                          <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 divide-x divide-slate-100 dark:divide-slate-800">
-                            <TableCell className="py-3 px-4">
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest leading-none">{risk.category}</span>
-                                <button
-                                  onClick={() => setViewMode("table")}
-                                  className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight text-left hover:text-primary transition-colors hover:underline flex items-center gap-1 group/link"
-                                >
-                                  {risk.riskDescription}
-                                  <LinkIcon className="h-2.5 w-2.5 opacity-0 group-hover/link:opacity-100 transition-opacity" />
-                                </button>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              {(() => {
-                                const eff = dmrEfficiencyLevels.find(l => l.value === dmrEff) || dmrEfficiencyLevels[1];
-                                return (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); openDialog('edit', risk); }}
-                                          className={cn("text-[9px] font-bold uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-sm transition-all hover:scale-110 cursor-pointer underline decoration-dotted", eff.color)}
-                                        >
-                                          {dmrEff} - {eff.label}
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top" className="bg-slate-900 text-white border-none p-2 rounded-lg shadow-xl">
-                                        <p className="text-[10px] font-semibold">{eff.description}</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                );
-                              })()}
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); openDialog('edit', risk); }}
-                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-all hover:scale-110 font-black text-xs text-slate-700 shadow-sm cursor-pointer underline decoration-dotted"
-                              >
-                                {dmrPro}
-                              </button>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-center">
-                              <div className="flex flex-col items-center gap-1">
-                                <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg border font-bold text-xs", style.bg, style.text, style.border)}>
-                                  {score}
+                      (() => {
+                        const grouped: Record<string, typeof filteredRisks> = {};
+                        filteredRisks.forEach(risk => {
+                          if (!grouped[risk.category]) grouped[risk.category] = [];
+                          grouped[risk.category].push(risk);
+                        });
+                        return Object.entries(grouped).map(([category, categoryRisks]) => (
+                          <React.Fragment key={category}>
+                            <TableRow className="bg-slate-50/80 dark:bg-slate-900/40 border-y border-slate-200/50 dark:border-slate-800/50">
+                              <TableCell colSpan={6} className="py-2.5 px-4 border-l-4 border-l-indigo-500">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+                                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200">{category}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 ml-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800">{categoryRisks.length} Scénario{categoryRisks.length > 1 ? 's' : ''}</span>
                                 </div>
-                                <span className={cn("text-[9px] font-bold uppercase tracking-tight", style.text)}>
-                                  {style.label}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3 px-4">
-                              <div className="flex items-start gap-2">
-                                <div className={cn("mt-1.5 h-1.5 w-1.5 rounded-full shrink-0",
-                                  score <= 4 ? "bg-emerald-500" :
-                                    score <= 8 ? "bg-yellow-500" :
-                                      score <= 12 ? "bg-orange-500" : "bg-rose-500"
-                                )} />
-                                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 leading-tight">
-                                  {maePosition}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3 px-4 text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleToggleAlert(risk)}
-                                  className={cn("h-7 w-7 rounded transition-all", hasAlert ? "text-rose-500 bg-rose-50" : "text-slate-400 hover:bg-slate-100")}
-                                >
-                                  {hasAlert ? <Bell className="h-4 w-4 fill-current" /> : <BellOff className="h-4 w-4" />}
-                                </Button>
-
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-7 w-7 p-0 rounded hover:bg-slate-100">
-                                      <MoreHorizontal className="h-4 w-4 text-slate-400" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-40 rounded-lg shadow-xl">
-                                    <DropdownMenuItem onClick={() => openDialog('edit', risk)} className="text-xs font-bold py-2">
-                                      <Edit className="mr-2 h-3.5 w-3.5 text-indigo-500" /> Modifier
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      onClick={() => openDialog('delete', risk)}
-                                      className="text-rose-600 text-xs font-bold py-2 focus:text-rose-600 focus:bg-rose-50"
+                              </TableCell>
+                            </TableRow>
+                            {categoryRisks.map((risk) => {
+                              const dmrEff = (risk as any).dmrEfficiency || 2;
+                              const dmrPro = (risk as any).dmrProbability || risk.probabilite || 2;
+                              const score = dmrEff * dmrPro;
+                              const style = getRiskScoreStyle(score);
+                              const maePosition = getMAEPosition(score, maePositions);
+                              const hasAlert = !!findAlertByRiskId(risk.id);
+                              return (
+                                <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 border-l-2 border-l-transparent hover:border-l-indigo-500 divide-x divide-slate-100 dark:divide-slate-800">
+                                  <TableCell className="py-3 px-4">
+                                    <button
+                                      onClick={() => setViewMode("table")}
+                                      className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight text-left hover:text-primary transition-colors hover:underline flex items-center gap-1 group/link"
                                     >
-                                      <Trash2 className="mr-2 h-3.5 w-3.5" /> Supprimer
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
+                                      {risk.riskDescription}
+                                      <LinkIcon className="h-2.5 w-2.5 opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                                    </button>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-center">
+                                    {(() => {
+                                      const eff = dmrEfficiencyLevels.find(l => l.value === dmrEff) || dmrEfficiencyLevels[1];
+                                      return (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <button
+                                                onClick={(e) => { e.stopPropagation(); openDialog('edit', risk); }}
+                                                className={cn("text-[9px] font-bold uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-sm transition-all hover:scale-110 cursor-pointer underline decoration-dotted", eff.color)}
+                                              >
+                                                {dmrEff} - {eff.label}
+                                              </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="bg-slate-900 text-white border-none p-2 rounded-lg shadow-xl">
+                                              <p className="text-[10px] font-semibold">{eff.description}</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      );
+                                    })()}
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-center">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); openDialog('edit', risk); }}
+                                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-all hover:scale-110 font-black text-xs text-slate-700 shadow-sm cursor-pointer underline decoration-dotted"
+                                    >
+                                      {dmrPro}
+                                    </button>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-center">
+                                    <div className="flex flex-col items-center gap-1">
+                                      <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg border font-bold text-xs", style.bg, style.text, style.border)}>
+                                        {score}
+                                      </div>
+                                      <span className={cn("text-[9px] font-bold uppercase tracking-tight", style.text)}>
+                                        {style.label}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4">
+                                    <div className="flex items-start gap-2">
+                                      <div className={cn("mt-1.5 h-1.5 w-1.5 rounded-full shrink-0",
+                                        score <= 4 ? "bg-emerald-500" :
+                                          score <= 8 ? "bg-yellow-500" :
+                                            score <= 12 ? "bg-orange-500" : "bg-rose-500"
+                                      )} />
+                                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 leading-tight">
+                                        {maePosition}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4 text-right">
+                                    <div className="flex justify-end gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleToggleAlert(risk)}
+                                        className={cn("h-7 w-7 rounded transition-all", hasAlert ? "text-rose-500 bg-rose-50" : "text-slate-400 hover:bg-slate-100")}
+                                      >
+                                        {hasAlert ? <Bell className="h-4 w-4 fill-current" /> : <BellOff className="h-4 w-4" />}
+                                      </Button>
+
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" className="h-7 w-7 p-0 rounded hover:bg-slate-100">
+                                            <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-40 rounded-lg shadow-xl">
+                                          <DropdownMenuItem onClick={() => openDialog('edit', risk)} className="text-xs font-bold py-2">
+                                            <Edit className="mr-2 h-3.5 w-3.5 text-indigo-500" /> Modifier
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem
+                                            onClick={() => openDialog('delete', risk)}
+                                            className="text-rose-600 text-xs font-bold py-2 focus:text-rose-600 focus:bg-rose-50"
+                                          >
+                                            <Trash2 className="mr-2 h-3.5 w-3.5" /> Supprimer
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </React.Fragment>
+                        ));
+                      })()
                     ) : (
                       <TableRow>
                         <TableCell colSpan={6} className="h-40 text-center text-slate-400 text-sm font-bold">
