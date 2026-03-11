@@ -1,5 +1,7 @@
+'use client';
+
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { auth, db, isFirebaseConfigured } from '@/lib/firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
 
