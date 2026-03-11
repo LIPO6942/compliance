@@ -6,6 +6,7 @@ Ce document retrace les principales évolutions, ajouts de fonctionnalités et c
 
 ### Amélioration de l'Historisation (Journal d'Activité)
 - **Traçabilité complète** : Ajout de la journalisation pour les modifications des risques via formulaires (Inventaire et DMR) et éditions en ligne (Tableau de Plan d'actions).
+  - *Correction (Bug) : Ajustement des règles Firestore pour que l'email de l'action corresponde toujours au token d'authentification, résolvant un problème où certaines modifications étaient ignorées silencieusement.*
 - **Historisation des paramètres** : Suivi des modifications des positions de la MAE Assurance et des liaisons de documents globaux.
 - **Historisation des alertes** : Enregistrement de la création et suppression d'alertes associées aux risques.
 - **Journal Admin** : Mise à jour de la page d'administration (`/settings/admin/activity`) avec de nouveaux filtres (Ajouts, Suppressions, Alertes, Paramétrages) pour un suivi granulaire de chaque action.

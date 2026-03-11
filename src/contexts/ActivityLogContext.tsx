@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
-import { db, isFirebaseConfigured } from '@/lib/firebase';
+import { auth, db, isFirebaseConfigured } from '@/lib/firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
 
 export type ActivityAction =
@@ -79,13 +79,18 @@ export const ActivityLogProvider = ({ children }: { children: ReactNode }) => {
 
     const logAction = useCallback((entry: Omit<ActivityEntry, 'id' | 'timestamp'>) => {
         const now = new Date().toISOString();
-        const full: ActivityEntry = { ...entry, timestamp: now };
+        const userEmailToUse = auth?.currentUser?.email || entry.userEmail;
+        const full: ActivityEntry = { ...entry, userEmail: userEmailToUse, timestamp: now };
 
         if (isFirebaseConfigured && db) {
             addDoc(collection(db, 'activity_logs'), {
                 ...full,
                 serverTimestamp: serverTimestamp(),
-            }).catch(console.error);
+            }).then(() => {
+                console.log("[ActivityLog] Successfully logged action:", full.action);
+            }).catch((err) => {
+                console.error("[ActivityLog] Failed to log action to Firestore:", err);
+            });
         } else {
             // Persist to localStorage (cap at MAX_LOCAL_LOGS)
             setLogs(prev => {
