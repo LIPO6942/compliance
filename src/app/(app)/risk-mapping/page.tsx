@@ -657,9 +657,27 @@ export default function RiskMappingPage() {
     if (existingAlert) {
       await removeAlertByRiskId(risk.id);
       toast({ title: "Alerte désactivée", description: "Le lien entre ce risque et le centre d'alertes est rompu." });
+      if (user) {
+        logAction({
+          userEmail: user.email,
+          userName: user.name,
+          action: 'ALERT_REMOVE',
+          label: `A supprimé une alerte pour le risque : ${risk.riskDescription}`,
+          module: 'Cartographie des Risques'
+        });
+      }
     } else {
       createAlertFromRisk(risk);
       toast({ title: "Alerte générée", description: "Une alerte critique a été envoyée au centre de commande." });
+      if (user) {
+        logAction({
+          userEmail: user.email,
+          userName: user.name,
+          action: 'ALERT_CREATE',
+          label: `A généré une alerte critique pour : ${risk.riskDescription}`,
+          module: 'Cartographie des Risques'
+        });
+      }
     }
   };
 
@@ -819,6 +837,16 @@ export default function RiskMappingPage() {
                         onCheckedChange={(checked) => {
                           const cur = globalDocumentIds || [];
                           setGlobalDocumentIds(checked ? [...cur, doc.id] : cur.filter((id) => id !== doc.id));
+                          if (user) {
+                            logAction({
+                              userEmail: user.email || "system",
+                              userName: user.displayName || "Utilisateur",
+                              action: "SETTINGS_UPDATE",
+                              label: checked ? "Liaison document global" : "Suppression liaison document global",
+                              detail: `Document: ${doc.name}`,
+                              module: "Risk Mapping"
+                            });
+                          }
                         }}
                       />
                       <Label className="text-xs font-bold leading-none cursor-pointer">{doc.name}</Label>
@@ -847,7 +875,19 @@ export default function RiskMappingPage() {
                     </>
                   )}
                   <button
-                    onClick={() => setGlobalDocumentIds(globalDocumentIds.filter(id => id !== doc.id))}
+                    onClick={() => {
+                      setGlobalDocumentIds(globalDocumentIds.filter(id => id !== doc.id));
+                      if (user) {
+                        logAction({
+                          userEmail: user.email || "system",
+                          userName: user.displayName || "Utilisateur",
+                          action: "SETTINGS_UPDATE",
+                          label: "Suppression liaison document global",
+                          detail: `Document: ${doc.name}`,
+                          module: "Risk Mapping"
+                        });
+                      }
+                    }}
                     className="ml-1 text-slate-300 hover:text-rose-500 transition-colors text-base leading-none font-bold"
                     aria-label="Retirer"
                   >
@@ -1293,6 +1333,7 @@ export default function RiskMappingPage() {
                               if (e.target.value !== (risk as any).actionCorrective) {
                                 editRisk(risk.id, { actionCorrective: e.target.value } as any);
                                 toast({ title: "Action mise à jour", description: "Le plan d'action a été actualisé." });
+                                if (user) logAction({ userEmail: user.email, userName: user.name, action: 'PLAN_UPDATE', label: `A modifié l'action corrective du risque : ${risk.riskDescription}`, detail: risk.category, module: 'Plan d\'actions' });
                               }
                             }}
                           />
@@ -1305,6 +1346,7 @@ export default function RiskMappingPage() {
                               if (e.target.value !== (risk as any).responsible) {
                                 editRisk(risk.id, { responsible: e.target.value } as any);
                                 toast({ title: "Responsable mis à jour" });
+                                if (user) logAction({ userEmail: user.email, userName: user.name, action: 'PLAN_UPDATE', label: `A modifié le responsable du risque : ${risk.riskDescription}`, detail: `Responsable: ${e.target.value}`, module: 'Plan d\'actions' });
                               }
                             }}
                           />
@@ -1318,6 +1360,7 @@ export default function RiskMappingPage() {
                               if (e.target.value !== (risk as any).deadline) {
                                 editRisk(risk.id, { deadline: e.target.value } as any);
                                 toast({ title: "Échéance mise à jour" });
+                                if (user) logAction({ userEmail: user.email, userName: user.name, action: 'PLAN_UPDATE', label: `A modifié l'échéance du risque : ${risk.riskDescription}`, detail: `Échéance: ${e.target.value}`, module: 'Plan d\'actions' });
                               }
                             }}
                           />
@@ -1329,6 +1372,7 @@ export default function RiskMappingPage() {
                               onValueChange={(v) => {
                                 editRisk(risk.id, { completionLevel: Number(v) } as any);
                                 toast({ title: "Avancement mis à jour" });
+                                if (user) logAction({ userEmail: user.email, userName: user.name, action: 'PLAN_UPDATE', label: `A modifié l'avancement du risque : ${risk.riskDescription}`, detail: `Avancement: ${v}%`, module: 'Plan d\'actions' });
                               }}
                             >
                               <SelectTrigger className="h-9 w-full bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 font-bold text-[10px] rounded-lg shadow-none">
@@ -1410,6 +1454,15 @@ export default function RiskMappingPage() {
                       title: "Paramètres enregistrés",
                       description: "Les positions de la MAE ont été mises à jour avec succès.",
                     });
+                    if (user) {
+                      logAction({
+                        userEmail: user.email,
+                        userName: user.name,
+                        action: 'SETTINGS_UPDATE',
+                        label: "A mis à jour les positions de la MAE Assurance",
+                        module: 'Cartographie des Risques'
+                      });
+                    }
                   }}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest px-10 h-12 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
                 >

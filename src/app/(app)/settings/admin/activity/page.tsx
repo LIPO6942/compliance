@@ -124,9 +124,14 @@ export default function AdminActivityPage() {
                         >
                             <option value="all">Toutes les actions</option>
                             <option value="LOGIN">Connexions</option>
+                            <option value="RISK_ADD">Ajouts Risques</option>
                             <option value="RISK_EDIT">Modifs Risques</option>
-                            <option value="DOCUMENT_EDIT">Modifs Documents</option>
+                            <option value="RISK_DELETE">Suppressions Risques</option>
+                            <option value="ALERT_CREATE">Alertes Créées</option>
+                            <option value="ALERT_REMOVE">Alertes Suppr</option>
                             <option value="PLAN_UPDATE">Modifs Plan</option>
+                            <option value="SETTINGS_UPDATE">Paramètres</option>
+                            <option value="DOCUMENT_EDIT">Modifs Documents</option>
                         </select>
                     </Badge>
                 </div>
