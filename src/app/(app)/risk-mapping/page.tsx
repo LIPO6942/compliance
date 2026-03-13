@@ -1264,12 +1264,33 @@ export default function RiskMappingPage() {
                                   </TableCell>
                                   <TableCell className="py-3 px-4">
                                     <div className="flex flex-col gap-1.5">
-                                      {risk.documentId && (
-                                        <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
-                                          <LinkIcon className="h-3 w-3 text-indigo-500" />
-                                          <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 uppercase truncate max-w-[150px]">
-                                            {documents.find(d => d.id === risk.documentId)?.name || "Document lié"}
-                                          </span>
+                                      {risk.documentId && documents.find(d => d.id === risk.documentId) && (
+                                        <div className="flex items-center mb-1">
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                {documents.find(d => d.id === risk.documentId)?.url ? (
+                                                  <a 
+                                                    href={documents.find(d => d.id === risk.documentId)?.url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-indigo-100 dark:border-indigo-800/50 shadow-sm"
+                                                  >
+                                                    <FileText className="h-3 w-3" />
+                                                    <span className="text-[8px] font-black uppercase tracking-widest">Voir Justif</span>
+                                                  </a>
+                                                ) : (
+                                                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-900/40 text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm">
+                                                    <FileText className="h-3 w-3" />
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Justif</span>
+                                                  </div>
+                                                )}
+                                              </TooltipTrigger>
+                                              <TooltipContent side="top" className="rounded-xl p-2 bg-slate-900 text-white border-none shadow-2xl">
+                                                <p className="text-[10px] font-bold">Document : {documents.find(d => d.id === risk.documentId)?.name}</p>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
                                         </div>
                                       )}
                                       <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400 leading-snug">
