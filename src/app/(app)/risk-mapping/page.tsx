@@ -150,7 +150,8 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
       { header: "Probabilité DMR", key: "dmrProb", width: 15 },
       { header: "Score Résiduel", key: "scoreRes", width: 15 },
       { header: "Niveau Résiduel", key: "levelRes", width: 15 },
-      { header: "Position MAE", key: "maePos", width: 45 }
+      { header: "Position MAE", key: "maePos", width: 45 },
+      { header: "Liens & Justifs", key: "justification", width: 35 }
     );
   }
 
@@ -201,6 +202,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
       rowData.scoreRes = scoreRes;
       rowData.levelRes = styleRes.label;
       rowData.maePos = maePos;
+      rowData.justification = (risk as any).justification || "-";
     }
 
     const row = ws1.addRow(rowData);
@@ -1140,11 +1142,12 @@ export default function RiskMappingPage() {
                 <Table className="border-collapse">
                   <TableHeader>
                     <TableRow className="bg-slate-50/80 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[35%]">Facteurs de risques</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[25%]">Facteurs de risques</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[12%]">Niveau d'efficacité</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[10%]">Proba. DMR</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[10%]">Score Résiduel</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[28%]">Position de la MAE Assurance</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[23%]">Position de la MAE Assurance</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[15%]">Liens & Justifs</TableHead>
                       <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[5%]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1159,7 +1162,7 @@ export default function RiskMappingPage() {
                         return Object.entries(grouped).map(([category, categoryRisks]) => (
                           <React.Fragment key={category}>
                             <TableRow className="bg-slate-50/80 dark:bg-slate-900/40 border-y border-slate-200/50 dark:border-slate-800/50">
-                              <TableCell colSpan={6} className="py-2.5 px-4 border-l-4 border-l-indigo-500">
+                              <TableCell colSpan={7} className="py-2.5 px-4 border-l-4 border-l-indigo-500">
                                 <div className="flex items-center gap-2.5">
                                   <div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
                                   <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200">{category}</span>
@@ -1177,13 +1180,34 @@ export default function RiskMappingPage() {
                               return (
                                 <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 border-l-2 border-l-transparent hover:border-l-indigo-500 divide-x divide-slate-100 dark:divide-slate-800">
                                   <TableCell className="py-3 px-4">
-                                    <button
-                                      onClick={() => setViewMode("table")}
-                                      className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight text-left hover:text-primary transition-colors hover:underline flex items-center gap-1 group/link"
-                                    >
-                                      {risk.riskDescription}
-                                      <LinkIcon className="h-2.5 w-2.5 opacity-0 group-hover/link:opacity-100 transition-opacity" />
-                                    </button>
+                                    <div className="flex items-start gap-2">
+                                      <div className="flex flex-col gap-0.5 flex-1">
+                                        <button
+                                          onClick={() => setViewMode("table")}
+                                          className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight text-left hover:text-primary transition-colors hover:underline flex items-center gap-1 group/link"
+                                        >
+                                          {risk.riskDescription}
+                                          <LinkIcon className="h-2.5 w-2.5 opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                                        </button>
+                                      </div>
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 p-0 rounded-full hover:bg-indigo-50 hover:text-indigo-600 flex-shrink-0">
+                                              <Info className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="right" className="max-w-sm p-3 rounded-xl">
+                                            <div className="space-y-2">
+                                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mesures d'atténuation</p>
+                                              <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                                                {formatMitigationMeasures(risk.expectedAction)}
+                                              </div>
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-center">
                                     {(() => {
@@ -1237,6 +1261,11 @@ export default function RiskMappingPage() {
                                       </span>
                                     </div>
                                   </TableCell>
+                                  <TableCell className="py-3 px-4">
+                                    <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400 leading-snug">
+                                      {formatMitigationMeasures((risk as any).justification || "")}
+                                    </div>
+                                  </TableCell>
                                   <TableCell className="py-3 px-4 text-right">
                                     <div className="flex justify-end gap-1">
                                       <Button
@@ -1277,7 +1306,7 @@ export default function RiskMappingPage() {
                       })()
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="h-40 text-center text-slate-400 text-sm font-bold">
+                        <TableCell colSpan={7} className="h-40 text-center text-slate-400 text-sm font-bold">
                           Aucun risque ne correspond aux filtres
                         </TableCell>
                       </TableRow>
@@ -1996,11 +2025,11 @@ export default function RiskMappingPage() {
                       name="justification"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Justification complémentaire</FormLabel>
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Liens & Justifs</FormLabel>
                           <FormControl>
                             <Textarea
                               {...field}
-                              placeholder="Base légale ou procédure interne..."
+                              placeholder="Base légale, procédure interne (utilisez des tirets)..."
                               className="min-h-[80px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
                             />
                           </FormControl>
