@@ -78,6 +78,7 @@ const navItems = [
     label: "Cartographie des Risques",
     title: "Cartographie des Risques",
     subItems: [
+      { href: "/risk-mapping?tab=table", icon: List, label: "Risques identifiés" },
       { href: "/risk-mapping?tab=dmr", icon: ShieldCheck, label: "DMR" },
       { href: "/risk-mapping?tab=plan-actions", icon: ClipboardList, label: "Plan d'actions" },
     ]

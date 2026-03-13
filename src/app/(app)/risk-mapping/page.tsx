@@ -196,13 +196,14 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
       rowData.action = risk.expectedAction;
     }
     if (mode === 'dmr' || mode === 'combined') {
+      const docName = risk.documentId ? documents.find((d: any) => d.id === risk.documentId)?.name : "";
       rowData.effV = dmrEff;
       rowData.effL = effLabels[dmrEff] ?? "";
       rowData.dmrProb = dmrProb;
       rowData.scoreRes = scoreRes;
       rowData.levelRes = styleRes.label;
       rowData.maePos = maePos;
-      rowData.justification = (risk as any).justification || "-";
+      rowData.justification = (docName ? `[Document: ${docName}]\n` : "") + ((risk as any).justification || "-");
     }
 
     const row = ws1.addRow(rowData);
@@ -1262,8 +1263,18 @@ export default function RiskMappingPage() {
                                     </div>
                                   </TableCell>
                                   <TableCell className="py-3 px-4">
-                                    <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400 leading-snug">
-                                      {formatMitigationMeasures((risk as any).justification || "")}
+                                    <div className="flex flex-col gap-1.5">
+                                      {risk.documentId && (
+                                        <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
+                                          <LinkIcon className="h-3 w-3 text-indigo-500" />
+                                          <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 uppercase truncate max-w-[150px]">
+                                            {documents.find(d => d.id === risk.documentId)?.name || "Document lié"}
+                                          </span>
+                                        </div>
+                                      )}
+                                      <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400 leading-snug">
+                                        {formatMitigationMeasures((risk as any).justification || "")}
+                                      </div>
                                     </div>
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-right">
