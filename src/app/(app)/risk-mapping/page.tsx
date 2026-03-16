@@ -101,40 +101,24 @@ const PDFViewerFallback = ({ url, anchor, title }: { url: string, anchor?: strin
     if (!url) return "";
     let baseUrl = url;
     
-    // Cas 1 : Microsoft OneDrive (Recommandé : Simple et affiche très bien Excel/PDF)
-    if (url.includes('onedrive.live.com') || url.includes('1drv.ms')) {
-      // Transformation d'un lien OneDrive en lien de téléchargement direct pour forcer l'affichage PDF
-      baseUrl = url.replace('redir?', 'download?').replace('1drv.ms/b/s!', '1drv.ms/u/s!');
-      if (!baseUrl.includes('authkey')) {
-        // Si c'est un lien 1drv.ms court, on le laisse tel quel, le navigateur gérera
-      }
-    }
-
-    // Cas 2 : Google Drive (Le plus commun)
-    if (url.includes('drive.google.com')) {
-      let fileId = "";
-      const match = url.match(/\/d\/(.+?)\/|id=(.+?)(&|$)/);
-      fileId = match ? (match[1] || match[2]) : "";
+    const isExcel = url.toLowerCase().match(/\.(xlsx|xls|csv)$/) || url.includes('excel');
+    
+    // Cas A : Fichiers Excel -> On utilise le lecteur Microsoft officiel
+    if (isExcel) {
+      // On a besoin d'un lien 'direct' pour le lecteur Microsoft
+      let directLink = url;
+      if (url.includes('dropbox.com')) directLink = url.replace('dl=0', 'raw=1');
+      if (url.includes('drive.google.com')) directLink = url.replace('/file/d/', '/uc?export=download&id=').split('/')[0];
       
-      if (fileId) {
-        // On utilise le mode 'preview' qui est le seul sans erreur 400
-        baseUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-        return baseUrl;
-      }
+      return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(directLink)}`;
     }
 
-    // Cas 3 : Dropbox (Ancien système stable)
-    if (url.includes('dropbox.com')) {
-      baseUrl = url.replace(/[?&]dl=[01]/g, '').replace(/[?&]st=[^&]+/g, '');
-      if (!baseUrl.includes('raw=1')) {
-        baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
-      }
-    }
-
-    // Cas 4 : Liens Directs (Serveurs, CDN, etc.)
-    // Pour les fichiers PDF purs, l'ancre #page fonctionne parfaitement ici
-    if (!anchor) return baseUrl;
-    return `${baseUrl}${baseUrl.includes('#') ? '' : '#' }page=${anchor}`;
+    // Cas B : PDF et autres -> On passe par NOTRE passerelle (Proxy)
+    // Cela garantit : 1. Pas d'erreur 400/404, 2. Pagination fonctionnelle
+    const proxyUrl = `/api/proxy-document?url=${encodeURIComponent(url)}`;
+    
+    if (!anchor) return proxyUrl;
+    return `${proxyUrl}#page=${anchor}`;
   }, [url, anchor]);
 
   if (!url) {
