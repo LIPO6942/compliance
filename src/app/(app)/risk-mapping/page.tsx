@@ -2203,33 +2203,35 @@ export default function RiskMappingPage() {
           </SheetHeader>
           
           <div className="flex-1 bg-slate-100 dark:bg-slate-950 relative">
-            {viewerConfig.url ? (
-              <iframe 
-                src={(() => {
-                  let baseUrl = viewerConfig.url;
-                  
-                  // Traitement spécial pour les liens Dropbox
-                  if (baseUrl.includes('dropbox.com')) {
-                    // Nettoyage des paramètres existants pour forcer le mode brut (raw=1)
-                    // C'est le seul mode qui permet au navigateur d'utiliser son lecteur natif (et donc la pagination)
-                    baseUrl = baseUrl.replace(/[?&]dl=[01]/g, '');
-                    baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
-                  }
+            {viewerConfig.url ? (() => {
+              const fullSrc = (() => {
+                let baseUrl = viewerConfig.url;
+                
+                // Traitement spécial pour les liens Dropbox
+                if (baseUrl.includes('dropbox.com')) {
+                  baseUrl = baseUrl.replace(/[?&]dl=[01]/g, '');
+                  baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
+                }
 
-                  const anchor = viewerConfig.anchor;
-                  if (!anchor) return baseUrl;
-                  
-                  // Construction de l'URL avec paramètres PDF.js (compatible Chrome/Edge/Firefox)
-                  // On s'assure que le hash est bien à la toute fin
-                  if (/^\d+$/.test(anchor)) return `${baseUrl}#page=${anchor}`;
-                  return `${baseUrl}#search="${encodeURIComponent(anchor)}"`;
-                })()}
-                className="w-full h-full border-none"
-                title="Lecteur PDF"
-                // On permet le mode plein écran et les scripts nécessaires au lecteur PDF natif
-                allow="autoplay; fullscreen"
-              />
-            ) : (
+                const anchor = viewerConfig.anchor;
+                if (!anchor) return baseUrl;
+                
+                // Hash parameters for the browser's native PDF viewer
+                if (/^\d+$/.test(anchor)) return `${baseUrl}#page=${anchor}`;
+                // Le paramètre search est sensible aux guillemets selon le navigateur
+                return `${baseUrl}#search=${encodeURIComponent(anchor)}`;
+              })();
+
+              return (
+                <iframe 
+                  key={fullSrc} // CRUCIAL: Force React à recréer l'iframe pour que le PDF saute à la page demandée
+                  src={fullSrc}
+                  className="w-full h-full border-none"
+                  title="Lecteur PDF"
+                  allow="autoplay; fullscreen"
+                />
+              );
+            })() : (
               <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400">
                 <FileWarning className="h-12 w-12 opacity-20" />
                 <p className="font-bold text-sm">Impossible de charger le document</p>
