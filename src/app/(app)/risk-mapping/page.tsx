@@ -1291,7 +1291,14 @@ export default function RiskMappingPage() {
                                                       className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-all border border-indigo-100 dark:border-indigo-800/50 shadow-sm w-fit"
                                                     >
                                                       <FileText className="h-3 w-3" />
-                                                      <span className="text-[8px] font-black uppercase tracking-widest">Doc lié</span>
+                                                      <span className="text-[8px] font-black uppercase tracking-widest flex items-center gap-1">
+                                                        Doc lié
+                                                        {(risk as any).documentAnchor && (
+                                                          <span className="bg-indigo-200/50 dark:bg-indigo-800/50 px-1 py-0.5 rounded text-[7px]">
+                                                            {/^\d+$/.test((risk as any).documentAnchor) ? `p.${(risk as any).documentAnchor}` : (risk as any).documentAnchor}
+                                                          </span>
+                                                        )}
+                                                      </span>
                                                     </a>
                                                   ) : (
                                                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-900/40 text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm w-fit">
