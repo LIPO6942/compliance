@@ -2080,59 +2080,59 @@ export default function RiskMappingPage() {
                     </div>
                   </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-                      <div className="md:col-span-1">
-                        <FormField
-                          control={form.control}
-                          name="documentId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document de référence</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value || "none"}>
-                                <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Aucun document" /></SelectTrigger></FormControl>
-                                <SelectContent className="rounded-xl border-none shadow-2xl">
-                                  <SelectItem value="none" className="font-bold text-slate-400">Aucun document</SelectItem>
-                                  {documents.map((doc: any) => <SelectItem key={doc.id} value={doc.id} className="font-bold">{doc.name}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="md:col-span-1">
-                        <FormField
-                          control={form.control}
-                          name="documentAnchor"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Page / Mot-clé</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Ex: 12 ou 'Article 5'..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm" />
-                              </FormControl>
-                              <FormDescription className="text-[8px] italic opacity-60">Redirige vers cette page ou cherche ce texte dans le PDF.</FormDescription>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="md:col-span-1">
-                        <FormField
-                          control={form.control}
-                          name="justification"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Liens & Justifs</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  {...field}
-                                  placeholder="Base légale, procédure interne..."
-                                  className="min-h-[80px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                    <div className="md:col-span-1">
+                      <FormField
+                        control={form.control}
+                        name="documentId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document de référence</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || "none"}>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Aucun document" /></SelectTrigger></FormControl>
+                              <SelectContent className="rounded-xl border-none shadow-2xl">
+                                <SelectItem value="none" className="font-bold text-slate-400">Aucun document</SelectItem>
+                                {documents.map((doc: any) => <SelectItem key={doc.id} value={doc.id} className="font-bold">{doc.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
                     </div>
+                    <div className="md:col-span-1">
+                      <FormField
+                        control={form.control}
+                        name="documentAnchor"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Page / Mot-clé</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Ex: 12 ou 'Article 5'..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm" />
+                            </FormControl>
+                            <FormDescription className="text-[8px] italic opacity-60">Redirige vers cette page ou cherche ce texte dans le PDF.</FormDescription>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="md:col-span-1">
+                      <FormField
+                        control={form.control}
+                        name="justification"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Liens & Justifs</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                {...field}
+                                placeholder="Base légale, procédure interne..."
+                                className="min-h-[80px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 

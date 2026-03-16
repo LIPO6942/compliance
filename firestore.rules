@@ -111,7 +111,7 @@ service cloud.firestore {
     // ============================================
     // ECOSYSTEMS - Écosystèmes
     // ============================================
-    match /ecosystems/{ecosystemId} {
+    match /ecosystems/{document=**} {
       allow read, write: if true;  // Ouvert en dev
     }
 
