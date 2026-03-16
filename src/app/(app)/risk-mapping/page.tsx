@@ -2208,12 +2208,14 @@ export default function RiskMappingPage() {
                 src={(() => {
                   let baseUrl = viewerConfig.url;
                   
-                  // Traitement spécial pour les liens Dropbox : forcer le rendu brut pour l'iframe
+                  // Traitement spécial pour les liens Dropbox : forcer le serveur de contenu brut
                   if (baseUrl.includes('dropbox.com')) {
-                    // Retirer le ?dl=0 s'il existe
+                    // Contourner la redirection HTTP qui fait perdre l'ancre #page=
+                    baseUrl = baseUrl.replace('www.dropbox.com', 'dl.dropboxusercontent.com');
                     baseUrl = baseUrl.replace('?dl=0', '').replace('&dl=0', '');
-                    // Ajouter raw=1 pour obtenir le vrai fichier PDF directement
-                    baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
+                    baseUrl = baseUrl.replace('?raw=1', '').replace('&raw=1', '');
+                    // Nettoyer la fin de l'URL pour être sûr qu'il n'y a pas de "?" traînant
+                    if (baseUrl.endsWith('?')) baseUrl = baseUrl.slice(0, -1);
                   }
 
                   const anchor = viewerConfig.anchor;
