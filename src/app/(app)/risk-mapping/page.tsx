@@ -92,7 +92,100 @@ const calculateRiskLevel = (probabilite: number, impact: number): RiskLevel => {
   return "Très élevé";
 };
 
-const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any, maePositions: Record<number, string>, documents: any[], mode: 'principal' | 'dmr' | 'plan-actions' | 'combined' = 'principal') => {
+/**
+ * Composant Lecteur PDF avec support de pagination robuste via Blob URL
+ * Résout le problème des redirections Dropbox qui font perdre l'ancre #page
+ */
+const PDFViewer = ({ url, anchor }: { url: string; anchor?: string }) => {
+  const [blobUrl, setBlobUrl] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!url) {
+      setBlobUrl(null);
+      return;
+    }
+
+    let active = true;
+    const loadPdf = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        let finalUrl = url;
+        if (url.includes('dropbox.com')) {
+          finalUrl = url.replace(/[?&]dl=[01]/g, '').replace(/[?&]st=[^&]+/g, '');
+          if (!finalUrl.includes('raw=1')) {
+            finalUrl = finalUrl.includes('?') ? `${finalUrl}&raw=1` : `${finalUrl}?raw=1`;
+          }
+        }
+
+        // Fetch le fichier PDF en mémoire pour créer un lien Blob local
+        // Cela garantit que l'ancre #page n'est jamais perdue par une redirection
+        const response = await fetch(finalUrl);
+        if (!response.ok) throw new Error(`Erreur lors du téléchargement (${response.status})`);
+        
+        const blob = await response.blob();
+        if (active) {
+          const localUrl = URL.createObjectURL(blob);
+          setBlobUrl(localUrl);
+        }
+      } catch (err: any) {
+        console.error("PDF Load Error:", err);
+        if (active) setError(err.message || "Impossible de charger le PDF");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadPdf();
+
+    return () => {
+      active = false;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [url]);
+
+  // Si on a un blobUrl, on construit l'URL finale avec l'ancre
+  const finalSrc = React.useMemo(() => {
+    if (!blobUrl) return null;
+    if (!anchor) return blobUrl;
+    
+    if (/^\d+$/.test(anchor)) return `${blobUrl}#page=${anchor}`;
+    return `${blobUrl}#search=${encodeURIComponent(anchor)}`;
+  }, [blobUrl, anchor]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400">
+        <Logo className="h-10 w-10 animate-spin opacity-40 text-primary" />
+        <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Synchronisation du document...</p>
+      </div>
+    );
+  }
+
+  if (error || (!loading && !url)) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 p-8 text-center">
+        <FileWarning className="h-12 w-12 opacity-20" />
+        <p className="font-bold text-sm text-slate-600">{error || "Aucun document sélectionné"}</p>
+        <p className="text-xs max-w-xs">Vérifiez la connexion ou le lien source (Dropbox).</p>
+      </div>
+    );
+  }
+
+  return (
+    <iframe 
+      key={finalSrc} // Re-quitte l'iframe si l'URL ou l'ancre change
+      src={finalSrc || ""}
+      className="w-full h-full border-none bg-white"
+      title="Lecteur PDF Haute Fidélité"
+      allow="autoplay; fullscreen"
+    />
+  );
+};
+
+const exportToExcel = async (risks: RiskMappingItem[], logAction: any, user: any, maePositions: Record<number, string>, documents: any[], mode: 'principal' | 'dmr' | 'plan-actions' | 'combined' = 'principal') => {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Compliance Navigator";
   wb.created = new Date();
@@ -171,7 +264,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
   // Style header row
   const headerRow = ws1.getRow(1);
   headerRow.height = 32;
-  headerRow.eachCell((cell) => {
+  headerRow.eachCell((cell: any) => {
     cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
     cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
@@ -215,7 +308,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     row.height = 40;
     const rowBg = i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
 
-    row.eachCell((cell, colNumber) => {
+    row.eachCell((cell: any, colNumber: number) => {
       cell.alignment = { vertical: "middle", wrapText: true, horizontal: "left" };
       applyBorder(cell);
       const colKey = columns[colNumber - 1]?.key;
@@ -254,7 +347,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     // Style header
     const planHeaderRow = wsPlan.getRow(1);
     planHeaderRow.height = 32;
-    planHeaderRow.eachCell((cell) => {
+    planHeaderRow.eachCell((cell: any) => {
       cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
       cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
@@ -277,7 +370,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
       });
       row.height = 35;
       const rowBg = i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
-      row.eachCell((cell, colNumber) => {
+      row.eachCell((cell: any, colNumber: number) => {
         cell.alignment = { vertical: "middle", wrapText: true, horizontal: "left" };
         applyBorder(cell);
 
@@ -322,7 +415,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
   const addSubHeader = (cols: string[]) => {
     const r = ws2.addRow(cols);
     r.height = 22;
-    r.eachCell((cell) => {
+    r.eachCell((cell: any) => {
       cell.font = { bold: true, color: { argb: "FF1E293B" }, size: 10 };
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCBD5E1" } };
       cell.alignment = { vertical: "middle", horizontal: "center" };
@@ -333,7 +426,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
   const addDataRow2 = (cols: (string | number)[], level?: string) => {
     const r = ws2.addRow(cols);
     r.height = 20;
-    r.eachCell((cell, col) => {
+    r.eachCell((cell: any, col: number) => {
       cell.alignment = { vertical: "middle", horizontal: col === 1 ? "center" : "left" };
       applyBorder(cell);
       if (level) {
@@ -694,7 +787,7 @@ export default function RiskMappingPage() {
     }
   };
 
-  const filteredRisks = React.useMemo(() => risks.filter(risk => {
+  const filteredRisks = React.useMemo(() => risks.filter((risk: RiskMappingItem) => {
     const matchesSearch = risk.riskDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
       risk.department.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesLevel = filterRiskLevel === "all" || calculateRiskLevel(risk.probabilite, risk.impact) === filterRiskLevel;
@@ -2202,45 +2295,8 @@ export default function RiskMappingPage() {
             </div>
           </SheetHeader>
           
-          <div className="flex-1 bg-slate-100 dark:bg-slate-950 relative">
-            {viewerConfig.url ? (() => {
-                const fullSrc = (() => {
-                  let baseUrl = viewerConfig.url;
-                  
-                  // Traitement spécial pour les liens Dropbox
-                  if (baseUrl.includes('dropbox.com')) {
-                    // On nettoie les paramètres et on force raw=1 pour l'affichage inline
-                    baseUrl = baseUrl.replace(/[?&]dl=[01]/g, '').replace(/[?&]st=[^&]+/g, '');
-                    if (!baseUrl.includes('raw=1')) {
-                      baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
-                    }
-                  }
-
-                  const anchor = viewerConfig.anchor;
-                  if (!anchor) return baseUrl;
-                  
-                  // Construction de l'URL avec ancre de pagination
-                  // IMPORTANT: On n'ajoute pas de paramètres inconnus (comme un timestamp) 
-                  // qui pourraient casser la signature 'rlkey' de Dropbox.
-                  if (/^\d+$/.test(anchor)) return `${baseUrl}#page=${anchor}`;
-                  return `${baseUrl}#search=${encodeURIComponent(anchor)}`;
-                })();
-
-                return (
-                  <iframe 
-                    key={`${fullSrc}_${viewerConfig.anchor}`} // Force React à régénérer l'iframe pour appliquer le hash
-                    src={fullSrc}
-                    className="w-full h-full border-none"
-                    title="Lecteur PDF"
-                    allow="autoplay; fullscreen"
-                  />
-                );
-            })() : (
-              <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400">
-                <FileWarning className="h-12 w-12 opacity-20" />
-                <p className="font-bold text-sm">Impossible de charger le document</p>
-              </div>
-            )}
+          <div className="flex-1 bg-slate-100 dark:bg-slate-950 relative overflow-hidden">
+            <PDFViewer url={viewerConfig.url} anchor={viewerConfig.anchor} />
           </div>
         </SheetContent>
       </Sheet>
