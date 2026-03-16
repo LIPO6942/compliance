@@ -2207,39 +2207,27 @@ export default function RiskMappingPage() {
                 const fullSrc = (() => {
                   let baseUrl = viewerConfig.url;
                   
-                  // Traitement spécial pour les liens Dropbox (y compris les nouveaux liens /scl/)
+                  // Traitement spécial pour les liens Dropbox
                   if (baseUrl.includes('dropbox.com')) {
-                    // Pour les liens /scl/, on remplace www par dl pour éviter la redirection qui casse l'ancre #page
-                    baseUrl = baseUrl.replace('www.dropbox.com', 'dl.dropboxusercontent.com');
-                    // On nettoie les paramètres de téléchargement forcés
-                    baseUrl = baseUrl.replace(/[?&]dl=[01]/g, '');
-                    baseUrl = baseUrl.replace(/[?&]st=[^&]+/g, '');
-                    // On garde le rlkey s'il existe car il est nécessaire pour les liens SCL
-                    
-                    // On s'assure d'avoir au moins un paramètre pour pouvoir ajouter &raw=1 ou ?raw=1
-                    if (!baseUrl.includes('raw=1')) {
-                      baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
-                    }
+                    // On garde www.dropbox.com pour l'affichage inline (dl. force le téléchargement)
+                    // On nettoie les paramètres de téléchargement et de session
+                    baseUrl = baseUrl.replace(/[?&]dl=[01]/g, '').replace(/[?&]st=[^&]+/g, '');
+                    // On s'assure d'ajouter raw=1 correctement
+                    baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
                   }
 
                   const anchor = viewerConfig.anchor;
                   if (!anchor) return baseUrl;
                   
-                  // Construction de l'URL avec paramètres PDF.js
-                  // L'ancre DOIT être rajoutée après les paramètres d'URL (?...)
-                  let finalUrl = baseUrl;
-                  if (/^\d+$/.test(anchor)) {
-                    finalUrl = `${baseUrl}#page=${anchor}`;
-                  } else {
-                    finalUrl = `${baseUrl}#search=${encodeURIComponent(anchor)}`;
-                  }
-                  
-                  return finalUrl;
+                  // Construction de l'URL finale avec l'ancre de pagination
+                  // L'ancre doit impérativement être à la fin de l'URL
+                  if (/^\d+$/.test(anchor)) return `${baseUrl}#page=${anchor}`;
+                  return `${baseUrl}#search=${encodeURIComponent(anchor)}`;
                 })();
 
                 return (
                   <iframe 
-                    key={fullSrc} // Force la reconstruction de l'iframe à chaque changement d'ancre
+                    key={fullSrc} // Force la reconstruction de l'iframe pour appliquer la pagination
                     src={fullSrc}
                     className="w-full h-full border-none"
                     title="Lecteur PDF"
