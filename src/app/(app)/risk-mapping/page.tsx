@@ -43,6 +43,13 @@ import { RiskHeatmap } from "./RiskHeatmap";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/icons/Logo";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 const riskSchema = z.object({
   department: z.string().min(1, "La direction est requise."),
@@ -505,7 +512,9 @@ export default function RiskMappingPage() {
   const [filterRiskLevel, setFilterRiskLevel] = React.useState<string>("all");
   const [filterDepartment, setFilterDepartment] = React.useState<string>("all");
   const [filterCategory, setFilterCategory] = React.useState<string>("all");
-  const [searchQuery, setSearchQuery] = React.useState<string>("");
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [isViewerOpen, setIsViewerOpen] = React.useState(false);
+  const [viewerConfig, setViewerConfig] = React.useState({ url: "", title: "", anchor: "" });
   const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "plan-actions" | "dmr" | "settings">(tabParam || "table");
 
   const [tempMaePositions, setTempMaePositions] = React.useState<Record<number, string>>(maePositions);
@@ -1277,17 +1286,21 @@ export default function RiskMappingPage() {
                                               <div className="flex flex-col gap-1 cursor-default w-fit">
                                                 {linkedDoc && (
                                                   linkedDoc.url ? (
-                                                    <a
-                                                      href={(() => {
-                                                        const baseUrl = linkedDoc.url || "";
+                                                    <button
+                                                      type="button"
+                                                      onClick={(e: any) => {
+                                                        e.stopPropagation();
+                                                        const url = linkedDoc.url || "";
                                                         const anchor = (risk as any).documentAnchor || "";
-                                                        if (!anchor) return baseUrl;
-                                                        if (/^\d+$/.test(anchor)) return `${baseUrl}#page=${anchor}`;
-                                                        return `${baseUrl}#search="${encodeURIComponent(anchor)}"`;
-                                                      })()}
-                                                      target="_blank"
-                                                      rel="noopener noreferrer"
-                                                      onClick={(e: any) => e.stopPropagation()}
+                                                        
+                                                        // Option collaborative : On ouvre le panneau latéral
+                                                        setViewerConfig({
+                                                          url: url,
+                                                          title: linkedDoc.name,
+                                                          anchor: anchor
+                                                        });
+                                                        setIsViewerOpen(true);
+                                                      }}
                                                       className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-all border border-indigo-100 dark:border-indigo-800/50 shadow-sm w-fit"
                                                     >
                                                       <FileText className="h-3 w-3" />
@@ -1299,7 +1312,7 @@ export default function RiskMappingPage() {
                                                           </span>
                                                         )}
                                                       </span>
-                                                    </a>
+                                                    </button>
                                                   ) : (
                                                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-900/40 text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm w-fit">
                                                       <FileText className="h-3 w-3" />
@@ -2169,6 +2182,59 @@ export default function RiskMappingPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* LECTEUR PDF COLLABORATIF */}
+      <Sheet open={isViewerOpen} onOpenChange={setIsViewerOpen}>
+        <SheetContent side="right" className="sm:max-w-[70vw] w-full p-0 flex flex-col gap-0 border-l border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden">
+          <SheetHeader className="px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950">
+                <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <SheetTitle className="text-lg font-black text-slate-800 dark:text-white line-clamp-1 truncate max-w-[50vw]">
+                  {viewerConfig.title || "Document"}
+                </SheetTitle>
+                <SheetDescription className="text-[11px] font-bold text-slate-500">
+                  {viewerConfig.anchor ? `Navigation vers : ${viewerConfig.anchor}` : "Consultation collaborative du document"}
+                </SheetDescription>
+              </div>
+            </div>
+          </SheetHeader>
+          
+          <div className="flex-1 bg-slate-100 dark:bg-slate-950 relative">
+            {viewerConfig.url ? (
+              <iframe 
+                src={(() => {
+                  let baseUrl = viewerConfig.url;
+                  
+                  // Traitement spécial pour les liens Dropbox : forcer le rendu brut pour l'iframe
+                  if (baseUrl.includes('dropbox.com')) {
+                    // Retirer le ?dl=0 s'il existe
+                    baseUrl = baseUrl.replace('?dl=0', '').replace('&dl=0', '');
+                    // Ajouter raw=1 pour obtenir le vrai fichier PDF directement
+                    baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
+                  }
+
+                  const anchor = viewerConfig.anchor;
+                  if (!anchor) return baseUrl;
+                  
+                  // Construction de l'URL avec paramètres PDF.js (supporté par Chrome/Edge nativement)
+                  if (/^\d+$/.test(anchor)) return `${baseUrl}#page=${anchor}`;
+                  return `${baseUrl}#search="${encodeURIComponent(anchor)}"`;
+                })()}
+                className="w-full h-full border-none"
+                title="Lecteur PDF"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400">
+                <FileWarning className="h-12 w-12 opacity-20" />
+                <p className="font-bold text-sm">Impossible de charger le document</p>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
