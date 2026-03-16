@@ -85,7 +85,7 @@ const calculateRiskLevel = (probabilite: number, impact: number): RiskLevel => {
   return "Très élevé";
 };
 
-const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any, maePositions: Record<number, string>, mode: 'principal' | 'dmr' | 'plan-actions' | 'combined' = 'principal') => {
+const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem[], logAction: any, user: any, maePositions: Record<number, string>, documents: any[], mode: 'principal' | 'dmr' | 'plan-actions' | 'combined' = 'principal') => {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Compliance Navigator";
   wb.created = new Date();
@@ -734,7 +734,7 @@ export default function RiskMappingPage() {
               <DropdownMenuContent align="end" className="w-64 rounded-xl shadow-2xl p-2 border-none">
                 <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 px-3 py-2">Choisir le format d'export</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
-                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, 'principal')} className="rounded-lg py-3 cursor-pointer group">
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'principal')} className="rounded-lg py-3 cursor-pointer group">
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
                       <List className="h-4 w-4" />
@@ -745,7 +745,7 @@ export default function RiskMappingPage() {
                     </div>
                   </div>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, 'dmr')} className="rounded-lg py-3 cursor-pointer group">
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'dmr')} className="rounded-lg py-3 cursor-pointer group">
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
                       <ShieldCheck className="h-4 w-4" />
@@ -756,7 +756,7 @@ export default function RiskMappingPage() {
                     </div>
                   </div>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, 'plan-actions')} className="rounded-lg py-3 cursor-pointer group">
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'plan-actions')} className="rounded-lg py-3 cursor-pointer group">
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
                       <Target className="h-4 w-4" />
@@ -768,7 +768,7 @@ export default function RiskMappingPage() {
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
-                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, 'combined')} className="rounded-lg py-3 cursor-pointer group bg-slate-50 hover:bg-slate-100">
+                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'combined')} className="rounded-lg py-3 cursor-pointer group bg-slate-50 hover:bg-slate-100">
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                       <LayoutGrid className="h-4 w-4" />
