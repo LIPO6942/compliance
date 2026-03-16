@@ -168,6 +168,7 @@ export interface RiskMappingItem {
   lastUpdated: string;
   createdAt?: string; // Date de création initiale
   documentId?: string; // Optional linked document
+  documentAnchor?: string; // Optional page/keyword for the linked document
   dmrEfficiency?: number; // 1 to 4
   dmrProbability?: number; // 1 to 4
   weaknessPoint?: string; // Point de faiblesse

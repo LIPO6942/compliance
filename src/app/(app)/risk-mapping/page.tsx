@@ -54,6 +54,7 @@ const riskSchema = z.object({
   expectedAction: z.string().min(1, "L'action attendue est requise."),
   justification: z.string().optional(),
   documentId: z.string().optional(),
+  documentAnchor: z.string().optional(),
   dmrEfficiency: z.coerce.number().min(1).max(4).optional(),
   dmrProbability: z.coerce.number().min(1).max(4).optional(),
   weaknessPoint: z.string().optional(),
@@ -140,10 +141,10 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     );
   }
 
+  if (mode === 'dmr') {
+    columns.push({ header: "Facteurs de risques", key: "desc", width: 45 });
+  }
   if (mode === 'dmr' || mode === 'combined') {
-    if (mode === 'dmr') {
-      columns.push({ header: "Facteurs de risques", key: "desc", width: 45 });
-    }
     columns.push(
       { header: "Efficacité DMR (V)", key: "effV", width: 15 },
       { header: "Efficacité DMR (L)", key: "effL", width: 20 },
@@ -180,11 +181,8 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
     const styleRes = getRiskScoreStyle(scoreRes);
     const maePos = getMAEPosition(scoreRes, maePositions);
 
-    const rowData: any = { num: i + 1 };
+    const rowData: any = { num: i + 1, desc: risk.riskDescription };
 
-    if (mode === 'principal' || mode === 'combined' || mode === 'dmr') {
-      rowData.desc = risk.riskDescription;
-    }
     if (mode === 'principal' || mode === 'combined') {
       rowData.sub = risk.subFactors || "-";
       rowData.cat = risk.category;
@@ -203,7 +201,7 @@ const exportToExcel = async (risks: import('@/types/compliance').RiskMappingItem
       rowData.scoreRes = scoreRes;
       rowData.levelRes = styleRes.label;
       rowData.maePos = maePos;
-      rowData.justification = (docName ? `[Document: ${docName}]\n` : "") + ((risk as any).justification || "-");
+      rowData.justification = (docName ? `[Document: ${docName}] ` : "") + ((risk as any).justification || "-");
     }
 
     const row = ws1.addRow(rowData);
@@ -536,6 +534,7 @@ export default function RiskMappingPage() {
         expectedAction: data.expectedAction,
         justification: (data as any).justification || "",
         documentId: data.documentId || "",
+        documentAnchor: (data as any).documentAnchor || "",
         dmrEfficiency: (data as any).dmrEfficiency || 2,
         dmrProbability: (data as any).dmrProbability || (data.probabilite ?? 2),
         weaknessPoint: data.weaknessPoint || "",
@@ -556,6 +555,7 @@ export default function RiskMappingPage() {
         actionCorrective: "",
         justification: "",
         documentId: "",
+        documentAnchor: "",
         dmrEfficiency: 2,
         dmrProbability: 2,
         weaknessPoint: "",
@@ -581,6 +581,7 @@ export default function RiskMappingPage() {
         expectedAction: values.expectedAction || "",
         justification: values.justification || "",
         documentId: values.documentId && values.documentId !== "none" ? values.documentId : undefined,
+        documentAnchor: values.documentAnchor || "",
         weaknessPoint: values.weaknessPoint || "",
         deadline: values.deadline || "",
         responsible: values.responsible || "",
@@ -1263,40 +1264,77 @@ export default function RiskMappingPage() {
                                     </div>
                                   </TableCell>
                                   <TableCell className="py-3 px-4">
-                                    <div className="flex flex-col gap-1.5">
-                                      {risk.documentId && documents.find(d => d.id === risk.documentId) && (
-                                        <div className="flex items-center mb-1">
-                                          <TooltipProvider>
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                {documents.find(d => d.id === risk.documentId)?.url ? (
-                                                  <a 
-                                                    href={documents.find(d => d.id === risk.documentId)?.url} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer" 
-                                                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-indigo-100 dark:border-indigo-800/50 shadow-sm"
-                                                  >
-                                                    <FileText className="h-3 w-3" />
-                                                    <span className="text-[8px] font-black uppercase tracking-widest">Voir Justif</span>
-                                                  </a>
-                                                ) : (
-                                                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-900/40 text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm">
-                                                    <FileText className="h-3 w-3" />
-                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Justif</span>
+                                    {(() => {
+                                      const justifText = (risk as any).justification || "";
+                                      const linkedDoc = risk.documentId ? documents.find((d: any) => d.id === risk.documentId) : null;
+                                      const justifLines = justifText ? justifText.split(/[\n]+/).map((s: string) => s.trim()).filter((s: string) => s.length > 0) : [];
+                                      const hasContent = justifLines.length > 0 || linkedDoc;
+                                      if (!hasContent) return <span className="text-slate-300 dark:text-slate-700 text-[10px] italic">—</span>;
+                                      return (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <div className="flex flex-col gap-1 cursor-default w-fit">
+                                                {linkedDoc && (
+                                                  linkedDoc.url ? (
+                                                    <a
+                                                      href={(() => {
+                                                        const baseUrl = linkedDoc.url || "";
+                                                        const anchor = (risk as any).documentAnchor || "";
+                                                        if (!anchor) return baseUrl;
+                                                        if (/^\d+$/.test(anchor)) return `${baseUrl}#page=${anchor}`;
+                                                        return `${baseUrl}#search="${encodeURIComponent(anchor)}"`;
+                                                      })()}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      onClick={(e: any) => e.stopPropagation()}
+                                                      className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-all border border-indigo-100 dark:border-indigo-800/50 shadow-sm w-fit"
+                                                    >
+                                                      <FileText className="h-3 w-3" />
+                                                      <span className="text-[8px] font-black uppercase tracking-widest">Doc lié</span>
+                                                    </a>
+                                                  ) : (
+                                                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-900/40 text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm w-fit">
+                                                      <FileText className="h-3 w-3" />
+                                                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Doc lié</span>
+                                                    </div>
+                                                  )
+                                                )}
+                                                {justifLines.length > 0 && (
+                                                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/50 shadow-sm w-fit">
+                                                    <ClipboardList className="h-3 w-3 text-amber-500" />
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">{justifLines.length} justif{justifLines.length > 1 ? 's' : ''}</span>
                                                   </div>
                                                 )}
-                                              </TooltipTrigger>
-                                              <TooltipContent side="top" className="rounded-xl p-2 bg-slate-900 text-white border-none shadow-2xl">
-                                                <p className="text-[10px] font-bold">Document : {documents.find(d => d.id === risk.documentId)?.name}</p>
-                                              </TooltipContent>
-                                            </Tooltip>
-                                          </TooltipProvider>
-                                        </div>
-                                      )}
-                                      <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400 leading-snug">
-                                        {formatMitigationMeasures((risk as any).justification || "")}
-                                      </div>
-                                    </div>
+                                              </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="left" className="rounded-2xl p-4 bg-slate-900 text-white border-none shadow-2xl max-w-sm">
+                                              <div className="space-y-3">
+                                                {linkedDoc && (
+                                                  <div>
+                                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Document associé</p>
+                                                    <p className="text-[11px] font-bold text-indigo-300">{linkedDoc.name}</p>
+                                                  </div>
+                                                )}
+                                                {justifLines.length > 0 && (
+                                                  <div>
+                                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Justificatifs</p>
+                                                    <ul className="space-y-1.5">
+                                                      {justifLines.map((line: string, idx: number) => (
+                                                        <li key={idx} className="flex items-start gap-2">
+                                                          <span className="text-amber-400 mt-0.5 flex-shrink-0 text-xs">–</span>
+                                                          <span className="text-[11px] leading-snug text-slate-200">{line.replace(/^[-–•]\s*/, '')}</span>
+                                                        </li>
+                                                      ))}
+                                                    </ul>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      );
+                                    })()}
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-right">
                                     <div className="flex justify-end gap-1">
@@ -2035,40 +2073,59 @@ export default function RiskMappingPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-                    <FormField
-                      control={form.control}
-                      name="documentId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document de référence</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || "none"}>
-                            <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Aucun document" /></SelectTrigger></FormControl>
-                            <SelectContent className="rounded-xl border-none shadow-2xl">
-                              <SelectItem value="none" className="font-bold text-slate-400">Aucun document</SelectItem>
-                              {documents.map((doc: any) => <SelectItem key={doc.id} value={doc.id} className="font-bold">{doc.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="justification"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Liens & Justifs</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              {...field}
-                              placeholder="Base légale, procédure interne (utilisez des tirets)..."
-                              className="min-h-[80px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                      <div className="md:col-span-1">
+                        <FormField
+                          control={form.control}
+                          name="documentId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document de référence</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || "none"}>
+                                <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Aucun document" /></SelectTrigger></FormControl>
+                                <SelectContent className="rounded-xl border-none shadow-2xl">
+                                  <SelectItem value="none" className="font-bold text-slate-400">Aucun document</SelectItem>
+                                  {documents.map((doc: any) => <SelectItem key={doc.id} value={doc.id} className="font-bold">{doc.name}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="md:col-span-1">
+                        <FormField
+                          control={form.control}
+                          name="documentAnchor"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Page / Mot-clé</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Ex: 12 ou 'Article 5'..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm" />
+                              </FormControl>
+                              <FormDescription className="text-[8px] italic opacity-60">Redirige vers cette page ou cherche ce texte dans le PDF.</FormDescription>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="md:col-span-1">
+                        <FormField
+                          control={form.control}
+                          name="justification"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Liens & Justifs</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  {...field}
+                                  placeholder="Base légale, procédure interne..."
+                                  className="min-h-[80px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
                 </div>
               </div>
 
