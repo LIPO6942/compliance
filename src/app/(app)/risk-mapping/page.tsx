@@ -101,29 +101,31 @@ const PDFViewerFallback = ({ url, anchor, title }: { url: string, anchor?: strin
     if (!url) return "";
     let baseUrl = url;
     
-    // Cas 1 : Google Drive (Le plus puissant pour Excel et PDF)
+    // Cas 1 : Google Drive (Le plus stable pour affichage pur)
     if (url.includes('drive.google.com')) {
       let fileId = "";
       const match = url.match(/\/d\/(.+?)\/|id=(.+?)(&|$)/);
       fileId = match ? (match[1] || match[2]) : "";
       
       if (fileId) {
-        // On utilise le lecteur universel Google (supporte Excel et PDF)
-        baseUrl = `https://docs.google.com/viewer?srcid=${fileId}&embedded=true`;
-        return baseUrl; // Note : Google Viewer gère mal l'ancre #page externe, mais a son propre moteur interne
+        // Le mode /preview est le seul qui évite les erreurs 400/CORS de Google
+        // Note : Google Drive ne supporte pas la pagination externe par ancre
+        return `https://drive.google.com/file/d/${fileId}/preview`;
       }
     }
 
-    // Cas 2 : Dropbox (On revient à la méthode la plus simple pour éviter les 404)
+    // Cas 2 : Dropbox (On garde l'ancien système stable)
     if (url.includes('dropbox.com')) {
       baseUrl = url.replace(/[?&]dl=[01]/g, '').replace(/[?&]st=[^&]+/g, '');
       if (!baseUrl.includes('raw=1')) {
         baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
       }
     }
-    
+
+    // Cas 3 : Liens Directs (Firebase Storage, Serveur Perso, etc.)
+    // C'EST ICI QUE LA PAGINATION FONCTIONNE LE MIEUX
     if (!anchor) return baseUrl;
-    return `${baseUrl}#page=${anchor}`;
+    return `${baseUrl}${baseUrl.includes('#') ? '' : '#' }page=${anchor}`;
   }, [url, anchor]);
 
   if (!url) {
