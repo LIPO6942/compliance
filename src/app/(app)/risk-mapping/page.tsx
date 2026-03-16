@@ -101,14 +101,19 @@ const PDFViewerFallback = ({ url, anchor, title }: { url: string, anchor?: strin
     if (!url) return "";
     let baseUrl = url;
     
-    // Traitement spécial pour les liens Dropbox SCL
+    // Traitement spécial pour les liens Dropbox
     if (url.includes('dropbox.com')) {
-      // Pour éviter la redirection (qui casse la pagination), on utilise le domaine direct
-      // On garde le rlkey car il est nécessaire pour l'accès
-      baseUrl = url.replace('www.dropbox.com', 'dl.dropboxusercontent.com')
-                   .replace(/[?&]dl=[01]/g, '')
-                   .replace(/[?&]st=[^&]+/g, '')
-                   .replace(/[?&]raw=1/g, '');
+      // Transformation vers le mode Embed officiel de Dropbox
+      // Format attendu : https://www.dropbox.com/embed/scl/fi/...
+      baseUrl = url.replace('www.dropbox.com', 'www.dropbox.com') // On reste sur www
+                   .replace('/scl/fi/', '/embed/scl/fi/') // On insère /embed/
+                   .split('?')[0]; // On retire les paramètres dl=0, st=, etc.
+      
+      // On récupère uniquement le rlkey qui est indispensable
+      const rlkeyMatch = url.match(/[?&]rlkey=([^&]+)/);
+      if (rlkeyMatch) {
+        baseUrl += `?rlkey=${rlkeyMatch[1]}`;
+      }
     }
     
     if (!anchor) return baseUrl;
