@@ -2204,33 +2204,48 @@ export default function RiskMappingPage() {
           
           <div className="flex-1 bg-slate-100 dark:bg-slate-950 relative">
             {viewerConfig.url ? (() => {
-              const fullSrc = (() => {
-                let baseUrl = viewerConfig.url;
-                
-                // Traitement spécial pour les liens Dropbox
-                if (baseUrl.includes('dropbox.com')) {
-                  baseUrl = baseUrl.replace(/[?&]dl=[01]/g, '');
-                  baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
-                }
+                const fullSrc = (() => {
+                  let baseUrl = viewerConfig.url;
+                  
+                  // Traitement spécial pour les liens Dropbox (y compris les nouveaux liens /scl/)
+                  if (baseUrl.includes('dropbox.com')) {
+                    // Pour les liens /scl/, on remplace www par dl pour éviter la redirection qui casse l'ancre #page
+                    baseUrl = baseUrl.replace('www.dropbox.com', 'dl.dropboxusercontent.com');
+                    // On nettoie les paramètres de téléchargement forcés
+                    baseUrl = baseUrl.replace(/[?&]dl=[01]/g, '');
+                    baseUrl = baseUrl.replace(/[?&]st=[^&]+/g, '');
+                    // On garde le rlkey s'il existe car il est nécessaire pour les liens SCL
+                    
+                    // On s'assure d'avoir au moins un paramètre pour pouvoir ajouter &raw=1 ou ?raw=1
+                    if (!baseUrl.includes('raw=1')) {
+                      baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
+                    }
+                  }
 
-                const anchor = viewerConfig.anchor;
-                if (!anchor) return baseUrl;
-                
-                // Hash parameters for the browser's native PDF viewer
-                if (/^\d+$/.test(anchor)) return `${baseUrl}#page=${anchor}`;
-                // Le paramètre search est sensible aux guillemets selon le navigateur
-                return `${baseUrl}#search=${encodeURIComponent(anchor)}`;
-              })();
+                  const anchor = viewerConfig.anchor;
+                  if (!anchor) return baseUrl;
+                  
+                  // Construction de l'URL avec paramètres PDF.js
+                  // L'ancre DOIT être rajoutée après les paramètres d'URL (?...)
+                  let finalUrl = baseUrl;
+                  if (/^\d+$/.test(anchor)) {
+                    finalUrl = `${baseUrl}#page=${anchor}`;
+                  } else {
+                    finalUrl = `${baseUrl}#search=${encodeURIComponent(anchor)}`;
+                  }
+                  
+                  return finalUrl;
+                })();
 
-              return (
-                <iframe 
-                  key={fullSrc} // CRUCIAL: Force React à recréer l'iframe pour que le PDF saute à la page demandée
-                  src={fullSrc}
-                  className="w-full h-full border-none"
-                  title="Lecteur PDF"
-                  allow="autoplay; fullscreen"
-                />
-              );
+                return (
+                  <iframe 
+                    key={fullSrc} // Force la reconstruction de l'iframe à chaque changement d'ancre
+                    src={fullSrc}
+                    className="w-full h-full border-none"
+                    title="Lecteur PDF"
+                    allow="autoplay; fullscreen"
+                  />
+                );
             })() : (
               <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400">
                 <FileWarning className="h-12 w-12 opacity-20" />
