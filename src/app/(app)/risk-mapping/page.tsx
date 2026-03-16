@@ -2208,25 +2208,26 @@ export default function RiskMappingPage() {
                 src={(() => {
                   let baseUrl = viewerConfig.url;
                   
-                  // Traitement spécial pour les liens Dropbox : forcer le serveur de contenu brut
+                  // Traitement spécial pour les liens Dropbox
                   if (baseUrl.includes('dropbox.com')) {
-                    // Contourner la redirection HTTP qui fait perdre l'ancre #page=
-                    baseUrl = baseUrl.replace('www.dropbox.com', 'dl.dropboxusercontent.com');
-                    baseUrl = baseUrl.replace('?dl=0', '').replace('&dl=0', '');
-                    baseUrl = baseUrl.replace('?raw=1', '').replace('&raw=1', '');
-                    // Nettoyer la fin de l'URL pour être sûr qu'il n'y a pas de "?" traînant
-                    if (baseUrl.endsWith('?')) baseUrl = baseUrl.slice(0, -1);
+                    // Nettoyage des paramètres existants pour forcer le mode brut (raw=1)
+                    // C'est le seul mode qui permet au navigateur d'utiliser son lecteur natif (et donc la pagination)
+                    baseUrl = baseUrl.replace(/[?&]dl=[01]/g, '');
+                    baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
                   }
 
                   const anchor = viewerConfig.anchor;
                   if (!anchor) return baseUrl;
                   
-                  // Construction de l'URL avec paramètres PDF.js (supporté par Chrome/Edge nativement)
+                  // Construction de l'URL avec paramètres PDF.js (compatible Chrome/Edge/Firefox)
+                  // On s'assure que le hash est bien à la toute fin
                   if (/^\d+$/.test(anchor)) return `${baseUrl}#page=${anchor}`;
                   return `${baseUrl}#search="${encodeURIComponent(anchor)}"`;
                 })()}
                 className="w-full h-full border-none"
                 title="Lecteur PDF"
+                // On permet le mode plein écran et les scripts nécessaires au lecteur PDF natif
+                allow="autoplay; fullscreen"
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400">
