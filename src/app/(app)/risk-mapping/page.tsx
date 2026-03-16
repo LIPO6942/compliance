@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck, FolderOpen, Info, Download, Save, Settings, ClipboardList } from "lucide-react";
+import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck, FolderOpen, Info, Download, Save, Settings, ClipboardList, ExternalLink } from "lucide-react";
 import ExcelJS from "exceljs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -96,16 +96,21 @@ const calculateRiskLevel = (probabilite: number, impact: number): RiskLevel => {
  * Composant Lecteur PDF avec support de pagination robuste via Blob URL
  * Résout le problème des redirections Dropbox qui font perdre l'ancre #page
  */
-const PDFViewerFallback = ({ url, anchor }: { url: string, anchor?: string }) => {
+const PDFViewerFallback = ({ url, anchor, title }: { url: string, anchor?: string, title?: string }) => {
   const fullSrc = React.useMemo(() => {
     if (!url) return "";
     let baseUrl = url;
+    
+    // Traitement spécial pour les liens Dropbox SCL
     if (url.includes('dropbox.com')) {
-      baseUrl = url.replace(/[?&]dl=[01]/g, '').replace(/[?&]st=[^&]+/g, '');
-      if (!baseUrl.includes('raw=1')) {
-        baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
-      }
+      // Pour éviter la redirection (qui casse la pagination), on utilise le domaine direct
+      // On garde le rlkey car il est nécessaire pour l'accès
+      baseUrl = url.replace('www.dropbox.com', 'dl.dropboxusercontent.com')
+                   .replace(/[?&]dl=[01]/g, '')
+                   .replace(/[?&]st=[^&]+/g, '')
+                   .replace(/[?&]raw=1/g, '');
     }
+    
     if (!anchor) return baseUrl;
     return `${baseUrl}#page=${anchor}`;
   }, [url, anchor]);
@@ -120,21 +125,32 @@ const PDFViewerFallback = ({ url, anchor }: { url: string, anchor?: string }) =>
   }
 
   return (
-    <div className="w-full h-full bg-white overflow-hidden">
-      {/* L'utilisation d'une balise 'object' avec une 'iframe' en repli est la méthode la plus stable */}
-      <object
-        key={fullSrc}
-        data={fullSrc}
-        type="application/pdf"
-        className="w-full h-full border-none"
-      >
+    <div className="w-full h-full bg-white flex flex-col overflow-hidden">
+      {/* Barre d'outils secondaire pour le mode secours */}
+      <div className="bg-slate-50 border-b border-slate-200 px-4 py-2 flex justify-between items-center shrink-0">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic">
+          Lecteur Direct {anchor ? `• Page ${anchor}` : ''}
+        </span>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-7 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+          onClick={() => window.open(fullSrc, '_blank')}
+        >
+          <ExternalLink className="h-3 w-3 mr-1.5" />
+          Ouvrir en plein écran
+        </Button>
+      </div>
+
+      <div className="flex-1 relative">
         <iframe
+          key={fullSrc}
           src={fullSrc}
           className="w-full h-full border-none"
-          title="Lecteur PDF"
+          title={title || "Lecteur PDF"}
           allow="autoplay; fullscreen"
         />
-      </object>
+      </div>
     </div>
   );
 };
@@ -894,7 +910,7 @@ export default function RiskMappingPage() {
                     <div key={doc.id} className="flex items-center space-x-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors">
                       <Checkbox
                         checked={globalDocumentIds.includes(doc.id)}
-                        onCheckedChange={(checked) => {
+                        onCheckedChange={(checked: boolean) => {
                           const cur = globalDocumentIds || [];
                           setGlobalDocumentIds(checked ? [...cur, doc.id] : cur.filter((id) => id !== doc.id));
                           if (user) {
@@ -2250,7 +2266,7 @@ export default function RiskMappingPage() {
           </SheetHeader>
           
           <div className="flex-1 bg-slate-100 dark:bg-slate-950 relative overflow-hidden">
-            <PDFViewerFallback url={viewerConfig.url} anchor={viewerConfig.anchor} />
+            <PDFViewerFallback url={viewerConfig.url} anchor={viewerConfig.anchor} title={viewerConfig.title} />
           </div>
         </SheetContent>
       </Sheet>
