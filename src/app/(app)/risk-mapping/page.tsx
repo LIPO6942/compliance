@@ -96,92 +96,46 @@ const calculateRiskLevel = (probabilite: number, impact: number): RiskLevel => {
  * Composant Lecteur PDF avec support de pagination robuste via Blob URL
  * Résout le problème des redirections Dropbox qui font perdre l'ancre #page
  */
-const PDFViewer = ({ url, anchor }: { url: string; anchor?: string }) => {
-  const [blobUrl, setBlobUrl] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (!url) {
-      setBlobUrl(null);
-      return;
-    }
-
-    let active = true;
-    const loadPdf = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        let finalUrl = url;
-        if (url.includes('dropbox.com')) {
-          finalUrl = url.replace(/[?&]dl=[01]/g, '').replace(/[?&]st=[^&]+/g, '');
-          if (!finalUrl.includes('raw=1')) {
-            finalUrl = finalUrl.includes('?') ? `${finalUrl}&raw=1` : `${finalUrl}?raw=1`;
-          }
-        }
-
-        // Fetch le fichier PDF en mémoire pour créer un lien Blob local
-        // Cela garantit que l'ancre #page n'est jamais perdue par une redirection
-        const response = await fetch(finalUrl);
-        if (!response.ok) throw new Error(`Erreur lors du téléchargement (${response.status})`);
-        
-        const blob = await response.blob();
-        if (active) {
-          const localUrl = URL.createObjectURL(blob);
-          setBlobUrl(localUrl);
-        }
-      } catch (err: any) {
-        console.error("PDF Load Error:", err);
-        if (active) setError(err.message || "Impossible de charger le PDF");
-      } finally {
-        if (active) setLoading(false);
+const PDFViewerFallback = ({ url, anchor }: { url: string, anchor?: string }) => {
+  const fullSrc = React.useMemo(() => {
+    if (!url) return "";
+    let baseUrl = url;
+    if (url.includes('dropbox.com')) {
+      baseUrl = url.replace(/[?&]dl=[01]/g, '').replace(/[?&]st=[^&]+/g, '');
+      if (!baseUrl.includes('raw=1')) {
+        baseUrl = baseUrl.includes('?') ? `${baseUrl}&raw=1` : `${baseUrl}?raw=1`;
       }
-    };
+    }
+    if (!anchor) return baseUrl;
+    return `${baseUrl}#page=${anchor}`;
+  }, [url, anchor]);
 
-    loadPdf();
-
-    return () => {
-      active = false;
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
-    };
-  }, [url]);
-
-  // Si on a un blobUrl, on construit l'URL finale avec l'ancre
-  const finalSrc = React.useMemo(() => {
-    if (!blobUrl) return null;
-    if (!anchor) return blobUrl;
-    
-    if (/^\d+$/.test(anchor)) return `${blobUrl}#page=${anchor}`;
-    return `${blobUrl}#search=${encodeURIComponent(anchor)}`;
-  }, [blobUrl, anchor]);
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400">
-        <Logo className="h-10 w-10 animate-spin opacity-40 text-primary" />
-        <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Synchronisation du document...</p>
-      </div>
-    );
-  }
-
-  if (error || (!loading && !url)) {
+  if (!url) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 p-8 text-center">
         <FileWarning className="h-12 w-12 opacity-20" />
-        <p className="font-bold text-sm text-slate-600">{error || "Aucun document sélectionné"}</p>
-        <p className="text-xs max-w-xs">Vérifiez la connexion ou le lien source (Dropbox).</p>
+        <p className="font-bold text-sm text-slate-600">Aucun document sélectionné</p>
       </div>
     );
   }
 
   return (
-    <iframe 
-      key={finalSrc} // Re-quitte l'iframe si l'URL ou l'ancre change
-      src={finalSrc || ""}
-      className="w-full h-full border-none bg-white"
-      title="Lecteur PDF Haute Fidélité"
-      allow="autoplay; fullscreen"
-    />
+    <div className="w-full h-full bg-white overflow-hidden">
+      {/* L'utilisation d'une balise 'object' avec une 'iframe' en repli est la méthode la plus stable */}
+      <object
+        key={fullSrc}
+        data={fullSrc}
+        type="application/pdf"
+        className="w-full h-full border-none"
+      >
+        <iframe
+          src={fullSrc}
+          className="w-full h-full border-none"
+          title="Lecteur PDF"
+          allow="autoplay; fullscreen"
+        />
+      </object>
+    </div>
   );
 };
 
@@ -2296,7 +2250,7 @@ export default function RiskMappingPage() {
           </SheetHeader>
           
           <div className="flex-1 bg-slate-100 dark:bg-slate-950 relative overflow-hidden">
-            <PDFViewer url={viewerConfig.url} anchor={viewerConfig.anchor} />
+            <PDFViewerFallback url={viewerConfig.url} anchor={viewerConfig.anchor} />
           </div>
         </SheetContent>
       </Sheet>
