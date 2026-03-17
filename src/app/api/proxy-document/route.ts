@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     let directUrl = url;
 
-    // OneDrive / SharePoint
+    // OneDrive / SharePoint - Conversion Base64 officielle
     if (url.includes('onedrive.live.com') || url.includes('1drv.ms') || url.includes('sharepoint.com')) {
       try {
         const base64Url = btoa(url);
@@ -21,18 +21,18 @@ export async function GET(request: NextRequest) {
         directUrl = `https://api.onedrive.com/v1.0/shares/u!${encodedUrl}/root/content`;
       } catch (e) {
         console.error('Base64 Encoding Error:', e);
-        // Fallback to original URL
       }
     } 
-    // Dropbox
+    // Dropbox - Mode Raw direct
     else if (url.includes('dropbox.com')) {
       directUrl = url.replace(/[?&]dl=[01]/g, '').replace(/[?&]st=[^&]+/g, '');
       directUrl = directUrl.includes('?') ? `${directUrl}&raw=1` : `${directUrl}?raw=1`;
     }
-    // Google Drive
+    // Google Drive - Direct Download bypass
     else if (url.includes('drive.google.com')) {
       const fileId = url.match(/\/d\/(.+?)\/|id=(.+?)(&|$)/)?.[1] || url.match(/\/d\/(.+?)\/|id=(.+?)(&|$)/)?.[2];
       if (fileId) {
+        // confirm=t permet de passer l'avertissement de scan antivirus sur les gros fichiers
         directUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
       }
     }
@@ -46,19 +46,22 @@ export async function GET(request: NextRequest) {
     
     if (!response.ok) {
         console.error('Source Fetch Failed:', response.status);
-        // Si ça échoue, on peut essayer de rediriger simplement au lieu de proxy
         return NextResponse.redirect(directUrl);
     }
 
-    // On renvoie le flux directement
-    return new NextResponse(response.body, {
+    // On récupère le flux
+    const stream = response.body;
+
+    // RÉGLAGE CRITIQUE : Pour éviter le téléchargement, on injecte un Content-Type PDF pur
+    // et on ajoute une extension .pdf dans l'entête de disposition.
+    return new NextResponse(stream, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'inline', 
-        'X-Content-Type-Options': 'nosniff',
-        'Cache-Control': 'public, max-age=3600',
+        'Content-Disposition': 'inline; filename="visualisation.pdf"', 
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'Access-Control-Allow-Origin': '*',
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   } catch (error: any) {
