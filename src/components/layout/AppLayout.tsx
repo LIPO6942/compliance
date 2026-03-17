@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   SidebarProvider,
   Sidebar,
@@ -90,6 +90,8 @@ const navItems = [
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get('tab');
   const isMobile = useIsMobile();
   const { user, isLoaded, logout } = useUser();
   const { teamMembers } = useTeam();
@@ -156,20 +158,55 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       </span>
                     </SidebarMenuButton>
                   </Link>
-                  {item.subItems && pathname.startsWith(item.href) && (
+                      {item.subItems && pathname.startsWith(item.href) && (
                     <SidebarMenuSub>
-                      {item.subItems.map((subItem) => (
-                        <SidebarMenuSubItem key={subItem.href}>
-                          <SidebarMenuSubButton asChild className="h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/50 group/sub">
-                            <Link href={subItem.href} className="flex items-center gap-3">
-                              <subItem.icon className="h-4 w-4 text-slate-400 group-hover/sub:text-primary transition-colors" />
-                              <span className="font-bold text-[10px] uppercase tracking-tight text-slate-500 group-hover/sub:text-slate-900 dark:group-hover/sub:text-slate-100 transition-colors">
-                                {subItem.label}
-                              </span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
+                      {item.subItems.map((subItem) => {
+                        const isSubActive = pathname === subItem.href.split('?')[0] && (
+                          !subItem.href.includes('?tab=') || 
+                          currentTab === subItem.href.split('?tab=')[1] ||
+                          (subItem.href.includes('?tab=table') && !currentTab)
+                        );
+                        
+                        return (
+                          <SidebarMenuSubItem key={subItem.href}>
+                            <SidebarMenuSubButton asChild className={cn(
+                              "h-9 rounded-lg transition-all duration-300 group/sub px-3",
+                              isSubActive 
+                                ? subItem.label === "DMR" 
+                                  ? "bg-orange-500/10 text-orange-600 dark:text-orange-400" 
+                                  : subItem.label === "Plan d'actions"
+                                    ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                                : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                            )}>
+                              <Link href={subItem.href} className="flex items-center gap-3 w-full">
+                                <subItem.icon className={cn(
+                                  "h-4 w-4 transition-colors",
+                                  isSubActive
+                                    ? subItem.label === "DMR"
+                                      ? "text-orange-500"
+                                      : subItem.label === "Plan d'actions"
+                                        ? "text-blue-500"
+                                        : "text-primary"
+                                    : "text-slate-400 group-hover/sub:text-primary"
+                                )} />
+                                <span className={cn(
+                                  "font-bold text-[10px] uppercase tracking-tight transition-colors",
+                                  isSubActive
+                                    ? subItem.label === "DMR"
+                                      ? "text-orange-600 dark:text-orange-400"
+                                      : subItem.label === "Plan d'actions"
+                                        ? "text-blue-600 dark:text-blue-400"
+                                        : "text-slate-900 dark:text-slate-100"
+                                    : "text-slate-500 group-hover/sub:text-slate-900 dark:group-hover/sub:text-slate-100"
+                                )}>
+                                  {subItem.label}
+                                </span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        );
+                      })}
                     </SidebarMenuSub>
                   )}
                 </SidebarMenuItem>
