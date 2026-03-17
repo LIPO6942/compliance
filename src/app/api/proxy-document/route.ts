@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       // 1. Encoder l'URL en base64
       // 2. Remplacer les caractères non autorisés
       // 3. Préfixer avec l'API Microsoft
-      const base64Url = Buffer.from(url).toString('base64');
+      const base64Url = btoa(url);
       const encodedUrl = base64Url.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
       directUrl = `https://api.onedrive.com/v1.0/shares/u!${encodedUrl}/root/content`;
     } 
