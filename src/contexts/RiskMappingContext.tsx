@@ -144,18 +144,22 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
     const dmrFields = ['dmrEfficiency', 'dmrProbability', 'justification', 'maePosition'];
 
     const today = new Date().toISOString().split('T')[0];
-    const updates: Record<string, unknown> = { ...cleanUpdate, lastUpdated: today };
+    const updates: Record<string, unknown> = { ...cleanUpdate };
 
-    // Si un champ Plan d'actions est modifié, mettre à jour planActionLastUpdated
+    // Détecter quel type de champs sont modifiés
     const hasPlanActionUpdate = Object.keys(cleanUpdate).some(key => planActionFields.includes(key));
+    const hasDmrUpdate = Object.keys(cleanUpdate).some(key => dmrFields.includes(key));
+
+    // Mettre à jour la date appropriée selon les champs modifiés
     if (hasPlanActionUpdate) {
       updates.planActionLastUpdated = today;
     }
-
-    // Si un champ DMR est modifié, mettre à jour dmrLastUpdated
-    const hasDmrUpdate = Object.keys(cleanUpdate).some(key => dmrFields.includes(key));
     if (hasDmrUpdate) {
       updates.dmrLastUpdated = today;
+    }
+    // Ne mettre à jour lastUpdated que si les champs ne sont ni Plan d'actions ni DMR
+    if (!hasPlanActionUpdate && !hasDmrUpdate) {
+      updates.lastUpdated = today;
     }
 
     await updateDoc(docRef, updates);
