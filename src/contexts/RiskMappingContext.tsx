@@ -18,8 +18,8 @@ interface RiskMappingContextType {
   maePositions: Record<number, string>;
   setGlobalDocumentIds: (ids: string[]) => Promise<void>;
   updateMaePosition: (level: number, text: string) => Promise<void>;
-  addRisk: (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt'>) => Promise<void>;
-  editRisk: (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt'>>) => Promise<void>;
+  addRisk: (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt' | 'planActionLastUpdated' | 'planActionCreatedAt' | 'dmrLastUpdated' | 'dmrCreatedAt'>) => Promise<void>;
+  editRisk: (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt' | 'planActionLastUpdated' | 'planActionCreatedAt' | 'dmrLastUpdated' | 'dmrCreatedAt'>>) => Promise<void>;
   removeRisk: (riskId: string) => Promise<void>;
 }
 
@@ -111,7 +111,7 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
     await setDoc(metaRef, { maePositions: newPositions }, { merge: true });
   };
 
-  const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt'>) => {
+  const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt' | 'planActionLastUpdated' | 'planActionCreatedAt' | 'dmrLastUpdated' | 'dmrCreatedAt'>) => {
     if (!isFirebaseConfigured || !db) return;
     // Remove undefined fields (e.g., documentId) to avoid Firestore errors
     const cleanRisk = Object.fromEntries(
@@ -122,21 +122,43 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
       ...cleanRisk,
       createdAt: today,
       lastUpdated: today,
+      // Initialiser les dates spécifiques
+      planActionCreatedAt: today,
+      planActionLastUpdated: today,
+      dmrCreatedAt: today,
+      dmrLastUpdated: today,
     };
     await addDoc(collection(db, risksCollectionName), newRisk);
   };
 
-  const editRisk = async (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt'>>) => {
+  const editRisk = async (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt' | 'planActionLastUpdated' | 'planActionCreatedAt' | 'dmrLastUpdated' | 'dmrCreatedAt'>>) => {
     if (!isFirebaseConfigured || !db) return;
     const docRef = doc(db, risksCollectionName, riskId);
     // Remove undefined fields to avoid Firestore errors
     const cleanUpdate = Object.fromEntries(
       Object.entries(riskUpdate).filter(([, value]) => value !== undefined)
     );
-    await updateDoc(docRef, {
-      ...cleanUpdate,
-      lastUpdated: new Date().toISOString().split('T')[0],
-    });
+
+    // Détecter les champs modifiés pour mettre à jour les dates spécifiques
+    const planActionFields = ['weaknessPoint', 'actionCorrective', 'deadline', 'responsible', 'completionLevel'];
+    const dmrFields = ['dmrEfficiency', 'dmrProbability', 'justification', 'maePosition'];
+
+    const today = new Date().toISOString().split('T')[0];
+    const updates: Record<string, unknown> = { ...cleanUpdate, lastUpdated: today };
+
+    // Si un champ Plan d'actions est modifié, mettre à jour planActionLastUpdated
+    const hasPlanActionUpdate = Object.keys(cleanUpdate).some(key => planActionFields.includes(key));
+    if (hasPlanActionUpdate) {
+      updates.planActionLastUpdated = today;
+    }
+
+    // Si un champ DMR est modifié, mettre à jour dmrLastUpdated
+    const hasDmrUpdate = Object.keys(cleanUpdate).some(key => dmrFields.includes(key));
+    if (hasDmrUpdate) {
+      updates.dmrLastUpdated = today;
+    }
+
+    await updateDoc(docRef, updates);
   };
 
   const removeRisk = async (riskId: string) => {
