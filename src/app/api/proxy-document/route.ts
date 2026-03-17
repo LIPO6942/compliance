@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
     else if (url.includes('drive.google.com')) {
       const fileId = url.match(/\/d\/(.+?)\/|id=(.+?)(&|$)/)?.[1] || url.match(/\/d\/(.+?)\/|id=(.+?)(&|$)/)?.[2];
       if (fileId) {
-        directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+        // Le paramètre confirm=t force le téléchargement direct même pour les très gros fichiers (bypass antivirus prompt)
+        directUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
       }
     }
 
@@ -38,11 +39,13 @@ export async function GET(request: NextRequest) {
     // Pour Google Drive qui gère le Scan antivirus sur les gros fichiers
     let finalStream = response.body;
 
+    // On ignore délibérément le content-type de Google (qui renvoie souvent du octet-stream pour forcer le téléchargement)
+    // On impose au navigateur de l'afficher comme PDF dans le lecteur natif.
     return new NextResponse(finalStream, {
       status: response.ok ? 200 : response.status,
       headers: {
-        'Content-Type': response.headers.get('content-type') || 'application/pdf',
-        'Content-Disposition': 'inline', 
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'inline; filename="document-compliance.pdf"', 
         'Access-Control-Allow-Origin': '*',
       },
     });
