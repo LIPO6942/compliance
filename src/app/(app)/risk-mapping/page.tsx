@@ -1221,6 +1221,16 @@ export default function RiskMappingPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="heatmap" className="mt-0 focus-visible:ring-0">
+          <RiskKPIs risks={filteredRisks} />
+          <div className="mt-6">
+            <RiskHeatmap 
+              risks={filteredRisks} 
+              onEditRisk={(risk) => openDialog('edit', risk)} 
+            />
+          </div>
+        </TabsContent>
+
         <TabsContent value="dmr" className="mt-0 focus-visible:ring-0">
           <RiskKPIs risks={filteredRisks} />
           <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
