@@ -1119,12 +1119,13 @@ export default function RiskMappingPage() {
                               const scoreRes = dmrEff * dmrPro;
                               const styleRes = getRiskScoreStyle(scoreRes);
                               const completion = (risk as any).completionLevel || 0;
-                              const dateLabel = risk.lastUpdated && risk.lastUpdated !== risk.createdAt
-                                ? `Modifié le ${new Date(risk.lastUpdated).toLocaleDateString('fr-FR')}`
-                                : risk.createdAt
-                                  ? `Créé le ${new Date(risk.createdAt).toLocaleDateString('fr-FR')}`
-                                  : risk.lastUpdated
-                                    ? `Créé le ${new Date(risk.lastUpdated).toLocaleDateString('fr-FR')}`
+                              // Date spécifique au Plan d'actions
+                              const dateLabel = risk.planActionLastUpdated && risk.planActionLastUpdated !== risk.planActionCreatedAt
+                                ? `Modifié le ${new Date(risk.planActionLastUpdated).toLocaleDateString('fr-FR')}`
+                                : risk.planActionCreatedAt
+                                  ? `Créé le ${new Date(risk.planActionCreatedAt).toLocaleDateString('fr-FR')}`
+                                  : risk.planActionLastUpdated
+                                    ? `Créé le ${new Date(risk.planActionLastUpdated).toLocaleDateString('fr-FR')}`
                                     : null;
                               return (
                                 <TableRow key={risk.id} className="group hover:bg-primary/[0.02] transition-all border-b border-slate-200/60 dark:border-slate-800/60 border-l-2 border-l-transparent hover:border-l-primary divide-x divide-slate-100 dark:divide-slate-800/40">
@@ -1276,12 +1277,13 @@ export default function RiskMappingPage() {
                               const style = getRiskScoreStyle(score);
                               const maePosition = getMAEPosition(score, maePositions);
                               const hasAlert = !!findAlertByRiskId(risk.id);
-                              const dateLabel = risk.lastUpdated && risk.lastUpdated !== risk.createdAt
-                                ? `Modifié le ${new Date(risk.lastUpdated).toLocaleDateString('fr-FR')}`
-                                : risk.createdAt
-                                  ? `Créé le ${new Date(risk.createdAt).toLocaleDateString('fr-FR')}`
-                                  : risk.lastUpdated
-                                    ? `Créé le ${new Date(risk.lastUpdated).toLocaleDateString('fr-FR')}`
+                              // Date spécifique au DMR
+                              const dateLabel = risk.dmrLastUpdated && risk.dmrLastUpdated !== risk.dmrCreatedAt
+                                ? `Modifié le ${new Date(risk.dmrLastUpdated).toLocaleDateString('fr-FR')}`
+                                : risk.dmrCreatedAt
+                                  ? `Créé le ${new Date(risk.dmrCreatedAt).toLocaleDateString('fr-FR')}`
+                                  : risk.dmrLastUpdated
+                                    ? `Créé le ${new Date(risk.dmrLastUpdated).toLocaleDateString('fr-FR')}`
                                     : null;
                               return (
                                 <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 border-l-2 border-l-transparent hover:border-l-indigo-500 divide-x divide-slate-100 dark:divide-slate-800">

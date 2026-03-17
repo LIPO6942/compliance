@@ -176,6 +176,11 @@ export interface RiskMappingItem {
   deadline?: string; // Échéance
   responsible?: string; // Responsable
   completionLevel?: number; // Niveau d'avancement (0-100)
+  // Dates spécifiques par tableau
+  planActionLastUpdated?: string; // Date modif Plan d'actions
+  planActionCreatedAt?: string; // Date création Plan d'actions
+  dmrLastUpdated?: string; // Date modif DMR
+  dmrCreatedAt?: string; // Date création DMR
 }
 
 export interface CustomKeyword {

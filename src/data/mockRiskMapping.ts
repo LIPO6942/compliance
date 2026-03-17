@@ -16,6 +16,12 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     dmrEfficiency: 2,
     dmrProbability: 2,
     lastUpdated: '2024-07-20',
+    createdAt: '2024-01-15',
+    // Dates spécifiques
+    planActionLastUpdated: '2024-08-10',
+    planActionCreatedAt: '2024-02-01',
+    dmrLastUpdated: '2024-09-05',
+    dmrCreatedAt: '2024-03-10',
     weaknessPoint: 'Manque de clarté des fiches produits',
     deadline: '2024-12-31',
     responsible: 'Direction Commerciale',
@@ -35,6 +41,12 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     dmrEfficiency: 1,
     dmrProbability: 1,
     lastUpdated: '2024-06-15',
+    createdAt: '2024-01-20',
+    // Dates spécifiques
+    planActionLastUpdated: '2024-07-25',
+    planActionCreatedAt: '2024-02-15',
+    dmrLastUpdated: '2024-08-20',
+    dmrCreatedAt: '2024-03-05',
   },
   {
     id: 'risk003',
@@ -50,6 +62,12 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     dmrEfficiency: 3,
     dmrProbability: 2,
     lastUpdated: '2024-05-10',
+    createdAt: '2024-01-25',
+    // Dates spécifiques
+    planActionLastUpdated: '2024-06-30',
+    planActionCreatedAt: '2024-02-20',
+    dmrLastUpdated: '2024-07-15',
+    dmrCreatedAt: '2024-03-15',
   },
   {
     id: 'risk004',
@@ -65,5 +83,11 @@ export const initialMockRiskMapping: RiskMappingItem[] = [
     dmrEfficiency: 2,
     dmrProbability: 3,
     lastUpdated: '2024-07-01',
+    createdAt: '2024-02-01',
+    // Dates spécifiques
+    planActionLastUpdated: '2024-08-15',
+    planActionCreatedAt: '2024-03-01',
+    dmrLastUpdated: '2024-09-01',
+    dmrCreatedAt: '2024-04-01',
   },
 ];
