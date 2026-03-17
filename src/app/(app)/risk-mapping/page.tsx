@@ -309,8 +309,8 @@ const exportToExcel = async (risks: RiskMappingItem[], logAction: any, user: any
     const wsPlan = wb.addWorksheet("Plan d'actions");
     wsPlan.columns = [
       { header: "N°", key: "num", width: 5 },
-      { header: "Facteurs de risques", key: "desc", width: 40 },
-      { header: "Sous facteurs de risques", key: "sub", width: 40 },
+      { header: "Description du risque", key: "desc", width: 40 },
+      { header: "Sous-facteurs", key: "sub", width: 40 },
       { header: "Catégorie", key: "cat", width: 25 },
       { header: "Direction", key: "dept", width: 15 },
       { header: "Point de faiblesse", key: "weakness", width: 35 },
@@ -1084,7 +1084,7 @@ export default function RiskMappingPage() {
                 <Table className="border-collapse">
                   <TableHeader>
                     <TableRow className="bg-slate-50/80 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[20%]">Facteurs de risques</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[20%]">Facteurs et sous-facteurs</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[8%]">Cotation Net</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[12%]">Point de faiblesse</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[20%]">Action corrective</TableHead>
@@ -1119,12 +1119,31 @@ export default function RiskMappingPage() {
                               const scoreRes = dmrEff * dmrPro;
                               const styleRes = getRiskScoreStyle(scoreRes);
                               const completion = (risk as any).completionLevel || 0;
+                              const dateLabel = risk.lastUpdated && risk.lastUpdated !== risk.createdAt
+                                ? `Modifié le ${new Date(risk.lastUpdated).toLocaleDateString('fr-FR')}`
+                                : risk.createdAt
+                                  ? `Créé le ${new Date(risk.createdAt).toLocaleDateString('fr-FR')}`
+                                  : risk.lastUpdated
+                                    ? `Créé le ${new Date(risk.lastUpdated).toLocaleDateString('fr-FR')}`
+                                    : null;
                               return (
                                 <TableRow key={risk.id} className="group hover:bg-primary/[0.02] transition-all border-b border-slate-200/60 dark:border-slate-800/60 border-l-2 border-l-transparent hover:border-l-primary divide-x divide-slate-100 dark:divide-slate-800/40">
                                   <TableCell className="py-3 px-4">
-                                    <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
-                                      {risk.riskDescription}
-                                    </span>
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+                                        {risk.riskDescription}
+                                      </span>
+                                      {risk.subFactors && (
+                                        <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                                          {risk.subFactors}
+                                        </span>
+                                      )}
+                                      {dateLabel && (
+                                        <span className="text-[9px] text-slate-400 font-medium">
+                                          {dateLabel}
+                                        </span>
+                                      )}
+                                    </div>
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-center">
                                     <div className={cn("inline-flex flex-col items-center justify-center w-10 h-10 rounded-lg border", styleRes.bg, styleRes.text, styleRes.border)}>
@@ -1222,7 +1241,7 @@ export default function RiskMappingPage() {
                 <Table className="border-collapse">
                   <TableHeader>
                     <TableRow className="bg-slate-50/80 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[25%]">Facteurs de risques</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[25%]">Facteurs et sous-facteurs de risques</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[12%]">Niveau d'efficacité</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[10%]">Proba. DMR</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[10%]">Score Résiduel</TableHead>
@@ -1257,6 +1276,13 @@ export default function RiskMappingPage() {
                               const style = getRiskScoreStyle(score);
                               const maePosition = getMAEPosition(score, maePositions);
                               const hasAlert = !!findAlertByRiskId(risk.id);
+                              const dateLabel = risk.lastUpdated && risk.lastUpdated !== risk.createdAt
+                                ? `Modifié le ${new Date(risk.lastUpdated).toLocaleDateString('fr-FR')}`
+                                : risk.createdAt
+                                  ? `Créé le ${new Date(risk.createdAt).toLocaleDateString('fr-FR')}`
+                                  : risk.lastUpdated
+                                    ? `Créé le ${new Date(risk.lastUpdated).toLocaleDateString('fr-FR')}`
+                                    : null;
                               return (
                                 <TableRow key={risk.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-200 dark:border-slate-800 border-l-2 border-l-transparent hover:border-l-indigo-500 divide-x divide-slate-100 dark:divide-slate-800">
                                   <TableCell className="py-3 px-4">
@@ -1269,6 +1295,16 @@ export default function RiskMappingPage() {
                                           {risk.riskDescription}
                                           <LinkIcon className="h-2.5 w-2.5 opacity-0 group-hover/link:opacity-100 transition-opacity" />
                                         </button>
+                                        {risk.subFactors && (
+                                          <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                                            {risk.subFactors}
+                                          </span>
+                                        )}
+                                        {dateLabel && (
+                                          <span className="text-[9px] text-slate-400 font-medium">
+                                            {dateLabel}
+                                          </span>
+                                        )}
                                       </div>
                                       <TooltipProvider>
                                         <Tooltip>
