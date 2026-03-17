@@ -1030,38 +1030,40 @@ export default function RiskMappingPage() {
 
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block shrink-0" />
 
-            <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-              <SelectTrigger className="h-9 w-[130px] shrink-0 rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
-                <SelectValue placeholder="Ttes Directions" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
-                <SelectItem value="all" className="text-[10px] font-bold uppercase">Ttes Directions</SelectItem>
-                {departmentOptions.map(d => <SelectItem key={d} value={d} className="text-[10px] font-bold uppercase">{d}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+                <SelectTrigger className="h-9 w-[130px] shrink-0 rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
+                  <SelectValue placeholder="Ttes Directions" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
+                  <SelectItem value="all" className="text-[10px] font-bold uppercase">Ttes Directions</SelectItem>
+                  {departmentOptions.map(d => <SelectItem key={d} value={d} className="text-[10px] font-bold uppercase">{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
 
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="h-9 w-[130px] shrink-0 rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
-                <SelectValue placeholder="Ttes Catégories" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
-                <SelectItem value="all" className="text-[10px] font-bold uppercase">Ttes Catégories</SelectItem>
-                {categoryOptions.map(c => <SelectItem key={c} value={c} className="text-[10px] font-bold uppercase">{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="h-9 w-[130px] shrink-0 rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
+                  <SelectValue placeholder="Ttes Catégories" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
+                  <SelectItem value="all" className="text-[10px] font-bold uppercase">Ttes Catégories</SelectItem>
+                  {categoryOptions.map(c => <SelectItem key={c} value={c} className="text-[10px] font-bold uppercase">{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
 
-            <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
-              <SelectTrigger className="h-9 w-[120px] shrink-0 rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
-                <SelectValue placeholder="Ts Niveaux" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
-                <SelectItem value="all" className="text-[10px] font-bold uppercase">Ts Niveaux</SelectItem>
-                <SelectItem value="Faible" className="text-[10px] font-bold uppercase text-emerald-600">Faible</SelectItem>
-                <SelectItem value="Modéré" className="text-[10px] font-bold uppercase text-yellow-600">Modéré</SelectItem>
-                <SelectItem value="Élevé" className="text-[10px] font-bold uppercase text-orange-600">Élevé</SelectItem>
-                <SelectItem value="Très élevé" className="text-[10px] font-bold uppercase text-rose-600">Très élevé</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
+                <SelectTrigger className="h-9 w-[120px] shrink-0 rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
+                  <SelectValue placeholder="Ts Niveaux" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
+                  <SelectItem value="all" className="text-[10px] font-bold uppercase">Ts Niveaux</SelectItem>
+                  <SelectItem value="Faible" className="text-[10px] font-bold uppercase text-emerald-600">Faible</SelectItem>
+                  <SelectItem value="Modéré" className="text-[10px] font-bold uppercase text-yellow-600">Modéré</SelectItem>
+                  <SelectItem value="Élevé" className="text-[10px] font-bold uppercase text-orange-600">Élevé</SelectItem>
+                  <SelectItem value="Très élevé" className="text-[10px] font-bold uppercase text-rose-600">Très élevé</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
@@ -1086,11 +1088,11 @@ export default function RiskMappingPage() {
                     <TableRow className="bg-slate-50/80 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800">
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[20%]">Facteurs et sous-facteurs</TableHead>
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[8%]">Cotation Net</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[12%]">Point de faiblesse</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[20%]">Action corrective</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[8%]">Échéance</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[10%]">Responsable</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[12%] text-center">Niveau d'avancement</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[12%]">Point de faiblesse <span className="text-blue-500 font-bold">*</span></TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[20%]">Action corrective <span className="text-blue-500 font-bold">*</span></TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[8%]">Échéance <span className="text-blue-500 font-bold">*</span></TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[10%]">Responsable <span className="text-blue-500 font-bold">*</span></TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[12%] text-center">Niveau d'avancement <span className="text-blue-500 font-bold">*</span></TableHead>
                       <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[5%]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1219,10 +1221,6 @@ export default function RiskMappingPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="heatmap" className="mt-0 focus-visible:ring-0">
-          <RiskHeatmap risks={filteredRisks} onEditRisk={(risk) => openDialog('edit', risk)} />
-        </TabsContent>
-
         <TabsContent value="dmr" className="mt-0 focus-visible:ring-0">
           <RiskKPIs risks={filteredRisks} />
           <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
@@ -1241,13 +1239,21 @@ export default function RiskMappingPage() {
               <div className="overflow-x-auto">
                 <Table className="border-collapse">
                   <TableHeader>
-                    <TableRow className="bg-slate-50/80 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800">
+                    <TableRow className="bg-slate-100/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800">
                       <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[25%]">Facteurs et sous-facteurs de risques</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[12%]">Niveau d'efficacité</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[10%]">Proba. DMR</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[10%]">Score Résiduel</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[23%]">Position de la MAE Assurance</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[15%]">Liens & Justifs</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center">
+                        Efficacité <span className="text-orange-500 font-bold">*</span>
+                      </TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center">
+                        Probabilité <span className="text-orange-500 font-bold">*</span>
+                      </TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center">Score Résiduel</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none">
+                        Position MAE <span className="text-orange-500 font-bold">*</span>
+                      </TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none">
+                        Justificatif <span className="text-orange-500 font-bold">*</span>
+                      </TableHead>
                       <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[5%]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -2048,10 +2054,13 @@ export default function RiskMappingPage() {
                   </div>
 
                   {/* Evaluation Résiduelle (DMR) */}
-                  <div className="space-y-4 bg-primary/5 dark:bg-primary/10 p-6 rounded-[2rem] border border-primary/20 dark:border-primary/40 relative overflow-hidden shadow-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="h-4 w-1 bg-primary rounded-full" />
-                      <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Évaluation Résiduelle (DMR)</h3>
+                  <div className="space-y-4 bg-orange-50/30 dark:bg-orange-950/10 p-6 rounded-[2rem] border-l-4 border-l-orange-500 border-y border-r border-orange-200/60 dark:border-orange-800 shadow-sm relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-1 bg-orange-500 rounded-full" />
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-600">Volet DMR</h3>
+                      </div>
+                      <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-200 font-black text-[9px] uppercase tracking-widest">DMR</Badge>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -2060,9 +2069,9 @@ export default function RiskMappingPage() {
                         name="dmrEfficiency"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Niveau d'efficacité</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-orange-700/70">Niveau d'efficacité <span className="text-orange-500">*</span></FormLabel>
                             <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 2)}>
-                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-primary/20 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-orange-200/50 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
                               <SelectContent className="rounded-xl border-none shadow-2xl">
                                 {dmrEfficiencyLevels.map((level) => (
                                   <SelectItem key={level.value} value={String(level.value)} className="font-bold py-2">
@@ -2082,9 +2091,9 @@ export default function RiskMappingPage() {
                         name="dmrProbability"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Proba. DMR</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-orange-700/70">Proba. DMR <span className="text-orange-500">*</span></FormLabel>
                             <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 1)}>
-                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-primary/20 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-orange-200/50 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
                               <SelectContent className="rounded-xl border-none shadow-2xl">
                                 {[1, 2, 3, 4].map((v) => <SelectItem key={v} value={String(v)} className="font-bold">{v} - {probabiliteLabels[v].label}</SelectItem>)}
                               </SelectContent>
@@ -2094,8 +2103,8 @@ export default function RiskMappingPage() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-primary/20">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-primary/60">Score Résiduel</span>
+                    <div className="flex items-center justify-between pt-2 border-t border-orange-200/50">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-orange-600/60">Score Résiduel</span>
                       <div className={cn("px-3 py-1 rounded-lg border font-black text-sm", getRiskScoreStyle(Number(form.watch('dmrEfficiency') || 2) * Number(form.watch('dmrProbability') || form.watch('probabilite') || 1)).bg, getRiskScoreStyle(Number(form.watch('dmrEfficiency') || 2) * Number(form.watch('dmrProbability') || form.watch('probabilite') || 1)).text)}>
                         {Number(form.watch('dmrEfficiency') || 2) * Number(form.watch('dmrProbability') || form.watch('probabilite') || 1)}
                       </div>
@@ -2104,10 +2113,13 @@ export default function RiskMappingPage() {
                 </div>
 
                 {/* SECTION 3: PLAN D'ACTIONS & DETAILS */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-1 bg-indigo-500 rounded-full" />
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">Plan d'actions & Suivi</h3>
+                <div className="space-y-6 bg-blue-50/20 dark:bg-blue-950/10 p-8 rounded-[2.5rem] border-l-4 border-l-blue-500 border-y border-r border-blue-100 dark:border-blue-900/40 shadow-sm relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-1 bg-blue-500 rounded-full" />
+                      <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Plan d'actions & Suivi</h3>
+                    </div>
+                    <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 font-black text-[9px] uppercase tracking-widest">Plan d'actions</Badge>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -2117,9 +2129,9 @@ export default function RiskMappingPage() {
                         name="weaknessPoint"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Point de faiblesse identifié</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-blue-700/70">Point de faiblesse identifié <span className="text-blue-500">*</span></FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="Ex: Absence de procédure formalisée..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm" />
+                              <Input {...field} placeholder="Ex: Absence de procédure formalisée..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-blue-100 dark:border-blue-900/50 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 font-semibold text-xs shadow-sm" />
                             </FormControl>
                           </FormItem>
                         )}
@@ -2129,13 +2141,13 @@ export default function RiskMappingPage() {
                         name="actionCorrective"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Action corrective prévue</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-blue-700/70">Action corrective prévue <span className="text-blue-500">*</span></FormLabel>
                             <FormControl>
                               <Textarea
                                 {...field}
                                 value={field.value || ""}
                                 placeholder="Mesures pour réduire le risque..."
-                                className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
+                                className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-blue-100 dark:border-blue-900/50 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 font-semibold text-xs shadow-sm"
                               />
                             </FormControl>
                           </FormItem>
@@ -2149,9 +2161,9 @@ export default function RiskMappingPage() {
                         name="deadline"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Échéance</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-blue-700/70">Échéance <span className="text-blue-500">*</span></FormLabel>
                             <FormControl>
-                              <Input {...field} type="date" className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-xs shadow-sm" />
+                              <Input {...field} type="date" className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-blue-100 dark:border-blue-900/50 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 font-bold text-xs shadow-sm" />
                             </FormControl>
                           </FormItem>
                         )}
@@ -2161,9 +2173,9 @@ export default function RiskMappingPage() {
                         name="responsible"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Responsable</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-blue-700/70">Responsable <span className="text-blue-500">*</span></FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="Nom ou Direction..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-xs shadow-sm" />
+                              <Input {...field} placeholder="Nom ou Direction..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-blue-100 dark:border-blue-900/50 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 font-bold text-xs shadow-sm" />
                             </FormControl>
                           </FormItem>
                         )}
@@ -2173,13 +2185,13 @@ export default function RiskMappingPage() {
                         name="completionLevel"
                         render={({ field }) => (
                           <FormItem className="col-span-2">
-                            <FormLabel className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                              <span>Niveau d'avancement</span>
-                              <span className="text-primary">{field.value}%</span>
+                            <FormLabel className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-blue-700/70">
+                              <span>Niveau d'avancement <span className="text-blue-500">*</span></span>
+                              <span className="text-blue-600 font-black">{field.value}%</span>
                             </FormLabel>
                             <FormControl>
                               <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 0)}>
-                                <SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-xs shadow-sm">
+                                <SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-blue-100 dark:border-blue-900/50 font-bold text-xs shadow-sm">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-none shadow-2xl">
@@ -2200,16 +2212,16 @@ export default function RiskMappingPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 mt-4 border-t border-blue-100 dark:border-blue-900/40">
                     <div className="md:col-span-1">
                       <FormField
                         control={form.control}
                         name="documentId"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document de référence</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-orange-700/70">Document de référence <span className="text-orange-500">*</span></FormLabel>
                             <Select onValueChange={field.onChange} value={field.value || "none"}>
-                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold shadow-sm"><SelectValue placeholder="Aucun document" /></SelectTrigger></FormControl>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-orange-100 dark:border-orange-900/40 font-bold shadow-sm"><SelectValue placeholder="Aucun document" /></SelectTrigger></FormControl>
                               <SelectContent className="rounded-xl border-none shadow-2xl">
                                 <SelectItem value="none" className="font-bold text-slate-400">Aucun document</SelectItem>
                                 {documents.map((doc: any) => <SelectItem key={doc.id} value={doc.id} className="font-bold">{doc.name}</SelectItem>)}
@@ -2225,9 +2237,9 @@ export default function RiskMappingPage() {
                         name="documentAnchor"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Page / Mot-clé</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-orange-700/70">Page / Mot-clé <span className="text-orange-500">*</span></FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="Ex: 12 ou 'Article 5'..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm" />
+                              <Input {...field} placeholder="Ex: 12 ou 'Article 5'..." className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-orange-100 dark:border-orange-900/40 font-semibold text-xs shadow-sm" />
                             </FormControl>
                             <FormDescription className="text-[8px] italic opacity-60">Redirige vers cette page ou cherche ce texte dans le PDF.</FormDescription>
                           </FormItem>
@@ -2240,12 +2252,12 @@ export default function RiskMappingPage() {
                         name="justification"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Liens & Justifs</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-orange-700/70">Liens & Justifs <span className="text-orange-500">*</span></FormLabel>
                             <FormControl>
                               <Textarea
                                 {...field}
                                 placeholder="Base légale, procédure interne..."
-                                className="min-h-[80px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-xs shadow-sm"
+                                className="min-h-[80px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-orange-100 dark:border-orange-900/40 font-semibold text-xs shadow-sm"
                               />
                             </FormControl>
                           </FormItem>
