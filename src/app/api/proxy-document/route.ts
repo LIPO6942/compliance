@@ -11,15 +11,20 @@ export async function GET(request: NextRequest) {
   try {
     let directUrl = url;
 
+    // Transformation OneDrive (Personal/Business 1drv.ms ou onedrive.live.com)
+    if (url.includes('onedrive.live.com') || url.includes('1drv.ms') || url.includes('sharepoint.com')) {
+      // Méthode officielle de conversion de lien de partage OneDrive en lien direct
+      // 1. Encoder l'URL en base64
+      // 2. Remplacer les caractères non autorisés
+      // 3. Préfixer avec l'API Microsoft
+      const base64Url = Buffer.from(url).toString('base64');
+      const encodedUrl = base64Url.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      directUrl = `https://api.onedrive.com/v1.0/shares/u!${encodedUrl}/root/content`;
+    } 
     // Transformation Dropbox
-    if (url.includes('dropbox.com')) {
+    else if (url.includes('dropbox.com')) {
       directUrl = url.replace(/[?&]dl=[01]/g, '').replace(/[?&]st=[^&]+/g, '');
       directUrl = directUrl.includes('?') ? `${directUrl}&raw=1` : `${directUrl}?raw=1`;
-    } 
-    // Transformation OneDrive
-    else if (url.includes('onedrive.live.com') || url.includes('1drv.ms')) {
-      // Pour OneDrive, on utilise le mode download forcé
-      directUrl = url.replace('redir?', 'download?');
     }
     // Transformation Google Drive
     else if (url.includes('drive.google.com')) {
@@ -29,7 +34,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const response = await fetch(directUrl);
+    const response = await fetch(directUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      }
+    });
     
     if (!response.ok) {
       throw new Error(`Le serveur source a répondu avec l'état ${response.status}`);
