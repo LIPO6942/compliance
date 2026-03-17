@@ -6,14 +6,23 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const url = searchParams.get('url');
 
+  if (!url) {
+    return NextResponse.json({ error: 'URL manquante' }, { status: 400 });
+  }
+
   try {
     let directUrl = url;
 
     // OneDrive / SharePoint
     if (url.includes('onedrive.live.com') || url.includes('1drv.ms') || url.includes('sharepoint.com')) {
-      const base64Url = btoa(url);
-      const encodedUrl = base64Url.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      directUrl = `https://api.onedrive.com/v1.0/shares/u!${encodedUrl}/root/content`;
+      try {
+        const base64Url = btoa(url);
+        const encodedUrl = base64Url.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        directUrl = `https://api.onedrive.com/v1.0/shares/u!${encodedUrl}/root/content`;
+      } catch (e) {
+        console.error('Base64 Encoding Error:', e);
+        // Fallback to original URL
+      }
     } 
     // Dropbox
     else if (url.includes('dropbox.com')) {
@@ -24,7 +33,6 @@ export async function GET(request: NextRequest) {
     else if (url.includes('drive.google.com')) {
       const fileId = url.match(/\/d\/(.+?)\/|id=(.+?)(&|$)/)?.[1] || url.match(/\/d\/(.+?)\/|id=(.+?)(&|$)/)?.[2];
       if (fileId) {
-        // Le paramètre confirm=t force le téléchargement direct même pour les très gros fichiers (bypass antivirus prompt)
         directUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
       }
     }
@@ -36,21 +44,25 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    // Pour Google Drive qui gère le Scan antivirus sur les gros fichiers
-    let finalStream = response.body;
+    if (!response.ok) {
+        console.error('Source Fetch Failed:', response.status);
+        // Si ça échoue, on peut essayer de rediriger simplement au lieu de proxy
+        return NextResponse.redirect(directUrl);
+    }
 
-    // On ignore délibérément le content-type de Google (qui renvoie souvent du octet-stream pour forcer le téléchargement)
-    // On impose au navigateur de l'afficher comme PDF dans le lecteur natif.
-    return new NextResponse(finalStream, {
-      status: response.ok ? 200 : response.status,
+    // On renvoie le flux directement
+    return new NextResponse(response.body, {
+      status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'inline; filename="document-compliance.pdf"', 
+        'Content-Disposition': 'inline', 
+        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': 'public, max-age=3600',
         'Access-Control-Allow-Origin': '*',
       },
     });
   } catch (error: any) {
-    console.error('Proxy Error:', error);
+    console.error('Proxy Fatal Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
