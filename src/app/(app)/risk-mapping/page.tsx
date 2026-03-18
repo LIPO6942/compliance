@@ -1174,24 +1174,43 @@ export default function RiskMappingPage() {
                               return (
                                 <TableRow key={risk.id} className="group hover:bg-primary/[0.02] transition-all border-b border-slate-200/60 dark:border-slate-800/60 border-l-2 border-l-transparent hover:border-l-primary divide-x divide-slate-100 dark:divide-slate-800/40">
                                   <TableCell className="py-3 px-4">
-                                    <div className="flex flex-col gap-0.5">
-                                      <span 
-                                        className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight hover:text-primary transition-colors hover:underline cursor-pointer flex items-center gap-1 group/link"
-                                        onClick={() => openDialog('edit', risk)}
-                                      >
-                                        {risk.riskDescription}
-                                        <LinkIcon className="h-3 w-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
-                                      </span>
-                                      {risk.subFactors && (
-                                        <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-                                          {risk.subFactors}
+                                    <div className="flex items-start gap-2">
+                                      <div className="flex flex-col gap-0.5 flex-1">
+                                        <span 
+                                          className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight hover:text-primary transition-colors hover:underline cursor-pointer flex items-center gap-1 group/link"
+                                          onClick={() => openDialog('edit', risk)}
+                                        >
+                                          {risk.riskDescription}
+                                          <LinkIcon className="h-3 w-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
                                         </span>
-                                      )}
-                                      {dateLabel && (
-                                        <span className="text-[9px] text-slate-400 font-medium">
-                                          {dateLabel}
-                                        </span>
-                                      )}
+                                        {risk.subFactors && (
+                                          <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                                            {risk.subFactors}
+                                          </span>
+                                        )}
+                                        {dateLabel && (
+                                          <span className="text-[9px] text-slate-400 font-medium">
+                                            {dateLabel}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 p-0 rounded-full hover:bg-slate-50 hover:text-primary flex-shrink-0 transition-colors">
+                                              <Info className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="right" className="max-w-sm p-3 rounded-xl border-none shadow-2xl bg-white dark:bg-slate-900">
+                                            <div className="space-y-2">
+                                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mesures d'atténuation (DMR)</p>
+                                              <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                                                {formatMitigationMeasures(risk.expectedAction)}
+                                              </div>
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
                                     </div>
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-center">
