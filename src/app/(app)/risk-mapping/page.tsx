@@ -161,6 +161,47 @@ const PDFViewerFallback = ({ url, anchor, title }: { url: string, anchor?: strin
   );
 };
 
+const ReportCover = () => (
+    <div className="hidden print:flex flex-col items-center justify-center h-[26cm] w-full p-20 text-center mb-[20cm] border-[30px] border-double border-slate-50 relative">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] scale-[3] pointer-events-none">
+            <img src="/mae_logo.png" alt="" className="h-64 object-contain" />
+        </div>
+        
+        <div className="mb-20">
+            <img src="/mae_logo.png" alt="MAE Logo" className="h-48 object-contain" />
+        </div>
+        
+        <div className="space-y-8 relative z-10">
+            <div className="space-y-2">
+                <p className="text-primary font-black uppercase tracking-[0.4em] text-sm">Gouvernance & Risk Management</p>
+                <div className="h-1 w-20 bg-primary mx-auto rounded-full" />
+            </div>
+            
+            <h1 className="text-7xl font-black uppercase tracking-tighter text-slate-900 italic leading-none">
+                Cartographie des <br />
+                <span className="text-primary tracking-normal not-italic">Risques</span>
+            </h1>
+            
+            <p className="text-2xl font-bold text-slate-500 uppercase tracking-[0.2em] pt-8">Rapport Officiel de Conformité</p>
+            
+            <div className="pt-20 grid grid-cols-2 gap-20 text-left">
+                <div className="border-l-4 border-slate-100 pl-6 py-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Entité</p>
+                    <p className="text-lg font-black text-slate-800 uppercase italic">MAE Assurance</p>
+                </div>
+                <div className="border-l-4 border-slate-100 pl-6 py-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Date d'évaluation</p>
+                    <p className="text-lg font-black text-slate-800">{new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div className="absolute bottom-20 left-0 right-0">
+            <p className="text-sm font-black text-slate-300 uppercase tracking-[0.5em]">MAE - Mutuelle Assurance de l'Enseignement</p>
+        </div>
+    </div>
+);
+
 const exportToExcel = async (risks: RiskMappingItem[], logAction: any, user: any, maePositions: Record<number, string>, documents: any[], mode: 'principal' | 'dmr' | 'plan-actions' | 'combined' = 'principal') => {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Compliance Navigator";
@@ -585,6 +626,11 @@ export default function RiskMappingPage() {
   const [isViewerOpen, setIsViewerOpen] = React.useState(false);
   const [viewerConfig, setViewerConfig] = React.useState({ url: "", title: "", anchor: "" });
   const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "plan-actions" | "dmr" | "settings">(tabParam || "table");
+  const [heatmapMode, setHeatmapMode] = React.useState<'brut' | 'residuel'>('brut');
+
+  const handleExportPDF = () => {
+    window.print();
+  };
 
   const [tempMaePositions, setTempMaePositions] = React.useState<Record<number, string>>(maePositions);
 
@@ -783,8 +829,9 @@ export default function RiskMappingPage() {
 
   return (
     <div className="space-y-8 pb-20 w-full">
+      <ReportCover />
       {/* Header */}
-      <div className="relative mb-2">
+      <div className="relative mb-2 print:hidden">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
           <div className="space-y-1">
             <div className="flex items-center gap-2 mb-1">
@@ -799,6 +846,15 @@ export default function RiskMappingPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportPDF}
+              className="h-9 px-4 rounded-xl border-2 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
+            >
+              <FileText className="mr-1.5 h-3.5 w-3.5 text-rose-500" /> Rapport PDF
+            </Button>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -1003,14 +1059,14 @@ export default function RiskMappingPage() {
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 flex flex-nowrap items-center gap-3 w-full overflow-x-auto scrollbar-hide bg-white/50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
-            <div className="relative flex-1 min-w-[300px] xl:max-w-[450px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+          <div className="flex-1 flex flex-nowrap items-center gap-3 w-full bg-white/50 dark:bg-slate-900/50 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <div className="relative flex-1 min-w-[350px] xl:max-w-[600px]">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Rechercher un risque, une catégorie, une direction..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9 pl-9 pr-3 rounded-lg border-none bg-slate-100 dark:bg-slate-800 font-medium text-xs shadow-none focus-visible:ring-1 focus-visible:ring-primary/20 w-full"
+                className="h-11 pl-11 pr-4 rounded-xl border-none bg-slate-100 dark:bg-slate-800 font-bold text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/20 w-full"
               />
             </div>
 
@@ -1018,35 +1074,35 @@ export default function RiskMappingPage() {
 
             <div className="flex items-center gap-3">
               <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                <SelectTrigger className="h-9 w-[180px] shrink-0 rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
+                <SelectTrigger className="h-11 w-[220px] shrink-0 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-xs font-black uppercase tracking-widest shadow-none">
                   <SelectValue placeholder="Ttes Directions" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
-                  <SelectItem value="all" className="text-[10px] font-bold uppercase">Ttes Directions</SelectItem>
-                  {departmentOptions.map(d => <SelectItem key={d} value={d} className="text-[10px] font-bold uppercase">{d}</SelectItem>)}
+                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl">
+                  <SelectItem value="all" className="text-xs font-black uppercase">Ttes Directions</SelectItem>
+                  {departmentOptions.map(d => <SelectItem key={d} value={d} className="text-xs font-black uppercase">{d}</SelectItem>)}
                 </SelectContent>
               </Select>
 
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="h-9 w-[180px] shrink-0 rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
+                <SelectTrigger className="h-11 w-[220px] shrink-0 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-xs font-black uppercase tracking-widest shadow-none">
                   <SelectValue placeholder="Ttes Catégories" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
-                  <SelectItem value="all" className="text-[10px] font-bold uppercase">Ttes Catégories</SelectItem>
-                  {categoryOptions.map(c => <SelectItem key={c} value={c} className="text-[10px] font-bold uppercase">{c}</SelectItem>)}
+                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl">
+                  <SelectItem value="all" className="text-xs font-black uppercase">Ttes Catégories</SelectItem>
+                  {categoryOptions.map(c => <SelectItem key={c} value={c} className="text-xs font-black uppercase">{c}</SelectItem>)}
                 </SelectContent>
               </Select>
 
               <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
-                <SelectTrigger className="h-9 w-[160px] shrink-0 rounded-lg border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider shadow-none">
+                <SelectTrigger className="h-11 w-[200px] shrink-0 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-xs font-black uppercase tracking-widest shadow-none">
                   <SelectValue placeholder="Ts Niveaux" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
-                  <SelectItem value="all" className="text-[10px] font-bold uppercase">Ts Niveaux</SelectItem>
-                  <SelectItem value="Faible" className="text-[10px] font-bold uppercase text-emerald-600">Faible</SelectItem>
-                  <SelectItem value="Modéré" className="text-[10px] font-bold uppercase text-yellow-600">Modéré</SelectItem>
-                  <SelectItem value="Élevé" className="text-[10px] font-bold uppercase text-orange-600">Élevé</SelectItem>
-                  <SelectItem value="Très élevé" className="text-[10px] font-bold uppercase text-rose-600">Très élevé</SelectItem>
+                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl">
+                  <SelectItem value="all" className="text-xs font-black uppercase">Ts Niveaux</SelectItem>
+                  <SelectItem value="Faible" className="text-xs font-black uppercase text-emerald-600">Faible</SelectItem>
+                  <SelectItem value="Modéré" className="text-xs font-black uppercase text-yellow-600">Modéré</SelectItem>
+                  <SelectItem value="Élevé" className="text-xs font-black uppercase text-orange-600">Élevé</SelectItem>
+                  <SelectItem value="Très élevé" className="text-xs font-black uppercase text-rose-600">Très élevé</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1266,6 +1322,8 @@ export default function RiskMappingPage() {
             <RiskHeatmap 
               risks={filteredRisks} 
               onEditRisk={(risk) => openDialog('edit', risk)} 
+              mode={heatmapMode}
+              onModeChange={setHeatmapMode}
             />
           </div>
         </TabsContent>

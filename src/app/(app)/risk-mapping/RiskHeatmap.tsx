@@ -3,11 +3,15 @@ import { RiskMappingItem } from '@/types/compliance';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info } from 'lucide-react';
+import { Info, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface RiskHeatmapProps {
     risks: RiskMappingItem[];
     onEditRisk: (risk: RiskMappingItem) => void;
+    mode?: 'brut' | 'residuel';
+    onModeChange?: (mode: 'brut' | 'residuel') => void;
 }
 
 const probabiliteLevels = [4, 3, 2, 1]; // top to bottom (highest first)
@@ -23,10 +27,13 @@ const getCellColor = (probValue: number, impactValue: number) => {
     return "bg-rose-50 hover:bg-rose-100 border-rose-200";
 };
 
-export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({ risks, onEditRisk }) => {
+export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({ risks, onEditRisk, mode = 'brut', onModeChange }) => {
 
     const getRisksForCell = (probValue: number, impactValue: number) => {
-        return risks.filter(r => r.probabilite === probValue && r.impact === impactValue);
+        return risks.filter(r => {
+            const currentProb = mode === 'residuel' ? (r.dmrProbability || r.probabilite) : r.probabilite;
+            return currentProb === probValue && r.impact === impactValue;
+        });
     };
 
     const groupRisksByCategory = (cellRisks: RiskMappingItem[]) => {
@@ -39,21 +46,58 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({ risks, onEditRisk }) =
     };
 
     return (
-        <Card className="shadow-md border-0 bg-white/50 backdrop-blur-sm">
-            <CardHeader>
-                <div className="flex justify-between items-center">
+        <Card className="shadow-md border-0 bg-white/50 backdrop-blur-sm overflow-hidden">
+            <CardHeader className="border-b border-slate-100/50 bg-white/80">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <CardTitle className="text-lg font-bold text-slate-800">Matrice des Risques (Heatmap)</CardTitle>
-                        <CardDescription>Visualisation stratégique par Gravité (Impact x Probabilité) - Groupée par Catégorie</CardDescription>
+                        <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            Matrice des Risques 
+                            <Badge variant="outline" className={cn(
+                                "text-[10px] uppercase tracking-widest px-2 py-0.5",
+                                mode === 'brut' ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-indigo-50 text-indigo-600 border-indigo-200"
+                            )}>
+                                {mode === 'brut' ? 'Vision Brute' : 'Vision Résiduelle'}
+                            </Badge>
+                        </CardTitle>
+                        <CardDescription>Visualisation stratégique par Gravité (Impact x Probabilité)</CardDescription>
                     </div>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger><Info className="h-5 w-5 text-slate-400" /></TooltipTrigger>
-                            <TooltipContent>
-                                <p>Cliquez sur un risque pour voir les détails. Les risques sont groupés par catégorie.</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
+                    
+                    <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                        <Button 
+                            variant={mode === 'brut' ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => onModeChange?.('brut')}
+                            className={cn(
+                                "h-8 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                                mode === 'brut' ? "bg-white text-slate-900 shadow-sm hover:bg-white" : "text-slate-500 hover:text-slate-800"
+                            )}
+                        >
+                            <ShieldAlert className="h-3.5 w-3.5 mr-2" /> Brut
+                        </Button>
+                        <Button 
+                            variant={mode === 'residuel' ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => onModeChange?.('residuel')}
+                            className={cn(
+                                "h-8 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                                mode === 'residuel' ? "bg-indigo-600 text-white shadow-sm hover:bg-indigo-700" : "text-slate-500 hover:text-slate-800"
+                            )}
+                        >
+                            <ShieldCheck className="h-3.5 w-3.5 mr-2" /> Résiduel
+                        </Button>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="p-1 cursor-help"><Info className="h-4 w-4 text-slate-400" /></div>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-[250px] p-3 text-xs">
+                                    <p className="font-bold mb-1">Modes de visualisation :</p>
+                                    <p className="mb-1"><strong>Brut :</strong> Basé sur la probabilité intrinsèque du risque.</p>
+                                    <p><strong>Résiduel :</strong> Basé sur la probabilité après application des mesures DMR.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent>
