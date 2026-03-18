@@ -1175,8 +1175,12 @@ export default function RiskMappingPage() {
                                 <TableRow key={risk.id} className="group hover:bg-primary/[0.02] transition-all border-b border-slate-200/60 dark:border-slate-800/60 border-l-2 border-l-transparent hover:border-l-primary divide-x divide-slate-100 dark:divide-slate-800/40">
                                   <TableCell className="py-3 px-4">
                                     <div className="flex flex-col gap-0.5">
-                                      <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+                                      <span 
+                                        className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight hover:text-primary transition-colors hover:underline cursor-pointer flex items-center gap-1 group/link"
+                                        onClick={() => openDialog('edit', risk)}
+                                      >
                                         {risk.riskDescription}
+                                        <LinkIcon className="h-3 w-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
                                       </span>
                                       {risk.subFactors && (
                                         <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
@@ -1191,10 +1195,18 @@ export default function RiskMappingPage() {
                                     </div>
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-center">
-                                    <div className={cn("inline-flex flex-col items-center justify-center w-10 h-10 rounded-lg border", styleRes.bg, styleRes.text, styleRes.border)}>
+                                    <button 
+                                      className={cn("inline-flex flex-col items-center justify-center w-10 h-10 rounded-lg border hover:scale-110 transition-transform cursor-pointer shadow-sm relative group", styleRes.bg, styleRes.text, styleRes.border)}
+                                      onClick={() => openDialog('edit', risk)}
+                                    >
                                       <span className="text-sm font-black">{scoreRes}</span>
                                       <span className="text-[7px] font-bold uppercase">{styleRes.label}</span>
-                                    </div>
+                                      <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="bg-white rounded-full p-0.5 shadow-sm border border-slate-100">
+                                          <Edit className="h-1.5 w-1.5 text-slate-400" />
+                                        </div>
+                                      </div>
+                                    </button>
                                   </TableCell>
                                   <TableCell className="py-3 px-4">
                                     <Textarea
