@@ -31,8 +31,9 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({ risks, onEditRisk, mod
 
     const getRisksForCell = (probValue: number, impactValue: number) => {
         return risks.filter(r => {
-            const currentProb = mode === 'residuel' ? (r.dmrProbability || r.probabilite) : r.probabilite;
-            return currentProb === probValue && r.impact === impactValue;
+            const currentProb = mode === 'residuel' ? ((r as any).dmrProbability || r.probabilite) : r.probabilite;
+            const currentImpact = mode === 'residuel' ? ((r as any).dmrEfficiency || r.impact) : r.impact;
+            return currentProb === probValue && currentImpact === impactValue;
         });
     };
 
