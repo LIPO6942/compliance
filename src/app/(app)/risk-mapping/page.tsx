@@ -860,20 +860,6 @@ export default function RiskMappingPage() {
               </DropdownMenuContent>
             </DropdownMenu>
             <Button
-              size="icon"
-              variant="outline"
-              onClick={() => setViewMode('settings')}
-              className={cn(
-                "h-14 w-14 rounded-xl border-2 transition-all hover:scale-[1.02] shadow-lg",
-                viewMode === 'settings'
-                  ? "bg-slate-900 border-slate-900 text-white"
-                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-              )}
-              title="Paramètres"
-            >
-              <Settings className="h-6 w-6" />
-            </Button>
-            <Button
               size="lg"
               onClick={() => openDialog('add')}
               className="h-14 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-lg transition-all hover:scale-[1.02]"
@@ -1015,6 +1001,12 @@ export default function RiskMappingPage() {
             <TabsTrigger value="heatmap" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
               <LayoutGrid className="h-3.5 w-3.5 mr-2" /> Heatmap
             </TabsTrigger>
+            <TabsTrigger value="plan-actions" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+              <ClipboardList className="h-3.5 w-3.5 mr-2" /> Plan d'actions
+            </TabsTrigger>
+            <TabsTrigger value="dmr" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+              <Activity className="h-3.5 w-3.5 mr-2" /> DMR
+            </TabsTrigger>
           </TabsList>
 
           <div className="flex-1 flex flex-nowrap items-center gap-2 w-full overflow-x-auto scrollbar-hide bg-white/50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
@@ -1155,29 +1147,82 @@ export default function RiskMappingPage() {
                                     </div>
                                   </TableCell>
                                   <TableCell className="py-3 px-4">
-                                    <span className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight italic">
-                                      {(risk as any).weaknessPoint || "-"}
-                                    </span>
+                                    <Textarea
+                                      className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight italic bg-transparent border-none focus-visible:ring-1 focus-visible:ring-primary/20 p-1 min-h-[40px] resize-none overflow-hidden"
+                                      defaultValue={(risk as any).weaknessPoint || ""}
+                                      onBlur={(e) => {
+                                        if (e.target.value !== (risk as any).weaknessPoint) {
+                                          editRisk(risk.id, { weaknessPoint: e.target.value } as any);
+                                          toast({ title: "Point de faiblesse mis à jour" });
+                                        }
+                                      }}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="py-3 px-4">
+                                    <Textarea
+                                      className="text-[11px] font-medium text-slate-700 dark:text-slate-300 leading-tight bg-transparent border-none focus-visible:ring-1 focus-visible:ring-primary/20 p-1 min-h-[40px] resize-none overflow-hidden"
+                                      defaultValue={(risk as any).actionCorrective || ""}
+                                      onBlur={(e) => {
+                                        if (e.target.value !== (risk as any).actionCorrective) {
+                                          editRisk(risk.id, { actionCorrective: e.target.value } as any);
+                                          toast({ title: "Action corrective mise à jour" });
+                                        }
+                                      }}
+                                    />
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-center">
-                                    <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 leading-tight">
-                                      {(risk as any).actionCorrective || "-"}
-                                    </span>
+                                    <Input
+                                      type="date"
+                                      className="text-[10px] font-bold text-slate-500 bg-transparent border-none p-1 h-7 focus-visible:ring-1 focus-visible:ring-primary/20"
+                                      defaultValue={(risk as any).deadline || ""}
+                                      onBlur={(e) => {
+                                        if (e.target.value !== (risk as any).deadline) {
+                                          editRisk(risk.id, { deadline: e.target.value } as any);
+                                          toast({ title: "Échéance mise à jour" });
+                                        }
+                                      }}
+                                    />
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-center">
-                                    <span className="text-[11px] font-bold text-slate-500">
-                                      {(risk as any).deadline || "-"}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell className="py-3 px-4 text-center">
-                                    <Badge variant="ghost" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-none font-bold text-[10px]">
-                                      {(risk as any).responsible || "-"}
-                                    </Badge>
+                                    <Input
+                                      className="text-[10px] font-bold text-slate-700 bg-transparent border-none p-1 h-7 text-center focus-visible:ring-1 focus-visible:ring-primary/20"
+                                      defaultValue={(risk as any).responsible || ""}
+                                      onBlur={(e) => {
+                                        if (e.target.value !== (risk as any).responsible) {
+                                          editRisk(risk.id, { responsible: e.target.value } as any);
+                                          toast({ title: "Responsable mis à jour" });
+                                        }
+                                      }}
+                                      placeholder="Nom ou Direction"
+                                    />
                                   </TableCell>
                                   <TableCell className="py-3 px-4">
                                     <div className="flex flex-col gap-1.5 items-center">
-                                      <span className={cn("text-[10px] font-black", completionOptions.find(o => o.value === completion)?.text || "text-slate-500")}>{completion}%</span>
-                                      <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                      <Select
+                                        value={String(completion)}
+                                        onValueChange={(v) => {
+                                          editRisk(risk.id, { completionLevel: Number(v) } as any);
+                                          toast({ title: "Avancement mis à jour" });
+                                          if (user) logAction({ userEmail: user.email, userName: user.name, action: 'PLAN_UPDATE', label: `A modifié l'avancement du risque : ${risk.riskDescription}`, detail: `Avancement: ${v}%`, module: 'Plan d\'actions' });
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-7 w-full border-none bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800 font-black text-[10px] shadow-none p-0 flex justify-center">
+                                          <SelectValue>
+                                            <span className={cn("px-2 py-0.5 rounded-full border", completionOptions.find(o => o.value === completion)?.text || "text-slate-500", completionOptions.find(o => o.value === completion)?.color.replace('bg-', 'bg-').replace('500', '100'))}>{completion}%</span>
+                                          </SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-xl shadow-2xl">
+                                          {completionOptions.map(opt => (
+                                            <SelectItem key={opt.value} value={String(opt.value)} className="font-bold text-[10px]">
+                                              <div className="flex items-center gap-2">
+                                                <div className={cn("w-2 h-2 rounded-full", opt.color)} />
+                                                <span>{opt.label}</span>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                      <div className="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                         <div
                                           className={cn(
                                             "h-full transition-all duration-500",
@@ -1193,11 +1238,11 @@ export default function RiskMappingPage() {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        onClick={() => setViewMode('settings')}
+                                        onClick={() => openDialog('edit', risk)}
                                         className="h-8 w-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-indigo-600 transition-colors"
-                                        title="Paramétrer ce plan d'actions"
+                                        title="Modifier ce risque"
                                       >
-                                        <Settings className="h-4 w-4" />
+                                        <Edit className="h-4 w-4" />
                                       </Button>
                                     </div>
                                   </TableCell>
@@ -1240,9 +1285,71 @@ export default function RiskMappingPage() {
                   <CardTitle className="text-xl font-bold text-slate-800 dark:text-white">Dispositif de Management des Risques (DMR)</CardTitle>
                   <CardDescription className="text-xs text-slate-500 mt-1">Évaluation du risque résiduel et position de la MAE Assurance</CardDescription>
                 </div>
-                <Badge variant="outline" className="h-7 px-3 rounded-lg border-2 border-indigo-100 bg-indigo-50 text-indigo-700 font-bold text-[10px]">
-                  {filteredRisks.length} Scénarios identifiés
-                </Badge>
+                <div className="flex items-center gap-3">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-2 border-indigo-100 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all">
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl p-0 rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white dark:bg-slate-950">
+                      <div className="bg-slate-50/50 dark:bg-slate-900/50 p-8 border-b border-slate-100 dark:border-slate-800">
+                        <DialogHeader>
+                          <DialogTitle className="text-2xl font-black tracking-tight text-slate-800 dark:text-white">Paramètres Généraux des Risques</DialogTitle>
+                          <DialogDescription className="text-[13px] font-semibold text-slate-500 mt-1.5 flex items-center gap-2">
+                            Configuration des textes de la <span className="text-indigo-500 dark:text-indigo-400 font-bold decoration-indigo-200 underline underline-offset-4 decoration-2">Position de la MAE Assurance</span>
+                          </DialogDescription>
+                        </DialogHeader>
+                      </div>
+                      <div className="p-8 space-y-8 max-h-[60vh] overflow-y-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {[
+                            { level: 1, label: "Score ≤ 4 (Faible)", icon: "🛡️", color: "border-emerald-500/30 bg-emerald-50/30 text-emerald-700" },
+                            { level: 2, label: "Score 5 – 8 (Modéré)", icon: "⚠️", color: "border-yellow-500/30 bg-yellow-50/30 text-yellow-700" },
+                            { level: 3, label: "Score 9 – 12 (Élevé)", icon: "🔥", color: "border-orange-500/30 bg-orange-50/30 text-orange-700" },
+                            { level: 4, label: "Score ≥ 13 (Très élevé)", icon: "🚨", color: "border-rose-500/30 bg-rose-50/30 text-rose-700" },
+                          ].map((item) => (
+                            <div key={item.level} className={cn("p-5 rounded-3xl border-2 transition-all hover:shadow-lg space-y-3", item.color)}>
+                              <div className="flex items-center gap-3">
+                                <span className="text-lg">{item.icon}</span>
+                                <Label className="text-[10px] font-black uppercase tracking-widest opacity-70">{item.label}</Label>
+                              </div>
+                              <Textarea
+                                placeholder="Définir le texte pour ce niveau..."
+                                value={tempMaePositions[item.level] || ""}
+                                onChange={(e) => setTempMaePositions({ ...tempMaePositions, [item.level]: e.target.value })}
+                                className="min-h-[80px] bg-white/80 dark:bg-slate-900/80 border-none shadow-inner rounded-xl font-bold text-xs leading-relaxed focus:ring-2 focus:ring-indigo-500/20"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 dark:bg-slate-900/50 p-8 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-3 text-slate-400 italic text-[10px] font-medium">
+                          <Info className="h-4 w-4" />
+                          Ces textes seront utilisés dans le tableau DMR et lors de l'export Excel.
+                        </div>
+                        <Button
+                          onClick={async () => {
+                            for (const [level, text] of Object.entries(tempMaePositions)) {
+                              await updateMaePosition(Number(level), text);
+                            }
+                            toast({
+                              title: "Paramètres enregistrés",
+                              description: "Les positions de la MAE ont été mises à jour.",
+                            });
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest px-8 h-10 rounded-xl shadow-lg transition-all"
+                        >
+                          <Save className="mr-2 h-3.5 w-3.5" /> Enregistrer
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  <Badge variant="outline" className="h-7 px-3 rounded-lg border-2 border-indigo-100 bg-indigo-50 text-indigo-700 font-bold text-[10px]">
+                    {filteredRisks.length} Scénarios identifiés
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -1531,190 +1638,6 @@ export default function RiskMappingPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="settings" className="mt-0 focus-visible:ring-0 space-y-6">
-          <Card className="shadow-2xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
-            <CardHeader className="pb-6 pt-8 px-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 shadow-sm border border-amber-100 dark:border-amber-800/50">
-                  <ClipboardList className="h-6 w-6" />
-                </div>
-                <div>
-                  <CardTitle className="text-2xl font-black tracking-tight text-slate-800 dark:text-white">Configuration du Plan d'actions</CardTitle>
-                  <CardDescription className="text-[13px] font-semibold text-slate-500 mt-1.5">
-                    Gestion centralisée des mesures correctives, responsables et échéances pour chaque risque identifié.
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[30%]">Risque</TableHead>
-                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[30%]">Action Corrective</TableHead>
-                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[15%]">Responsable</TableHead>
-                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[15%]">Échéance</TableHead>
-                      <TableHead className="py-4 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500 text-center w-[10%]">%</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {risks.map((risk) => (
-                      <TableRow key={risk.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 divide-x divide-slate-100 dark:divide-slate-800">
-                        <TableCell className="py-4 px-6">
-                          <div className="flex flex-col gap-1">
-                            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none">{risk.category}</span>
-                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-tight line-clamp-2">{risk.riskDescription}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-4 px-6">
-                          <Textarea
-                            className="text-xs font-semibold bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 min-h-[60px] rounded-xl"
-                            defaultValue={(risk as any).actionCorrective || ""}
-                            onBlur={(e) => {
-                              if (e.target.value !== (risk as any).actionCorrective) {
-                                editRisk(risk.id, { actionCorrective: e.target.value } as any);
-                                toast({ title: "Action mise à jour", description: "Le plan d'action a été actualisé." });
-                                if (user) logAction({ userEmail: user.email, userName: user.name, action: 'PLAN_UPDATE', label: `A modifié l'action corrective du risque : ${risk.riskDescription}`, detail: risk.category, module: 'Plan d\'actions' });
-                              }
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell className="py-4 px-6">
-                          <Input
-                            className="text-xs font-bold bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 h-9 rounded-lg"
-                            defaultValue={(risk as any).responsible}
-                            onBlur={(e) => {
-                              if (e.target.value !== (risk as any).responsible) {
-                                editRisk(risk.id, { responsible: e.target.value } as any);
-                                toast({ title: "Responsable mis à jour" });
-                                if (user) logAction({ userEmail: user.email, userName: user.name, action: 'PLAN_UPDATE', label: `A modifié le responsable du risque : ${risk.riskDescription}`, detail: `Responsable: ${e.target.value}`, module: 'Plan d\'actions' });
-                              }
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell className="py-4 px-6">
-                          <Input
-                            type="date"
-                            className="text-xs font-bold bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 h-9 rounded-lg"
-                            defaultValue={(risk as any).deadline}
-                            onBlur={(e) => {
-                              if (e.target.value !== (risk as any).deadline) {
-                                editRisk(risk.id, { deadline: e.target.value } as any);
-                                toast({ title: "Échéance mise à jour" });
-                                if (user) logAction({ userEmail: user.email, userName: user.name, action: 'PLAN_UPDATE', label: `A modifié l'échéance du risque : ${risk.riskDescription}`, detail: `Échéance: ${e.target.value}`, module: 'Plan d\'actions' });
-                              }
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell className="py-4 px-6">
-                          <div className="flex w-full min-w-[130px] justify-center">
-                            <Select
-                              value={String((risk as any).completionLevel || 0)}
-                              onValueChange={(v) => {
-                                editRisk(risk.id, { completionLevel: Number(v) } as any);
-                                toast({ title: "Avancement mis à jour" });
-                                if (user) logAction({ userEmail: user.email, userName: user.name, action: 'PLAN_UPDATE', label: `A modifié l'avancement du risque : ${risk.riskDescription}`, detail: `Avancement: ${v}%`, module: 'Plan d\'actions' });
-                              }}
-                            >
-                              <SelectTrigger className="h-9 w-full bg-transparent border-slate-200 focus:bg-white dark:focus:bg-slate-950 font-bold text-[10px] rounded-lg shadow-none">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="rounded-xl shadow-2xl">
-                                {completionOptions.map(opt => (
-                                  <SelectItem key={opt.value} value={String(opt.value)} className="font-bold text-[10px]">
-                                    <div className="flex items-center gap-2">
-                                      <div className={cn("w-2 h-2 rounded-full", opt.color)} />
-                                      <span>{opt.label}</span>
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-            <CardFooter className="p-6 bg-slate-50/50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-800 italic text-[11px] text-slate-400 font-medium">
-              <Info className="h-3.5 w-3.5 mr-2 inline" />
-              Les modifications sont enregistrées automatiquement lorsque vous quittez un champ de saisie (onBlur).
-            </CardFooter>
-          </Card>
-
-          <Card className="shadow-2xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
-            <CardHeader className="pb-6 pt-8 px-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-100 dark:border-indigo-800/50">
-                  <Activity className="h-6 w-6" />
-                </div>
-                <div>
-                  <CardTitle className="text-2xl font-black tracking-tight text-slate-800 dark:text-white">Paramètres Généraux des Risques</CardTitle>
-                  <CardDescription className="text-[13px] font-semibold text-slate-500 mt-1.5 flex items-center gap-2">
-                    Configuration des textes de la <span className="text-indigo-500 dark:text-indigo-400 font-bold decoration-indigo-200 underline underline-offset-4 decoration-2">Position de la MAE Assurance</span>
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-10 space-y-10">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {[
-                  { level: 1, label: "Score ≤ 4 (Faible)", icon: "🛡️", color: "border-emerald-500/30 bg-emerald-50/30 text-emerald-700" },
-                  { level: 2, label: "Score 5 – 8 (Modéré)", icon: "⚠️", color: "border-yellow-500/30 bg-yellow-50/30 text-yellow-700" },
-                  { level: 3, label: "Score 9 – 12 (Élevé)", icon: "🔥", color: "border-orange-500/30 bg-orange-50/30 text-orange-700" },
-                  { level: 4, label: "Score ≥ 13 (Très élevé)", icon: "🚨", color: "border-rose-500/30 bg-rose-50/30 text-rose-700" },
-                ].map((item) => (
-                  <div key={item.level} className={cn("p-6 rounded-3xl border-2 transition-all hover:shadow-lg space-y-4", item.color)}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">{item.icon}</span>
-                      <Label className="text-[11px] font-black uppercase tracking-widest opacity-70">{item.label}</Label>
-                    </div>
-                    <Textarea
-                      placeholder="Définir le texte pour ce niveau..."
-                      value={tempMaePositions[item.level] || ""}
-                      onChange={(e) => setTempMaePositions({ ...tempMaePositions, [item.level]: e.target.value })}
-                      className="min-h-[100px] bg-white/80 dark:bg-slate-900/80 border-none shadow-inner rounded-xl font-bold text-sm leading-relaxed focus:ring-2 focus:ring-indigo-500/20"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-3 text-slate-400 italic text-[11px] font-medium">
-                  <Info className="h-4 w-4" />
-                  Ces textes seront utilisés dans le tableau DMR et lors de l'export Excel.
-                </div>
-                <Button
-                  onClick={async () => {
-                    for (const [level, text] of Object.entries(tempMaePositions)) {
-                      await updateMaePosition(Number(level), text);
-                    }
-                    toast({
-                      title: "Paramètres enregistrés",
-                      description: "Les positions de la MAE ont été mises à jour avec succès.",
-                    });
-                    if (user) {
-                      logAction({
-                        userEmail: user.email,
-                        userName: user.name,
-                        action: 'SETTINGS_UPDATE',
-                        label: "A mis à jour les positions de la MAE Assurance",
-                        module: 'Cartographie des Risques'
-                      });
-                    }
-                  }}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest px-10 h-12 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
-                >
-                  <Save className="mr-2 h-4 w-4" /> Enregistrer les positions
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="table" className="mt-0 focus-visible:ring-0">
           <RiskKPIs risks={filteredRisks} />
           <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
@@ -1907,7 +1830,7 @@ export default function RiskMappingPage() {
 
       {/* ─── Add/Edit Risk Dialog ─── */}
       <Dialog open={dialogState.mode === "add" || dialogState.mode === "edit"} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="rounded-[2.5rem] p-0 max-w-3xl border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] overflow-hidden bg-white dark:bg-slate-950">
+        <DialogContent className="rounded-[2.5rem] p-0 max-w-5xl border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] overflow-hidden bg-white dark:bg-slate-950">
           <div className="bg-slate-50/50 dark:bg-slate-900/50 p-10 border-b border-slate-100 dark:border-slate-800">
             <DialogHeader>
               <DialogTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
@@ -2073,7 +1996,7 @@ export default function RiskMappingPage() {
                       <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-200 font-black text-[9px] uppercase tracking-widest">DMR</Badge>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="dmrEfficiency"
@@ -2081,13 +2004,13 @@ export default function RiskMappingPage() {
                           <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-orange-700/70">Niveau d'efficacité <span className="text-orange-500">*</span></FormLabel>
                             <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 2)}>
-                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-orange-200/50 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-orange-200/50 font-bold shadow-sm w-full"><SelectValue /></SelectTrigger></FormControl>
                               <SelectContent className="rounded-xl border-none shadow-2xl">
                                 {dmrEfficiencyLevels.map((level) => (
                                   <SelectItem key={level.value} value={String(level.value)} className="font-bold py-2">
                                     <div className="flex flex-col">
-                                      <span className="text-[10px] uppercase">{level.value} - {level.label}</span>
-                                      <span className="text-[8px] font-normal opacity-60 italic leading-tight">{level.description}</span>
+                                      <span className="text-[10px] uppercase text-slate-800 dark:text-slate-100">{level.value} - {level.label}</span>
+                                      <span className="text-[8px] font-normal opacity-60 italic leading-tight text-slate-500">{level.description}</span>
                                     </div>
                                   </SelectItem>
                                 ))}
@@ -2103,9 +2026,14 @@ export default function RiskMappingPage() {
                           <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-orange-700/70">Proba. DMR <span className="text-orange-500">*</span></FormLabel>
                             <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value || 1)}>
-                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-orange-200/50 font-bold shadow-sm">{field.value}</SelectTrigger></FormControl>
+                              <FormControl><SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-2 border-orange-200/50 font-bold shadow-sm w-full"><SelectValue /></SelectTrigger></FormControl>
                               <SelectContent className="rounded-xl border-none shadow-2xl">
-                                {[1, 2, 3, 4].map((v) => <SelectItem key={v} value={String(v)} className="font-bold">{v} - {probabiliteLabels[v].label}</SelectItem>)}
+                                {[1, 2, 3, 4].map((v) => <SelectItem key={v} value={String(v)} className="font-bold">
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] uppercase">{v} - {probabiliteLabels[v].label}</span>
+                                    <span className="text-[8px] font-normal opacity-60 italic leading-tight">{probabiliteLabels[v].description}</span>
+                                  </div>
+                                </SelectItem>)}
                               </SelectContent>
                             </Select>
                           </FormItem>
