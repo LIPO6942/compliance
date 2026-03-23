@@ -25,7 +25,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import type { RiskMappingItem, RiskLevel, RiskCategory, Document } from '@/types/compliance';
+import type { RiskMappingItem, RiskLevel, RiskCategory, Document, ActionItem } from '@/types/compliance';
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
 import { useActivityLog } from "@/contexts/ActivityLogContext";
 import { useUser } from "@/contexts/UserContext";
@@ -556,6 +556,66 @@ const formatMitigationMeasures = (text: string) => {
       ))}
     </ul>
   );
+};
+
+// ────────────────────────────────────────────────────────────────────────────
+// ACTION ITEMS — Utilités pour les actions correctives en points
+// ────────────────────────────────────────────────────────────────────────────
+
+const actionStatusConfig: Record<number, { label: string; short: string; color: string; bg: string; border: string }> = {
+  0:   { label: 'Non initié', short: '0%',   color: 'text-slate-500',   bg: 'bg-slate-100 dark:bg-slate-800',        border: 'border-slate-200 dark:border-slate-700' },
+  33:  { label: 'Initié',     short: '33%',  color: 'text-blue-600',    bg: 'bg-blue-50 dark:bg-blue-900/30',        border: 'border-blue-200 dark:border-blue-800' },
+  66:  { label: 'En cours',   short: '66%',  color: 'text-orange-600',  bg: 'bg-orange-50 dark:bg-orange-900/30',    border: 'border-orange-200 dark:border-orange-800' },
+  100: { label: 'Réalisé',    short: '100%', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30',  border: 'border-emerald-200 dark:border-emerald-800' },
+};
+
+const cycleActionStatus = (s: number): 0 | 33 | 66 | 100 => {
+  if (s === 0) return 33;
+  if (s === 33) return 66;
+  if (s === 66) return 100;
+  return 0;
+};
+
+/** Parse legacy actionCorrective string into ActionItem[] */
+const parseActionItems = (text?: string): ActionItem[] => {
+  if (!text) return [];
+  const items = text.split(/[\n\+;•]+/).map(item => item.trim()).filter(item => item.length > 0);
+  return items.map((t, i) => ({ id: `migrated-${i}-${Date.now()}`, text: t.replace(/^[-–]\s*/, ''), status: 0 as 0 | 33 | 66 | 100 }));
+};
+
+/** Get the action items for a risk, falling back to parsing actionCorrective */
+const getActionItems = (risk: RiskMappingItem): ActionItem[] => {
+  if (risk.actionItems && risk.actionItems.length > 0) return risk.actionItems;
+  return parseActionItems(risk.actionCorrective);
+};
+
+/** Compute average completion for a single risk's action items */
+const getRiskAvgCompletion = (risk: RiskMappingItem): number => {
+  const items = getActionItems(risk);
+  if (items.length === 0) return risk.completionLevel || 0;
+  const sum = items.reduce((acc, item) => acc + item.status, 0);
+  return Math.round(sum / items.length);
+};
+
+/** Compute global average across all risks */
+const getGlobalAvgCompletion = (risks: RiskMappingItem[]): number => {
+  if (risks.length === 0) return 0;
+  const sum = risks.reduce((acc, r) => acc + getRiskAvgCompletion(r), 0);
+  return Math.round(sum / risks.length);
+};
+
+/** Get a color class for a given average % */
+const getAvgCompletionColor = (avg: number): string => {
+  if (avg >= 80) return 'text-emerald-600';
+  if (avg >= 50) return 'text-orange-600';
+  if (avg >= 20) return 'text-blue-600';
+  return 'text-slate-500';
+};
+const getAvgCompletionBarColor = (avg: number): string => {
+  if (avg >= 80) return 'bg-emerald-500';
+  if (avg >= 50) return 'bg-orange-500';
+  if (avg >= 20) return 'bg-blue-500';
+  return 'bg-slate-400';
 };
 
 const riskLevelColors: Record<RiskLevel, string> = {
@@ -1240,16 +1300,65 @@ export default function RiskMappingPage() {
                                     />
                                   </TableCell>
                                   <TableCell className="py-3 px-4">
-                                    <Textarea
-                                      className="text-[11px] font-medium text-slate-700 dark:text-slate-300 leading-tight bg-transparent border-none focus-visible:ring-1 focus-visible:ring-primary/20 p-1 min-h-[40px] resize-none overflow-hidden"
-                                      defaultValue={(risk as any).actionCorrective || ""}
-                                      onBlur={(e) => {
-                                        if (e.target.value !== (risk as any).actionCorrective) {
-                                          editRisk(risk.id, { actionCorrective: e.target.value } as any);
-                                          toast({ title: "Action corrective mise à jour" });
-                                        }
-                                      }}
-                                    />
+                                    {(() => {
+                                      const items = getActionItems(risk);
+                                      const hasItems = items.length > 0;
+                                      if (!hasItems) {
+                                        return (
+                                          <Textarea
+                                            className="text-[11px] font-medium text-slate-700 dark:text-slate-300 leading-tight bg-transparent border-none focus-visible:ring-1 focus-visible:ring-primary/20 p-1 min-h-[40px] resize-none overflow-hidden"
+                                            defaultValue=""
+                                            placeholder="Séparez par des retours à la ligne…"
+                                            onBlur={(e) => {
+                                              if (e.target.value) {
+                                                const newItems = parseActionItems(e.target.value);
+                                                editRisk(risk.id, {
+                                                  actionCorrective: e.target.value,
+                                                  actionItems: newItems,
+                                                  completionLevel: 0,
+                                                } as any);
+                                                toast({ title: "Actions correctives ajoutées" });
+                                              }
+                                            }}
+                                          />
+                                        );
+                                      }
+                                      return (
+                                        <div className="space-y-1.5">
+                                          {items.map((item, idx) => {
+                                            const cfg = actionStatusConfig[item.status] || actionStatusConfig[0];
+                                            return (
+                                              <div key={item.id || idx} className="flex items-start gap-1.5 group/action">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    const newStatus = cycleActionStatus(item.status);
+                                                    const updatedItems = items.map((it, i) => i === idx ? { ...it, status: newStatus } : it);
+                                                    const newAvg = Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length);
+                                                    editRisk(risk.id, {
+                                                      actionItems: updatedItems,
+                                                      completionLevel: newAvg,
+                                                      actionCorrective: updatedItems.map(it => it.text).join('\n'),
+                                                    } as any);
+                                                    toast({ title: `${cfg.label} → ${actionStatusConfig[newStatus].label}` });
+                                                  }}
+                                                  className={cn(
+                                                    "mt-0.5 flex-shrink-0 text-[8px] font-black px-1.5 py-0.5 rounded-md border transition-all hover:scale-110 cursor-pointer",
+                                                    cfg.bg, cfg.color, cfg.border
+                                                  )}
+                                                  title={`${cfg.label} — Cliquer pour changer`}
+                                                >
+                                                  {cfg.short}
+                                                </button>
+                                                <span className={cn("text-[11px] leading-snug", item.status === 100 ? "line-through text-slate-400" : "text-slate-700 dark:text-slate-300")}>
+                                                  {item.text}
+                                                </span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })()}
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-center">
                                     <Input
@@ -1278,41 +1387,25 @@ export default function RiskMappingPage() {
                                     />
                                   </TableCell>
                                   <TableCell className="py-3 px-4">
-                                    <div className="flex flex-col gap-1.5 items-center">
-                                      <Select
-                                        value={String(completion)}
-                                        onValueChange={(v) => {
-                                          editRisk(risk.id, { completionLevel: Number(v) } as any);
-                                          toast({ title: "Avancement mis à jour" });
-                                          if (user) logAction({ userEmail: user.email, userName: user.name, action: 'PLAN_UPDATE', label: `A modifié l'avancement du risque : ${risk.riskDescription}`, detail: `Avancement: ${v}%`, module: 'Plan d\'actions' });
-                                        }}
-                                      >
-                                        <SelectTrigger className="h-7 w-full border-none bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800 font-black text-[10px] shadow-none p-0 flex justify-center">
-                                          <SelectValue>
-                                            <span className={cn("px-2 py-0.5 rounded-full border", completionOptions.find(o => o.value === completion)?.text || "text-slate-500", completionOptions.find(o => o.value === completion)?.color.replace('bg-', 'bg-').replace('500', '100'))}>{completion}%</span>
-                                          </SelectValue>
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-xl shadow-2xl">
-                                          {completionOptions.map(opt => (
-                                            <SelectItem key={opt.value} value={String(opt.value)} className="font-bold text-[10px]">
-                                              <div className="flex items-center gap-2">
-                                                <div className={cn("w-2 h-2 rounded-full", opt.color)} />
-                                                <span>{opt.label}</span>
-                                              </div>
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                      <div className="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                        <div
-                                          className={cn(
-                                            "h-full transition-all duration-500",
-                                            completionOptions.find(o => o.value === completion)?.color || "bg-slate-400"
-                                          )}
-                                          style={{ width: `${completion}%` }}
-                                        />
-                                      </div>
-                                    </div>
+                                    {(() => {
+                                      const avg = getRiskAvgCompletion(risk);
+                                      const avgColor = getAvgCompletionColor(avg);
+                                      const barColor = getAvgCompletionBarColor(avg);
+                                      return (
+                                        <div className="flex flex-col gap-1.5 items-center">
+                                          <span className={cn("text-sm font-black", avgColor)}>{avg}%</span>
+                                          <span className="text-[8px] font-bold text-slate-400 uppercase">
+                                            {avg === 0 ? 'Non initié' : avg === 100 ? 'Réalisé' : avg >= 50 ? 'En cours' : 'Initié'}
+                                          </span>
+                                          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <div
+                                              className={cn("h-full transition-all duration-500 rounded-full", barColor)}
+                                              style={{ width: `${avg}%` }}
+                                            />
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-right">
                                     <div className="flex justify-end">
@@ -1343,6 +1436,35 @@ export default function RiskMappingPage() {
                   </TableBody>
                 </Table>
               </div>
+              {/* ── Barre de synthèse globale ── */}
+              {filteredRisks.length > 0 && (
+                <div className="px-8 py-5 bg-slate-50/80 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center justify-between gap-6">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <Activity className="h-4.5 w-4.5 text-primary h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Avancement Moyen Global</p>
+                        <p className="text-xs font-bold text-slate-600 dark:text-slate-300">Moyenne pondérée de l'ensemble des actions correctives</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 min-w-[240px]">
+                      <div className="flex-1">
+                        <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={cn("h-full transition-all duration-700 rounded-full", getAvgCompletionBarColor(getGlobalAvgCompletion(filteredRisks)))}
+                            style={{ width: `${getGlobalAvgCompletion(filteredRisks)}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className={cn("text-2xl font-black tracking-tight", getAvgCompletionColor(getGlobalAvgCompletion(filteredRisks)))}>
+                        {getGlobalAvgCompletion(filteredRisks)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

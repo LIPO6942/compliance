@@ -146,6 +146,13 @@ export interface SensitizationCampaign {
 
 // Risk Mapping Types
 export type RiskLevel = "Faible" | "Modéré" | "Élevé" | "Très élevé";
+
+// Action item for Plan d'actions (one bullet point per corrective action)
+export interface ActionItem {
+  id: string;           // unique identifier (uuid-like)
+  text: string;         // description of the action
+  status: 0 | 33 | 66 | 100; // 0=Non initié, 33=Initié, 66=En cours, 100=Réalisé
+}
 export type RiskCategory = "Clients" | "Produits et Services" | "Pays et Zones Géographiques" | "Canaux de Distribution";
 
 // Legacy types kept for backward compatibility
@@ -172,7 +179,8 @@ export interface RiskMappingItem {
   dmrEfficiency?: number; // 1 to 4
   dmrProbability?: number; // 1 to 4
   weaknessPoint?: string; // Point de faiblesse
-  actionCorrective?: string; // Action corrective
+  actionCorrective?: string; // Action corrective (texte libre, compat ascendante)
+  actionItems?: ActionItem[]; // Actions correctives structurées (liste de points)
   deadline?: string; // Échéance
   responsible?: string; // Responsable
   completionLevel?: number; // Niveau d'avancement (0-100)

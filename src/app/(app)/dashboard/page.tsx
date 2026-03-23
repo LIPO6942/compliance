@@ -9,7 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveCont
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
-import type { RiskMappingItem, ActivityItem, ComplianceTask } from "@/types/compliance";
+import type { RiskMappingItem, ActivityItem, ComplianceTask, ActionItem } from "@/types/compliance";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/icons/Logo";
 import { useNews } from "@/contexts/NewsContext";
@@ -37,6 +37,21 @@ export default function DashboardPage() {
   const { documents } = useDocuments();
   const { identifiedRegulations } = useIdentifiedRegulations();
   const { risks, editRisk } = useRiskMapping();
+
+  // Utilités pour le cycle des points d'action (idempotent avec risk-mapping/page)
+  const cycleActionStatus = (s: number): 0 | 33 | 66 | 100 => {
+    if (s === 0) return 33;
+    if (s === 33) return 66;
+    if (s === 66) return 100;
+    return 0;
+  };
+
+  const actionStatusConfig: Record<number, { label: string; short: string; color: string; bg: string; border: string }> = {
+    0:   { label: 'Non initié', short: '0%',   color: 'text-slate-500',   bg: 'bg-slate-100 dark:bg-slate-800',        border: 'border-slate-200 dark:border-slate-700' },
+    33:  { label: 'Initié',     short: '33%',  color: 'text-blue-600',    bg: 'bg-blue-50 dark:bg-blue-900/30',        border: 'border-blue-200 dark:border-blue-800' },
+    66:  { label: 'En cours',   short: '66%',  color: 'text-orange-600',  bg: 'bg-orange-50 dark:bg-orange-900/30',    border: 'border-orange-200 dark:border-orange-800' },
+    100: { label: 'Réalisé',    short: '100%', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30',  border: 'border-emerald-200 dark:border-emerald-800' },
+  };
   const { news, loading: newsLoading, refetchNews, dismissNewsItem } = useNews();
   const { events: timelineEvents, toggleValidation } = useTimeline();
   const [isLoading, setIsLoading] = React.useState(true);
@@ -418,51 +433,139 @@ export default function DashboardPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
+                    {/* Global average header */}
+                    {(() => {
+                      const risksWithActions = risks.filter(r => {
+                        const items = r.actionItems && r.actionItems.length > 0 ? r.actionItems : (r.actionCorrective ? r.actionCorrective.split(/[\n\+;•]+/).map(s => s.trim()).filter(s => s.length > 0) : []);
+                        return items.length > 0;
+                      });
+                      if (risksWithActions.length === 0) return null;
+                      const globalAvg = Math.round(risksWithActions.reduce((sum, r) => {
+                        const items: ActionItem[] = r.actionItems && r.actionItems.length > 0 ? r.actionItems : (r.actionCorrective ? r.actionCorrective.split(/[\n\+;•]+/).map((s, i) => ({ id: `d-${i}`, text: s.trim(), status: 0 as 0|33|66|100 })).filter(it => it.text.length > 0) : []);
+                        if (items.length === 0) return sum;
+                        return sum + Math.round(items.reduce((a, it) => a + it.status, 0) / items.length);
+                      }, 0) / risksWithActions.length);
+                      const barColor = globalAvg >= 80 ? 'bg-emerald-500' : globalAvg >= 50 ? 'bg-orange-500' : globalAvg >= 20 ? 'bg-blue-500' : 'bg-slate-400';
+                      const textColor = globalAvg >= 80 ? 'text-emerald-600' : globalAvg >= 50 ? 'text-orange-600' : globalAvg >= 20 ? 'text-blue-600' : 'text-slate-500';
+                      return (
+                        <div className="px-4 py-3 bg-slate-50/80 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <Activity className="h-3.5 w-3.5 text-primary" />
+                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Avancement Global</span>
+                            </div>
+                            <span className={cn("text-lg font-black", textColor)}>{globalAvg}%</span>
+                          </div>
+                          <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-2">
+                            <div className={cn("h-full rounded-full transition-all duration-700", barColor)} style={{ width: `${globalAvg}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <div className="divide-y divide-slate-50 dark:divide-slate-800 relative z-10">
                       {risks
-                        .filter(r => (r.completionLevel || 0) < 100 && r.actionCorrective)
-                        .slice(0, 4)
-                        .map(risk => (
-                          <div key={risk.id} className="p-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors group/item">
-                            <div className="flex justify-between items-start gap-4 mb-3">
-                              <p className="text-xs font-bold leading-tight text-slate-700 dark:text-slate-300 line-clamp-2 pr-4">{risk.actionCorrective}</p>
-                              <span className="text-[10px] font-black text-slate-400 whitespace-nowrap bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{risk.completionLevel || 0}%</span>
-                            </div>
+                        .filter(r => {
+                          const items = r.actionItems && r.actionItems.length > 0 ? r.actionItems : (r.actionCorrective ? r.actionCorrective.split(/[\n\+;•]+/).map(s => s.trim()).filter(s => s.length > 0) : []);
+                          return items.length > 0;
+                        })
+                        .filter(r => {
+                          const items: ActionItem[] = r.actionItems && r.actionItems.length > 0 ? r.actionItems : [];
+                          const avg = items.length > 0 ? Math.round(items.reduce((a, it) => a + it.status, 0) / items.length) : (r.completionLevel || 0);
+                          return avg < 100;
+                        })
+                        .slice(0, 5)
+                        .map(risk => {
+                          const items: ActionItem[] = risk.actionItems && risk.actionItems.length > 0 ? risk.actionItems : (risk.actionCorrective ? risk.actionCorrective.split(/[\n\+;•]+/).map((s, i) => ({ id: `d-${i}`, text: s.trim(), status: 0 as 0|33|66|100 })).filter(it => it.text.length > 0) : []);
+                          const avg = items.length > 0 ? Math.round(items.reduce((a, it) => a + it.status, 0) / items.length) : 0;
+                          const completedCount = items.filter(it => it.status === 100).length;
+                          const avgColor = avg >= 80 ? 'text-emerald-600' : avg >= 50 ? 'text-orange-600' : avg >= 20 ? 'text-blue-600' : 'text-slate-500';
+                          const barColor = avg >= 80 ? 'bg-emerald-500' : avg >= 50 ? 'bg-orange-500' : avg >= 20 ? 'bg-blue-500' : 'bg-slate-400';
 
-                            {/* Le Smart Tracker interactif */}
-                            <div className="flex gap-1.5 h-2 w-full">
-                              {[20, 40, 60, 80, 100].map((step, idx) => {
-                                const currentLevel = risk.completionLevel || 0;
-                                const isFilled = currentLevel >= step;
-                                let fillColor = "bg-slate-200 dark:bg-slate-700"; // par defaut
-                                if (isFilled) {
-                                  if (currentLevel <= 20) fillColor = "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]";
-                                  else if (currentLevel <= 40) fillColor = "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]";
-                                  else if (currentLevel <= 60) fillColor = "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]";
-                                  else if (currentLevel <= 80) fillColor = "bg-lime-500 shadow-[0_0_8px_rgba(132,204,22,0.4)]";
-                                  else if (currentLevel <= 100) fillColor = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]";
-                                }
+                          // Deadline indicator — 🔴 overdue, 🟠 <7d, 🟡 <30d, 🟢 future
+                          let deadlineIndicator: React.ReactNode = null;
+                          if (risk.deadline) {
+                            const now = startOfDay(new Date());
+                            const dlDate = parseISO(risk.deadline);
+                            const daysLeft = differenceInDays(dlDate, now);
+                            let dlColor = 'bg-emerald-500'; // > 30 days
+                            let dlText = 'text-emerald-600';
+                            let dlLabel = format(dlDate, 'dd/MM/yy');
+                            if (daysLeft < 0) { dlColor = 'bg-rose-500'; dlText = 'text-rose-600'; dlLabel = 'Dépassée'; }
+                            else if (daysLeft <= 7) { dlColor = 'bg-orange-500'; dlText = 'text-orange-600'; dlLabel = `${daysLeft}j`; }
+                            else if (daysLeft <= 30) { dlColor = 'bg-yellow-500'; dlText = 'text-yellow-600'; dlLabel = `${daysLeft}j`; }
+                            deadlineIndicator = (
+                              <div className="flex items-center gap-1">
+                                <div className={cn("h-1.5 w-1.5 rounded-full", dlColor)} />
+                                <span className={cn("text-[8px] font-black uppercase", dlText)}>{dlLabel}</span>
+                              </div>
+                            );
+                          }
 
-                                return (
-                                  <div
-                                    key={step}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      editRisk(risk.id, { completionLevel: currentLevel === step && step === 20 ? 0 : step } as any);
-                                      toast({ title: "Avancement validé", description: `Plan d'action mis à jour à ${currentLevel === step && step === 20 ? 0 : step}%` });
-                                    }}
-                                    className={cn(
-                                      "flex-1 rounded-full cursor-pointer transition-all duration-300 hover:scale-y-150 hover:-translate-y-0.5",
-                                      fillColor,
-                                      !isFilled && "hover:bg-slate-300 dark:hover:bg-slate-600"
-                                    )}
-                                  />
-                                );
-                              })}
+                          return (
+                            <div key={risk.id} className="p-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors group/item">
+                              <div className="flex justify-between items-start gap-3 mb-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[11px] font-bold leading-tight text-slate-700 dark:text-slate-300 line-clamp-1">{risk.riskDescription}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[8px] font-black text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">{completedCount}/{items.length} points</span>
+                                    {deadlineIndicator}
+                                  </div>
+                                </div>
+                                <span className={cn("text-sm font-black whitespace-nowrap", avgColor)}>{avg}%</span>
+                              </div>
+
+                              {/* Points d'actions interactifs */}
+                              <div className="space-y-1 mt-2 mb-3">
+                                {items.slice(0, 2).map((item, idx) => {
+                                  const cfg = actionStatusConfig[item.status] || actionStatusConfig[0];
+                                  return (
+                                    <div key={item.id || idx} className="flex items-start gap-1.5 group/point">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const newStatus = cycleActionStatus(item.status);
+                                          const updatedItems = items.map((it, i) => i === idx ? { ...it, status: newStatus } : it);
+                                          const newAvg = Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length);
+                                          editRisk(risk.id, {
+                                            actionItems: updatedItems,
+                                            completionLevel: newAvg,
+                                            actionCorrective: updatedItems.map(it => it.text).join('\n'),
+                                          } as any);
+                                          toast({ 
+                                            title: "Mise à jour rapide", 
+                                            description: `${item.text.substring(0, 30)}... → ${actionStatusConfig[newStatus].label}`
+                                          });
+                                          if (user) logAction({ userEmail: user.email, userName: user.name, action: 'PLAN_UPDATE', label: `Mise à jour via Dashboard: ${risk.riskDescription}`, detail: `Status: ${newStatus}%`, module: 'Tableau de bord' });
+                                        }}
+                                        className={cn(
+                                          "flex-shrink-0 text-[7px] font-black px-1 py-0.5 rounded border transition-all hover:scale-110",
+                                          cfg.bg, cfg.color, cfg.border
+                                        )}
+                                      >
+                                        {cfg.short}
+                                      </button>
+                                      <span className={cn(
+                                        "text-[9px] leading-tight line-clamp-1", 
+                                        item.status === 100 ? "line-through text-slate-400" : "text-slate-600 dark:text-slate-400"
+                                      )}>
+                                        {item.text}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                                {items.length > 2 && (
+                                  <p className="text-[8px] text-slate-400 italic pl-1">+ {items.length - 2} autres actions...</p>
+                                )}
+                              </div>
+
+                              <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div className={cn("h-full rounded-full transition-all duration-500", barColor)} style={{ width: `${avg}%` }} />
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      {risks.filter(r => (r.completionLevel || 0) < 100 && r.actionCorrective).length === 0 && (
+                          );
+                        })}
+                      {risks.filter(r => (r.actionItems && r.actionItems.length > 0) || r.actionCorrective).length === 0 && (
                         <div className="p-8 text-center text-slate-400 text-xs italic font-medium">
                           Aucune action corrective en attente.
                         </div>
@@ -472,8 +575,8 @@ export default function DashboardPage() {
                 </Card>
               </TooltipTrigger>
               <TooltipContent side="right">
-                <p className="font-bold mb-1">Actions Correctives (Smart Tracker)</p>
-                <p className="text-xs">Cliquez directement sur un segment pour définir l'avancement (0, 20, 40, 60, 80 ou 100%).</p>
+                <p className="font-bold mb-1">Actions Correctives</p>
+                <p className="text-xs">Avancement par risque avec indicateur d'échéance. 🔴 Dépassée 🟠 {'<'}7j 🟡 {'<'}30j 🟢 OK</p>
               </TooltipContent>
             </Tooltip>
           </div>
