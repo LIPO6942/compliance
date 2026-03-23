@@ -49,6 +49,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  SheetTrigger,
 } from "@/components/ui/sheet";
 
 const riskSchema = z.object({
@@ -579,8 +580,13 @@ const cycleActionStatus = (s: number): 0 | 33 | 66 | 100 => {
 /** Parse legacy actionCorrective string into ActionItem[] */
 const parseActionItems = (text?: string): ActionItem[] => {
   if (!text) return [];
+  // Use a hash-like ID for stability across renders instead of random/Date.now
   const items = text.split(/[\n\+;•]+/).map(item => item.trim()).filter(item => item.length > 0);
-  return items.map((t, i) => ({ id: `migrated-${i}-${Date.now()}`, text: t.replace(/^[-–]\s*/, ''), status: 0 as 0 | 33 | 66 | 100 }));
+  return items.map((t, i) => ({ 
+    id: `mig-${i}-${t.substring(0, 10).replace(/\s/g, '-')}`, 
+    text: t.replace(/^[-–]\s*/, ''), 
+    status: 0 as 0 | 33 | 66 | 100 
+  }));
 };
 
 /** Get the action items for a risk, falling back to parsing actionCorrective */
@@ -1281,7 +1287,7 @@ export default function RiskMappingPage() {
                         return Object.entries(grouped).map(([category, categoryRisks]) => (
                           <React.Fragment key={category}>
                             <TableRow className="bg-slate-50/80 dark:bg-slate-900/40 border-y border-slate-200/50 dark:border-slate-800/50">
-                              <TableCell colSpan={9} className="py-2.5 px-4 border-l-4 border-l-primary">
+                              <TableCell colSpan={8} className="py-2.5 px-4 border-l-4 border-l-primary">
                                 <div className="flex items-center gap-2.5">
                                   <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                                   <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200">{category}</span>
@@ -1392,23 +1398,23 @@ export default function RiskMappingPage() {
                                             </div>
                                           </div>
                                           
-                                          <div className="w-full space-y-1.5">
+                                          <div className="w-full text-left space-y-1">
                                             {getActionItems(risk).length > 0 ? (
                                               <>
-                                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium text-left line-clamp-1 italic">
+                                                <p className="text-[10px] text-slate-500 font-medium line-clamp-1 italic m-0">
                                                   {getActionItems(risk)[0].text}
-                                                </div>
+                                                </p>
                                                 {getActionItems(risk).length > 1 && (
-                                                  <div className="flex items-center gap-1">
-                                                    <Badge variant="outline" className="text-[8px] h-4 px-1 py-0 border-slate-200 text-slate-400 font-bold bg-white">
+                                                  <div className="flex items-center gap-1.5 h-4">
+                                                    <span className="text-[8px] font-bold text-slate-400 border border-slate-200 px-1 rounded bg-white">
                                                       +{getActionItems(risk).length - 1} autre{getActionItems(risk).length > 2 ? 's' : ''}
-                                                    </Badge>
-                                                    <div className="flex-1 h-[2px] bg-slate-100 dark:bg-slate-800 rounded-full" />
+                                                    </span>
+                                                    <div className="flex-1 h-px bg-slate-100" />
                                                   </div>
                                                 )}
                                               </>
                                             ) : (
-                                              <div className="text-[10px] text-slate-400 italic">Aucune action définie</div>
+                                              <p className="text-[10px] text-slate-400 italic m-0">Aucune action définie</p>
                                             )}
                                           </div>
                                         </Button>
@@ -1440,9 +1446,9 @@ export default function RiskMappingPage() {
                                               <div className="space-y-4">
                                                 <div className="flex items-center justify-between">
                                                   <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Liste des points ({getActionItems(risk).length})</h4>
-                                                  <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", getAvgCompletionColor(getRiskAvgCompletion(risk)))}>
+                                                  <div className={cn("text-[10px] font-bold px-2 py-0.5 border rounded-full", getAvgCompletionColor(getRiskAvgCompletion(risk)))}>
                                                     Avancement : {getRiskAvgCompletion(risk)}%
-                                                  </Badge>
+                                                  </div>
                                                 </div>
                                                 
                                                 {getActionItems(risk).length === 0 ? (
@@ -1464,9 +1470,11 @@ export default function RiskMappingPage() {
                                                               onClick={() => {
                                                                 const newStatus = cycleActionStatus(item.status);
                                                                 const updatedItems = items.map(it => it.id === item.id ? { ...it, status: newStatus } : it);
+                                                                const sumStatus = updatedItems.reduce((acc, it) => acc + it.status, 0);
+                                                                const newAvg = updatedItems.length > 0 ? Math.round(sumStatus / updatedItems.length) : (risk.completionLevel || 0);
                                                                 editRisk(risk.id, {
                                                                   actionItems: updatedItems,
-                                                                  completionLevel: Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length),
+                                                                  completionLevel: newAvg,
                                                                   actionCorrective: updatedItems.map(it => it.text).join('\n'),
                                                                 } as any);
                                                                 toast({ title: `Statut : ${actionStatusConfig[newStatus].label}` });
@@ -1491,7 +1499,8 @@ export default function RiskMappingPage() {
                                                                   const newVal = e.target.value.trim();
                                                                   if (!newVal) {
                                                                     const updatedItems = items.filter(it => it.id !== item.id);
-                                                                    const newAvg = updatedItems.length > 0 ? Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length) : (risk.completionLevel || 0);
+                                                                    const sumStatus = updatedItems.reduce((acc, it) => acc + it.status, 0);
+                                                                    const newAvg = updatedItems.length > 0 ? Math.round(sumStatus / updatedItems.length) : (risk.completionLevel || 0);
                                                                     editRisk(risk.id, {
                                                                       actionItems: updatedItems,
                                                                       completionLevel: newAvg,
@@ -1516,7 +1525,8 @@ export default function RiskMappingPage() {
                                                               className="h-8 w-8 rounded-lg opacity-0 group-hover/action:opacity-100 text-slate-300 hover:text-rose-500 transition-all shrink-0"
                                                               onClick={() => {
                                                                 const updatedItems = items.filter(it => it.id !== item.id);
-                                                                const newAvg = updatedItems.length > 0 ? Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length) : (risk.completionLevel || 0);
+                                                                const sumStatus = updatedItems.reduce((acc, it) => acc + it.status, 0);
+                                                                const newAvg = updatedItems.length > 0 ? Math.round(sumStatus / updatedItems.length) : (risk.completionLevel || 0);
                                                                 editRisk(risk.id, {
                                                                   actionItems: updatedItems,
                                                                   completionLevel: newAvg,
@@ -1654,7 +1664,7 @@ export default function RiskMappingPage() {
                       })()
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={9} className="h-40 text-center text-slate-400 text-sm font-bold">
+                        <TableCell colSpan={8} className="h-40 text-center text-slate-400 text-sm font-bold">
                           Aucune action planifiée correspondante
                         </TableCell>
                       </TableRow>
