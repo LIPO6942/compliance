@@ -1227,6 +1227,35 @@ export default function RiskMappingPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
+              {/* ── Barre de synthèse globale ── */}
+              {filteredRisks.length > 0 && (
+                <div className="px-8 py-5 bg-slate-50/80 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center justify-between gap-6">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <Activity className="h-4.5 w-4.5 text-primary h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Avancement Moyen Global</p>
+                        <p className="text-xs font-bold text-slate-600 dark:text-slate-300">Moyenne pondérée de l'ensemble des actions correctives</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 min-w-[240px]">
+                      <div className="flex-1">
+                        <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={cn("h-full transition-all duration-700 rounded-full", getAvgCompletionBarColor(getGlobalAvgCompletion(filteredRisks)))}
+                            style={{ width: `${getGlobalAvgCompletion(filteredRisks)}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className={cn("text-2xl font-black tracking-tight", getAvgCompletionColor(getGlobalAvgCompletion(filteredRisks)))}>
+                        {getGlobalAvgCompletion(filteredRisks)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="overflow-x-auto">
                 <Table className="border-collapse">
                   <TableHeader>
