@@ -1263,17 +1263,17 @@ export default function RiskMappingPage() {
                 </div>
               )}
               <div className="overflow-x-auto">
-                <Table className="border-collapse">
+                <Table className="border-collapse table-fixed min-w-[1200px]">
                   <TableHeader>
                     <TableRow className="bg-slate-50/80 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800">
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[20%]">Facteurs et sous-facteurs</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[8%]">Cotation Net</TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[12%]">Point de faiblesse <span className="text-blue-500 font-bold">*</span></TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[20%]">Action corrective <span className="text-blue-500 font-bold">*</span></TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none text-center w-[8%]">Échéance <span className="text-blue-500 font-bold">*</span></TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[10%]">Responsable <span className="text-blue-500 font-bold">*</span></TableHead>
-                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[12%] text-center">Niveau d'avancement <span className="text-blue-500 font-bold">*</span></TableHead>
-                      <TableHead className="py-3 px-4 text-right font-bold uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400 border-none w-[5%]">Actions</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[22%] whitespace-pre-wrap">Facteurs et sous-facteurs</TableHead>
+                      <TableHead className="py-3 px-2 font-bold uppercase tracking-wider text-[10px] text-slate-500 text-center w-[100px]">Cotation Net</TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[15%]">Point de faiblesse <span className="text-blue-500 font-bold">*</span></TableHead>
+                      <TableHead className="py-3 px-4 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[20%]">Action corrective <span className="text-blue-500 font-bold">*</span></TableHead>
+                      <TableHead className="py-3 px-2 font-bold uppercase tracking-wider text-[10px] text-slate-500 text-center w-[110px]">Échéance <span className="text-blue-500 font-bold">*</span></TableHead>
+                      <TableHead className="py-3 px-2 font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[130px]">Responsable <span className="text-blue-500 font-bold">*</span></TableHead>
+                      <TableHead className="py-3 px-2 font-bold uppercase tracking-wider text-[10px] text-slate-500 text-center w-[110px]">Progression <span className="text-blue-500 font-bold">*</span></TableHead>
+                      <TableHead className="py-3 px-2 text-right font-bold uppercase tracking-wider text-[10px] text-slate-500 w-[50px]">...</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
