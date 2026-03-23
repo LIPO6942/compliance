@@ -18,13 +18,14 @@ import {
     Download,
     Calendar,
     ChevronRight,
+    ChevronLeft,
     Database,
     Eye,
     LogOut,
     Settings,
     Trash2
 } from "lucide-react";
-import { useActivityLog, ActivityAction } from "@/contexts/ActivityLogContext";
+import { useActivityLog, ActivityAction, ActivityEntry } from "@/contexts/ActivityLogContext";
 import { useUser } from "@/contexts/UserContext";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -57,6 +58,8 @@ export default function AdminActivityPage() {
     const router = useRouter();
     const [searchTerm, setSearchTerm] = React.useState("");
     const [filterAction, setFilterAction] = React.useState<string>("all");
+    const [currentPage, setCurrentPage] = React.useState(1);
+    const itemsPerPage = 50;
 
     // Security check: only moslem.gouia@mae.tn can see this
     React.useEffect(() => {
@@ -78,6 +81,10 @@ export default function AdminActivityPage() {
 
         return matchesSearch && matchesAction;
     });
+
+    const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const currentLogs = filteredLogs.slice(startIndex, startIndex + itemsPerPage);
 
     const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
 
@@ -111,7 +118,10 @@ export default function AdminActivityPage() {
                         placeholder="Rechercher par utilisateur, action ou module..."
                         className="pl-10 h-11 rounded-xl shadow-sm border-slate-200"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setCurrentPage(1);
+                        }}
                     />
                 </div>
                 <div className="flex gap-2">
@@ -120,7 +130,10 @@ export default function AdminActivityPage() {
                         <select
                             className="bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-700 outline-none"
                             value={filterAction}
-                            onChange={(e) => setFilterAction(e.target.value)}
+                            onChange={(e) => {
+                                setFilterAction(e.target.value);
+                                setCurrentPage(1);
+                            }}
                         >
                             <option value="all">Toutes les actions</option>
                             <option value="LOGIN">Connexions</option>
@@ -148,8 +161,8 @@ export default function AdminActivityPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredLogs.length > 0 ? (
-                            filteredLogs.map((log) => {
+                        {currentLogs.length > 0 ? (
+                            currentLogs.map((log) => {
                                 const style = actionColors[log.action] || actionColors.OTHER;
                                 const ActionIcon = style.icon;
                                 return (
@@ -213,6 +226,62 @@ export default function AdminActivityPage() {
                 </Table>
             </Card>
 
+            {filteredLogs.length > itemsPerPage && (
+                <div className="flex items-center justify-between px-2 py-4">
+                    <div className="text-sm text-muted-foreground font-medium">
+                        Affichage de <span className="font-bold text-slate-900">{Math.min(filteredLogs.length, (currentPage - 1) * itemsPerPage + 1)}</span> à <span className="font-bold text-slate-900">{Math.min(filteredLogs.length, currentPage * itemsPerPage)}</span> sur <span className="font-bold text-slate-900">{filteredLogs.length}</span> activités
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3 rounded-lg border-slate-200 hover:bg-slate-50 font-bold gap-1"
+                            onClick={() => setCurrentPage((prev: number) => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                            Précédent
+                        </Button>
+                        <div className="flex items-center gap-1">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                .filter(page => {
+                                    return page === 1 || page === totalPages || (page >= currentPage - 2 && page <= currentPage + 2);
+                                })
+                                .map((page, index, array) => {
+                                    const showEllipsis = index > 0 && page - array[index - 1] > 1;
+
+                                    return (
+                                        <React.Fragment key={page}>
+                                            {showEllipsis && <span className="px-2 text-slate-400 text-xs">...</span>}
+                                            <Button
+                                                variant={currentPage === page ? "default" : "outline"}
+                                                size="sm"
+                                                className={cn(
+                                                    "h-9 w-9 rounded-lg p-0 font-bold",
+                                                    currentPage === page ? "bg-primary shadow-md hover:bg-primary/90" : "border-slate-200 hover:bg-slate-50"
+                                                )}
+                                                onClick={() => setCurrentPage(page)}
+                                            >
+                                                {page}
+                                            </Button>
+                                        </React.Fragment>
+                                    );
+                                })}
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3 rounded-lg border-slate-200 hover:bg-slate-50 font-bold gap-1"
+                            onClick={() => setCurrentPage((prev: number) => Math.min(totalPages, prev + 1))}
+                            disabled={currentPage === totalPages}
+                        >
+                            Suivant
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
                 <Card className="bg-emerald-50/50 border-emerald-100 shadow-sm">
                     <CardHeader className="p-4 pb-2">
@@ -223,7 +292,7 @@ export default function AdminActivityPage() {
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
                         <span className="text-3xl font-black text-emerald-600">
-                            {new Set(logs.map(l => l.userEmail)).size}
+                            {new Set(logs.map((l: ActivityEntry) => l.userEmail)).size}
                         </span>
                     </CardContent>
                 </Card>
