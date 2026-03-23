@@ -687,6 +687,7 @@ export default function RiskMappingPage() {
   const [viewerConfig, setViewerConfig] = React.useState({ url: "", title: "", anchor: "" });
   const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "plan-actions" | "dmr" | "settings">(tabParam || "table");
   const [heatmapMode, setHeatmapMode] = React.useState<'brut' | 'residuel'>('brut');
+  const [filterActionStatus, setFilterActionStatus] = React.useState<string>("all");
 
   const handleExportPDF = () => {
     window.print();
@@ -769,12 +770,29 @@ export default function RiskMappingPage() {
         weaknessPoint: values.weaknessPoint || "",
         deadline: values.deadline || "",
         responsible: values.responsible || "",
-        completionLevel: values.completionLevel || 0,
+        actionCorrective: values.actionCorrective || "",
       };
+
+      // Smart merge for action items when editing from the dialog
+      const prevRisk = dialogState.data;
+      const previousItems = prevRisk ? getActionItems(prevRisk) : [];
+      const newTextItems = parseActionItems(values.actionCorrective || "");
+      
+      let mergedItems = newTextItems;
+      if (dialogState.mode === "edit") {
+        mergedItems = newTextItems.map(ni => {
+          const existing = previousItems.find(pi => pi.text === ni.text);
+          return existing ? { ...ni, status: existing.status } : ni;
+        });
+      }
+      const newAvgCompletion = mergedItems.length > 0 ? Math.round(mergedItems.reduce((s, it) => s + it.status, 0) / mergedItems.length) : (values.completionLevel || 0);
+
 
       if (dialogState.mode === "add") {
         await addRisk({
           ...sanitizedValues,
+          actionItems: mergedItems,
+          completionLevel: newAvgCompletion,
           probabilite: numProba,
           impact: numImpact,
           dmrEfficiency: Number(values.dmrEfficiency) || 2,
@@ -795,6 +813,8 @@ export default function RiskMappingPage() {
       } else if (dialogState.mode === "edit" && dialogState.data?.id) {
         await editRisk(dialogState.data.id, {
           ...sanitizedValues,
+          actionItems: mergedItems,
+          completionLevel: newAvgCompletion,
           probabilite: numProba,
           impact: numImpact,
           dmrEfficiency: Number(values.dmrEfficiency) || 2,
@@ -875,8 +895,16 @@ export default function RiskMappingPage() {
     const matchesLevel = filterRiskLevel === "all" || calculateRiskLevel(risk.probabilite, risk.impact) === filterRiskLevel;
     const matchesDept = filterDepartment === "all" || risk.department === filterDepartment;
     const matchesCategory = filterCategory === "all" || risk.category === filterCategory;
-    return matchesSearch && matchesLevel && matchesDept && matchesCategory;
-  }), [risks, searchQuery, filterRiskLevel, filterDepartment, filterCategory]);
+    
+    let matchesActionStatus = true;
+    if (viewMode === "plan-actions" && filterActionStatus !== "all") {
+        const avg = getRiskAvgCompletion(risk);
+        const statusLabel = avg === 0 ? 'Non initié' : avg === 100 ? 'Réalisé' : avg >= 50 ? 'En cours' : 'Initié';
+        matchesActionStatus = statusLabel === filterActionStatus;
+    }
+    
+    return matchesSearch && matchesLevel && matchesDept && matchesCategory && matchesActionStatus;
+  }), [risks, searchQuery, filterRiskLevel, filterDepartment, filterCategory, viewMode, filterActionStatus]);
 
   const globalDocsDetails = React.useMemo(
     () => documents.filter(d => globalDocumentIds.includes(d.id)),
@@ -1165,6 +1193,21 @@ export default function RiskMappingPage() {
                   <SelectItem value="Très élevé" className="text-xs font-black uppercase text-rose-600">Très élevé</SelectItem>
                 </SelectContent>
               </Select>
+
+              {viewMode === "plan-actions" && (
+                <Select value={filterActionStatus} onValueChange={setFilterActionStatus}>
+                  <SelectTrigger className="h-11 w-[200px] shrink-0 rounded-xl border-none bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-xs font-black uppercase tracking-widest shadow-none">
+                    <SelectValue placeholder="Ts Statuts" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl">
+                    <SelectItem value="all" className="text-xs font-black uppercase">Ts Statuts</SelectItem>
+                    <SelectItem value="Non initié" className="text-xs font-black uppercase text-slate-500">Non initié</SelectItem>
+                    <SelectItem value="Initié" className="text-xs font-black uppercase text-blue-600">Initié</SelectItem>
+                    <SelectItem value="En cours" className="text-xs font-black uppercase text-amber-600">En cours</SelectItem>
+                    <SelectItem value="Réalisé" className="text-xs font-black uppercase text-emerald-600">Réalisé</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
         </div>
@@ -1302,33 +1345,12 @@ export default function RiskMappingPage() {
                                   <TableCell className="py-3 px-4">
                                     {(() => {
                                       const items = getActionItems(risk);
-                                      const hasItems = items.length > 0;
-                                      if (!hasItems) {
-                                        return (
-                                          <Textarea
-                                            className="text-[11px] font-medium text-slate-700 dark:text-slate-300 leading-tight bg-transparent border-none focus-visible:ring-1 focus-visible:ring-primary/20 p-1 min-h-[40px] resize-none overflow-hidden"
-                                            defaultValue=""
-                                            placeholder="Séparez par des retours à la ligne…"
-                                            onBlur={(e) => {
-                                              if (e.target.value) {
-                                                const newItems = parseActionItems(e.target.value);
-                                                editRisk(risk.id, {
-                                                  actionCorrective: e.target.value,
-                                                  actionItems: newItems,
-                                                  completionLevel: 0,
-                                                } as any);
-                                                toast({ title: "Actions correctives ajoutées" });
-                                              }
-                                            }}
-                                          />
-                                        );
-                                      }
                                       return (
-                                        <div className="space-y-1.5">
+                                        <div className="space-y-1.5 min-w-[200px]">
                                           {items.map((item, idx) => {
                                             const cfg = actionStatusConfig[item.status] || actionStatusConfig[0];
                                             return (
-                                              <div key={item.id || idx} className="flex items-start gap-1.5 group/action">
+                                              <div key={item.id || idx} className="flex items-start gap-1.5 group/action relative">
                                                 <button
                                                   type="button"
                                                   onClick={() => {
@@ -1343,19 +1365,86 @@ export default function RiskMappingPage() {
                                                     toast({ title: `${cfg.label} → ${actionStatusConfig[newStatus].label}` });
                                                   }}
                                                   className={cn(
-                                                    "mt-0.5 flex-shrink-0 text-[8px] font-black px-1.5 py-0.5 rounded-md border transition-all hover:scale-110 cursor-pointer",
+                                                    "mt-1.5 flex-shrink-0 text-[8px] font-black px-1.5 py-0.5 rounded-md border transition-all hover:scale-110 cursor-pointer",
                                                     cfg.bg, cfg.color, cfg.border
                                                   )}
                                                   title={`${cfg.label} — Cliquer pour changer`}
                                                 >
                                                   {cfg.short}
                                                 </button>
-                                                <span className={cn("text-[11px] leading-snug", item.status === 100 ? "line-through text-slate-400" : "text-slate-700 dark:text-slate-300")}>
-                                                  {item.text}
-                                                </span>
+                                                <Textarea
+                                                  defaultValue={item.text}
+                                                  className={cn(
+                                                    "text-[11px] font-semibold leading-snug min-h-[30px] p-1.5 border-transparent hover:border-slate-200 dark:hover:border-slate-800 focus-visible:ring-1 focus-visible:ring-primary/30 focus-visible:bg-primary/5 bg-transparent shadow-none transition-all rounded-lg resize-none overflow-hidden",
+                                                    item.status === 100 ? "line-through opacity-50 text-slate-400" : "text-slate-700 dark:text-slate-300"
+                                                  )}
+                                                  onBlur={(e) => {
+                                                    const newVal = e.target.value.trim();
+                                                    if (!newVal) {
+                                                      const updatedItems = items.filter((_, i) => i !== idx);
+                                                      const newAvg = updatedItems.length > 0 ? Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length) : (risk.completionLevel || 0);
+                                                      editRisk(risk.id, {
+                                                        actionItems: updatedItems,
+                                                        completionLevel: newAvg,
+                                                        actionCorrective: updatedItems.map(it => it.text).join('\n'),
+                                                      } as any);
+                                                      toast({ title: "Action supprimée" });
+                                                    } else if (newVal !== item.text) {
+                                                      const updatedItems = items.map((it, i) => i === idx ? { ...it, text: newVal } : it);
+                                                      editRisk(risk.id, {
+                                                        actionItems: updatedItems,
+                                                        actionCorrective: updatedItems.map(it => it.text).join('\n'),
+                                                      } as any);
+                                                      toast({ title: "Action mise à jour" });
+                                                    }
+                                                  }}
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                       e.preventDefault();
+                                                       e.currentTarget.blur();
+                                                    }
+                                                  }}
+                                                />
                                               </div>
                                             );
                                           })}
+                                          <Textarea
+                                            className="text-[10px] italic font-medium text-slate-400 dark:text-slate-500 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/50 border border-dashed border-slate-200 dark:border-slate-800 min-h-[30px] p-2 rounded-lg focus-visible:ring-1 focus-visible:ring-primary/20 shadow-none transition-all focus:bg-white dark:focus:bg-slate-900 placeholder:text-slate-400/70 resize-none overflow-hidden mt-1"
+                                            placeholder="+ Nv. action (Entrée pour valider)"
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                const val = e.currentTarget.value.trim();
+                                                if (val) {
+                                                  const newParsed = parseActionItems(val);
+                                                  const updatedItems = [...items, ...newParsed];
+                                                  const newAvg = Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length);
+                                                  editRisk(risk.id, {
+                                                    actionItems: updatedItems,
+                                                    completionLevel: newAvg,
+                                                    actionCorrective: updatedItems.map(it => it.text).join('\n'),
+                                                  } as any);
+                                                  e.currentTarget.value = "";
+                                                  toast({ title: "Action ajoutée" });
+                                                }
+                                              }
+                                            }}
+                                            onBlur={(e) => {
+                                              const val = e.currentTarget.value.trim();
+                                              if (val) {
+                                                const newParsed = parseActionItems(val);
+                                                const updatedItems = [...items, ...newParsed];
+                                                const newAvg = Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length);
+                                                editRisk(risk.id, {
+                                                  actionItems: updatedItems,
+                                                  completionLevel: newAvg,
+                                                  actionCorrective: updatedItems.map(it => it.text).join('\n'),
+                                                } as any);
+                                                e.currentTarget.value = "";
+                                                toast({ title: "Action ajoutée" });
+                                              }
+                                            }}
+                                          />
                                         </div>
                                       );
                                     })()}
@@ -1375,6 +1464,7 @@ export default function RiskMappingPage() {
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-center">
                                     <Input
+                                      list={`responsibles-${risk.id}`}
                                       className="text-[10px] font-bold text-slate-700 bg-transparent border-none p-1 h-7 text-center focus-visible:ring-1 focus-visible:ring-primary/20"
                                       defaultValue={(risk as any).responsible || ""}
                                       onBlur={(e) => {
@@ -1385,6 +1475,17 @@ export default function RiskMappingPage() {
                                       }}
                                       placeholder="Nom ou Direction"
                                     />
+                                    <datalist id={`responsibles-${risk.id}`}>
+                                      <option value="Commerciale" />
+                                      <option value="Technique" />
+                                      <option value="Financier" />
+                                      <option value="Informatique" />
+                                      <option value="Conformité" />
+                                      <option value="Audit" />
+                                      <option value="Sinistre" />
+                                      <option value="Equipement" />
+                                      <option value="Qualité" />
+                                    </datalist>
                                   </TableCell>
                                   <TableCell className="py-3 px-4">
                                     {(() => {
@@ -1436,35 +1537,6 @@ export default function RiskMappingPage() {
                   </TableBody>
                 </Table>
               </div>
-              {/* ── Barre de synthèse globale ── */}
-              {filteredRisks.length > 0 && (
-                <div className="px-8 py-5 bg-slate-50/80 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800">
-                  <div className="flex items-center justify-between gap-6">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <Activity className="h-4.5 w-4.5 text-primary h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Avancement Moyen Global</p>
-                        <p className="text-xs font-bold text-slate-600 dark:text-slate-300">Moyenne pondérée de l'ensemble des actions correctives</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 min-w-[240px]">
-                      <div className="flex-1">
-                        <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className={cn("h-full transition-all duration-700 rounded-full", getAvgCompletionBarColor(getGlobalAvgCompletion(filteredRisks)))}
-                            style={{ width: `${getGlobalAvgCompletion(filteredRisks)}%` }}
-                          />
-                        </div>
-                      </div>
-                      <span className={cn("text-2xl font-black tracking-tight", getAvgCompletionColor(getGlobalAvgCompletion(filteredRisks)))}>
-                        {getGlobalAvgCompletion(filteredRisks)}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
