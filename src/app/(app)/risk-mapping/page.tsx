@@ -1372,111 +1372,207 @@ export default function RiskMappingPage() {
                                     />
                                   </TableCell>
                                   <TableCell className="py-3 px-4">
-                                    {(() => {
-                                      const items = getActionItems(risk);
-                                      return (
-                                        <div className="space-y-1.5 min-w-[200px]">
-                                          {items.map((item, idx) => {
-                                            const cfg = actionStatusConfig[item.status] || actionStatusConfig[0];
-                                            return (
-                                              <div key={item.id || idx} className="flex items-start gap-1.5 group/action relative">
-                                                <button
-                                                  type="button"
-                                                  onClick={() => {
-                                                    const newStatus = cycleActionStatus(item.status);
-                                                    const updatedItems = items.map((it, i) => i === idx ? { ...it, status: newStatus } : it);
-                                                    const newAvg = Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length);
-                                                    editRisk(risk.id, {
-                                                      actionItems: updatedItems,
-                                                      completionLevel: newAvg,
-                                                      actionCorrective: updatedItems.map(it => it.text).join('\n'),
-                                                    } as any);
-                                                    toast({ title: `${cfg.label} → ${actionStatusConfig[newStatus].label}` });
-                                                  }}
-                                                  className={cn(
-                                                    "mt-1.5 flex-shrink-0 text-[8px] font-black px-1.5 py-0.5 rounded-md border transition-all hover:scale-110 cursor-pointer",
-                                                    cfg.bg, cfg.color, cfg.border
-                                                  )}
-                                                  title={`${cfg.label} — Cliquer pour changer`}
-                                                >
-                                                  {cfg.short}
-                                                </button>
-                                                <Textarea
-                                                  defaultValue={item.text}
-                                                  className={cn(
-                                                    "text-[11px] font-semibold leading-snug min-h-[30px] p-1.5 border-transparent hover:border-slate-200 dark:hover:border-slate-800 focus-visible:ring-1 focus-visible:ring-primary/30 focus-visible:bg-primary/5 bg-transparent shadow-none transition-all rounded-lg resize-none overflow-hidden",
-                                                    item.status === 100 ? "line-through opacity-50 text-slate-400" : "text-slate-700 dark:text-slate-300"
-                                                  )}
-                                                  onBlur={(e) => {
-                                                    const newVal = e.target.value.trim();
-                                                    if (!newVal) {
-                                                      const updatedItems = items.filter((_, i) => i !== idx);
-                                                      const newAvg = updatedItems.length > 0 ? Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length) : (risk.completionLevel || 0);
+                                    <Sheet>
+                                      <SheetTrigger asChild>
+                                        <Button 
+                                          variant="ghost" 
+                                          className="h-auto p-3 flex flex-col items-start gap-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 w-full group border border-transparent hover:border-slate-200 dark:hover:border-slate-800 rounded-xl transition-all"
+                                        >
+                                          <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center gap-2">
+                                              <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                                                <ClipboardList className="h-4 w-4 text-primary" />
+                                              </div>
+                                              <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                                                {getActionItems(risk).length} Action{getActionItems(risk).length > 1 ? 's' : ''}
+                                              </span>
+                                            </div>
+                                            <div className="h-5 w-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                              <PlusCircle className="h-3 w-3 text-slate-400" />
+                                            </div>
+                                          </div>
+                                          
+                                          <div className="w-full space-y-1.5">
+                                            {getActionItems(risk).length > 0 ? (
+                                              <>
+                                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium text-left line-clamp-1 italic">
+                                                  {getActionItems(risk)[0].text}
+                                                </div>
+                                                {getActionItems(risk).length > 1 && (
+                                                  <div className="flex items-center gap-1">
+                                                    <Badge variant="outline" className="text-[8px] h-4 px-1 py-0 border-slate-200 text-slate-400 font-bold bg-white">
+                                                      +{getActionItems(risk).length - 1} autre{getActionItems(risk).length > 2 ? 's' : ''}
+                                                    </Badge>
+                                                    <div className="flex-1 h-[2px] bg-slate-100 dark:bg-slate-800 rounded-full" />
+                                                  </div>
+                                                )}
+                                              </>
+                                            ) : (
+                                              <div className="text-[10px] text-slate-400 italic">Aucune action définie</div>
+                                            )}
+                                          </div>
+                                        </Button>
+                                      </SheetTrigger>
+                                      <SheetContent className="sm:max-w-md w-full sm:w-[500px] border-l-4 border-l-primary p-0 flex flex-col overflow-hidden">
+                                        <SheetHeader className="p-6 border-b border-slate-100 dark:border-slate-800 shrink-0 bg-slate-50/50">
+                                          <div className="flex items-center gap-3 mb-4">
+                                              <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+                                                <Target className="h-5 w-5 text-primary" />
+                                              </div>
+                                              <div>
+                                                <SheetTitle className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Actions Correctives</SheetTitle>
+                                                <SheetDescription className="text-xs font-medium text-slate-500 italic">Dispositif de mise en conformité</SheetDescription>
+                                              </div>
+                                          </div>
+                                          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Risque lié</span>
+                                            </div>
+                                            <p className="text-sm font-bold text-slate-800 dark:text-slate-200 leading-tight">{risk.riskDescription}</p>
+                                          </div>
+                                        </SheetHeader>
+                                        
+                                        <div className="flex-1 overflow-hidden flex flex-col">
+                                          <ScrollArea className="flex-1 px-6 py-6">
+                                            <div className="space-y-6">
+                                              {/* Liste des actions */}
+                                              <div className="space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Liste des points ({getActionItems(risk).length})</h4>
+                                                  <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", getAvgCompletionColor(getRiskAvgCompletion(risk)))}>
+                                                    Avancement : {getRiskAvgCompletion(risk)}%
+                                                  </Badge>
+                                                </div>
+                                                
+                                                {getActionItems(risk).length === 0 ? (
+                                                  <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl bg-slate-50/30">
+                                                    <ClipboardList className="h-10 w-10 text-slate-200 mb-3" />
+                                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Aucune action enregistrée</p>
+                                                    <p className="text-[10px] text-slate-300 mt-1 max-w-[200px]">Utilisez le champ ci-dessous pour ajouter votre première mesure corrective.</p>
+                                                  </div>
+                                                ) : (
+                                                  <div className="space-y-3">
+                                                    {getActionItems(risk).map((item, idx) => {
+                                                      const cfg = actionStatusConfig[item.status] || actionStatusConfig[0];
+                                                      const items = getActionItems(risk);
+                                                      return (
+                                                        <div key={item.id} className="group/action relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm hover:shadow-md transition-all hover:border-primary/30">
+                                                          <div className="flex items-start gap-3">
+                                                            <button
+                                                              type="button"
+                                                              onClick={() => {
+                                                                const newStatus = cycleActionStatus(item.status);
+                                                                const updatedItems = items.map(it => it.id === item.id ? { ...it, status: newStatus } : it);
+                                                                editRisk(risk.id, {
+                                                                  actionItems: updatedItems,
+                                                                  completionLevel: Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length),
+                                                                  actionCorrective: updatedItems.map(it => it.text).join('\n'),
+                                                                } as any);
+                                                                toast({ title: `Statut : ${actionStatusConfig[newStatus].label}` });
+                                                              }}
+                                                              className={cn(
+                                                                "shrink-0 w-12 h-12 rounded-lg border-2 flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm",
+                                                                cfg.bg, cfg.color, cfg.border
+                                                              )}
+                                                            >
+                                                              <span className="text-xs font-black">{cfg.short}</span>
+                                                              <span className="text-[7px] font-bold uppercase">{cfg.label.split(' ')[0]}</span>
+                                                            </button>
+                                                            
+                                                            <div className="flex-1 min-w-0">
+                                                              <Textarea
+                                                                defaultValue={item.text}
+                                                                className={cn(
+                                                                  "text-[13px] font-bold leading-relaxed min-h-[40px] p-0 border-none bg-transparent shadow-none focus-visible:ring-0 resize-none overflow-hidden",
+                                                                  item.status === 100 ? "line-through opacity-40 text-slate-400" : "text-slate-700 dark:text-slate-200"
+                                                                )}
+                                                                onBlur={(e) => {
+                                                                  const newVal = e.target.value.trim();
+                                                                  if (!newVal) {
+                                                                    const updatedItems = items.filter(it => it.id !== item.id);
+                                                                    const newAvg = updatedItems.length > 0 ? Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length) : (risk.completionLevel || 0);
+                                                                    editRisk(risk.id, {
+                                                                      actionItems: updatedItems,
+                                                                      completionLevel: newAvg,
+                                                                      actionCorrective: updatedItems.map(it => it.text).join('\n'),
+                                                                    } as any);
+                                                                    toast({ title: "Action supprimée" });
+                                                                  } else if (newVal !== item.text) {
+                                                                    const updatedItems = items.map(it => it.id === item.id ? { ...it, text: newVal } : it);
+                                                                    editRisk(risk.id, {
+                                                                      actionItems: updatedItems,
+                                                                      actionCorrective: updatedItems.map(it => it.text).join('\n'),
+                                                                    } as any);
+                                                                    toast({ title: "Modifications enregistrées" });
+                                                                  }
+                                                                }}
+                                                              />
+                                                            </div>
+                                                            
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="icon"
+                                                              className="h-8 w-8 rounded-lg opacity-0 group-hover/action:opacity-100 text-slate-300 hover:text-rose-500 transition-all shrink-0"
+                                                              onClick={() => {
+                                                                const updatedItems = items.filter(it => it.id !== item.id);
+                                                                const newAvg = updatedItems.length > 0 ? Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length) : (risk.completionLevel || 0);
+                                                                editRisk(risk.id, {
+                                                                  actionItems: updatedItems,
+                                                                  completionLevel: newAvg,
+                                                                  actionCorrective: updatedItems.map(it => it.text).join('\n'),
+                                                                } as any);
+                                                                toast({ title: "Action supprimée" });
+                                                              }}
+                                                            >
+                                                              <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                          </div>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </ScrollArea>
+                                          
+                                          {/* Footer: Ajout d'action */}
+                                          <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 shrink-0">
+                                            <div className="flex flex-col gap-3">
+                                              <div className="flex items-center gap-2">
+                                                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nouvelle mesure corrective</span>
+                                              </div>
+                                              <Textarea
+                                                className="text-sm font-bold bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus-visible:ring-primary/20 focus-visible:border-primary rounded-xl min-h-[80px] p-4 shadow-sm"
+                                                placeholder="Décrire l'action à entreprendre..."
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    const val = e.currentTarget.value.trim();
+                                                    if (val) {
+                                                      const items = getActionItems(risk);
+                                                      const newParsed = parseActionItems(val);
+                                                      const updatedItems = [...items, ...newParsed];
+                                                      const newAvg = Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length);
                                                       editRisk(risk.id, {
                                                         actionItems: updatedItems,
                                                         completionLevel: newAvg,
                                                         actionCorrective: updatedItems.map(it => it.text).join('\n'),
                                                       } as any);
-                                                      toast({ title: "Action supprimée" });
-                                                    } else if (newVal !== item.text) {
-                                                      const updatedItems = items.map((it, i) => i === idx ? { ...it, text: newVal } : it);
-                                                      editRisk(risk.id, {
-                                                        actionItems: updatedItems,
-                                                        actionCorrective: updatedItems.map(it => it.text).join('\n'),
-                                                      } as any);
-                                                      toast({ title: "Action mise à jour" });
+                                                      e.currentTarget.value = "";
+                                                      toast({ title: "Action ajoutée au plan" });
                                                     }
-                                                  }}
-                                                  onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                       e.preventDefault();
-                                                       e.currentTarget.blur();
-                                                    }
-                                                  }}
-                                                />
-                                              </div>
-                                            );
-                                          })}
-                                          <Textarea
-                                            className="text-[10px] italic font-medium text-slate-400 dark:text-slate-500 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/50 border border-dashed border-slate-200 dark:border-slate-800 min-h-[30px] p-2 rounded-lg focus-visible:ring-1 focus-visible:ring-primary/20 shadow-none transition-all focus:bg-white dark:focus:bg-slate-900 placeholder:text-slate-400/70 resize-none overflow-hidden mt-1"
-                                            placeholder="+ Nv. action (Entrée pour valider)"
-                                            onKeyDown={(e) => {
-                                              if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                const val = e.currentTarget.value.trim();
-                                                if (val) {
-                                                  const newParsed = parseActionItems(val);
-                                                  const updatedItems = [...items, ...newParsed];
-                                                  const newAvg = Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length);
-                                                  editRisk(risk.id, {
-                                                    actionItems: updatedItems,
-                                                    completionLevel: newAvg,
-                                                    actionCorrective: updatedItems.map(it => it.text).join('\n'),
-                                                  } as any);
-                                                  e.currentTarget.value = "";
-                                                  toast({ title: "Action ajoutée" });
-                                                }
-                                              }
-                                            }}
-                                            onBlur={(e) => {
-                                              const val = e.currentTarget.value.trim();
-                                              if (val) {
-                                                const newParsed = parseActionItems(val);
-                                                const updatedItems = [...items, ...newParsed];
-                                                const newAvg = Math.round(updatedItems.reduce((s, it) => s + it.status, 0) / updatedItems.length);
-                                                editRisk(risk.id, {
-                                                  actionItems: updatedItems,
-                                                  completionLevel: newAvg,
-                                                  actionCorrective: updatedItems.map(it => it.text).join('\n'),
-                                                } as any);
-                                                e.currentTarget.value = "";
-                                                toast({ title: "Action ajoutée" });
-                                              }
-                                            }}
-                                          />
+                                                  }
+                                                }}
+                                              />
+                                              <p className="text-[9px] text-slate-400 font-medium italic text-right">Appuyez sur Entrée pour valider l'ajout</p>
+                                            </div>
+                                          </div>
                                         </div>
-                                      );
-                                    })()}
+                                      </SheetContent>
+                                    </Sheet>
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-center">
                                     <Input
