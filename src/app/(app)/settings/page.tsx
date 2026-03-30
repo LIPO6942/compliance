@@ -21,6 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { UserProfile } from "@/contexts/UserContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useNotifications } from "@/contexts/NotificationContext";
+import { Bell, BellOff, Info } from "lucide-react";
 
 const availableRoles = [
     "Responsable Conformité",
@@ -63,6 +65,7 @@ export default function SettingsPage() {
     });
     const { isDarkMode, toggleDarkMode } = useTheme();
     const { events, updateEvent, addEvent, deleteEvent, persistChanges } = useTimeline();
+    const { permission: notificationPermission, requestPermission: requestNotificationPermission } = useNotifications();
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
@@ -247,6 +250,69 @@ export default function SettingsPage() {
                                 </button>
                             );
                         })}
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden border-2 border-primary/10">
+                <CardHeader className="bg-slate-50/50 dark:bg-slate-900/50">
+                    <div className="flex items-center gap-2">
+                        <Bell className="h-5 w-5 text-primary" />
+                        <CardTitle>Notifications Système</CardTitle>
+                    </div>
+                    <CardDescription>
+                        Recevez des alertes directement sur votre ordinateur pour ne rater aucune échéance importante (J-7, J-3 et Jour J).
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-6">
+                    <div className="flex items-center justify-between p-4 rounded-2xl border bg-white dark:bg-slate-950 shadow-sm">
+                        <div className="space-y-1">
+                            <Label className="text-base font-bold flex items-center gap-2">
+                                Échéances de la Timeline
+                            </Label>
+                            <p className="text-sm text-muted-foreground italic">
+                                {notificationPermission === 'granted' 
+                                    ? "✓ Les notifications sont activées sur ce navigateur." 
+                                    : notificationPermission === 'denied' 
+                                        ? "✗ Les notifications sont bloquées par votre navigateur." 
+                                        : "Les notifications ne sont pas encore configurées."}
+                            </p>
+                        </div>
+                        <Button 
+                            variant={notificationPermission === 'granted' ? "outline" : "default"}
+                            onClick={requestNotificationPermission}
+                            disabled={notificationPermission === 'denied'}
+                            className={cn(
+                                "gap-2 rounded-xl px-6",
+                                notificationPermission === 'granted' ? "border-green-200 text-green-700 hover:bg-green-50" : "shadow-lg shadow-primary/20"
+                            )}
+                        >
+                            {notificationPermission === 'granted' ? (
+                                <><Bell className="h-4 w-4" /> Activé</>
+                            ) : notificationPermission === 'denied' ? (
+                                <><BellOff className="h-4 w-4" /> Bloqué</>
+                            ) : (
+                                <><Bell className="h-4 w-4" /> Activer les alertes</>
+                            )}
+                        </Button>
+                    </div>
+
+                    <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10 flex gap-3 items-start">
+                        <Info className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                        <div className="text-xs space-y-2">
+                            <p className="font-bold text-primary uppercase tracking-wider">Fonctionnement du rappel :</p>
+                            <ul className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <li className="bg-white/50 dark:bg-slate-900/50 p-2 rounded-lg border border-primary/5">
+                                    <span className="font-black text-primary">J - 7 :</span> Premier rappel d'anticipation.
+                                </li>
+                                <li className="bg-white/50 dark:bg-slate-900/50 p-2 rounded-lg border border-primary/5">
+                                    <span className="font-black text-primary">J - 3 :</span> Alerte de proximité.
+                                </li>
+                                <li className="bg-white/50 dark:bg-slate-900/50 p-2 rounded-lg border border-primary/5">
+                                    <span className="font-black text-primary">Jour J :</span> Notification critique le jour même.
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

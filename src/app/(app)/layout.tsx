@@ -1,4 +1,4 @@
-
+import React from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PlanDataProvider } from "@/contexts/PlanDataContext";
 import { DocumentsProvider } from "@/contexts/DocumentsContext";
@@ -11,6 +11,7 @@ import { NewsProvider } from "@/contexts/NewsContext";
 import { TeamProvider } from "@/contexts/TeamContext";
 import { TimelineProvider } from "@/contexts/TimelineContext";
 import { EcosystemProvider } from "@/contexts/EcosystemContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
@@ -32,9 +33,11 @@ export default function ApplicationGroupLayout({
                     <NewsProvider>
                       <TeamProvider>
                         <TimelineProvider>
-                          <EcosystemProvider>
-                            <AppLayout>{children}</AppLayout>
-                          </EcosystemProvider>
+                          <NotificationProvider>
+                            <EcosystemProvider>
+                              <AppLayout>{children}</AppLayout>
+                            </EcosystemProvider>
+                          </NotificationProvider>
                         </TimelineProvider>
                       </TeamProvider>
                     </NewsProvider>
