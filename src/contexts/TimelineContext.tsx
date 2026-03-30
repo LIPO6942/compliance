@@ -164,7 +164,7 @@ export const TimelineProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <TimelineContext.Provider value={{ events, loading, addEvent, updateEvent, deleteEvent, toggleValidation, persistChanges }}>
+        <TimelineContext.Provider value={{ events, loading, addEvent, updateEvent, deleteEvent, toggleValidation, prolongEvent, persistChanges }}>
             {children}
         </TimelineContext.Provider>
     );

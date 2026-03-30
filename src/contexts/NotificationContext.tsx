@@ -1,3 +1,5 @@
+"use client";
+
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useTimeline, TimelineEvent } from './TimelineContext';
 import { useToast } from '@/hooks/use-toast';
