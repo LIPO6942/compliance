@@ -54,7 +54,7 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
     if (!NEWS_API_KEY) return [];
 
     try {
-        const query = encodeURIComponent('("conformité GRC" OR "compliance LCB-FT" OR "anti-corruption" OR "FATF") AND (Tunisie OR "Banque Centrale" OR Maghreb OR international)');
+        const query = encodeURIComponent('("conformité GRC" OR "compliance LCB-FT" OR "anti-corruption" OR "FATF") AND (Tunisie OR "Banque Centrale" OR "CTAF" OR "CGA Tunisie" OR "INPDP")');
         const url = `https://newsapi.org/v2/everything?q=${query}&language=fr&sortBy=relevancy&pageSize=20&apiKey=${NEWS_API_KEY}`;
 
         const response = await fetch(url);
@@ -89,7 +89,7 @@ const fetchFromGNews = async (): Promise<NewsItem[]> => {
     if (!GNEWS_API_KEY) return [];
 
     try {
-        const query = encodeURIComponent('"conformité réglementaire" OR "LCB-FT Tunisie" OR "GAFI" OR "FATF" OR "déontologie financière"');
+        const query = encodeURIComponent('"conformité" Tunisie OR "LCB-FT" Tunisie OR "GAFI" OR "FATF" OR "CTAF" OR "BCT" OR "CMF Tunisie"');
         const url = `https://gnews.io/api/v4/search?q=${query}&lang=fr&topic=business&max=20&apikey=${GNEWS_API_KEY}`;
 
         const response = await fetch(url);
@@ -157,7 +157,7 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
 const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
     try {
         const parser = new Parser();
-        const query = encodeURIComponent('"Conformité MAE" OR "LCB-FT Tunisie" OR "Gouvernance et Conformité" OR "FATF news" OR "Contrôle interne GRC" OR "Audit de conformité bancaire"');
+        const query = encodeURIComponent('(Conformité Tunisie) OR (LCB-FT Tunisie) OR (CTAF Tunisie) OR (CGA Tunisie) OR (BCT réglementation) OR (INPDP protection données)');
         const url = `https://news.google.com/rss/search?q=${query}&hl=fr&gl=FR&ceid=FR:fr`;
 
         const feed = await parser.parseURL(url);
@@ -386,7 +386,10 @@ async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
 
     console.log(`[NEWS FLOW] Total d'articles uniques (après déduplication par URL): ${uniqueNews.length}.`);
 
-    const tunisiaKeywords = ['tunisie', 'tunisien', 'tunisienne', 'jort', 'bct', 'cga', 'juridoc', 'mae', 'tunis'];
+    const tunisiaKeywords = [
+        'tunisie', 'tunisien', 'tunisienne', 'jort', 'bct', 'cga', 'ctaf', 'cmf', 'inpdp', 'juridoc', 'mae', 'tunis',
+        'banque centrale', 'comité général des assurances', 'marché financier', 'loi tunisienne'
+    ];
 
     const scoredNews = uniqueNews.map(item => {
         let score = new Date(item.date).getTime(); // Base score is the date
