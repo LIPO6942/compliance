@@ -23,7 +23,13 @@ import { cn } from "@/lib/utils";
 import { useTimeline } from "@/contexts/TimelineContext";
 import { summarizeNewsAction } from "./actions";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Calendar as CalendarIcon, Check, Clock, ChevronRight } from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const complianceStatusBaseColors = {
   conforme: "#10b981", // emerald-500
@@ -53,7 +59,8 @@ export default function DashboardPage() {
     100: { label: 'Réalisé',    short: '100%', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30',  border: 'border-emerald-200 dark:border-emerald-800' },
   };
   const { news, loading: newsLoading, refetchNews, dismissNewsItem } = useNews();
-  const { events: timelineEvents, toggleValidation } = useTimeline();
+  const { events: timelineEvents, toggleValidation, prolongEvent } = useTimeline();
+  const { user } = useUser();
   const [isLoading, setIsLoading] = React.useState(true);
   const router = useRouter();
 
@@ -249,80 +256,230 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Regulatory Timeline - Interactive with Alerts */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {timelineEvents
-            .filter(event => {
-              const eventDate = parseISO(event.date);
-              return !isBefore(eventDate, startOfDay(new Date()));
-            })
-            .map((event, i) => {
-              const eventDate = parseISO(event.date);
-              const daysLeft = differenceInDays(eventDate, startOfDay(new Date()));
-              const isUrgent = daysLeft <= 3 && !event.validated;
-
-              return (
-                <div
-                  key={event.id}
-                  className={cn(
-                    "group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 shadow-lg transition-all",
-                    isUrgent ? "animate-blink-urgent shadow-rose-500/10" : "hover:shadow-xl hover:-translate-y-1"
+        {/* Regulatory Timeline - Interactive with Tabs */}
+        <div className="space-y-4">
+          <Tabs defaultValue="upcoming" className="w-full">
+            <div className="flex items-center justify-between mb-4">
+              <TabsList className="bg-slate-100/50 dark:bg-slate-900/50 border h-10 p-1 rounded-xl">
+                <TabsTrigger value="upcoming" className="rounded-lg text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 shadow-sm">
+                  <Clock className="h-3 w-3 mr-2" /> À Venir
+                </TabsTrigger>
+                <TabsTrigger value="overdue" className="rounded-lg text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-rose-500 data-[state=active]:text-white shadow-sm">
+                  <AlertCircle className="h-3 w-3 mr-2" /> En Retard
+                  {timelineEvents.filter(e => !e.validated && isBefore(parseISO(e.date), startOfDay(new Date()))).length > 0 && (
+                    <Badge className="ml-2 bg-rose-600 text-white border-none h-4 px-1 text-[8px]">
+                      {timelineEvents.filter(e => !e.validated && isBefore(parseISO(e.date), startOfDay(new Date()))).length}
+                    </Badge>
                   )}
-                >
-                  <div className={cn("absolute top-0 right-0 w-16 h-16 opacity-10 rounded-bl-[4rem]", event.color)} />
+                </TabsTrigger>
+              </TabsList>
+              <Link href="/history">
+                <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary gap-1">
+                  Historique <ChevronRight className="h-3 w-3" />
+                </Button>
+              </Link>
+            </div>
 
-                  <div className="flex items-center gap-4 relative z-10">
-                    <div className={cn(
-                      "flex flex-col items-center justify-center min-w-[60px] h-[60px] rounded-2xl text-white font-black transition-transform group-hover:scale-105",
-                      event.validated ? "bg-emerald-500 shadow-emerald-500/20" : event.color
-                    )}>
-                      {event.validated ? (
-                        <CheckCircle2 className="h-6 w-6" />
-                      ) : (
-                        <>
-                          <span className="text-[10px] opacity-70 leading-none uppercase">{format(eventDate, "MMM", { locale: fr })}</span>
-                          <span className="text-lg">{format(eventDate, "dd")}</span>
-                        </>
-                      )}
-                    </div>
-                    <div className="space-y-0.5 flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <Badge variant="outline" className={cn(
-                          "text-[8px] font-black uppercase tracking-widest py-0",
-                          isUrgent ? "bg-rose-50 text-rose-600 border-rose-200" : "border-slate-200"
-                        )}>
-                          {event.category}
-                        </Badge>
-                        <button
-                          onClick={() => toggleValidation(event.id)}
-                          className={cn(
-                            "p-1.5 rounded-full transition-all",
-                            event.validated
-                              ? "bg-emerald-500 text-white"
-                              : "bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
-                          )}
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                        </button>
+            <TabsContent value="upcoming" className="mt-0">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {timelineEvents
+                  .filter(event => {
+                    const eventDate = parseISO(event.date);
+                    return !isBefore(eventDate, startOfDay(new Date())) && !event.validated;
+                  })
+                  .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
+                  .slice(0, 3)
+                  .map((event) => {
+                    const eventDate = parseISO(event.date);
+                    const daysLeft = differenceInDays(eventDate, startOfDay(new Date()));
+                    const isUrgent = daysLeft <= 3;
+
+                    return (
+                      <div
+                        key={event.id}
+                        className={cn(
+                          "group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 shadow-lg transition-all",
+                          isUrgent ? "animate-blink-urgent shadow-rose-500/10 border-rose-100/50" : "hover:shadow-xl hover:-translate-y-1"
+                        )}
+                      >
+                        <div className={cn("absolute top-0 right-0 w-16 h-16 opacity-10 rounded-bl-[4rem]", event.color)} />
+                        <div className="flex items-center gap-4 relative z-10">
+                          <div className={cn(
+                            "flex flex-col items-center justify-center min-w-[60px] h-[60px] rounded-2xl text-white font-black",
+                            event.color
+                          )}>
+                            <span className="text-[10px] opacity-70 leading-none uppercase">{format(eventDate, "MMM", { locale: fr })}</span>
+                            <span className="text-lg">{format(eventDate, "dd")}</span>
+                          </div>
+                          <div className="space-y-0.5 flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <Badge variant="outline" className={cn(
+                                "text-[8px] font-black uppercase tracking-widest py-0",
+                                isUrgent ? "bg-rose-50 text-rose-600 border-rose-200" : "border-slate-200"
+                              )}>
+                                {event.category}
+                              </Badge>
+                              <div className="flex gap-1">
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="p-1.5 rounded-full bg-slate-100 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors" title="Reporter">
+                                      <RefreshCw className="h-3 w-3" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0 rounded-2xl shadow-2xl border-none" align="end">
+                                    <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-primary">Reporter l'échéance</p>
+                                    </div>
+                                    <Calendar
+                                      mode="single"
+                                      selected={eventDate}
+                                      onSelect={(date) => {
+                                        if (date) {
+                                          prolongEvent(event.id, date.toISOString());
+                                          toast({ title: "Date mise à jour", description: `L'échéance "${event.title}" a été reportée.` });
+                                        }
+                                      }}
+                                      initialFocus
+                                      className="rounded-b-2xl"
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                                <button
+                                  onClick={() => {
+                                    toggleValidation(event.id, user?.name);
+                                    toast({ 
+                                      title: "Échéance validée", 
+                                      description: `"${event.title}" a été marqué comme terminé.` 
+                                    });
+                                  }}
+                                  className="p-1.5 rounded-full bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                                  title="Valider"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                            <h4 className="text-sm font-black uppercase italic truncate text-slate-800 dark:text-slate-100">{event.title}</h4>
+                            <p className={cn(
+                              "text-[10px] font-bold uppercase tracking-tighter",
+                              isUrgent ? "text-rose-500" : "text-slate-400"
+                            )}>
+                              {isUrgent ? "Urgence : < 3 jours" : "Échéance critique"}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <h4 className={cn(
-                        "text-sm font-black uppercase italic truncate",
-                        event.validated ? "text-slate-400 line-through" : "text-slate-800 dark:text-slate-100"
-                      )}>{event.title}</h4>
-                      <div className="flex items-center gap-1">
-                        {isUrgent && <AlertCircle className="h-3 w-3 text-rose-500 animate-pulse" />}
-                        <p className={cn(
-                          "text-[10px] font-bold uppercase tracking-tighter",
-                          isUrgent ? "text-rose-500" : "text-slate-400"
-                        )}>
-                          {event.validated ? "Complété" : (isUrgent ? "Urgence : < 3 jours" : "Échéance critique")}
-                        </p>
-                      </div>
-                    </div>
+                    );
+                  })}
+                {timelineEvents.filter(e => !e.validated && !isBefore(parseISO(e.date), startOfDay(new Date()))).length === 0 && (
+                  <div className="md:col-span-3 py-10 text-center border-2 border-dashed rounded-3xl bg-slate-50/50">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2 opacity-20" />
+                    <p className="text-xs font-bold text-slate-400 uppercase italic">Aucune échéance à venir</p>
                   </div>
-                </div>
-              )
-            })}
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="overdue" className="mt-0">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {timelineEvents
+                  .filter(event => {
+                    const eventDate = parseISO(event.date);
+                    return isBefore(eventDate, startOfDay(new Date())) && !event.validated;
+                  })
+                  .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
+                  .map((event) => {
+                    const eventDate = parseISO(event.date);
+                    const daysOverdue = differenceInDays(startOfDay(new Date()), eventDate);
+
+                    return (
+                      <div
+                        key={event.id}
+                        className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border-2 border-rose-200 dark:border-rose-900/50 p-5 shadow-xl shadow-rose-500/5 transition-all hover:-translate-y-1"
+                      >
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-rose-500/10 rounded-bl-full pointer-events-none" />
+                        <div className="flex items-center gap-4 relative z-10">
+                          <div className="flex flex-col items-center justify-center min-w-[60px] h-[60px] rounded-2xl bg-rose-600 text-white font-black shadow-lg shadow-rose-600/20">
+                            <span className="text-[10px] opacity-70 leading-none uppercase">{format(eventDate, "MMM", { locale: fr })}</span>
+                            <span className="text-lg">{format(eventDate, "dd")}</span>
+                          </div>
+                          <div className="space-y-0.5 flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <Badge className="bg-rose-100 text-rose-700 border-none text-[8px] font-black uppercase tracking-widest py-0">
+                                {daysOverdue} Jours de retard
+                              </Badge>
+                              <div className="flex gap-1">
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="p-1.5 rounded-full bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all shadow-inner" title="Reporter">
+                                      <RefreshCw className="h-3.5 w-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-80 p-0 rounded-2xl shadow-2xl border-none overflow-hidden" align="end">
+                                    <div className="p-4 bg-rose-600 text-white">
+                                      <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-80">Régularisation</p>
+                                      <h3 className="text-sm font-black italic">Prolonger l'échéance</h3>
+                                    </div>
+                                    <div className="p-4 space-y-4 bg-white dark:bg-slate-950">
+                                      <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pourquoi ce retard ? (Optionnel)</Label>
+                                        <Input 
+                                          placeholder="Ex: Attente de documents tiers..." 
+                                          className="text-xs rounded-xl"
+                                          onChange={(e) => {
+                                            (window as any)._currentDelayReason = e.target.value;
+                                          }}
+                                        />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nouvelle date cible</Label>
+                                        <Calendar
+                                          mode="single"
+                                          onSelect={(date) => {
+                                            if (date) {
+                                              prolongEvent(event.id, date.toISOString(), (window as any)._currentDelayReason);
+                                              toast({ title: "Échéance reportée", description: `Nouvelle date fixée au ${format(date, 'dd/MM/yyyy')}` });
+                                              (window as any)._currentDelayReason = '';
+                                            }
+                                          }}
+                                          className="border rounded-xl"
+                                        />
+                                      </div>
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                                <button
+                                  onClick={() => {
+                                    toggleValidation(event.id, user?.name);
+                                    toast({ title: "Incindent clôturé", description: `L'échéance "${event.title}" a été validée a posteriori.` });
+                                  }}
+                                  className="p-1.5 rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-all shadow-inner"
+                                  title="Valider a posteriori"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                            <h4 className="text-sm font-black uppercase italic truncate text-rose-700 dark:text-rose-400">{event.title}</h4>
+                            <div className="flex items-center gap-1.5">
+                              <ShieldAlert className="h-3 w-3 text-rose-600" />
+                              <p className="text-[10px] font-black text-rose-600 uppercase tracking-tighter shadow-rose-100">Action Corrective Requise</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                {timelineEvents.filter(e => !e.validated && isBefore(parseISO(e.date), startOfDay(new Date()))).length === 0 && (
+                  <div className="md:col-span-3 py-10 text-center border-2 border-slate-100 rounded-3xl bg-white/50 backdrop-blur-sm">
+                    <ShieldCheck className="h-8 w-8 text-emerald-500 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs font-black text-emerald-600 uppercase italic tracking-widest">Aucun retard détecté</p>
+                    <p className="text-[9px] text-slate-400 uppercase font-bold mt-1">Félicitations pour la tenue du calendrier</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* Main Grid */}

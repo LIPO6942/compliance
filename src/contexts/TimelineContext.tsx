@@ -11,6 +11,9 @@ export interface TimelineEvent {
     category: string;
     color: string;
     validated?: boolean;
+    validatedAt?: string;
+    validatedBy?: string;
+    delayReason?: string;
 }
 
 interface TimelineContextType {
@@ -19,7 +22,8 @@ interface TimelineContextType {
     addEvent: (event: Omit<TimelineEvent, 'id' | 'validated'>) => void;
     updateEvent: (event: TimelineEvent) => void;
     deleteEvent: (id: string) => void;
-    toggleValidation: (id: string) => void;
+    toggleValidation: (id: string, userName?: string) => void;
+    prolongEvent: (id: string, newDate: string, reason?: string) => void;
     persistChanges: () => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -130,9 +134,26 @@ export const TimelineProvider = ({ children }: { children: ReactNode }) => {
         persist(updated).catch(e => console.error("Persist failed:", e));
     };
 
-    const toggleValidation = (id: string) => {
+    const toggleValidation = (id: string, userName?: string) => {
         const updated = events.map(e =>
-            e.id === id ? { ...e, validated: !e.validated } : e
+            e.id === id ? { 
+                ...e, 
+                validated: !e.validated,
+                validatedAt: !e.validated ? new Date().toISOString() : undefined,
+                validatedBy: !e.validated ? (userName || 'Utilisateur') : undefined
+            } : e
+        );
+        setEvents(updated);
+        persist(updated).catch(e => console.error("Persist failed:", e));
+    };
+
+    const prolongEvent = (id: string, newDate: string, reason?: string) => {
+        const updated = events.map(e =>
+            e.id === id ? { 
+                ...e, 
+                date: newDate,
+                delayReason: reason || e.delayReason
+            } : e
         );
         setEvents(updated);
         persist(updated).catch(e => console.error("Persist failed:", e));
