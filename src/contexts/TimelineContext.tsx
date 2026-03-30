@@ -14,6 +14,7 @@ export interface TimelineEvent {
     validatedAt?: string;
     validatedBy?: string;
     delayReason?: string;
+    evidenceIds?: string[]; // IDs of documents from DocumentsContext
 }
 
 interface TimelineContextType {
@@ -23,6 +24,7 @@ interface TimelineContextType {
     updateEvent: (event: TimelineEvent) => void;
     deleteEvent: (id: string) => void;
     toggleValidation: (id: string, userName?: string) => void;
+    validateWithEvidence: (id: string, evidenceIds: string[], userName?: string) => void;
     prolongEvent: (id: string, newDate: string, reason?: string) => void;
     persistChanges: () => Promise<{ success: boolean; error?: string }>;
 }
@@ -147,6 +149,20 @@ export const TimelineProvider = ({ children }: { children: ReactNode }) => {
         persist(updated).catch(e => console.error("Persist failed:", e));
     };
 
+    const validateWithEvidence = (id: string, evidenceIds: string[], userName?: string) => {
+        const updated = events.map(e =>
+            e.id === id ? { 
+                ...e, 
+                validated: true,
+                validatedAt: new Date().toISOString(),
+                validatedBy: userName || 'Utilisateur',
+                evidenceIds: evidenceIds
+            } : e
+        );
+        setEvents(updated);
+        persist(updated).catch(e => console.error("Persist failed:", e));
+    };
+
     const prolongEvent = (id: string, newDate: string, reason?: string) => {
         const updated = events.map(e =>
             e.id === id ? { 
@@ -164,7 +180,7 @@ export const TimelineProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <TimelineContext.Provider value={{ events, loading, addEvent, updateEvent, deleteEvent, toggleValidation, prolongEvent, persistChanges }}>
+        <TimelineContext.Provider value={{ events, loading, addEvent, updateEvent, deleteEvent, toggleValidation, validateWithEvidence, prolongEvent, persistChanges }}>
             {children}
         </TimelineContext.Provider>
     );

@@ -6,14 +6,16 @@ import { useTimeline, type TimelineEvent } from "@/contexts/TimelineContext";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, History as HistoryIcon, Search, Filter, Calendar as CalendarIcon, ArrowLeft } from "lucide-react";
+import { CheckCircle2, History as HistoryIcon, Search, Filter, Calendar as CalendarIcon, ArrowLeft, Paperclip, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useDocuments } from "@/contexts/DocumentsContext";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export default function HistoryPage() {
     const { events } = useTimeline();
+    const { documents } = useDocuments();
     const [searchTerm, setSearchTerm] = React.useState("");
     
     const archivedEvents = events
@@ -103,6 +105,7 @@ export default function HistoryPage() {
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Date Prévue</th>
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Date Réelle</th>
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Validé par</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Preuves</th>
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Statut / Justification</th>
                             </tr>
                         </thead>
@@ -140,6 +143,27 @@ export default function HistoryPage() {
                                             <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
                                                 {event.validatedBy || 'Sylius Admin'}
                                             </span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex flex-wrap gap-1">
+                                            {event.evidenceIds && event.evidenceIds.length > 0 ? (
+                                                event.evidenceIds.map(id => {
+                                                    const doc = documents.find(d => d.id === id);
+                                                    return (
+                                                        <Badge 
+                                                            key={id} 
+                                                            className="bg-indigo-50 text-indigo-600 border-indigo-100 text-[8px] font-black gap-1 cursor-pointer hover:bg-indigo-600 hover:text-white transition-all py-0.5"
+                                                            title={doc?.name || "Document inconnu"}
+                                                        >
+                                                            <Paperclip className="h-2 w-2" />
+                                                            {doc ? doc.name.substring(0, 15) + "..." : "PREUVE"}
+                                                        </Badge>
+                                                    );
+                                                })
+                                            ) : (
+                                                <span className="text-[10px] text-slate-300 italic">Aucune</span>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
