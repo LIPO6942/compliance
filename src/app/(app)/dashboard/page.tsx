@@ -874,6 +874,11 @@ export default function DashboardPage() {
                               )}>
                                 {item.source}
                               </Badge>
+                              {item.isHighPriority && (
+                                <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-500/10 text-rose-600 border-none animate-pulse">
+                                  🇹🇳 Focus Tunisie
+                                </Badge>
+                              )}
                               <span className="text-[9px] font-bold text-slate-400">
                                 {format(parseISO(item.date), 'dd MMM', { locale: fr })}
                               </span>

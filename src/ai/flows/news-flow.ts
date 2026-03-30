@@ -22,6 +22,8 @@ const ComplianceNewsOutputSchema = z.array(
         description: z.string().describe("Une courte description (1-2 phrases) de l'actualité."),
         url: z.string().url().optional().describe("L'URL vers l'article complet, si disponible."),
         imageUrl: z.string().url().optional().describe("L'URL d'une image pour l'article."),
+        score: z.number().optional(),
+        isHighPriority: z.boolean().optional(),
     })
 ).describe("Une liste d'articles d'actualité sur la conformité.");
 
@@ -52,8 +54,8 @@ const fetchFromNewsAPI = async (): Promise<NewsItem[]> => {
     if (!NEWS_API_KEY) return [];
 
     try {
-        const query = encodeURIComponent('"conformité GRC" OR "compliance LCB-FT" OR "lutte contre le blanchiment" OR "Sapin II" OR "anti-corruption" OR "FATF"');
-        const url = `https://newsapi.org/v2/everything?q=${query}&language=fr&sortBy=publishedAt&pageSize=20&apiKey=${NEWS_API_KEY}`;
+        const query = encodeURIComponent('("conformité GRC" OR "compliance LCB-FT" OR "anti-corruption" OR "FATF") AND (Tunisie OR "Banque Centrale" OR Maghreb OR international)');
+        const url = `https://newsapi.org/v2/everything?q=${query}&language=fr&sortBy=relevancy&pageSize=20&apiKey=${NEWS_API_KEY}`;
 
         const response = await fetch(url);
         if (!response.ok) return [];
@@ -384,10 +386,35 @@ async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
 
     console.log(`[NEWS FLOW] Total d'articles uniques (après déduplication par URL): ${uniqueNews.length}.`);
 
-    uniqueNews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const tunisiaKeywords = ['tunisie', 'tunisien', 'tunisienne', 'jort', 'bct', 'cga', 'juridoc', 'mae', 'tunis'];
+
+    const scoredNews = uniqueNews.map(item => {
+        let score = new Date(item.date).getTime(); // Base score is the date
+        const content = (item.title + " " + item.description).toLowerCase();
+        let isTunisiaRelated = false;
+        
+        // Boost for Tunisia related content (+30 days equivalent boost per keyword)
+        const dayInMs = 24 * 60 * 60 * 1000;
+        tunisiaKeywords.forEach(kw => {
+            if (content.includes(kw)) {
+                score += (dayInMs * 30);
+                isTunisiaRelated = true;
+            }
+        });
+
+        // Extra boost if source is Juridoc.tn
+        if (item.source === 'Juridoc.tn') {
+            score += (dayInMs * 60);
+            isTunisiaRelated = true;
+        }
+
+        return { ...item, score, isHighPriority: isTunisiaRelated };
+    });
+
+    scoredNews.sort((a, b) => b.score - a.score);
 
     // Increase the final slice to have a larger pool of recent articles
-    return ComplianceNewsOutputSchema.parse(uniqueNews.slice(0, 25));
+    return ComplianceNewsOutputSchema.parse(scoredNews.slice(0, 30));
 }
 
 async function callGroqChatCompletion(prompt: string): Promise<string> {

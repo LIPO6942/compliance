@@ -204,6 +204,8 @@ export interface NewsItem {
   description: string;
   url?: string;
   imageUrl?: string;
+  score?: number;
+  isHighPriority?: boolean;
 }
 
 // Mermaid Workflow Types
