@@ -322,16 +322,24 @@ const fetchFromJuridocTN = async (): Promise<NewsItem[]> => {
             parser.parseURL(url2),
         ]);
 
-        const processItems = (items: any[], isJuridocDirect: boolean): NewsItem[] => {
-            return items.slice(0, isJuridocDirect ? 10 : 8).map((item: any): NewsItem | null => {
+        const processItems = (items: any[]): NewsItem[] => {
+            return items.map((item: any): NewsItem | null => {
                 if (!item.title || !item.link) return null;
                 const itemDate = item.isoDate ? new Date(item.isoDate) : new Date();
+                
+                // Determine source dynamically
+                let source: any = 'Google News';
+                if (item.link.includes('juridoc.tn')) source = 'Juridoc.tn';
+                else if (item.link.includes('bct.gov.tn')) source = 'BCT';
+                else if (item.link.includes('iort.gov.tn')) source = 'JORT';
+                else if (item.link.includes('cga.gov.tn')) source = 'CGA';
+                
                 return {
                     id: item.guid || item.link,
                     title: item.title,
                     date: itemDate.toISOString().split('T')[0],
-                    source: 'Juridoc.tn',
-                    description: item.contentSnippet || 'Publication juridique et réglementaire tunisienne.',
+                    source: source,
+                    description: item.contentSnippet || 'Information réglementaire tunisienne.',
                     url: item.link,
                     imageUrl: undefined,
                 };
@@ -339,10 +347,10 @@ const fetchFromJuridocTN = async (): Promise<NewsItem[]> => {
         };
 
         if (feed1.status === 'fulfilled' && feed1.value.items) {
-            results.push(...processItems(feed1.value.items, true));
+            results.push(...processItems(feed1.value.items));
         }
         if (feed2.status === 'fulfilled' && feed2.value.items) {
-            results.push(...processItems(feed2.value.items, false));
+            results.push(...processItems(feed2.value.items));
         }
 
         console.log(`[NEWS FLOW] Juridoc.tn: ${results.length} articles trouvés.`);
@@ -350,6 +358,55 @@ const fetchFromJuridocTN = async (): Promise<NewsItem[]> => {
 
     } catch (error) {
         console.error("[NEWS FLOW] Error fetching from Juridoc.tn:", error);
+        return [];
+    }
+};
+
+// Fetcher for Arabic News (specifically for Tunisia compliance)
+const fetchFromArabicNews = async (): Promise<NewsItem[]> => {
+    try {
+        const parser = new Parser();
+        const keywords = [
+            'الامتثال', // Compliance
+            'الهيئة العامة للتأمين', // CGA
+            'البنك المركزي التونسي', // BCT
+            'لجنة التحاليل المالية', // CTAF
+            'مجلس السوق المالية', // CMF
+            'هيئة حماية المعطيات الشخصية', // INPDP
+            'الرائد الرسمي تونس', // JORT
+            'مكافحة غسل الأموال', // AML
+            'تمويل الإرهاب', // CFT
+            'قانون المالية تونس', // Financial Law
+            'شفافية المعاملات المالية', // Financial Transparency
+            'حماية المعطيات الشخصية', // Data Protection
+            'معايير بازل', // Basel Standards
+            'المعايير الدولية للتقارير المالية' // IFRS
+        ];
+        
+        const query = encodeURIComponent(`(${keywords.join(') OR (')})`);
+        const url = `https://news.google.com/rss/search?q=${query}&hl=ar&gl=TN&ceid=TN:ar`;
+
+        const feed = await parser.parseURL(url);
+        if (!feed.items) return [];
+
+        return feed.items.slice(0, 15).map((item: any): NewsItem | null => {
+            if (!item.title || !item.link) return null;
+            const itemDate = item.isoDate ? new Date(item.isoDate) : new Date();
+            
+            return {
+                id: item.guid || item.link,
+                title: item.title,
+                date: itemDate.toISOString().split('T')[0],
+                source: 'Autre', // Arabic news source
+                description: item.contentSnippet || 'أخبار الامتثال والتنظيم في تونس.',
+                url: item.link,
+                imageUrl: undefined,
+                isHighPriority: true // Any Arabic result for these queries is high priority local news
+            };
+        }).filter((item: NewsItem | null): item is NewsItem => item !== null);
+
+    } catch (error) {
+        console.error("[NEWS FLOW] Error fetching from Arabic News:", error);
         return [];
     }
 };
@@ -364,6 +421,7 @@ async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
         fetchFromKPMG(),
         fetchFromFATF(),
         fetchFromJuridocTN(),
+        fetchFromArabicNews(),
     ];
     const results = await Promise.allSettled(allNewsPromises);
 
@@ -410,6 +468,15 @@ async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
             score += (dayInMs * 60);
             isTunisiaRelated = true;
         }
+
+        // Boost for Arabic results from specific compliance queries
+        const arabicKeywords = ['الامتثال', 'التأمين', 'المالية', 'المركزي', 'غسل', 'الأموال', 'الرائد'];
+        arabicKeywords.forEach(kw => {
+            if (content.includes(kw)) {
+                score += (dayInMs * 45); // Heavy boost for Arabic compliance news
+                isTunisiaRelated = true;
+            }
+        });
 
         return { ...item, score, isHighPriority: isTunisiaRelated };
     });
