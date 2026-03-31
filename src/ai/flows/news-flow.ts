@@ -481,7 +481,15 @@ async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
         return { ...item, score, isHighPriority: isTunisiaRelated };
     });
 
-    scoredNews.sort((a, b) => b.score - a.score);
+    // Secondary sort: Priority first, but within each group, newest first.
+    // However, user requested "Newest first" primarily.
+    // Let's sort by Date DESC as primary, then HighPriority as secondary.
+    scoredNews.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        if (dateB !== dateA) return dateB - dateA;
+        return (b.isHighPriority ? 1 : 0) - (a.isHighPriority ? 1 : 0);
+    });
 
     // Increase the final slice to have a larger pool of recent articles
     return ComplianceNewsOutputSchema.parse(scoredNews.slice(0, 30));
