@@ -5,6 +5,8 @@ export interface DocumentItem {
   description?: string;
   requirements: string[];
   alertType?: string; // New: 'fraude', 'conformite', 'expiration', etc.
+  technicalNote?: string;
+  vaultDocumentId?: string;
 }
 
 export interface EntityRequirement {

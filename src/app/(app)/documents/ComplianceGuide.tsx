@@ -13,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useActivityLog } from "@/contexts/ActivityLogContext";
-import { ArrowUp, ArrowDown, History, PlusCircle } from "lucide-react";
+import { useDocuments } from "@/contexts/DocumentsContext";
+import { ArrowUp, ArrowDown, History, PlusCircle, Link as LinkIcon } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -28,6 +29,7 @@ const alertTypes = [
 export function ComplianceGuide() {
   const { requirements, updateDocument, addDocumentItem, reorderDocumentItem } = useRequirements();
   const { logs, logAction } = useActivityLog();
+  const { documents } = useDocuments();
   const [activeCategory, setActiveCategory] = useState<string>("physique");
   const [isEditingMode, setIsEditingMode] = useState<boolean>(false);
 
@@ -270,9 +272,19 @@ export function ComplianceGuide() {
                                 <Info className="h-4 w-4" />
                                 <span className="text-[10px] font-black uppercase tracking-widest">Note Technique</span>
                              </div>
-                             <p className="text-xs font-bold text-slate-600 dark:text-slate-400 leading-relaxed italic">
-                                La certification doit être datée. Toute rature ou surcharge entraîne le rejet automatique de la pièce lors de l'examen AML.
-                             </p>
+                             {isEditingMode ? (
+                               <Textarea
+                                 value={doc.technicalNote || ""}
+                                 placeholder="La certification doit être datée..."
+                                 onChange={(e) => handleUpdateDocument(doc.id, { technicalNote: e.target.value })}
+                                 className="text-xs font-bold bg-white/50 dark:bg-slate-900 border-none shadow-none resize-none min-h-[60px]"
+                                 onClick={(e) => e.stopPropagation()}
+                               />
+                             ) : (
+                               <p className="text-xs font-bold text-slate-600 dark:text-slate-400 leading-relaxed italic">
+                                  {doc.technicalNote || "La certification doit être datée. Toute rature ou surcharge entraîne le rejet automatique de la pièce lors de l'examen AML."}
+                               </p>
+                             )}
                           </div>
                           
                           <div className="flex flex-col gap-2">
@@ -287,7 +299,7 @@ export function ComplianceGuide() {
                                    value={doc.alertType || alertTypes[0]} 
                                    onValueChange={(val) => handleUpdateDocument(doc.id, { alertType: val })}
                                  >
-                                   <SelectTrigger className="w-full bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 h-10 rounded-xl font-bold text-xs shadow-sm">
+                                   <SelectTrigger className="w-full bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 h-10 rounded-xl font-bold text-xs shadow-sm" onClick={(e) => e.stopPropagation()}>
                                      <SelectValue placeholder="Choisir une alerte" />
                                    </SelectTrigger>
                                    <SelectContent className="rounded-xl shadow-2xl border-none">
@@ -296,14 +308,45 @@ export function ComplianceGuide() {
                                      ))}
                                    </SelectContent>
                                  </Select>
+
+                                 <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest mt-4 mb-2 block">Liaison Coffre-Fort</label>
+                                 <Select 
+                                   value={doc.vaultDocumentId || "none"} 
+                                   onValueChange={(val) => handleUpdateDocument(doc.id, { vaultDocumentId: val === "none" ? "" : val })}
+                                 >
+                                   <SelectTrigger className="w-full bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 h-10 rounded-xl font-bold text-xs shadow-sm truncate" onClick={(e) => e.stopPropagation()}>
+                                     <SelectValue placeholder="Lier un document" />
+                                   </SelectTrigger>
+                                   <SelectContent className="rounded-xl shadow-2xl border-none max-h-[200px]">
+                                     <SelectItem value="none" className="font-bold text-xs italic text-slate-400">Aucun lien</SelectItem>
+                                     {documents.map(vDoc => (
+                                       <SelectItem key={vDoc.id} value={vDoc.id} className="font-bold text-xs">{vDoc.name}</SelectItem>
+                                     ))}
+                                   </SelectContent>
+                                 </Select>
                                </div>
                              ) : (
-                               doc.alertType && (
-                                 <div className="flex items-center justify-center gap-2 px-3 py-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 text-center">
-                                    <Icons.AlertTriangle className="h-4 w-4 animate-bounce shrink-0" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest leading-snug">{doc.alertType}</span>
-                                 </div>
-                               )
+                               <div className="flex flex-col gap-2 mt-2">
+                                 {doc.alertType && (
+                                   <div className="flex items-center justify-center gap-2 px-3 py-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 text-center">
+                                      <Icons.AlertTriangle className="h-4 w-4 animate-bounce shrink-0" />
+                                      <span className="text-[9px] font-black uppercase tracking-widest leading-snug">{doc.alertType}</span>
+                                   </div>
+                                 )}
+                                 {doc.vaultDocumentId && documents.find(d => d.id === doc.vaultDocumentId) && (
+                                   <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-sm">
+                                      <div className="flex items-center gap-2 overflow-hidden">
+                                         <LinkIcon className="h-3 w-3 text-indigo-500 shrink-0" />
+                                         <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 truncate">
+                                            {documents.find(d => d.id === doc.vaultDocumentId)?.name}
+                                         </span>
+                                      </div>
+                                      <Badge variant="outline" className="text-[8px] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border-none shrink-0 ml-2">
+                                         LIÉ
+                                      </Badge>
+                                   </div>
+                                 )}
+                               </div>
                              )}
                           </div>
                        </div>
