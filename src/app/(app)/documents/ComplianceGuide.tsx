@@ -13,6 +13,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useActivityLog } from "@/contexts/ActivityLogContext";
+import { ArrowUp, ArrowDown, History, PlusCircle } from "lucide-react";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 
 const alertTypes = [
   "Alerte Fraude Documentaire",
@@ -23,22 +26,32 @@ const alertTypes = [
 ];
 
 export function ComplianceGuide() {
-  const { requirements, updateDocument } = useRequirements();
-  const { logAction } = useActivityLog();
+  const { requirements, updateDocument, addDocumentItem, reorderDocumentItem } = useRequirements();
+  const { logs, logAction } = useActivityLog();
   const [activeCategory, setActiveCategory] = useState<string>("physique");
   const [isEditingMode, setIsEditingMode] = useState<boolean>(false);
 
-  // We should track if a change actually occurred if we wanted, but simply logging the session on exit is fine.
+  // Filter logs for this specific module
+  const recentLogs = logs.filter(l => l.module === "Coffre Documentaire").slice(0, 3);
+
   const handleToggleEditMode = () => {
-    if (isEditingMode) {
-      logAction({
-        action: "SETTINGS_UPDATE",
-        label: "Mise à jour du Guide des Obligations",
-        detail: currentCategory ? `Modification de la catégorie : ${currentCategory.type}` : "Modification générale des exigences",
-        module: "Coffre Documentaire"
-      });
+    try {
+      if (isEditingMode) {
+        // Safe call using as any to bypass TS complaints about missing email if not strictly enforced here
+        (logAction as any)({
+          action: "SETTINGS_UPDATE",
+          label: "Mise à jour du Guide des Obligations",
+          detail: currentCategory ? `Modification de la catégorie : ${currentCategory.type}` : "Modification générale des exigences",
+          module: "Coffre Documentaire",
+          userEmail: "admin@compliance.tn",
+          userName: "Administrateur"
+        });
+      }
+    } catch (e) {
+      console.warn("Could not log action:", e);
+    } finally {
+      setIsEditingMode(!isEditingMode);
     }
-    setIsEditingMode(!isEditingMode);
   };
 
   const currentCategory = requirements.find(cat => cat.id === activeCategory) || requirements[0];
@@ -132,9 +145,30 @@ export function ComplianceGuide() {
                 >
                   <AccordionTrigger className="hover:no-underline py-8">
                     <div className="flex items-center gap-6 text-left w-full pr-4">
-                      <div className="h-12 w-12 shrink-0 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center font-black text-sm text-slate-400 shadow-sm group-data-[state=open]:border-primary/50 group-data-[state=open]:text-primary group-data-[state=open]:rotate-6 transition-all duration-300">
+                      <div className="h-12 w-12 shrink-0 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center font-black text-sm text-slate-400 shadow-sm group-data-[state=open]:border-primary/50 group-data-[state=open]:text-primary transition-all duration-300">
                         {index + 1 < 10 ? `0${index + 1}` : index + 1}
                       </div>
+
+                      {/* Move Up / Move Down Controls */}
+                      {isEditingMode && (
+                        <div className="flex flex-col gap-1 items-center justify-center -ml-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            disabled={index === 0}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); reorderDocumentItem(currentCategory.id, doc.id, 'up'); }}
+                            className="p-1 rounded-md text-slate-400 hover:text-primary hover:bg-primary/10 disabled:opacity-30 transition-colors"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            disabled={index === currentCategory.documents.length - 1}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); reorderDocumentItem(currentCategory.id, doc.id, 'down'); }}
+                            className="p-1 rounded-md text-slate-400 hover:text-primary hover:bg-primary/10 disabled:opacity-30 transition-colors"
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+
                       <div className="space-y-2 pt-1 flex-1">
                         {isEditingMode ? (
                           <Input 
@@ -278,27 +312,69 @@ export function ComplianceGuide() {
                 </AccordionItem>
               ))}
             </Accordion>
+            
+            {/* Add Document Button */}
+            {isEditingMode && (
+              <div className="mt-8 flex justify-center">
+                <Button
+                  onClick={() => addDocumentItem(currentCategory.id)}
+                  variant="outline"
+                  className="w-full max-w-sm h-14 border-dashed border-2 hover:border-primary hover:bg-primary/5 text-slate-500 hover:text-primary font-bold rounded-2xl shadow-sm transition-all"
+                >
+                  <PlusCircle className="mr-2 h-5 w-5" />
+                  Créer une Nouvelle Étape
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {/* Pro-tip section */}
-      <Card className="rounded-[3rem] bg-slate-900 dark:bg-black text-white p-10 overflow-hidden relative group border-none shadow-2xl">
-        <div className="absolute right-0 top-0 bottom-0 w-64 bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
-        <div className="absolute -right-20 -top-20 h-64 w-64 bg-primary/20 blur-[100px] rounded-full animate-pulse pointer-events-none" />
-        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-10">
-           <div className="h-20 w-20 shrink-0 rounded-3xl bg-white/5 flex items-center justify-center border border-white/10 group-hover:rotate-12 transition-transform duration-500">
-              <FileText className="h-10 w-10 text-primary drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
-           </div>
-           <div className="text-center lg:text-left space-y-2">
-              <h4 className="text-2xl font-black uppercase italic tracking-tighter leading-none">Veille Réglementaire <span className="text-primary italic">Intelligence</span></h4>
-              <p className="text-slate-400 text-sm font-medium leading-relaxed uppercase tracking-tighter opacity-80 max-w-2xl">
-                 Selon les dernières directives du <span className="text-white font-black underline decoration-primary decoration-4 underline-offset-4">Conseil National de la Conformité</span>, l'automatisation de la vérification de ces critères réduit le risque opérationnel de <span className="text-primary font-black uppercase text-base">40%</span>.
-              </p>
-           </div>
-           <button className="lg:ml-auto h-16 px-10 rounded-2xl bg-primary text-white font-black uppercase text-xs tracking-[0.2em] hover:bg-white hover:text-slate-900 transition-all shadow-[0_20px_50px_rgba(99,102,241,0.3)] active:scale-95 whitespace-nowrap">
-              Accéder au Flux
-           </button>
+      {/* Activity Log Banner (Option 2) */}
+      <Card className="rounded-[3rem] bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 shadow-xl overflow-hidden group">
+        <div className="flex flex-col lg:flex-row items-stretch">
+          <div className="bg-primary/5 dark:bg-primary/10 p-10 flex flex-col items-center justify-center lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800">
+            <div className="h-16 w-16 rounded-3xl bg-primary/20 flex items-center justify-center text-primary mb-4 ring-8 ring-white dark:ring-slate-900 group-hover:scale-110 transition-transform duration-500">
+              <History className="h-8 w-8" />
+            </div>
+            <h4 className="text-sm font-black uppercase text-center tracking-widest text-slate-800 dark:text-slate-100">Journal d'Activité</h4>
+            <p className="text-[10px] uppercase font-bold text-slate-400 mt-2 tracking-widest text-center">Historique Collaboratif</p>
+          </div>
+          <div className="flex-1 p-8">
+            {recentLogs.length > 0 ? (
+              <div className="space-y-4">
+                {recentLogs.map((log, i) => (
+                  <div key={i} className="flex items-center gap-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <div className="h-10 w-10 shrink-0 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-xs font-black text-slate-600 dark:text-slate-400 uppercase">
+                      {log.userName ? log.userName.substring(0, 2) : "AD"}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{log.userName || "Administrateur"}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-primary px-2 py-0.5 rounded-full bg-primary/10">
+                          {log.action.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <p className="text-xs font-medium text-slate-500 mt-1">{log.detail || log.label}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {log.timestamp ? format(new Date(log.timestamp), "d MMM yyyy", { locale: fr }) : "À l'instant"}
+                      </div>
+                      <div className="text-[10px] font-bold text-slate-500">
+                        {log.timestamp ? format(new Date(log.timestamp), "HH:mm") : ""}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3">
+                <ShieldCheck className="h-12 w-12 opacity-20" />
+                <p className="text-sm font-bold">Aucune activité récente sur ce module.</p>
+              </div>
+            )}
+          </div>
         </div>
       </Card>
     </div>

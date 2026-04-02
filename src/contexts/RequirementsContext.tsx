@@ -8,6 +8,8 @@ import { doc, onSnapshot, setDoc } from "firebase/firestore";
 interface RequirementsContextType {
   requirements: EntityRequirement[];
   updateDocument: (categoryId: string, documentId: string, data: Partial<DocumentItem>) => void;
+  addDocumentItem: (categoryId: string) => void;
+  reorderDocumentItem: (categoryId: string, docId: string, direction: 'up' | 'down') => void;
   resetToDefault: () => void;
 }
 
@@ -87,6 +89,38 @@ export function RequirementsProvider({ children }: { children: ReactNode }) {
     saveRequirements(newRequirements);
   };
 
+  const addDocumentItem = (categoryId: string) => {
+    const newRequirements = requirements.map((cat) => {
+      if (cat.id !== categoryId) return cat;
+      const newDoc: DocumentItem = {
+        id: `doc-${Date.now()}`,
+        name: "Nouvelle Étape Documentaire",
+        description: "Description de l'étape",
+        requirements: ["Nouvelle exigence de données"],
+        alertType: "Alerte Non-Conformité"
+      };
+      return { ...cat, documents: [...cat.documents, newDoc] };
+    });
+    saveRequirements(newRequirements);
+  };
+
+  const reorderDocumentItem = (categoryId: string, docId: string, direction: 'up' | 'down') => {
+    const newRequirements = requirements.map((cat) => {
+      if (cat.id !== categoryId) return cat;
+      const docIndex = cat.documents.findIndex(d => d.id === docId);
+      if (docIndex < 0) return cat;
+      
+      const newDocs = [...cat.documents];
+      if (direction === 'up' && docIndex > 0) {
+        [newDocs[docIndex - 1], newDocs[docIndex]] = [newDocs[docIndex], newDocs[docIndex - 1]];
+      } else if (direction === 'down' && docIndex < newDocs.length - 1) {
+        [newDocs[docIndex + 1], newDocs[docIndex]] = [newDocs[docIndex], newDocs[docIndex + 1]];
+      }
+      return { ...cat, documents: newDocs };
+    });
+    saveRequirements(newRequirements);
+  };
+
   const resetToDefault = () => {
     saveRequirements(ENTITY_REQUIREMENTS);
   };
@@ -96,7 +130,7 @@ export function RequirementsProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <RequirementsContext.Provider value={{ requirements, updateDocument, resetToDefault }}>
+    <RequirementsContext.Provider value={{ requirements, updateDocument, addDocumentItem, reorderDocumentItem, resetToDefault }}>
       {children}
     </RequirementsContext.Provider>
   );
