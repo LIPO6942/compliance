@@ -12,9 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useActivityLog } from "@/contexts/ActivityLogContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
-import { ArrowUp, ArrowDown, History, PlusCircle, Link as LinkIcon } from "lucide-react";
+import { ArrowUp, ArrowDown, History, PlusCircle, Link as LinkIcon, ExternalLink, FileWarning } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -26,12 +27,79 @@ const alertTypes = [
   "Alerte Données"
 ];
 
+const PDFViewerFallback = ({ url, anchor, title }: { url: string, anchor?: string, title?: string }) => {
+  const fullSrc = React.useMemo(() => {
+    if (!url) return "";
+    let baseUrl = url;
+    
+    const isExcel = url.toLowerCase().match(/\.(xlsx|xls|csv)$/) || url.includes('excel');
+    
+    if (isExcel) {
+      let directLink = url;
+      if (url.includes('dropbox.com')) directLink = url.replace('dl=0', 'raw=1');
+      if (url.includes('drive.google.com')) directLink = url.replace('/file/d/', '/uc?export=download&id=').split('/')[0];
+      return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(directLink)}`;
+    }
+
+    const proxyUrl = `/api/proxy-document?url=${encodeURIComponent(url)}`;
+    if (!anchor) return proxyUrl;
+    return `${proxyUrl}#page=${anchor}`;
+  }, [url, anchor]);
+
+  if (!url) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 p-8 text-center">
+        <FileWarning className="h-12 w-12 opacity-20" />
+        <p className="font-bold text-sm text-slate-600">Aucun document sélectionné</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full h-full bg-white flex flex-col overflow-hidden">
+      <div className="bg-slate-50 border-b border-slate-200 px-4 py-2 flex justify-between items-center shrink-0">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic">
+          Lecteur Direct {anchor ? `• Page ${anchor}` : ''}
+        </span>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-7 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 shadow-none border-none"
+          onClick={() => window.open(fullSrc, '_blank')}
+        >
+          <ExternalLink className="h-3 w-3 mr-1.5" />
+          Ouvrir en plein écran
+        </Button>
+      </div>
+      <div className="flex-1 relative">
+        <iframe
+          key={fullSrc}
+          src={fullSrc}
+          className="w-full h-full border-none"
+          title={title || "Lecteur PDF"}
+          allow="autoplay; fullscreen"
+        />
+      </div>
+    </div>
+  );
+};
+
 export function ComplianceGuide() {
   const { requirements, updateDocument, addDocumentItem, reorderDocumentItem } = useRequirements();
   const { logs, logAction } = useActivityLog();
   const { documents } = useDocuments();
   const [activeCategory, setActiveCategory] = useState<string>("physique");
   const [isEditingMode, setIsEditingMode] = useState<boolean>(false);
+  const [viewerConfig, setViewerConfig] = useState<{ url: string; title?: string; anchor?: string } | null>(null);
+
+  const openDocument = (docId: string) => {
+    const vaultDoc = documents.find(d => d.id === docId);
+    if (vaultDoc && vaultDoc.url) {
+      setViewerConfig({ url: vaultDoc.url, title: vaultDoc.name });
+    } else {
+      alert("Ce document n'a pas de lien source (URL) défini.");
+    }
+  };
 
   // Filter logs for this specific module
   const recentLogs = logs.filter(l => l.module === "Coffre Documentaire").slice(0, 3);
@@ -334,15 +402,18 @@ export function ComplianceGuide() {
                                    </div>
                                  )}
                                  {doc.vaultDocumentId && documents.find(d => d.id === doc.vaultDocumentId) && (
-                                   <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-sm">
+                                   <div 
+                                      onClick={() => openDocument(doc.vaultDocumentId!)}
+                                      className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-sm cursor-pointer hover:border-indigo-100 dark:hover:border-indigo-800 transition-all group"
+                                   >
                                       <div className="flex items-center gap-2 overflow-hidden">
-                                         <LinkIcon className="h-3 w-3 text-indigo-500 shrink-0" />
-                                         <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 truncate">
+                                         <LinkIcon className="h-3 w-3 text-indigo-500 shrink-0 group-hover:scale-110 transition-transform" />
+                                         <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
                                             {documents.find(d => d.id === doc.vaultDocumentId)?.name}
                                          </span>
                                       </div>
-                                      <Badge variant="outline" className="text-[8px] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border-none shrink-0 ml-2">
-                                         LIÉ
+                                      <Badge variant="outline" className="text-[8px] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border-none shrink-0 ml-2 shadow-none">
+                                         OUVRIR
                                       </Badge>
                                    </div>
                                  )}
@@ -420,6 +491,20 @@ export function ComplianceGuide() {
           </div>
         </div>
       </Card>
+
+      {/* Viewer Modal */}
+      <Dialog open={!!viewerConfig} onOpenChange={(open) => !open && setViewerConfig(null)}>
+        <DialogContent className="max-w-6xl h-[85vh] p-0 rounded-[2.5rem] border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] overflow-hidden bg-white dark:bg-slate-950 flex flex-col">
+          <DialogHeader className="px-8 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+            <DialogTitle className="text-xl font-black tracking-tight text-slate-800 dark:text-white">
+              {viewerConfig?.title || "Lecteur de Document"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 w-full bg-slate-100 dark:bg-slate-900 overflow-hidden relative">
+            {viewerConfig && <PDFViewerFallback url={viewerConfig.url} title={viewerConfig.title} anchor={viewerConfig.anchor} />}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
