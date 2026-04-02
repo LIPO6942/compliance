@@ -65,11 +65,14 @@ export function RequirementsProvider({ children }: { children: ReactNode }) {
   const saveRequirements = (newRequirements: EntityRequirement[]) => {
     setRequirements(newRequirements); // Optimistic UI update
     
+    // Nettoyer les valeurs undefined car Firestore va rejeter le document avec une erreur silencieuse sinon.
+    const cleanRequirements = JSON.parse(JSON.stringify(newRequirements));
+
     if (isFirebaseConfigured && db) {
       const docRef = doc(db, "settings", "guide_requirements");
-      setDoc(docRef, { requirements: newRequirements }).catch(console.error);
+      setDoc(docRef, { requirements: cleanRequirements }).catch(console.error);
     } else {
-      localStorage.setItem("complianceRequirements", JSON.stringify(newRequirements));
+      localStorage.setItem("complianceRequirements", JSON.stringify(cleanRequirements));
     }
   };
 

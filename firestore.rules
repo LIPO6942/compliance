@@ -123,9 +123,12 @@ service cloud.firestore {
     }
 
     // ============================================
-    // CONFIG - Configuration de l'application
+    // CONFIG & SETTINGS - Configuration de l'application
     // ============================================
     match /config/{document=**} {
+      allow read, write: if true;  // Ouvert en dev
+    }
+    match /settings/{document=**} {
       allow read, write: if true;  // Ouvert en dev
     }
   }
