@@ -187,7 +187,7 @@ export function ComplianceGuide() {
         <Card className="shadow-[0_40px_80px_-15px_rgba(0,0,0,0.1)] border-none bg-white dark:bg-slate-900 rounded-[3rem] overflow-hidden">
           <CardHeader className="p-12 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
-              <div className="space-y-3">
+              <div className="space-y-3 flex-1">
                 <div className="flex items-center gap-2">
                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                    <Badge variant="outline" className="text-[8px] font-black uppercase tracking-[0.2em] border-emerald-500/20 text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1">Standard MAE Compliance</Badge>
@@ -200,33 +200,33 @@ export function ComplianceGuide() {
                        // I will read only for now, but user can edit docs
                     }}
                     readOnly
-                    className="text-4xl font-black tracking-tight uppercase italic decoration-primary/30 underline decoration-4 underline-offset-8 border-none bg-transparent px-0 shadow-none focus-visible:ring-0 max-w-full"
+                    className="text-2xl md:text-3xl font-black tracking-tight uppercase italic decoration-primary/30 underline decoration-4 underline-offset-4 border-none bg-transparent px-0 shadow-none focus-visible:ring-0 max-w-full"
                   />
                 ) : (
-                  <CardTitle className="text-4xl font-black tracking-tight uppercase italic decoration-primary/30 underline decoration-4 underline-offset-8">
+                  <CardTitle className="text-2xl md:text-3xl font-black tracking-tight uppercase italic decoration-primary/30 underline decoration-4 underline-offset-4">
                     {currentCategory.type}
                   </CardTitle>
                 )}
-                 <CardDescription className="text-base font-medium text-slate-500 dark:text-slate-400">
+                 <CardDescription className="text-sm md:text-base font-medium text-slate-500 dark:text-slate-400">
                   Protocole d'examen des pièces justificatives requis avant toute entrée en relation.
                 </CardDescription>
               </div>
-              <div className="flex flex-col items-end gap-3 min-w-[200px]">
-                <div className="flex flex-col items-end gap-1 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-inner border border-slate-100 dark:border-slate-700 w-full">
-                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-2 text-right">Total Points de Contrôle</span>
-                   <div className="flex items-baseline gap-2">
-                     <span className="text-5xl font-black text-primary leading-none">{currentCategory.documents.length}</span>
-                     <span className="text-sm font-bold text-slate-300">Docs</span>
-                   </div>
-                </div>
+              <div className="flex flex-row items-center gap-4">
                 <Button
                   variant={isEditingMode ? "default" : "outline"}
                   onClick={handleToggleEditMode}
-                  className={`rounded-2xl font-bold h-12 w-full transition-all ${isEditingMode ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]' : 'text-slate-500 hover:text-primary hover:border-primary/30 border-2 border-slate-200 dark:border-slate-800'}`}
+                  className={`rounded-2xl font-bold h-full min-h-[70px] px-6 transition-all ${isEditingMode ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]' : 'text-slate-500 hover:text-primary hover:border-primary/30 border-2 border-slate-200 dark:border-slate-800'}`}
                 >
-                  <Settings className={`w-4 h-4 mr-2 ${isEditingMode ? 'animate-spin-slow' : ''}`} />
+                  <Settings className={`w-5 h-5 mr-3 ${isEditingMode ? 'animate-spin-slow' : ''}`} />
                   {isEditingMode ? "Quitter le mode édition" : "Options & Paramètres"}
                 </Button>
+                <div className="flex flex-col items-center justify-center gap-1 bg-white dark:bg-slate-800 px-6 py-4 rounded-3xl shadow-inner border border-slate-100 dark:border-slate-700 min-w-[140px] h-full min-h-[70px]">
+                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none text-center">Contrôles</span>
+                   <div className="flex items-baseline gap-1.5">
+                     <span className="text-3xl font-black text-primary leading-none">{currentCategory.documents.length}</span>
+                     <span className="text-xs font-bold text-slate-300">Docs</span>
+                   </div>
+                </div>
               </div>
             </div>
           </CardHeader>
