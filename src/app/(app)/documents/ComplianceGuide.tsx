@@ -85,7 +85,7 @@ const PDFViewerFallback = ({ url, anchor, title }: { url: string, anchor?: strin
 };
 
 export function ComplianceGuide() {
-  const { requirements, updateDocument, addDocumentItem, reorderDocumentItem } = useRequirements();
+  const { requirements, updateDocument, addDocumentItem, reorderDocumentItem, addCategory } = useRequirements();
   const { logs, logAction } = useActivityLog();
   const { documents } = useDocuments();
   const [activeCategory, setActiveCategory] = useState<string>("physique");
@@ -134,17 +134,6 @@ export function ComplianceGuide() {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
-      {/* Editing Mode Toggle */}
-      <div className="flex justify-end">
-        <Button
-          variant={isEditingMode ? "default" : "outline"}
-          onClick={handleToggleEditMode}
-          className={`rounded-xl font-bold h-12 px-6 transition-all ${isEditingMode ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]' : 'text-slate-500 hover:text-primary hover:border-primary/30 border-2 border-slate-200 dark:border-slate-800'}`}
-        >
-          <Settings className={`w-5 h-5 mr-3 ${isEditingMode ? 'animate-spin-slow' : ''}`} />
-          {isEditingMode ? "Quitter le mode édition" : "Options & Paramètres"}
-        </Button>
-      </div>
 
       {/* Category Selection Icons */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -177,6 +166,20 @@ export function ComplianceGuide() {
             </button>
           );
         })}
+
+        {isEditingMode && (
+          <button
+            onClick={() => addCategory()}
+            className="flex flex-col items-center justify-center gap-3 p-6 rounded-[2.5rem] transition-all text-center border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-primary/40 hover:bg-primary/5 group min-h-[160px]"
+          >
+            <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-primary group-hover:text-white transition-all">
+              <PlusCircle className="h-6 w-6" />
+            </div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-primary transition-colors">
+              Ajouter un Organe
+            </h3>
+          </button>
+        )}
       </div>
 
       {/* Selected Category Content */}
@@ -187,21 +190,43 @@ export function ComplianceGuide() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                   <Badge variant="outline" className="text-[8px] font-black uppercase tracking-[0.2em] border-emerald-500/20 text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1">Standard Tunisie Compliance</Badge>
+                   <Badge variant="outline" className="text-[8px] font-black uppercase tracking-[0.2em] border-emerald-500/20 text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1">Standard MAE Compliance</Badge>
                 </div>
-                <CardTitle className="text-4xl font-black tracking-tight uppercase italic decoration-primary/30 underline decoration-4 underline-offset-8">
-                  {currentCategory.type}
-                </CardTitle>
-                 <CardDescription className="text-base font-medium text-slate-500 dark:text-slate-400 max-w-xl">
+                {isEditingMode ? (
+                  <Input 
+                    value={currentCategory.type} 
+                    onChange={(e) => {
+                       // Currently updateCategory is not implemented in RequirementsContext, so we cannot rename type directly yet. 
+                       // I will read only for now, but user can edit docs
+                    }}
+                    readOnly
+                    className="text-4xl font-black tracking-tight uppercase italic decoration-primary/30 underline decoration-4 underline-offset-8 border-none bg-transparent px-0 shadow-none focus-visible:ring-0 max-w-full"
+                  />
+                ) : (
+                  <CardTitle className="text-4xl font-black tracking-tight uppercase italic decoration-primary/30 underline decoration-4 underline-offset-8">
+                    {currentCategory.type}
+                  </CardTitle>
+                )}
+                 <CardDescription className="text-base font-medium text-slate-500 dark:text-slate-400">
                   Protocole d'examen des pièces justificatives requis avant toute entrée en relation.
                 </CardDescription>
               </div>
-              <div className="flex flex-col items-end gap-1 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-inner border border-slate-100 dark:border-slate-700 min-w-[200px]">
-                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-2">Total Points de Contrôle</span>
-                 <div className="flex items-baseline gap-2">
-                   <span className="text-5xl font-black text-primary leading-none">{currentCategory.documents.length}</span>
-                   <span className="text-sm font-bold text-slate-300">Docs</span>
-                 </div>
+              <div className="flex flex-col items-end gap-3 min-w-[200px]">
+                <div className="flex flex-col items-end gap-1 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-inner border border-slate-100 dark:border-slate-700 w-full">
+                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-2 text-right">Total Points de Contrôle</span>
+                   <div className="flex items-baseline gap-2">
+                     <span className="text-5xl font-black text-primary leading-none">{currentCategory.documents.length}</span>
+                     <span className="text-sm font-bold text-slate-300">Docs</span>
+                   </div>
+                </div>
+                <Button
+                  variant={isEditingMode ? "default" : "outline"}
+                  onClick={handleToggleEditMode}
+                  className={`rounded-2xl font-bold h-12 w-full transition-all ${isEditingMode ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]' : 'text-slate-500 hover:text-primary hover:border-primary/30 border-2 border-slate-200 dark:border-slate-800'}`}
+                >
+                  <Settings className={`w-4 h-4 mr-2 ${isEditingMode ? 'animate-spin-slow' : ''}`} />
+                  {isEditingMode ? "Quitter le mode édition" : "Options & Paramètres"}
+                </Button>
               </div>
             </div>
           </CardHeader>

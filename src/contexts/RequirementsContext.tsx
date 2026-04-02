@@ -10,6 +10,7 @@ interface RequirementsContextType {
   updateDocument: (categoryId: string, documentId: string, data: Partial<DocumentItem>) => void;
   addDocumentItem: (categoryId: string) => void;
   reorderDocumentItem: (categoryId: string, docId: string, direction: 'up' | 'down') => void;
+  addCategory: () => void;
   resetToDefault: () => void;
 }
 
@@ -124,6 +125,17 @@ export function RequirementsProvider({ children }: { children: ReactNode }) {
     saveRequirements(newRequirements);
   };
 
+  const addCategory = () => {
+    const newCategory: EntityRequirement = {
+      id: `cat-${Date.now()}`,
+      type: "Nouvel Organe",
+      icon: "Building2",
+      description: "Description du nouvel organe ou entité.",
+      documents: []
+    };
+    saveRequirements([...requirements, newCategory]);
+  };
+
   const resetToDefault = () => {
     saveRequirements(ENTITY_REQUIREMENTS);
   };
@@ -133,7 +145,7 @@ export function RequirementsProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <RequirementsContext.Provider value={{ requirements, updateDocument, addDocumentItem, reorderDocumentItem, resetToDefault }}>
+    <RequirementsContext.Provider value={{ requirements, updateDocument, addDocumentItem, reorderDocumentItem, addCategory, resetToDefault }}>
       {children}
     </RequirementsContext.Provider>
   );
