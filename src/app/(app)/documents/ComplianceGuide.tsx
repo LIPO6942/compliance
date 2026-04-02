@@ -248,8 +248,22 @@ export function ComplianceGuide() {
                             onClick={(e) => e.stopPropagation()}
                           />
                         ) : (
-                          <div className="text-xl font-black text-slate-800 dark:text-slate-100 group-hover:text-primary transition-colors leading-tight uppercase italic tracking-tight">
-                            {doc.name}
+                          <div className="flex items-center flex-wrap gap-x-3 gap-y-1">
+                            <span className="text-xl font-black text-slate-800 dark:text-slate-100 group-hover:text-primary transition-colors leading-tight uppercase italic tracking-tight">
+                              {doc.name}
+                            </span>
+                            {doc.vaultDocumentId && documents.find(d => d.id === doc.vaultDocumentId) && (
+                              <button
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); openDocument(doc.vaultDocumentId!); }}
+                                className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/50 rounded-full cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-sm"
+                                title="Ouvrir le document lié"
+                              >
+                                <LinkIcon className="h-3 w-3 shrink-0" />
+                                <span className="text-[10px] font-black uppercase tracking-widest truncate max-w-[180px] leading-none mt-[1px]">
+                                  {documents.find(d => d.id === doc.vaultDocumentId)?.name}
+                                </span>
+                              </button>
+                            )}
                           </div>
                         )}
                         
