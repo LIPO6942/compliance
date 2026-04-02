@@ -215,7 +215,7 @@ function DocumentsComponent() {
         <Tabs defaultValue="vault" className="w-full">
           <TabsList className="flex w-full max-w-md h-14 bg-slate-100 dark:bg-slate-800/50 p-1.5 rounded-2xl mb-10 border border-slate-200/50 dark:border-slate-700/50 shadow-inner">
             <TabsTrigger value="vault" className="flex-1 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-primary transition-all duration-300">
-              <FileStack className="mr-2 h-4 w-4" /> Evidence Vault
+              <FileStack className="mr-2 h-4 w-4" /> Coffre Documentaire
             </TabsTrigger>
             <TabsTrigger value="guide" className="flex-1 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-primary transition-all duration-300">
               <ShieldCheck className="mr-2 h-4 w-4" /> Guide des Obligations
@@ -476,7 +476,7 @@ function DocumentsComponent() {
                   {dialogState.mode === "add" ? "Nouvel" : "Édition"} <span className="text-primary italic">Indice</span>
                 </DialogTitle>
                 <DialogDescription className="text-slate-500 font-medium italic">
-                  Enregistrez et classifiez une nouvelle preuve de conformité dans le Evidence Vault.
+                  Enregistrez et classifiez une nouvelle preuve de conformité dans le Coffre Documentaire.
                 </DialogDescription>
               </DialogHeader>
             </div>

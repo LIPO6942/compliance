@@ -188,7 +188,7 @@ export function TimelineCard({ event, isOverdue, onValidate, onProlong }: Timeli
                 </PopoverContent>
               </Popover>
 
-              {/* Validation Dialog (Evidence Vault) */}
+              {/* Validation Dialog (Coffre Documentaire) */}
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <button 
@@ -209,7 +209,7 @@ export function TimelineCard({ event, isOverdue, onValidate, onProlong }: Timeli
                       <ShieldAlert className="h-24 w-24" />
                     </div>
                     <div className="relative z-10">
-                      <Badge className="bg-emerald-500 mb-4 font-black uppercase tracking-widest">Evidence Vault</Badge>
+                      <Badge className="bg-emerald-500 mb-4 font-black uppercase tracking-widest">Coffre Documentaire</Badge>
                       <DialogTitle className="text-3xl font-black italic uppercase tracking-tight">Validation de Conformité</DialogTitle>
                       <DialogDescription className="text-slate-400 mt-2 font-medium">
                         Veuillez joindre les preuves documentaires pour l'événement : <span className="text-white font-bold">{event.title}</span>

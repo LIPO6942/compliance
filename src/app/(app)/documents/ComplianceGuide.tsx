@@ -1,23 +1,71 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ENTITY_REQUIREMENTS, EntityRequirement, DocumentItem } from "@/data/requirements";
+import { EntityRequirement, DocumentItem } from "@/data/requirements";
 import * as Icons from "lucide-react";
-import { ShieldCheck, Info, CheckCircle2, FileText } from "lucide-react";
+import { ShieldCheck, Info, CheckCircle2, FileText, Settings, Plus, Trash2 } from "lucide-react";
+import { useRequirements } from "@/contexts/RequirementsContext";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useActivityLog } from "@/contexts/ActivityLogContext";
+
+const alertTypes = [
+  "Alerte Fraude Documentaire",
+  "Alerte Non-Conformité",
+  "Alerte Expiration",
+  "Alerte Signature",
+  "Alerte Données"
+];
 
 export function ComplianceGuide() {
-  const [activeCategory, setActiveCategory] = React.useState<string>(ENTITY_REQUIREMENTS[0].id);
+  const { requirements, updateDocument } = useRequirements();
+  const { logAction } = useActivityLog();
+  const [activeCategory, setActiveCategory] = useState<string>("physique");
+  const [isEditingMode, setIsEditingMode] = useState<boolean>(false);
 
-  const currentCategory = ENTITY_REQUIREMENTS.find(cat => cat.id === activeCategory);
+  // We should track if a change actually occurred if we wanted, but simply logging the session on exit is fine.
+  const handleToggleEditMode = () => {
+    if (isEditingMode) {
+      logAction({
+        action: "SETTINGS_UPDATE",
+        label: "Mise à jour du Guide des Obligations",
+        detail: currentCategory ? `Modification de la catégorie : ${currentCategory.type}` : "Modification générale des exigences",
+        module: "Coffre Documentaire"
+      });
+    }
+    setIsEditingMode(!isEditingMode);
+  };
+
+  const currentCategory = requirements.find(cat => cat.id === activeCategory) || requirements[0];
+
+  const handleUpdateDocument = (docId: string, data: Partial<DocumentItem>) => {
+    if (currentCategory) {
+      updateDocument(currentCategory.id, docId, data);
+    }
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
+      {/* Editing Mode Toggle */}
+      <div className="flex justify-end">
+        <Button
+          variant={isEditingMode ? "default" : "outline"}
+          onClick={handleToggleEditMode}
+          className={`rounded-xl font-bold h-12 px-6 transition-all ${isEditingMode ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]' : 'text-slate-500 hover:text-primary hover:border-primary/30 border-2 border-slate-200 dark:border-slate-800'}`}
+        >
+          <Settings className={`w-5 h-5 mr-3 ${isEditingMode ? 'animate-spin-slow' : ''}`} />
+          {isEditingMode ? "Quitter le mode édition" : "Options & Paramètres"}
+        </Button>
+      </div>
+
       {/* Category Selection Icons */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {ENTITY_REQUIREMENTS.map((category: EntityRequirement) => {
+        {requirements.map((category: EntityRequirement) => {
           // Dynamic icon resolution with fallback
           const LucideIcon = (Icons as any)[category.icon] || Info;
           const isActive = activeCategory === category.id;
@@ -61,7 +109,7 @@ export function ComplianceGuide() {
                 <CardTitle className="text-4xl font-black tracking-tight uppercase italic decoration-primary/30 underline decoration-4 underline-offset-8">
                   {currentCategory.type}
                 </CardTitle>
-                <CardDescription className="text-base font-medium text-slate-500 dark:text-slate-400 max-w-xl">
+                 <CardDescription className="text-base font-medium text-slate-500 dark:text-slate-400 max-w-xl">
                   Protocole d'examen des pièces justificatives requis avant toute entrée en relation.
                 </CardDescription>
               </div>
@@ -83,16 +131,36 @@ export function ComplianceGuide() {
                   className="border border-slate-100 dark:border-slate-800 rounded-[2rem] px-8 overflow-hidden data-[state=open]:bg-slate-50/70 dark:data-[state=open]:bg-slate-800/30 data-[state=open]:border-primary/30 transition-all group"
                 >
                   <AccordionTrigger className="hover:no-underline py-8">
-                    <div className="flex items-center gap-6 text-left">
+                    <div className="flex items-center gap-6 text-left w-full pr-4">
                       <div className="h-12 w-12 shrink-0 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center font-black text-sm text-slate-400 shadow-sm group-data-[state=open]:border-primary/50 group-data-[state=open]:text-primary group-data-[state=open]:rotate-6 transition-all duration-300">
                         {index + 1 < 10 ? `0${index + 1}` : index + 1}
                       </div>
-                      <div className="space-y-1.5 pt-1">
-                        <span className="text-xl font-black text-slate-800 dark:text-slate-100 group-hover:text-primary transition-colors leading-tight uppercase italic tracking-tight">
-                          {doc.name}
-                        </span>
-                        {doc.description && (
-                          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{doc.description}</p>
+                      <div className="space-y-2 pt-1 flex-1">
+                        {isEditingMode ? (
+                          <Input 
+                            value={doc.name} 
+                            onChange={(e) => handleUpdateDocument(doc.id, { name: e.target.value })}
+                            className="text-xl font-black text-slate-800 dark:text-slate-100 leading-tight uppercase italic tracking-tight bg-white dark:bg-slate-950 border-primary/30 focus-visible:ring-primary/50"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <div className="text-xl font-black text-slate-800 dark:text-slate-100 group-hover:text-primary transition-colors leading-tight uppercase italic tracking-tight">
+                            {doc.name}
+                          </div>
+                        )}
+                        
+                        {isEditingMode ? (
+                          <Input 
+                            value={doc.description || ""}
+                            placeholder="Description facultative..."
+                            onChange={(e) => handleUpdateDocument(doc.id, { description: e.target.value })}
+                            className="text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-white dark:bg-slate-950 border-slate-200"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          doc.description && (
+                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{doc.description}</p>
+                          )
                         )}
                       </div>
                     </div>
@@ -103,21 +171,62 @@ export function ComplianceGuide() {
                        <div className="lg:col-span-8 space-y-6 bg-white dark:bg-slate-950 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-inner">
                           <div className="flex items-center gap-3 mb-4">
                             <Icons.ListChecks className="h-5 w-5 text-primary" />
-                            <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Exigences de Validité (Audit Ready)</h4>
+                            <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Exigence de données</h4>
                           </div>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                            {doc.requirements.map((req, i) => (
-                              <div key={i} className="flex items-start gap-4">
-                                <div className="mt-1 h-6 w-6 shrink-0 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 border border-emerald-500/10">
-                                  <CheckCircle2 className="h-4 w-4" />
+                          {isEditingMode ? (
+                            <div className="space-y-4">
+                              {doc.requirements.map((req, i) => (
+                                <div key={i} className="flex items-start gap-3 bg-slate-50 dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                                  <div className="mt-2 text-primary">
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  </div>
+                                  <Textarea
+                                    value={req}
+                                    onChange={(e) => {
+                                      const newReqs = [...doc.requirements];
+                                      newReqs[i] = e.target.value;
+                                      handleUpdateDocument(doc.id, { requirements: newReqs });
+                                    }}
+                                    className="text-[14px] font-bold min-h-[60px] bg-white dark:bg-slate-950 border-none shadow-none resize-none"
+                                  />
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="mt-1 shrink-0 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                    onClick={() => {
+                                      const newReqs = doc.requirements.filter((_, idx) => idx !== i);
+                                      handleUpdateDocument(doc.id, { requirements: newReqs });
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
                                 </div>
-                                <p className="text-[14px] font-bold text-slate-700 dark:text-slate-300 leading-snug">
-                                  {req}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
+                              ))}
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  handleUpdateDocument(doc.id, { requirements: [...doc.requirements, "Nouvelle exigence de données..."] });
+                                }}
+                                className="w-full border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 text-slate-500 hover:text-primary font-bold h-12 rounded-xl"
+                              >
+                                <Plus className="w-4 h-4 mr-2" /> Ajouter une exigence
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                              {doc.requirements.map((req, i) => (
+                                <div key={i} className="flex items-start gap-4">
+                                  <div className="mt-1 h-6 w-6 shrink-0 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 border border-emerald-500/10">
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  </div>
+                                  <p className="text-[14px] font-bold text-slate-700 dark:text-slate-300 leading-snug">
+                                    {req}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                        </div>
 
                        {/* Sidebar Info */}
@@ -136,10 +245,32 @@ export function ComplianceGuide() {
                              <Badge className="w-full justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 text-[9px] font-black border-none py-3 rounded-xl tracking-widest">
                                 RÉTENTION : 10 ANS
                              </Badge>
-                             <div className="flex items-center justify-center gap-2 px-3 py-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50">
-                                <Icons.AlertTriangle className="h-4 w-4 animate-bounce" />
-                                <span className="text-[9px] font-black uppercase tracking-widest">Alerte Fraude Documentaire</span>
-                             </div>
+                             
+                             {isEditingMode ? (
+                               <div className="mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                 <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Configurer l'Alerte</label>
+                                 <Select 
+                                   value={doc.alertType || alertTypes[0]} 
+                                   onValueChange={(val) => handleUpdateDocument(doc.id, { alertType: val })}
+                                 >
+                                   <SelectTrigger className="w-full bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 h-10 rounded-xl font-bold text-xs shadow-sm">
+                                     <SelectValue placeholder="Choisir une alerte" />
+                                   </SelectTrigger>
+                                   <SelectContent className="rounded-xl shadow-2xl border-none">
+                                     {alertTypes.map(at => (
+                                       <SelectItem key={at} value={at} className="font-bold text-xs">{at}</SelectItem>
+                                     ))}
+                                   </SelectContent>
+                                 </Select>
+                               </div>
+                             ) : (
+                               doc.alertType && (
+                                 <div className="flex items-center justify-center gap-2 px-3 py-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 text-center">
+                                    <Icons.AlertTriangle className="h-4 w-4 animate-bounce shrink-0" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest leading-snug">{doc.alertType}</span>
+                                 </div>
+                               )
+                             )}
                           </div>
                        </div>
                     </div>
@@ -153,8 +284,8 @@ export function ComplianceGuide() {
 
       {/* Pro-tip section */}
       <Card className="rounded-[3rem] bg-slate-900 dark:bg-black text-white p-10 overflow-hidden relative group border-none shadow-2xl">
-        <div className="absolute right-0 top-0 bottom-0 w-64 bg-gradient-to-l from-primary/10 to-transparent pointer-none" />
-        <div className="absolute -right-20 -top-20 h-64 w-64 bg-primary/20 blur-[100px] rounded-full animate-pulse" />
+        <div className="absolute right-0 top-0 bottom-0 w-64 bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
+        <div className="absolute -right-20 -top-20 h-64 w-64 bg-primary/20 blur-[100px] rounded-full animate-pulse pointer-events-none" />
         <div className="relative z-10 flex flex-col lg:flex-row items-center gap-10">
            <div className="h-20 w-20 shrink-0 rounded-3xl bg-white/5 flex items-center justify-center border border-white/10 group-hover:rotate-12 transition-transform duration-500">
               <FileText className="h-10 w-10 text-primary drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" />

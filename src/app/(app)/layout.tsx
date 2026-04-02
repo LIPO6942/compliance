@@ -12,6 +12,7 @@ import { TeamProvider } from "@/contexts/TeamContext";
 import { TimelineProvider } from "@/contexts/TimelineContext";
 import { EcosystemProvider } from "@/contexts/EcosystemContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { RequirementsProvider } from "@/contexts/RequirementsContext";
 
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
@@ -35,7 +36,9 @@ export default function ApplicationGroupLayout({
                         <TimelineProvider>
                           <NotificationProvider>
                             <EcosystemProvider>
-                              <AppLayout>{children}</AppLayout>
+                              <RequirementsProvider>
+                                <AppLayout>{children}</AppLayout>
+                              </RequirementsProvider>
                             </EcosystemProvider>
                           </NotificationProvider>
                         </TimelineProvider>

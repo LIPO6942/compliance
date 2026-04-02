@@ -4,6 +4,7 @@ export interface DocumentItem {
   name: string;
   description?: string;
   requirements: string[];
+  alertType?: string; // New: 'fraude', 'conformite', 'expiration', etc.
 }
 
 export interface EntityRequirement {
@@ -29,7 +30,8 @@ export const ENTITY_REQUIREMENTS: EntityRequirement[] = [
           "La certification se fait en apposant le nom et prénom de l'agent.",
           "Signature de l'agent certificateur obligatoire.",
           "Mention obligatoire : « conforme à l'original »."
-        ]
+        ],
+        alertType: "Alerte Fraude Documentaire"
       },
       {
         id: "kyc-pp",
@@ -37,7 +39,8 @@ export const ENTITY_REQUIREMENTS: EntityRequirement[] = [
         requirements: [
           "Doit être signée par le client.",
           "Toutes les sections doivent être dûment complétées."
-        ]
+        ],
+        alertType: "Alerte Non-Conformité"
       },
       {
         id: "kyc-update-pp",
@@ -45,7 +48,8 @@ export const ENTITY_REQUIREMENTS: EntityRequirement[] = [
         requirements: [
           "Requise systématiquement en cas de modification des informations.",
           "Doit être signée par le client."
-        ]
+        ],
+        alertType: "Alerte Données"
       }
     ]
   },
@@ -66,7 +70,8 @@ export const ENTITY_REQUIREMENTS: EntityRequirement[] = [
           "Mandats et pouvoirs des signataires.",
           "Documents permettant d'identifier le(s) bénéficiaire(s) effectif(s).",
           "Toutes les copies doivent être certifiées (Nom, prénom, signature et mention « conforme à l'original »)."
-        ]
+        ],
+        alertType: "Alerte Fraude Documentaire"
       },
       {
         id: "kyc-pm",
@@ -74,7 +79,8 @@ export const ENTITY_REQUIREMENTS: EntityRequirement[] = [
         requirements: [
           "Doit comporter la signature du représentant légal.",
           "Doit comporter le cachet de la société."
-        ]
+        ],
+        alertType: "Alerte Non-Conformité"
       },
       {
         id: "kyc-update-pm",
@@ -82,7 +88,8 @@ export const ENTITY_REQUIREMENTS: EntityRequirement[] = [
         requirements: [
           "Requise en cas de modification des statuts ou de la structure.",
           "Signature et cachet obligatoires."
-        ]
+        ],
+        alertType: "Alerte Données"
       }
     ]
   },
@@ -102,7 +109,8 @@ export const ENTITY_REQUIREMENTS: EntityRequirement[] = [
           "Liste des membres du bureau exécutif et leurs numéros de CIN.",
           "Statuts de l'association.",
           "Documents certifiés (Nom, prénom, signature et mention « conforme à l'original »)."
-        ]
+        ],
+        alertType: "Alerte Fraude Documentaire"
       },
       {
         id: "auth-fin-obnl",
@@ -110,7 +118,8 @@ export const ENTITY_REQUIREMENTS: EntityRequirement[] = [
         requirements: [
           "COPIE DE LA CIN (ou passeport/séjour) des personnes habilitées aux opérations financières.",
           "Copies certifiées conformes à l'original obligatoires."
-        ]
+        ],
+        alertType: "Alerte Signature"
       },
       {
         id: "kyc-obnl",
@@ -118,7 +127,8 @@ export const ENTITY_REQUIREMENTS: EntityRequirement[] = [
         requirements: [
           "Doit comporter la signature du responsable.",
           "Doit comporter le cachet de l'organisation."
-        ]
+        ],
+        alertType: "Alerte Non-Conformité"
       },
       {
         id: "kyc-update-obnl",
@@ -126,7 +136,8 @@ export const ENTITY_REQUIREMENTS: EntityRequirement[] = [
         requirements: [
           "Requise en cas de changement dans le bureau ou les statuts.",
           "Signature et cachet obligatoires."
-        ]
+        ],
+        alertType: "Alerte Données"
       }
     ]
   }
