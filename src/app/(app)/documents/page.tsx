@@ -35,6 +35,8 @@ import { useDocumentTypes } from "@/contexts/DocumentTypesContext";
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ComplianceGuide } from "./ComplianceGuide";
 
 const documentSchema = z.object({
   name: z.string().min(1, "Le nom du document est requis."),
@@ -202,20 +204,34 @@ function DocumentsComponent() {
           <div className="space-y-3">
             <h1 className="text-4xl font-extrabold tracking-tight">
               <span className="text-slate-900 dark:text-white">Gestion</span>{" "}
-              <span className="text-primary">Documentaire</span>
+              <span className="text-primary italic uppercase">Documentaire</span>
             </h1>
             <p className="text-muted-foreground text-sm max-w-2xl leading-relaxed">
-              Indexation et gestion sécurisée de vos preuves de conformité et archives GRC.
+              Indexation sécurisée des preuves de conformité et guide des obligations réglementaires.
             </p>
           </div>
-          <Button
-            size="lg"
-            className="bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-2xl shadow-primary/20 h-14 px-10 rounded-2xl transition-all hover:scale-[1.02] active:scale-95 border-none"
-            onClick={() => openDialog('add')}
-          >
-            <PlusCircle className="mr-3 h-5 w-5" /> NOUVEAU DOCUMENT
-          </Button>
         </div>
+
+        <Tabs defaultValue="vault" className="w-full">
+          <TabsList className="flex w-full max-w-md h-14 bg-slate-100 dark:bg-slate-800/50 p-1.5 rounded-2xl mb-10 border border-slate-200/50 dark:border-slate-700/50 shadow-inner">
+            <TabsTrigger value="vault" className="flex-1 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-primary transition-all duration-300">
+              <FileStack className="mr-2 h-4 w-4" /> Evidence Vault
+            </TabsTrigger>
+            <TabsTrigger value="guide" className="flex-1 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-primary transition-all duration-300">
+              <ShieldCheck className="mr-2 h-4 w-4" /> Guide des Obligations
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="vault" className="space-y-8 animate-in fade-in slide-in-from-left-4 duration-500 focus-visible:ring-0">
+            <div className="flex justify-end">
+              <Button
+                size="lg"
+                className="bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-2xl shadow-primary/20 h-14 px-10 rounded-2xl transition-all hover:scale-[1.02] active:scale-95 border-none"
+                onClick={() => openDialog('add')}
+              >
+                <PlusCircle className="mr-3 h-5 w-5" /> NOUVEAU DOCUMENT
+              </Button>
+            </div>
 
         {/* Modern Quick Stats Grid - Compact Style */}
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
@@ -444,6 +460,12 @@ function DocumentsComponent() {
             </div>
           </CardFooter>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="guide" className="animate-in fade-in slide-in-from-right-4 duration-500 focus-visible:ring-0">
+        <ComplianceGuide />
+      </TabsContent>
+    </Tabs>
 
         {/* Dialog Design Update */}
         <Dialog open={!!dialogState.mode} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
