@@ -10,6 +10,7 @@
  */
 
 import { z } from 'zod';
+import { LEGAL_KNOWLEDGE_BASE } from '../constants/knowledge-base';
 
 const AnalyzeRegulationByKeywordsInputSchema = z.object({
   regulationText: z.string().describe('The text of the regulation to evaluate.'),
@@ -79,7 +80,15 @@ async function callGroqChatCompletion(prompt: string): Promise<string> {
       body: JSON.stringify({
         model,
         messages: [
-          { role: 'system', content: 'Tu es un assistant expert en conformité réglementaire. Réponds en français.' },
+          { 
+            role: 'system', 
+            content: `Tu es un assistant expert en conformité réglementaire tunisienne et internationale. 
+            Réponds en français. Utlise la BASE DE CONNAISSANCE VERBATIM suivante comme référence absolue pour tes analyses :
+            
+            ${LEGAL_KNOWLEDGE_BASE}
+            
+            Lorsque tu identifies une obligation, cite si possible l'article ou la recommandation correspondante.` 
+          },
           { role: 'user', content: prompt },
         ],
         temperature: 0.3,

@@ -11,6 +11,7 @@
 import { z } from 'zod';
 import type { NewsItem } from '@/types/compliance';
 import Parser from 'rss-parser';
+import { LEGAL_KNOWLEDGE_BASE } from '../constants/knowledge-base';
 
 
 const ComplianceNewsOutputSchema = z.array(
@@ -514,7 +515,14 @@ async function callGroqChatCompletion(prompt: string): Promise<string> {
             body: JSON.stringify({
                 model,
                 messages: [
-                    { role: 'system', content: 'Tu es un assistant expert en conformité GRC et LCB-FT. Ta mission est de fournir des briefings stratégiques basés sur les actualités.' },
+                    { 
+                        role: 'system', 
+                        content: `Tu es un assistant expert en conformité GRC et LCB-FT tunisienne et internationale. 
+                        Ta mission est de fournir des briefings stratégiques basés sur les actualités mondiales en les interprétant à travers le prisme de la réglementation locale.
+                        
+                        BASE DE CONNAISSANCE RÉGLEMENTAIRE (RÉFÉRENCE) :
+                        ${LEGAL_KNOWLEDGE_BASE}` 
+                    },
                     { role: 'user', content: prompt },
                 ],
                 temperature: 0.4,
