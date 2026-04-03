@@ -40,7 +40,6 @@ import {
   List,
   ShieldCheck,
   ClipboardList,
-  Zap,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -73,7 +72,6 @@ const navItems = [
   },
   { href: "/ecosystem", icon: Users, label: "Cartographie des Acteurs", title: "Cartographie des Acteurs" },
   { href: "/regulatory-watch", icon: SearchCheck, label: "Assistance Conformité IA", title: "Assistance Conformité IA" },
-  { href: "/quick-response", icon: Zap, label: "Guide Réponse Rapide", title: "Guide Réponse Rapide" },
   {
     href: "/risk-mapping",
     icon: Map,
