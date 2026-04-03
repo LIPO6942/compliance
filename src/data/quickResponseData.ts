@@ -12,9 +12,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Inviter le client à revenir avec un document en cours de validité"
     ],
     legalBase: {
-      article: "Art. 3 Règlement CGA n°2019-02",
-      text: "Conditions d'identification du client et vérification de son identité au moyen d'un document original en cours de validité avec photographie.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=12"
+      article: "Art. 3 — Règlement CGA n°2019-02",
+      text: "Les sociétés d'assurances et de réassurances et les intermédiaires en assurances doivent s'assurer, au moyen de documents officiels et autres documents provenant de sources fiables et indépendantes, de l'identité complète du souscripteur, de l'assuré et du bénéficiaire désigné au contrat, leurs activités et leurs adresses.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     },
     isFrequent: true
   },
@@ -30,9 +30,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "Toute rature ou surcharge entraîne le rejet automatique",
     legalBase: {
-      article: "Art. 3 Règlement CGA n°2019-02",
-      text: "Exigence de certification des copies par rapport aux originaux par le personnel habilité de l'assureur.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=14"
+      article: "Art. 5 — Règlement CGA n°2019-02",
+      text: "Créer un dossier pour chaque client afin de conserver une copie de ses documents officiels. Ces documents doivent être vérifiés par l'agent en charge du client et certifiés conformes aux originaux par ce dernier.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     },
     isFrequent: true
   },
@@ -47,9 +47,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Demander un document d'identité dont la photo correspond à l'apparence physique réelle du souscripteur"
     ],
     legalBase: {
-      article: "Art. 3 Règlement CGA n°2019-02",
-      text: "Nécessité d'une concordance parfaite entre le document d'identité et la personne physique présente.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=15"
+      article: "Art. 3 — Règlement CGA n°2019-02",
+      text: "Les sociétés d'assurances... doivent s'assurer, au moyen de documents officiels... de l'identité complète du souscripteur... l'entreprise doit confronter ces informations avec les documents originaux présentés.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -64,9 +64,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "SEUILS DE VIGILANCE :\n- Vie/Capit. Prime unique : > 3.000 DT\n- Vie/Capit. Primes périodiques : > 1.000 DT\n- Primes périodiques cumulées : > 3.000 DT\n- Espèces tous contrats : ≥ 5.000 DT\n\nCHAMPS OBLIGATOIRES PP : Nom prénoms, Naissance (Date/Lieu), Nationalité, CIN/Passeport, Résidence effective, Profession détaillée (éviter termes vagues comme 'commerçant'), Situation financière (origine fonds si étranger/tiers/montant inhabituel), Relation bénéficiaire, Signature.\n\nCHAMPS OBLIGATOIRES PM : Dénomination, Activité + Objet social, Siège social, Identifiant unique (RNE), Copie des statuts obligatoire, Origine des fonds (déclaration), Mandataire (Identité/Domicile/Pouvoir), Dirigeants/Associés principaux, Bénéficiaires/Adhérents.",
     legalBase: {
-      article: "Art. 3, 7 et Annexe 1 Règlement CGA n°2019-02 + Lignes Directrices 2025",
-      text: "L'obligation de vigilance impose la collecte complète des données KYC obligatoires, incluant la précision sur la profession et la situation financière.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=16"
+      article: "LD Août 2025 — Titre 2, Section II",
+      text: "La profession : Il est important de renseigner l’activité professionnelle de manière suffisamment claire et précise et non par l’emploi de termes vagues. La situation professionnelle des personnes physiques est, de surcroît, un élément de connaissance nécessaire à la détection d’éventuelles personnes politiquement exposées.",
+      link: "/docs/LD - Identification clients Aout 2025.pdf"
     },
     isFrequent: true
   },
@@ -82,9 +82,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Renseigner la fiche KYC avec les données du représentant"
     ],
     legalBase: {
-      article: "Art. 3 et Annexe 1 Règlement CGA n°2019-02",
-      text: "Vérification des pouvoirs et de l'identité du représentant agissant pour le compte d'autrui.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=18"
+      article: "Annexe 1 — Règlement CGA n°2019-02",
+      text: "Quant aux personnes incapables de se contracter sauf par l'intermédiaire de leurs tuteurs, il faut demander tous les justificatifs sur celui qui agit en tant que leur représentant légal.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     },
     isFrequent: true
   },
@@ -100,9 +100,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Si pas d'explication plausible : ne pas souscrire"
     ],
     legalBase: {
-      article: "Art. 3 Règlement CGA n°2019-02",
-      text: "Obligation de lever les doutes en cas d'incohérence manifeste entre les justificatifs fournis.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=20"
+      article: "Art. 3 — Règlement CGA n°2019-02",
+      text: "Les sociétés d'assurances... doivent s'assurer de l’identité complète du souscripteur... leurs activités et leurs adresses... au moyen de documents officiels et autres documents provenant de sources fiables et indépendantes.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -119,9 +119,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     note: "S'applique aussi en cas de suspicion sur la véracité des données. Si dossier courtier incomplet : suspendre le contrat.",
     exception: "Assurances obligatoires uniquement (RC Auto / Incendie pro / collectif employeur) : Conclure le contrat ET informer la CNLCT immédiatement",
     legalBase: {
-      article: "Art. 10 Décret n°2019-419 + Lignes Directrices 2025 Titre 3",
-      text: "Interdiction de mise à disposition de fonds aux personnes listées et responsabilité pleine de l'assureur sur les apports de courtiers.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=45"
+      article: "LD Août 2025 — Titre 3",
+      text: "La distribution des produits d’assurance à travers des intermédiaires... constitue une pratique courante... Toutefois, cette délégation ne libère pas la société d’assurance de sa responsabilité première car elle demeure pleinement responsable du respect de l’ensemble des obligations de vigilance.",
+      link: "/docs/LD - Identification clients Aout 2025.pdf"
     },
     isFrequent: true
   },
@@ -139,9 +139,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "Les primes continuent d'être acceptées pendant la période de gel.",
     legalBase: {
-      article: "Art. 8 Décret n°2019-419",
-      text: "Mise en œuvre sans délai des mesures de gel administratif des fonds.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=47"
+      article: "Art. 5 — Règlement CGA n°2019-02",
+      text: "Détecter les personnes, les organisations et les entités dont le lien avec des crimes terroristes est établi... et prendre les mesures nécessaires conformément au décret gouvernemental n°419... portant sur les procédures de mise en œuvre des résolutions prises par les instances onusiennes compétentes.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     },
     isFrequent: true
   },
@@ -157,9 +157,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     exception: "Tiers de bonne foi non listé (RC Gen, RC Auto, TD Emprunteur) : informer CNLCT + indemniser tiers.",
     legalBase: {
-      article: "Art. 10 Décret n°2019-419",
-      text: "L'indemnisation de personnes listées est soumise à autorisation préalable de la CNLCT.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=49"
+      article: "Art. 11 — Règlement CGA n°2019-02",
+      text: "Informer la direction générale avant le payement des capitaux assurés... réaliser un examen renforcé de la relation contractuelle... envisager de faire une déclaration d'opération suspecte.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -174,9 +174,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Déposer les montants gelés dans un compte suspens"
     ],
     legalBase: {
-      article: "Lignes directrices CGA/CNLCT juin 2025",
-      text: "Détail de l'application du gel administratif aux produits d'assurance dommages.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=55"
+      article: "Art. 5 — Règlement CGA n°2019-02",
+      text: "Prendre les mesures nécessaires pour geler les fonds visés par lesdites résolutions... relatives à la répression du financement de la prolifération des armes de destruction massive.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -192,9 +192,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "Les primes continuent d'être acceptées.",
     legalBase: {
-      article: "Lignes directrices CGA/CNLCT juin 2025",
-      text: "Application stricte du gel total aux produits d'assurance vie et de capitalisation.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=57"
+      article: "LD Août 2025 — Titre 6",
+      text: "La déclaration de soupçon est un mécanisme central... Elle permet d’interrompre des flux financiers douteux, d’éviter la participation involontaire à des activités criminelles, et de protéger les assujettis.",
+      link: "/docs/LD - Identification clients Aout 2025.pdf"
     }
   },
   {
@@ -208,9 +208,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Si la CNLCT approuve : levée du gel dans les 3 jours ouvrables"
     ],
     legalBase: {
-      article: "Art. 8 Décret n°2019-419",
-      text: "Procédure de traitement des réclamations liées aux mesures de gel administratif.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=58"
+      article: "Art. 23 — Règlement CGA n°2019-02",
+      text: "Mettre en place un système d'information permettant d'identifier les personnes et organisations dont le lien avec des crimes terroristes est établi... et les personnes dont les noms sont inscrits dans la liste nationale.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -226,9 +226,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "S'applique aussi aux proches et liens d'affaires étroits.",
     legalBase: {
-      article: "Art. 7, 8 et 9 Règlement CGA n°2019-02",
-      text: "Mesures de vigilance complémentaires pour les Personnes Politiquement Exposées.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=30"
+      article: "Art. 8 — Règlement CGA n°2019-02",
+      text: "Ils sont également tenus d'obtenir l’autorisation de la direction générale avant de nouer ou de poursuivre une relation d’affaires avec eux, et exercer une surveillance renforcée et continue de cette relation.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     },
     isFrequent: true
   },
@@ -244,9 +244,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "L'examen de l'opération inhabituelle doit être consigné par écrit et tenu à disposition des autorités.",
     legalBase: {
-      article: "Art. 12 et 13 Règlement CGA n°2019-02 + Décision CTAF n°2024-01",
-      text: "Obligation de signalement interne, de consignation écrite et de déclaration de soupçon.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=65"
+      article: "Art. 12 — Règlement CGA n°2019-02",
+      text: "Les sociétés d'assurances... doivent prêter une attention particulière aux opérations ou transactions revêtant un caractère inhabituel... examiner le cadre dans lequel lesdites opérations... sont réalisées... consigner les résultats de cet examen, par écrit.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     },
     isFrequent: true
   },
@@ -262,9 +262,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Documenter chaque étape (email, fiche KYC, écrit prouvant la démarche)"
     ],
     legalBase: {
-      article: "Décret n°2019-54 du 21/01/2019",
-      text: "Procédure d'identification en cascade du bénéficiaire effectif des personnes morales.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=25"
+      article: "Art. 3 — Règlement CGA n°2019-02",
+      text: "L'identification du bénéficiaire effectif... s'effectue en adoptant la démarche suivante : a- la ou les personnes physiques qui détient(nent)... plus de 20% du capital... b- vérification des personnes physiques... exerçant par tout autre moyen un contrôle effectif... c- lorsqu'aucune personne physique n'est identifiée... le bénéficiaire effectif sera la personne physique qui occupe la position du dirigeant principal.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -279,9 +279,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "La mise à jour doit couvrir : situation pro/financière, origine patrimoine, but et nature relation d'affaires.",
     legalBase: {
-      article: "Art. 5 Règlement CGA n°2019-02 + Lignes Directrices 2025 Titre 2",
-      text: "Mise à jour périodique et ponctuelle de la connaissance client et des éléments de son profil financier.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=22"
+      article: "LD Août 2025 — Titre 2, Section III",
+      text: "Cette actualisation peut être déclenchée à l’occasion d’un événement significatif (modification statutaire, changement de bénéficiaire effectif, évolution importante des flux financiers, etc.), d’un examen périodique prévu selon le niveau de risque associé au client, ou de tout élément nouveau pouvant impacter le profil de risque du client.",
+      link: "/docs/LD - Identification clients Aout 2025.pdf"
     }
   },
   {
@@ -297,9 +297,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "Applicable même si le montant est atteint via plusieurs versements liés entre eux.",
     legalBase: {
-      article: "Art. 7 Règlement CGA n°2019-02",
-      text: "Vigilance renforcée pour les transactions en cash dépassant les seuils fixés.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=28"
+      article: "Art. 7 — Règlement CGA n°2019-02",
+      text: "Ils encaissent des primes d'assurances en espèce dont la valeur est supérieure ou égale à cinq mille dinars, même au moyen de plusieurs versements susceptibles de présenter des liens.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     },
     isFrequent: true
   },
@@ -315,9 +315,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Soumettre au responsable conformité"
     ],
     legalBase: {
-      article: "Art. 7 et 9 Règlement CGA n°2019-02",
-      text: "Vigilance accrue pour les relations d'affaires établies à distance.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=32"
+      article: "Art. 7 — Règlement CGA n°2019-02",
+      text: "Ils utilisent les nouvelles technologies et effectuent des opérations d'assurances sans la présence physique du client.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -333,9 +333,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "S'applique aussi aux nationaux de ces pays résidant en Tunisie.",
     legalBase: {
-      article: "Art. 7 Règlement CGA n°2019-02",
-      text: "Mesures spécifiques pour les zones géographiques à risque élevé.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=34"
+      article: "Art. 7 — Règlement CGA n°2019-02",
+      text: "Ils effectuent des opérations d'assurance avec des personnes résidant dans les pays qui n'appliquent pas ou appliquent de façon insuffisante les normes internationales en matière de lutte contre le blanchiment d'argent et le financement du terrorisme.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -350,9 +350,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "Le bénéficiaire Vie est considéré comme un facteur de risque élevé permanent.",
     legalBase: {
-      article: "Art. 10 Règlement CGA n°2019-02 + Lignes Directrices 2025 Titre 2",
-      text: "Identification obligatoire des bénéficiaires et anticipation de la collecte des liens familiaux/affaires.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=36"
+      article: "Art. 10 — Règlement CGA n°2019-02",
+      text: "Les sociétés d'assurances... doivent considérer le bénéficiaire du contrat d'assurance vie et de capitalisation comme un facteur de risque élevé... Si le bénéficiaire est nommément désigné au contrat... obtenir son identité complète.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -368,9 +368,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Ne pas payer sans autorisation DG"
     ],
     legalBase: {
-      article: "Art. 11 Règlement CGA n°2019-02",
-      text: "Contrôle PPE au dénouement du contrat et autorisation DG obligatoire.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=38"
+      article: "Art. 11 — Règlement CGA n°2019-02",
+      text: "Les sociétés d'assurances... doivent prendre des mesures raisonnables afin de déterminer si le client ou les bénéficiaires... sont des personnes politiquement exposées. Cela devrait se produire au plus tard au moment du versement des capitaux assurés.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -385,9 +385,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "Diffère des simples données manquantes : ici suspicion d'identité fictive ou incohérences graves.",
     legalBase: {
-      article: "Art. 4 Règlement CGA n°2019-02",
-      text: "Obligation de refus de service en cas d'impossibilité d'identifier le client.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=40"
+      article: "Art. 4 — Règlement CGA n°2019-02",
+      text: "Si les sociétés d’assurance... ne parviennent pas à vérifier les informations demandées ou si ces informations sont insuffisantes ou manifestement fictives, ils doivent s'abstenir d’effectuer l'opération... et envisager de faire une déclaration d'opération suspecte.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -402,9 +402,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "INTERDIT si soupçon BA/FT ou risque élevé détecté"
     ],
     legalBase: {
-      article: "Art. 6 Règlement CGA n°2019-02",
-      text: "Conditions réglementaires fixant le recours aux mesures de vigilance simplifiées.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=25"
+      article: "Art. 6 — Règlement CGA n°2019-02",
+      text: "Les sociétés d'assurance... peuvent appliquer des mesures de vigilance simplifiées à l’égard de certains clients à condition qu’un risque plus faible ait été identifié et évalué... consister notamment en : La vérification de l'identité du client et du bénéficiaire effectif après l'établissement de la relation contractuelle.",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -420,9 +420,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "S'applique même après réalisation si de nouveaux faits apparaissent.",
     legalBase: {
-      article: "Art. 13 Règlement CGA n°2019-02",
-      text: "Procédure de déclaration de soupçon et mesures conservatoires.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=68"
+      article: "Art. 13 — Règlement CGA n°2019-02",
+      text: "Si l’examen aboutit à des soupçons concernant une opération... ils doivent sans délai prendre les mesures suivantes : Suspendre l'opération ou la transaction temporairement, la déclarer à la CTAF conformément au modèle préétabli. L'obligation de déclaration s'applique également même après la réalisation...",
+      link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     }
   },
   {
@@ -437,11 +437,11 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Si total ≥ 20% → BE identifié",
       "Documenter chaque calcul dans la fiche KYC"
     ],
-    note: "EXEMPLES DE CALCULS :\n\n- P1 via Holding A (60%) détient 80% de Société W :\n  60% x 80% = 48% → BE ✅\n\n- P2 via Holding B (60%) détient 40% de Société W :\n  60% x 40% = 24% → BE ✅ (Note: 19.8% dans l'exemple guide si paliers supp.)\n\n- P3 (20% direct) + Holding B (40% de Société W) où P3 a 40% :\n  (40% x 40%) + 20% = 16% + 20% = 36% → BE ✅",
+    note: "EXEMPLES DE CALCULS :\n\n- P1 via Holding A (60%) détient 80% de Société W :\n  60% x 80% = 48% → BE ✅\n\n- P2 via Holding B (60%) détient 40% de Société W :\n  60% x 40% x 80% = 19.8% → Pas BE ❌\n\n- P3 (20% direct) + Holding B (40% de Société W) où P3 a 40% :\n  (40% x 40% x 80%) + 20% = 12.8% + 20% = 32.8% → BE ✅",
     legalBase: {
-      article: "Lignes Directrices CGA août 2025 — Titre 1, cas 6",
-      text: "Calcul de la détention indirecte par multiplication des participations successives.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=27"
+      article: "LD Août 2025 — Titre 1, cas 6",
+      text: "La personne P1 détient 60% du capital de la HOLDING A, elle est bénéficiaire effectif de la société W indirectement car elle détient plus de 20% du capital de la société, soit 60% x 80% = 48%.",
+      link: "/docs/LD - Identification clients Aout 2025.pdf"
     }
   },
   {
@@ -457,9 +457,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "Si plusieurs associés ont 25% mais qu'un sous-groupe a un pacte de vote unitaire, ce sous-groupe contrôle la société.",
     legalBase: {
-      article: "Lignes Directrices CGA août 2025 — Titre 1, cas 7",
-      text: "Le critère du contrôle effectif des décisions prime sur le simple seuil mathématique de capital.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=29"
+      article: "LD Août 2025 — Titre 1, cas 7",
+      text: "Mme Y et M. Z sont donc les bénéficiaires effectifs réels de la société grâce à cette convention puisqu’ils exercent un contrôle sur les organes de gestion ou de direction de la société.",
+      link: "/docs/LD - Identification clients Aout 2025.pdf"
     }
   },
   {
@@ -474,9 +474,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "CONTRATS VIE COLLECTIFS : Identification ADAPTÉE OBLIGATOIRE (pas de simplifié)"
     ],
     legalBase: {
-      article: "Lignes Directrices CGA août 2025 — Titre 4",
-      text: "Adaptation des mesures de vigilance pour les contrats d'assurance de groupe.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=42"
+      article: "LD Août 2025 — Titre 4",
+      text: "La société d’assurance peut appliquer des mesures de vigilances simplifiées pour les adhérents des contrats groupes à condition qu’elle mentionne cette disposition au niveau de ses procédures internes. Toutefois, dans le cas de l’assurance vie l’assureur devra également mettre en œuvre des mesures d’identification adaptées aux assurés.",
+      link: "/docs/LD - Identification clients Aout 2025.pdf"
     }
   },
   {
@@ -492,9 +492,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "La délégation ne libère pas la compagnie de sa responsabilité pleine.",
     legalBase: {
-      article: "Art. 19 Règlement CGA n°2019-02 + Lignes Directrices 2025 Titre 3",
-      text: "Encadrement strict de la relation avec les apporteurs d'affaires et intermédiaires.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=44"
+      article: "LD Août 2025 — Titre 3",
+      text: "Cette délégation ne libère pas la société d’assurance de sa responsabilité première car elle demeure pleinement responsable du respect de l’ensemble des obligations de vigilance qui lui incombent.",
+      link: "/docs/LD - Identification clients Aout 2025.pdf"
     }
   },
   {
@@ -510,9 +510,9 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     ],
     note: "Attendre une preuve formelle est une erreur réglementaire.",
     legalBase: {
-      article: "Art. 4, 11, 13 Règlement CGA n°2019-02 + Décision CTAF n°2024-01",
-      text: "La déclaration de soupçon repose sur l'intime conviction et des faisceaux d'indices concordants.",
-      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=70"
+      article: "LD Août 2025 — Titre 6",
+      text: "Il importe peu que le soupçon repose sur une preuve formelle : la simple présence d’indices concordants, non justifiés dans le cadre normal de la relation d’affaires, suffit à fonder une déclaration de soupçon.",
+      link: "/docs/LD - Identification clients Aout 2025.pdf"
     },
     isFrequent: true
   }

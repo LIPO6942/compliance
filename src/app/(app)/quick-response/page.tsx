@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Zap, ArrowLeft, History, X } from "lucide-react";
+import { Search, Zap, ArrowLeft, History, X, Scale, FileText } from "lucide-react";
 import { quickResponseFiches } from "@/data/quickResponseData";
 import { QuickResponseFiche } from "@/types/quick-response";
 import { cn } from "@/lib/utils";
@@ -227,21 +227,50 @@ export default function QuickResponsePage() {
                   <AccordionTrigger className="hover:no-underline py-4 px-6 rounded-2xl border border-slate-200 dark:border-slate-800 font-bold text-slate-500 hover:text-primary transition-all">
                     Voir la base légale
                   </AccordionTrigger>
-                  <AccordionContent className="px-6 pt-4 pb-0">
-                    <div className="space-y-4 text-slate-600 dark:text-slate-400">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="font-black text-[10px] uppercase">{selectedFiche.legalBase.article}</Badge>
-                      </div>
-                      <p className="text-sm italic leading-relaxed border-l-4 border-slate-200 dark:border-slate-800 pl-4 py-1">
-                        "{selectedFiche.legalBase.text}"
-                      </p>
-                      {selectedFiche.legalBase.link && (
-                        <div className="flex justify-end mt-4">
-                          <Button variant="link" className="font-black uppercase text-[10px] tracking-widest text-primary h-auto p-0">
-                            Page du manuel PDF
-                          </Button>
+                  <AccordionContent className="px-6 pt-6 pb-2">
+                    <div className="relative overflow-hidden rounded-2xl bg-amber-50/50 dark:bg-slate-900/50 border border-amber-200/50 dark:border-amber-900/30 p-6 space-y-4">
+                      {/* Paper texture/watermark effect */}
+                      <Scale className="absolute -right-8 -bottom-8 h-32 w-32 text-amber-200/20 dark:text-amber-900/10 -rotate-12" />
+                      
+                      <div className="relative space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                              <Scale className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-500">
+                              Extrait Officiel
+                            </span>
+                          </div>
                         </div>
-                      )}
+
+                        <div className="relative pl-6 border-l-2 border-amber-300/50 dark:border-amber-700/50 italic font-serif text-slate-700 dark:text-slate-300 leading-relaxed text-base">
+                          <span className="absolute left-0 top-0 text-4xl text-amber-300/50 leading-none -ml-1">"</span>
+                          {selectedFiche.legalBase.text}
+                          <span className="text-4xl text-amber-300/50 leading-none">"</span>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-4 border-t border-amber-200/30 dark:border-amber-800/30">
+                          <div className="flex flex-col">
+                            <span className="text-[9px] font-bold text-amber-600/60 dark:text-amber-500/40 uppercase tracking-tighter">Source Légale</span>
+                            <span className="text-[10px] font-bold text-amber-800/80 dark:text-amber-400/80 italic">
+                              {selectedFiche.legalBase.article}
+                            </span>
+                          </div>
+
+                          {selectedFiche.legalBase.link && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="h-7 rounded-lg text-amber-700 dark:text-amber-500 hover:bg-amber-100/50 dark:hover:bg-amber-900/30 font-black uppercase text-[8px] tracking-widest gap-1.5 px-3"
+                              onClick={() => window.open(selectedFiche.legalBase.link, '_blank')}
+                            >
+                              <FileText className="h-3 w-3" />
+                              Ouvrir le PDF
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
