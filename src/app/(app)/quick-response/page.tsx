@@ -212,11 +212,12 @@ export default function QuickResponsePage() {
 
               {/* Note / Exception */}
               {(selectedFiche.note || selectedFiche.exception) && (
-                <div className="p-6 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xl">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">À noter / Exception</h4>
-                  <p className="font-bold leading-relaxed">
+                <div className="p-6 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xl overflow-hidden relative group">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full -mr-12 -mt-12 blur-2xl group-hover:bg-primary/20 transition-colors" />
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-3 relative z-10">Point d'Attention / Précision</h4>
+                  <div className="font-bold leading-relaxed whitespace-pre-line text-sm relative z-10">
                     {selectedFiche.note || selectedFiche.exception}
-                  </p>
+                  </div>
                 </div>
               )}
 
@@ -245,6 +246,16 @@ export default function QuickResponsePage() {
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
+
+              {/* Global Rule */}
+              <div className="pt-8 border-t border-slate-100 dark:border-slate-800">
+                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 flex gap-3 items-center">
+                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse flex-shrink-0" />
+                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-500 leading-tight">
+                    Règle Générale : En cas de doute, appliquez toujours le niveau de vigilance supérieur et référez-en au responsable de la conformité.
+                  </p>
+                </div>
+              </div>
             </div>
           </Card>
         </div>

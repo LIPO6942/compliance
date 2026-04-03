@@ -14,7 +14,14 @@ export type QuickResponseVerdict =
   | 'SUIVRE LA DÉMARCHE PROGRESSIVE'
   | 'ACCEPTER SOUS CONDITION' 
   | 'VÉRIFIER AVANT TOUTE DÉCISION' 
-  | 'DÉCLARER EN INTERNE';
+  | 'DÉCLARER EN INTERNE'
+  | 'VIGILANCE RENFORCÉE OBLIGATOIRE'
+  | 'VIGILANCE RENFORCÉE — FACTEUR DE RISQUE ÉLEVÉ'
+  | 'BLOQUER — Informer la DG avant tout paiement'
+  | 'REFUSER + ENVISAGER UNE DS'
+  | 'SOUS CONDITIONS STRICTES'
+  | 'SUSPENDRE + DÉCLARER'
+  | 'DÉCLARER ET BLOQUER';
 
 export type QuickResponseColor = 'red' | 'orange' | 'green';
 

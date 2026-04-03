@@ -62,9 +62,10 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Identifier précisément les champs obligatoires manquants",
       "Demander au client de compléter les informations avant tout retour"
     ],
+    note: "SEUILS DE VIGILANCE :\n- Vie/Capit. Prime unique : > 3.000 DT\n- Vie/Capit. Primes périodiques : > 1.000 DT\n- Primes périodiques cumulées : > 3.000 DT\n- Espèces tous contrats : ≥ 5.000 DT\n\nCHAMPS OBLIGATOIRES PP : Nom/Prénom, Naissance (Date/Lieu), Nationalité, CIN/Passeport, Résidence effective, Profession, Relation bénéficiaire, Signature.\nCHAMEPS OBLIGATOIRES PM : Dénomination, Activité, Siège social, Identifiant unique (RNE), Mandataire (Identité/Domicile/Pouvoir), Dirigeants/Associés principaux, Bénéficiaires/Adhérents.",
     legalBase: {
-      article: "Art. 3 Règlement CGA n°2019-02",
-      text: "L'obligation de vigilance impose la collecte complète des données KYC obligatoires avant toute entrée en relation.",
+      article: "Art. 3, 7 et Annexe 1 Règlement CGA n°2019-02",
+      text: "L'obligation de vigilance impose la collecte complète des données KYC obligatoires et le respect des seuils de vigilance.",
       link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=16"
     },
     isFrequent: true
@@ -77,11 +78,11 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     steps: [
       "Exiger les documents d'identification du représentant légal",
       "Exiger le document prouvant la représentation légale (mandat, jugement...)",
-      "Pour les mineurs non émancipés : documents du représentant légal obligatoires",
+      "Pour les mineurs et incapables majeurs : exiger TOUS les justificatifs de représentation (pas seulement CIN)",
       "Renseigner la fiche KYC avec les données du représentant"
     ],
     legalBase: {
-      article: "Art. 3 Règlement CGA n°2019-02",
+      article: "Art. 3 et Annexe 1 Règlement CGA n°2019-02",
       text: "Vérification des pouvoirs et de l'identité du représentant agissant pour le compte d'autrui.",
       link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=18"
     },
@@ -115,10 +116,10 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Alerter le responsable conformité par téléphone immédiatement",
       "Ne rien faire d'autre sans instruction du responsable"
     ],
-    note: "Le responsable fait : informer la CNLCT, attendre 7 jours maximum.",
+    note: "S'applique aussi en cas de suspicion sur la véracité ou pertinence des données d'identification.",
     exception: "Assurances obligatoires uniquement (RC Auto / Incendie pro / collectif employeur) : Conclure le contrat ET informer la CNLCT immédiatement",
     legalBase: {
-      article: "Art. 10 Décret n°2019-419 + Art. 13 CGA n°2019-02",
+      article: "Art. 10 Décret n°2019-419 + Art. 3 et 13 Règlement CGA n°2019-02",
       text: "Interdiction de mise à disposition de fonds ou ressources économiques aux personnes listées.",
       link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=45"
     },
@@ -241,10 +242,10 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Ne rien dire au client (confidentialité absolue)",
       "Attendre l'instruction du responsable"
     ],
-    note: "Analyse interne, puis DS via goAML à la CTAF si confirmé.",
+    note: "L'examen de l'opération inhabituelle doit être consigné par écrit et tenu à disposition des autorités.",
     legalBase: {
-      article: "Art. 13 Règlement CGA n°2019-02 + Décision CTAF n°2024-01",
-      text: "Obligation de signalement interne et déclaration de soupçon.",
+      article: "Art. 12 et 13 Règlement CGA n°2019-02 + Décision CTAF n°2024-01",
+      text: "Obligation de signalement interne, de consignation écrite et de déclaration de soupçon.",
       link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=65"
     },
     isFrequent: true
@@ -280,6 +281,147 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       article: "Art. 5 Règlement CGA n°2019-02",
       text: "Mise à jour périodique et ponctuelle de la connaissance client.",
       link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=22"
+    }
+  },
+  {
+    id: "cash-payment-threshold",
+    title: "Primes en espèces ≥ 5.000 DT",
+    verdict: "VIGILANCE RENFORCÉE OBLIGATOIRE",
+    color: "orange",
+    steps: [
+      "Appliquer les mesures de vigilance renforcée (Art. 7)",
+      "Obtenir des informations sur l'origine des fonds",
+      "Exiger les justificatifs de l'origine des fonds",
+      "Transmettre au responsable conformité"
+    ],
+    note: "Applicable même si le montant est atteint via plusieurs versements liés entre eux.",
+    legalBase: {
+      article: "Art. 7 Règlement CGA n°2019-02",
+      text: "Vigilance renforcée pour les transactions en cash dépassant les seuils fixés.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=28"
+    },
+    isFrequent: true
+  },
+  {
+    id: "remote-subscription",
+    title: "Souscription sans présence physique (Vente à distance)",
+    verdict: "VIGILANCE RENFORCÉE OBLIGATOIRE",
+    color: "orange",
+    steps: [
+      "Évaluer les risques BA/FT liés au canal de vente",
+      "Appliquer les mesures de vigilance renforcée (Art. 7)",
+      "Obtenir des informations supplémentaires sur client et origine fonds",
+      "Soumettre au responsable conformité"
+    ],
+    legalBase: {
+      article: "Art. 7 et 9 Règlement CGA n°2019-02",
+      text: "Vigilance accrue pour les relations d'affaires établies à distance.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=32"
+    }
+  },
+  {
+    id: "non-cooperative-country",
+    title: "Client pays non coopératif / haut risque",
+    verdict: "VIGILANCE RENFORCÉE OBLIGATOIRE",
+    color: "orange",
+    steps: [
+      "Vérifier la liste CTAF à jour (n°2025/254 du 06/11/2025)",
+      "Appliquer les mesures de vigilance renforcée (Art. 7)",
+      "Obtenir des informations supplémentaires sur l'origine des fonds",
+      "Transmettre au responsable conformité pour analyse approfondie"
+    ],
+    note: "S'applique aussi aux nationaux de ces pays résidant en Tunisie.",
+    legalBase: {
+      article: "Art. 7 Règlement CGA n°2019-02",
+      text: "Mesures spécifiques pour les zones géographiques à risque élevé.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=34"
+    }
+  },
+  {
+    id: "life-beneficiary-id",
+    title: "Bénéficiaire d'un contrat Vie — identification",
+    verdict: "VIGILANCE RENFORCÉE — FACTEUR DE RISQUE ÉLEVÉ",
+    color: "orange",
+    steps: [
+      "Désigné nominativement : identité complète dès la souscription",
+      "Désigné par qualité : infos suffisantes pour identification au versement",
+      "Si risque élevé : vigilance renforcée au moment du paiement"
+    ],
+    note: "Le bénéficiaire Vie est considéré comme un facteur de risque élevé permanent.",
+    legalBase: {
+      article: "Art. 10 Règlement CGA n°2019-02",
+      text: "Identification obligatoire des bénéficiaires et bénéficiaires effectifs en assurance vie.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=36"
+    }
+  },
+  {
+    id: "ppe-payout-life",
+    title: "PPE détectée dans un contrat Vie — au versement",
+    verdict: "BLOQUER — Informer la DG avant tout paiement",
+    color: "red",
+    steps: [
+      "Vérifier si PPE au plus tard au versement des capitaux",
+      "Informer la Direction Générale AVANT le paiement",
+      "Réaliser un examen renforcé de la relation",
+      "Envisager une DS à la CTAF",
+      "Ne pas payer sans autorisation DG"
+    ],
+    legalBase: {
+      article: "Art. 11 Règlement CGA n°2019-02",
+      text: "Contrôle PPE au dénouement du contrat et autorisation DG obligatoire.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=38"
+    }
+  },
+  {
+    id: "insufficient-info-fictitious",
+    title: "Informations insuffisantes ou manifestement fictives",
+    verdict: "REFUSER + ENVISAGER UNE DS",
+    color: "red",
+    steps: [
+      "S'abstenir de toute opération",
+      "Envisager immédiatement une DS à la CTAF",
+      "Informer le responsable conformité"
+    ],
+    note: "Diffère des simples données manquantes : ici suspicion d'identité fictive ou incohérences graves.",
+    legalBase: {
+      article: "Art. 4 Règlement CGA n°2019-02",
+      text: "Obligation de refus de service en cas d'impossibilité d'identifier le client.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=40"
+    }
+  },
+  {
+    id: "low-risk-simplified",
+    title: "Client à risque faible — mesures simplifiées",
+    verdict: "SOUS CONDITIONS STRICTES",
+    color: "green",
+    steps: [
+      "Vérifier identification risque faible formelle et cohérente (ENR)",
+      "Identification possible APRES établissement contrat",
+      "Mises à jour moins fréquentes autorisées",
+      "INTERDIT si soupçon BA/FT ou risque élevé détecté"
+    ],
+    legalBase: {
+      article: "Art. 6 Règlement CGA n°2019-02",
+      text: "Conditions réglementaires fixant le recours aux mesures de vigilance simplifiées.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=25"
+    }
+  },
+  {
+    id: "immediate-suspicious-action",
+    title: "Opération suspecte — action immédiate",
+    verdict: "SUSPENDRE + DÉCLARER",
+    color: "red",
+    steps: [
+      "Suspendre l'opération temporairement",
+      "Déclarer à la CTAF immédiatement (modèle règlementaire)",
+      "Confidentialité absolue : ne pas informer le client",
+      "S'applique aussi aux tentatives non réalisées"
+    ],
+    note: "S'applique même après réalisation si de nouveaux faits apparaissent.",
+    legalBase: {
+      article: "Art. 13 Règlement CGA n°2019-02",
+      text: "Procédure de déclaration de soupçon et mesures conservatoires.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=68"
     }
   }
 ];
