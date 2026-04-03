@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Zap, ArrowLeft, History, X, Scale, FileText } from "lucide-react";
+import { Search, Zap, ArrowLeft, History, X, Scale, FileText, ShieldCheck } from "lucide-react";
 import { quickResponseFiches } from "@/data/quickResponseData";
 import { QuickResponseFiche } from "@/types/quick-response";
 import { cn } from "@/lib/utils";
