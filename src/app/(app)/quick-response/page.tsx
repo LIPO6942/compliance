@@ -247,13 +247,20 @@ export default function QuickResponsePage() {
                 </AccordionItem>
               </Accordion>
 
-              {/* Global Rule */}
+              {/* Golden Rule */}
               <div className="pt-8 border-t border-slate-100 dark:border-slate-800">
-                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 flex gap-3 items-center">
-                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse flex-shrink-0" />
-                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-500 leading-tight">
-                    Règle Générale : En cas de doute, appliquez toujours le niveau de vigilance supérieur et référez-en au responsable de la conformité.
-                  </p>
+                <div className="p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 shadow-sm">
+                  <div className="flex gap-4 items-start">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/20 flex-shrink-0 animate-pulse">
+                      <Zap className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 dark:text-amber-500">Règle d'Or de la Compagnie</h5>
+                      <p className="text-[11px] font-bold text-amber-900 dark:text-amber-200 leading-snug">
+                        1. Ne pas agir seul • 2. Appliquer la vigilance supérieure • 3. En référer au responsable conformité • 4. Des indices suffisent pour la DS (n'attendez pas de preuve).
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

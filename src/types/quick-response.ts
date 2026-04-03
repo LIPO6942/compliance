@@ -21,7 +21,9 @@ export type QuickResponseVerdict =
   | 'REFUSER + ENVISAGER UNE DS'
   | 'SOUS CONDITIONS STRICTES'
   | 'SUSPENDRE + DÉCLARER'
-  | 'DÉCLARER ET BLOQUER';
+  | 'DÉCLARER ET BLOQUER'
+  | 'VÉRIFIER LE CONTRÔLE EFFECTIF'
+  | 'CALCUL INDIRECT OBLIGATOIRE';
 
 export type QuickResponseColor = 'red' | 'orange' | 'green';
 

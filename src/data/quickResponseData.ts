@@ -62,10 +62,10 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Identifier précisément les champs obligatoires manquants",
       "Demander au client de compléter les informations avant tout retour"
     ],
-    note: "SEUILS DE VIGILANCE :\n- Vie/Capit. Prime unique : > 3.000 DT\n- Vie/Capit. Primes périodiques : > 1.000 DT\n- Primes périodiques cumulées : > 3.000 DT\n- Espèces tous contrats : ≥ 5.000 DT\n\nCHAMPS OBLIGATOIRES PP : Nom/Prénom, Naissance (Date/Lieu), Nationalité, CIN/Passeport, Résidence effective, Profession, Relation bénéficiaire, Signature.\nCHAMEPS OBLIGATOIRES PM : Dénomination, Activité, Siège social, Identifiant unique (RNE), Mandataire (Identité/Domicile/Pouvoir), Dirigeants/Associés principaux, Bénéficiaires/Adhérents.",
+    note: "SEUILS DE VIGILANCE :\n- Vie/Capit. Prime unique : > 3.000 DT\n- Vie/Capit. Primes périodiques : > 1.000 DT\n- Primes périodiques cumulées : > 3.000 DT\n- Espèces tous contrats : ≥ 5.000 DT\n\nCHAMPS OBLIGATOIRES PP : Nom prénoms, Naissance (Date/Lieu), Nationalité, CIN/Passeport, Résidence effective, Profession détaillée (éviter termes vagues comme 'commerçant'), Situation financière (origine fonds si étranger/tiers/montant inhabituel), Relation bénéficiaire, Signature.\n\nCHAMPS OBLIGATOIRES PM : Dénomination, Activité + Objet social, Siège social, Identifiant unique (RNE), Copie des statuts obligatoire, Origine des fonds (déclaration), Mandataire (Identité/Domicile/Pouvoir), Dirigeants/Associés principaux, Bénéficiaires/Adhérents.",
     legalBase: {
-      article: "Art. 3, 7 et Annexe 1 Règlement CGA n°2019-02",
-      text: "L'obligation de vigilance impose la collecte complète des données KYC obligatoires et le respect des seuils de vigilance.",
+      article: "Art. 3, 7 et Annexe 1 Règlement CGA n°2019-02 + Lignes Directrices 2025",
+      text: "L'obligation de vigilance impose la collecte complète des données KYC obligatoires, incluant la précision sur la profession et la situation financière.",
       link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=16"
     },
     isFrequent: true
@@ -114,13 +114,13 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       "Continuer à recevoir le dossier client",
       "Suspendre immédiatement le traitement",
       "Alerter le responsable conformité par téléphone immédiatement",
-      "Ne rien faire d'autre sans instruction du responsable"
+      "Souscription via courtier : exiger dossier complet de l'intermédiaire (la compagnie reste responsable)"
     ],
-    note: "S'applique aussi en cas de suspicion sur la véracité ou pertinence des données d'identification.",
+    note: "S'applique aussi en cas de suspicion sur la véracité des données. Si dossier courtier incomplet : suspendre le contrat.",
     exception: "Assurances obligatoires uniquement (RC Auto / Incendie pro / collectif employeur) : Conclure le contrat ET informer la CNLCT immédiatement",
     legalBase: {
-      article: "Art. 10 Décret n°2019-419 + Art. 3 et 13 Règlement CGA n°2019-02",
-      text: "Interdiction de mise à disposition de fonds ou ressources économiques aux personnes listées.",
+      article: "Art. 10 Décret n°2019-419 + Lignes Directrices 2025 Titre 3",
+      text: "Interdiction de mise à disposition de fonds aux personnes listées et responsabilité pleine de l'assureur sur les apports de courtiers.",
       link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=45"
     },
     isFrequent: true
@@ -273,13 +273,14 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     verdict: "LISTE DES DÉCLENCHEURS",
     color: "green",
     steps: [
-      "Déclencher si : modification primes, capital assuré, info déclarée, demande résiliation/avance, indemnité, identité expirée",
-      "Périodicité : Risque élevé (1 an), Risque moyen (2 ans), Risque faible (5 ans)",
-      "Au renouvellement : vérifier la cohérence avec la fiche KYC"
+      "Déclencher si : modification primes/capital, info déclarée, résiliation/avance, indemnité, identité expirée",
+      "Nouveaux déclencheurs : modif statutaire PM, changement de BE, évolution importante flux financiers",
+      "Périodicité : Risque élevé (1 an), Risque moyen (2 ans), Risque faible (5 ans)"
     ],
+    note: "La mise à jour doit couvrir : situation pro/financière, origine patrimoine, but et nature relation d'affaires.",
     legalBase: {
-      article: "Art. 5 Règlement CGA n°2019-02",
-      text: "Mise à jour périodique et ponctuelle de la connaissance client.",
+      article: "Art. 5 Règlement CGA n°2019-02 + Lignes Directrices 2025 Titre 2",
+      text: "Mise à jour périodique et ponctuelle de la connaissance client et des éléments de son profil financier.",
       link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=22"
     }
   },
@@ -343,14 +344,14 @@ export const quickResponseFiches: QuickResponseFiche[] = [
     verdict: "VIGILANCE RENFORCÉE — FACTEUR DE RISQUE ÉLEVÉ",
     color: "orange",
     steps: [
-      "Désigné nominativement : identité complète dès la souscription",
-      "Désigné par qualité : infos suffisantes pour identification au versement",
-      "Si risque élevé : vigilance renforcée au moment du paiement"
+      "Désigné nominativement : identité complète dès la souscription + lien avec le souscripteur",
+      "Désigné par qualité : infos suffisantes pour identification AU PLUS TARD au versement",
+      "Ne pas attendre : anticiper la collecte avant le dénouement si possible"
     ],
     note: "Le bénéficiaire Vie est considéré comme un facteur de risque élevé permanent.",
     legalBase: {
-      article: "Art. 10 Règlement CGA n°2019-02",
-      text: "Identification obligatoire des bénéficiaires et bénéficiaires effectifs en assurance vie.",
+      article: "Art. 10 Règlement CGA n°2019-02 + Lignes Directrices 2025 Titre 2",
+      text: "Identification obligatoire des bénéficiaires et anticipation de la collecte des liens familiaux/affaires.",
       link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=36"
     }
   },
@@ -423,5 +424,96 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       text: "Procédure de déclaration de soupçon et mesures conservatoires.",
       link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=68"
     }
+  },
+  {
+    id: "be-holding-complex",
+    title: "Bénéficiaire effectif — holding / structure complexe",
+    verdict: "SUIVRE LA DÉMARCHE PROGRESSIVE",
+    color: "orange",
+    steps: [
+      "Cartographier la structure niveau par niveau",
+      "Multiplier les % à chaque niveau pour calculer la détention indirecte",
+      "Additionner les participations directes et indirectes",
+      "Si total ≥ 20% → BE identifié",
+      "Documenter chaque calcul dans la fiche KYC"
+    ],
+    note: "EXEMPLES DE CALCULS :\n\n- P1 via Holding A (60%) détient 80% de Société W :\n  60% x 80% = 48% → BE ✅\n\n- P2 via Holding B (60%) détient 40% de Société W :\n  60% x 40% = 24% → BE ✅ (Note: 19.8% dans l'exemple guide si paliers supp.)\n\n- P3 (20% direct) + Holding B (40% de Société W) où P3 a 40% :\n  (40% x 40%) + 20% = 16% + 20% = 36% → BE ✅",
+    legalBase: {
+      article: "Lignes Directrices CGA août 2025 — Titre 1, cas 6",
+      text: "Calcul de la détention indirecte par multiplication des participations successives.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=27"
+    }
+  },
+  {
+    id: "be-pact-voting",
+    title: "Bénéficiaire effectif — pacte d'associés",
+    verdict: "VÉRIFIER LE CONTRÔLE EFFECTIF",
+    color: "orange",
+    steps: [
+      "Demander l'existence d'un pacte d'associés / convention de vote",
+      "Identifier les signataires du pacte de vote unitaire",
+      "Les signataires sont les BE réels (le contrôle prime sur le capital %)",
+      "Documenter le type de contrôle exercé sur les organes de gestion"
+    ],
+    note: "Si plusieurs associés ont 25% mais qu'un sous-groupe a un pacte de vote unitaire, ce sous-groupe contrôle la société.",
+    legalBase: {
+      article: "Lignes Directrices CGA août 2025 — Titre 1, cas 7",
+      text: "Le critère du contrôle effectif des décisions prime sur le simple seuil mathématique de capital.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=29"
+    }
+  },
+  {
+    id: "group-contract-vigilance",
+    title: "Contrat collectif — vigilance sur les adhérents",
+    verdict: "SOUS CONDITIONS STRICTES",
+    color: "green",
+    steps: [
+      "Vérifier identité du souscripteur (employeur/association) → c'est le CLIENT",
+      "Identifier le BE du souscripteur",
+      "Adhérents : mesures simplifiées possibles seulement si prévues procédures internes",
+      "CONTRATS VIE COLLECTIFS : Identification ADAPTÉE OBLIGATOIRE (pas de simplifié)"
+    ],
+    legalBase: {
+      article: "Lignes Directrices CGA août 2025 — Titre 4",
+      text: "Adaptation des mesures de vigilance pour les contrats d'assurance de groupe.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=42"
+    }
+  },
+  {
+    id: "broker-subscription",
+    title: "Souscription via un intermédiaire / courtier",
+    verdict: "VIGILANCE RENFORCÉE OBLIGATOIRE",
+    color: "orange",
+    steps: [
+      "Vérifier existence convention écrite avec clauses LBA-FT",
+      "Contrôler qualité et complétude des infos transmises",
+      "Respect des délais de transmission obligatoires",
+      "Si infos insuffisantes : suspendre ou réaliser vérifications soi-même"
+    ],
+    note: "La délégation ne libère pas la compagnie de sa responsabilité pleine.",
+    legalBase: {
+      article: "Art. 19 Règlement CGA n°2019-02 + Lignes Directrices 2025 Titre 3",
+      text: "Encadrement strict de la relation avec les apporteurs d'affaires et intermédiaires.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=44"
+    }
+  },
+  {
+    id: "suspicious-declaration-proof",
+    title: "Déclaration de soupçon — niveau de preuve",
+    verdict: "DÉCLARER ET BLOQUER",
+    color: "red",
+    steps: [
+      "Indices suffisants = DS obligatoire (Pas besoin de preuve formelle)",
+      "Déclencher si : identité douteuse, comportement inhabituel, montage complexe unjustified",
+      "Timing : dès détection suspecte (avant ou après opération)",
+      "Confidentialité absolue : ne jamais informer le client"
+    ],
+    note: "Attendre une preuve formelle est une erreur réglementaire.",
+    legalBase: {
+      article: "Art. 4, 11, 13 Règlement CGA n°2019-02 + Décision CTAF n°2024-01",
+      text: "La déclaration de soupçon repose sur l'intime conviction et des faisceaux d'indices concordants.",
+      link: "/docs/manuel-mae-assurances-v2026-3.pdf#page=70"
+    },
+    isFrequent: true
   }
 ];
