@@ -101,6 +101,16 @@ service cloud.firestore {
        allow read, write: if true;
     }
 
+    match /tasks/{document=**} {
+      allow read, write: if true;
+    }
+    match /available_users/{document=**} {
+      allow read, write: if true;
+    }
+    match /available_roles/{document=**} {
+      allow read, write: if true;
+    }
+
     // ============================================
     // TIMELINE - Événements de la timeline
     // ============================================
@@ -116,10 +126,10 @@ service cloud.firestore {
     }
 
     // ============================================
-    // AUDIT LOGS - Logs des actions (append-only)
+    // AUDIT LOGS - Logs des actions
     // ============================================
-    match /activity_logs/{logId} {
-      allow read, write: if true;  // Ouvert temporairement pour éviter l'erreur de permission dans le snapshot et l'écriture
+    match /audit_logs/{logId} {
+      allow read, write: if true;
     }
 
     // ============================================
