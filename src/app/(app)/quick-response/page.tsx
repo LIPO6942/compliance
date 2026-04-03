@@ -276,6 +276,50 @@ export default function QuickResponsePage() {
                 </AccordionItem>
               </Accordion>
 
+              {/* Internal Protocol - MAE Assurances */}
+              {selectedFiche.internalProtocol && (
+                <div className="relative overflow-hidden rounded-3xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-900/30 p-8 space-y-6 mt-6">
+                  {/* Subtle MAE Branding Watermark */}
+                  <ShieldCheck className="absolute -right-8 -top-8 h-40 w-40 text-blue-900/5 dark:text-blue-400/5 -rotate-12" />
+                  
+                  <div className="relative space-y-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <ShieldCheck className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-black tracking-tight text-blue-900 dark:text-blue-400 uppercase italic">
+                          {selectedFiche.internalProtocol.title}
+                        </h4>
+                        <p className="text-[10px] font-black text-blue-600/60 uppercase tracking-[0.2em]">Protocole Interne MAE Assurances</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 relative z-10">
+                      {selectedFiche.internalProtocol.steps.map((step, idx) => (
+                        <div key={idx} className="flex items-start gap-4 p-4 rounded-2xl bg-white/80 dark:bg-slate-800/80 border border-blue-100/50 dark:border-blue-900/20 backdrop-blur-sm shadow-sm hover:translate-x-1 transition-transform">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-[10px] font-black text-blue-600">
+                            {idx + 1}
+                          </div>
+                          <p className="text-sm font-bold text-slate-700 dark:text-slate-300 leading-tight">
+                            {step}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {selectedFiche.internalProtocol.note && (
+                      <div className="p-4 rounded-2xl bg-blue-100/30 dark:bg-blue-900/20 border border-dotted border-blue-300/50 dark:border-blue-700/30">
+                        <p className="text-[10px] font-bold text-blue-800/80 dark:text-blue-400/80 italic leading-relaxed">
+                          <span className="font-black uppercase not-italic mr-2">Note MAE:</span>
+                          {selectedFiche.internalProtocol.note}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Golden Rule */}
               <div className="pt-8 border-t border-slate-100 dark:border-slate-800">
                 <div className="p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 shadow-sm">

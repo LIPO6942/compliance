@@ -26,4 +26,15 @@ RECOMMANDATIONS DU GAFI (FATF) - Extraits Verbatim :
 - Rec. 24 (Bénéficiaires Effectifs) : Les pays doivent s'assurer que des informations exactes et à jour sur les bénéficiaires effectifs des personnes morales sont accessibles via un registre.
 - Rec. 29 (CRF) : Institution d'une cellule de renseignements financiers (CRF) comme centre national pour la réception et l'analyse des DOS.
 - Rec. 32 (Passeurs de fonds) : Mesures pour détecter les transports physiques transfrontaliers d'espèces ; pouvoir de bloquer ou retenir les fonds suspectés.
+
+MANUEL DE PROCÉDURES INTERNES - MAE ASSURANCES :
+- Conservation : Conserver le dossier client et les documents de transaction pendant 10 ans après la fin de la relation d'affaires.
+- Sanctions : Vérification systématique CNLCT/NU. Si correspondance confirmée : Suspension immédiate (5 jours) + DS à la CTAF et à la CNLCT.
+- CNLCT : En cas de refus de renouvellement ou absence de réponse sous 7 jours de la CNLCT, le contrat échu ne sera pas renouvelé.
+- PPE : L'intervenant doit (1) Vérifier SI, (2) Vérifier profession, (3) Demander au client directement (proches inclus). Autorisation DG obligatoire.
+- KYC / Risque : Utilisation obligatoire du SI "RegTools". Évaluation Risque BA/FT/PA selon matrice interne.
+- Vigilance renforcée (Risque élevé) : Entretien présentiel obligatoire, origine des fonds, adéquation primes/revenus, transmission directe au responsable conformité.
+- Déclaration de soupçon : Email interne immédiat au responsable conformité (Identité, Nature relation, Éléments déclencheurs).
+- Tip-off interne : Le responsable conformité informe les structures concernées qui doivent suspendre les opérations pendant 5 jours ouvrés.
+- Formation : Au moins une action de formation annuelle obligatoire pour tous les collaborateurs sur la LBA/FT/PA.
 `;

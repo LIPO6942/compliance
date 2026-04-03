@@ -33,6 +33,12 @@ export interface QuickResponseLegalBase {
   link?: string;
 }
 
+export interface QuickResponseInternalProtocol {
+  title: string;
+  steps: string[];
+  note?: string;
+}
+
 export interface QuickResponseFiche {
   id: string;
   title: string;
@@ -42,6 +48,7 @@ export interface QuickResponseFiche {
   note?: string;
   exception?: string;
   legalBase: QuickResponseLegalBase;
+  internalProtocol?: QuickResponseInternalProtocol;
   isFrequent?: boolean;
   category?: string;
 }

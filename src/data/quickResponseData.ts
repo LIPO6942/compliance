@@ -16,6 +16,13 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       text: "Les sociétés d'assurances et de réassurances et les intermédiaires en assurances doivent s'assurer, au moyen de documents officiels et autres documents provenant de sources fiables et indépendantes, de l'identité complète du souscripteur, de l'assuré et du bénéficiaire désigné au contrat, leurs activités et leurs adresses.",
       link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     },
+    internalProtocol: {
+      title: "MAE — Conservation des Documents",
+      steps: [
+        "Conserver le document expiré dans le dossier client archivé",
+        "Le dossier complet doit être conservé 10 ans après la fin de la relation d'affaires"
+      ]
+    },
     isFrequent: true
   },
   {
@@ -33,6 +40,13 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       article: "Art. 5 — Règlement CGA n°2019-02",
       text: "Créer un dossier pour chaque client afin de conserver une copie de ses documents officiels. Ces documents doivent être vérifiés par l'agent en charge du client et certifiés conformes aux originaux par ce dernier.",
       link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
+    },
+    internalProtocol: {
+      title: "MAE — Certification Conforme",
+      steps: [
+        "L'intervenant doit lui-même certifier la copie conforme",
+        "Durée de conservation de 10 ans à partir de la date de transaction ou de fin de relation"
+      ]
     },
     isFrequent: true
   },
@@ -67,6 +81,14 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       article: "LD Août 2025 — Titre 2, Section II",
       text: "La profession : Il est important de renseigner l’activité professionnelle de manière suffisamment claire et précise et non par l’emploi de termes vagues. La situation professionnelle des personnes physiques est, de surcroît, un élément de connaissance nécessaire à la détection d’éventuelles personnes politiquement exposées.",
       link: "/docs/LD - Identification clients Aout 2025.pdf"
+    },
+    internalProtocol: {
+      title: "MAE — Outil RegTools & Risque",
+      steps: [
+        "Saisie obligatoire dans le SI 'RegTools' (Fiche KYC)",
+        "Lancement automatique de l'évaluation du risque BA/FT/PA",
+        "S'assurer de l'adéquation primes/revenus lors de la saisie"
+      ]
     },
     isFrequent: true
   },
@@ -122,6 +144,14 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       article: "LD Août 2025 — Titre 3",
       text: "La distribution des produits d’assurance à travers des intermédiaires... constitue une pratique courante... Toutefois, cette délégation ne libère pas la société d’assurance de sa responsabilité première car elle demeure pleinement responsable du respect de l’ensemble des obligations de vigilance.",
       link: "/docs/LD - Identification clients Aout 2025.pdf"
+    },
+    internalProtocol: {
+      title: "MAE — Sanctions & CNLCT (Siège)",
+      steps: [
+        "Correspondance confirmée : Déclaration de soupçon immédiate à la CTAF ET à la CNLCT",
+        "Suspendre toute opération pendant 5 jours ouvrés dès la notification par le responsable conformité",
+        "CNLCT : Si refus ou pas de réponse sous 7 jours, le contrat ne sera PAS renouvelé"
+      ]
     },
     isFrequent: true
   },
@@ -230,6 +260,15 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       text: "Ils sont également tenus d'obtenir l’autorisation de la direction générale avant de nouer ou de poursuivre une relation d’affaires avec eux, et exercer une surveillance renforcée et continue de cette relation.",
       link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
     },
+    internalProtocol: {
+      title: "MAE — Protocole de Vérification PPE",
+      steps: [
+        "Vérifier manuellement sur le SI la liste des PPE (Balayage automatique SI existant)",
+        "Vérifier si la profession déclarée (Ambassadeur, mem. Parlement, etc.) attribue le statut",
+        "Poser les 2 questions : 'Occupez-vous une fonction publique ?' et 'Un proche est-il PPE ?'",
+        "Autorisation de la Direction Générale OBLIGATOIRE pour la poursuite du dossier"
+      ]
+    },
     isFrequent: true
   },
   {
@@ -247,6 +286,14 @@ export const quickResponseFiches: QuickResponseFiche[] = [
       article: "Art. 12 — Règlement CGA n°2019-02",
       text: "Les sociétés d'assurances... doivent prêter une attention particulière aux opérations ou transactions revêtant un caractère inhabituel... examiner le cadre dans lequel lesdites opérations... sont réalisées... consigner les résultats de cet examen, par écrit.",
       link: "/docs/Reglement_CGA_n_2019-02 OCR.pdf"
+    },
+    internalProtocol: {
+      title: "MAE — Déclaration de Soupçon Interne",
+      steps: [
+        "Envoyer un email immédiat au responsable conformité (Siège)",
+        "Détails requis : Identité complète, nature relation MAE, motifs du soupçon (triggers)",
+        "Le responsable conformité informe par email les structures de la suspension obligatoire de 5 jours"
+      ]
     },
     isFrequent: true
   },
