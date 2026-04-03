@@ -131,5 +131,12 @@ service cloud.firestore {
     match /settings/{document=**} {
       allow read, write: if true;  // Ouvert en dev
     }
+
+    // ============================================
+    // QUICK-RESPONSE - Historique des décisions
+    // ============================================
+    match /quickResponseHistory/{decisionId} {
+      allow read, write: if true;  // Ouvert en dev
+    }
   }
 }
