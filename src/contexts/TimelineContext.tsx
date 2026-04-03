@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { useActivityLog } from "./ActivityLogContext";
+import { useUser } from "./UserContext";
 
 export interface TimelineEvent {
     id: string;
@@ -41,9 +43,26 @@ const defaultEvents: TimelineEvent[] = [
 
 const TimelineContext = createContext<TimelineContextType | undefined>(undefined);
 
+const cleanData = (data: any): any => {
+    if (Array.isArray(data)) {
+        return data.map(cleanData);
+    } else if (typeof data === 'object' && data !== null) {
+        const cleaned: Record<string, any> = {};
+        for (const key in data) {
+            if (data[key] !== undefined) {
+                cleaned[key] = cleanData(data[key]);
+            }
+        }
+        return cleaned;
+    }
+    return data;
+};
+
 export const TimelineProvider = ({ children }: { children: ReactNode }) => {
     const [events, setEvents] = useState<TimelineEvent[]>([]);
     const [loading, setLoading] = useState(true);
+    const { logAction } = useActivityLog();
+    const { user } = useUser();
 
     // Load from Firebase or localStorage
     useEffect(() => {
@@ -87,8 +106,9 @@ export const TimelineProvider = ({ children }: { children: ReactNode }) => {
     const persist = async (newEvents: TimelineEvent[]): Promise<{ success: boolean; error?: string }> => {
         if (isFirebaseConfigured && db) {
             try {
+                const cleanedEvents = cleanData(newEvents);
                 await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC), { 
-                    events: newEvents,
+                    events: cleanedEvents,
                     updatedAt: new Date().toISOString()
                 });
                 return { success: true };
@@ -164,6 +184,7 @@ export const TimelineProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const prolongEvent = (id: string, newDate: string, reason?: string) => {
+        const eventToProlong = events.find(e => e.id === id);
         const updated = events.map(e =>
             e.id === id ? { 
                 ...e, 
@@ -173,6 +194,17 @@ export const TimelineProvider = ({ children }: { children: ReactNode }) => {
         );
         setEvents(updated);
         persist(updated).catch(e => console.error("Persist failed:", e));
+
+        if (eventToProlong && user) {
+            logAction({
+                userEmail: user.email,
+                userName: user.name,
+                action: 'PLAN_UPDATE',
+                label: `Report d'échéance : ${eventToProlong.title}`,
+                details: `Nouvelle date : ${newDate}${reason ? ' • Raison : ' + reason : ''}`,
+                module: 'Timeline'
+            });
+        }
     };
 
     const persistChanges = async () => {

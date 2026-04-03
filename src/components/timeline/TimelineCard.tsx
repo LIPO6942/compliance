@@ -177,7 +177,7 @@ export function TimelineCard({ event, isOverdue, onValidate, onProlong }: Timeli
                         mode="single"
                         onSelect={(date: Date | undefined) => {
                           if (date) {
-                            onProlong(event.id, date.toISOString(), delayReason);
+                            onProlong(event.id, format(date, 'yyyy-MM-dd'), delayReason);
                             setDelayReason("");
                           }
                         }}
