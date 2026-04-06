@@ -85,34 +85,39 @@ async function callGroqChatCompletion(prompt: string): Promise<string> {
     return '';
   }
 
-  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  const model = process.env.GROQ_MODEL || 'llama3-8b-8192';
 
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { 
-          role: 'system', 
-          content: 'Tu es un assistant JSON expert en conformité. Tu réponds UNIQUEMENT et STRICTEMENT par un objet JSON.' 
-        },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.1,
-      response_format: { type: "json_object" }
-    }),
-  });
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { 
+            role: 'system', 
+            content: 'Tu es un assistant JSON expert en conformité. Tu réponds UNIQUEMENT et STRICTEMENT par un objet JSON.' 
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
+        response_format: { type: "json_object" }
+      }),
+    });
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error('[AI] Groq API error', res.status, errorText);
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[AI QuickResponse] Groq API error:', res.status, errorText);
+      return '';
+    }
+
+    const data: any = await res.json();
+    return data?.choices?.[0]?.message?.content ?? '';
+  } catch (err) {
+    console.error('[AI QuickResponse] Groq request failed:', err);
     return '';
   }
-
-  const data: any = await res.json();
-  return data?.choices?.[0]?.message?.content ?? '';
 }

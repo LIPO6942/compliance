@@ -3,7 +3,8 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Zap, ArrowLeft, History, X, Scale, FileText, ShieldCheck, Sparkles, Loader2 } from "lucide-react";
+import { Search, Zap, ArrowLeft, History, X, Scale, FileText, ShieldCheck, Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { quickResponseFiches } from "@/data/quickResponseData";
 import { QuickResponseFiche } from "@/types/quick-response";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,7 @@ export default function QuickResponsePage() {
   // AI states
   const { legalBases } = useLegalBases();
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const { toast } = useToast();
   const [aiResult, setAiResult] = useState<AnalyzeQuickResponseOutput | null>(null);
 
   const selectedFiche = useMemo(() => 
@@ -84,14 +86,34 @@ export default function QuickResponsePage() {
     setAiResult(null);
     setSelectedFicheId(null);
     
-    // Concaténer toutes les bases actives
-    let kb = (legalBases || []).filter(lb => lb.isActive).map(lb => `Catégorie: ${lb.category || 'Non spécifiée'}\nSource: ${lb.source}\nTitre: ${lb.title}\nContenu:\n${lb.content}\n---`).join('\n');
-    if (kb.length > 20000) {
-      kb = kb.substring(0, 20000) + "\n...[Bases légales tronquées pour l'IA car trop longues]";
+    try {
+      // Concaténer toutes les bases actives
+      let kb = (legalBases || []).filter(lb => lb.isActive).map(lb => `Catégorie: ${lb.category || 'Non spécifiée'}\nSource: ${lb.source}\nTitre: ${lb.title}\nContenu:\n${lb.content}\n---`).join('\n');
+      if (kb.length > 20000) {
+        kb = kb.substring(0, 20000) + "\n...[Bases légales tronquées pour l'IA car trop longues]";
+      }
+      
+      const result = await askQuickResponseAI({ query: searchQuery, customKnowledgeBase: kb });
+      
+      if (!result) {
+        toast({
+          title: "Réponse indisponible",
+          description: "L'IA n'a pas pu générer de verdict pour ce cas. Essayez d'être plus précis.",
+          variant: "destructive",
+        });
+      } else {
+        setAiResult(result);
+      }
+    } catch (error) {
+      console.error("AI Error:", error);
+      toast({
+        title: "Erreur Système",
+        description: "Une erreur est survenue lors de la communication avec l'IA. Veuillez réessayer.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAiLoading(false);
     }
-    const result = await askQuickResponseAI({ query: searchQuery, customKnowledgeBase: kb });
-    setAiResult(result);
-    setIsAiLoading(false);
   };
 
   return (
