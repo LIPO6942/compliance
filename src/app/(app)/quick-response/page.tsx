@@ -89,8 +89,8 @@ export default function QuickResponsePage() {
     try {
       // Concaténer toutes les bases actives
       let kb = (legalBases || []).filter(lb => lb.isActive).map(lb => `Catégorie: ${lb.category || 'Non spécifiée'}\nSource: ${lb.source}\nTitre: ${lb.title}\nContenu:\n${lb.content}\n---`).join('\n');
-      if (kb.length > 20000) {
-        kb = kb.substring(0, 20000) + "\n...[Bases légales tronquées pour l'IA car trop longues]";
+      if (kb.length > 8000) {
+        kb = kb.substring(0, 8000) + "\n...[Bases légales tronquées pour l'IA car trop longues]";
       }
       
       const result = await askQuickResponseAI({ query: searchQuery, customKnowledgeBase: kb });

@@ -55,10 +55,15 @@ ${baseToUse}
 
     const text = await callGroqChatCompletion(prompt);
     
+    if (!text) {
+      console.error("[AI QuickResponse] No text returned from Groq");
+      return null;
+    }
+
     // We expect Groq to return JSON in the output. We might need to strip markdown around it.
     const jsonStr = extractJsonFromText(text);
     if (!jsonStr) {
-      console.error("[AI QuickResponse] Failed to extract JSON from text", text?.substring(0, 100) + "...");
+      console.error("[AI QuickResponse] Failed to extract JSON from text", text?.substring(0, 500) + "...");
       return null;
     }
 
@@ -66,13 +71,14 @@ ${baseToUse}
       const data = JSON.parse(jsonStr);
       return AnalyzeQuickResponseOutputSchema.parse(data) as AnalyzeQuickResponseOutput;
     } catch (parseErr) {
-      console.error("[AI QuickResponse] JSON parse or validation failed:", parseErr, "Raw JSON:", jsonStr);
+      console.error("[AI QuickResponse] JSON parse or validation failed:", parseErr);
+      console.error("[AI QuickResponse] Raw JSON received:", jsonStr);
       return null;
     }
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('[AI QuickResponse] Global flow failed:', err);
-    // Explicitly return null rather than letting it throw to avoid 500 error in Next.js
+    // If it's a known error (like context length), we could return it
     return null;
   }
 }
@@ -112,7 +118,7 @@ async function callGroqChatCompletion(prompt: string): Promise<string> {
           { role: 'user', content: prompt },
         ],
         temperature: 0.1,
-        response_format: { type: "json_object" }
+        // response_format: { type: "json_object" } // Certains modèles Groq peuvent avoir des soucis avec ce format si mal supporté
       }),
     });
 
