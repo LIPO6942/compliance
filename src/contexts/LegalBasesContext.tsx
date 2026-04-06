@@ -22,6 +22,7 @@ const defaultBases: LegalBaseText[] = [
     id: "base-init",
     title: "Savoir Réglementaire Initial",
     source: "Règlement CGA n°2/2019 & LD",
+    category: "Lignes directrices",
     content: LEGAL_KNOWLEDGE_BASE,
     isActive: true,
   }

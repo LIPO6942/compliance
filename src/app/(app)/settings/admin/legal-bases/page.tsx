@@ -10,8 +10,9 @@ import { Plus, Search, FileText, Trash2, Edit3, Save, X, Activity } from "lucide
 import { useLegalBases } from "@/contexts/LegalBasesContext";
 import { useActivityLog } from "@/contexts/ActivityLogContext";
 import { useUser } from "@/contexts/UserContext";
-import { LegalBaseText } from "@/types/legal-base";
+import { LegalBaseText, LEGAL_BASE_CATEGORIES, LegalBaseCategory } from "@/types/legal-base";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AdministrativeLegalBasesPage() {
   const { legalBases, addLegalBase, updateLegalBase, deleteLegalBase } = useLegalBases();
@@ -22,9 +23,10 @@ export default function AdministrativeLegalBasesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{title: string, source: string, category: LegalBaseCategory | string, content: string, isActive: boolean}>({
     title: "",
     source: "",
+    category: "Lois",
     content: "",
     isActive: true,
   });
@@ -36,16 +38,23 @@ export default function AdministrativeLegalBasesPage() {
   );
 
   const startAdd = () => {
-    setFormData({ title: "", source: "", content: "", isActive: true });
+    setFormData({ title: "", source: "", category: "Lois", content: "", isActive: true });
     setIsAdding(true);
     setEditingId(null);
   };
 
   const startEdit = (lb: LegalBaseText) => {
-    setFormData({ title: lb.title, source: lb.source, content: lb.content, isActive: lb.isActive });
+    setFormData({ title: lb.title, source: lb.source, category: lb.category || "Lois", content: lb.content, isActive: lb.isActive });
     setEditingId(lb.id);
     setIsAdding(false);
   };
+
+  const groupedBases = LEGAL_BASE_CATEGORIES.reduce((acc, cat) => {
+    acc[cat] = filteredBases.filter(lb => lb.category === cat);
+    return acc;
+  }, {} as Record<string, LegalBaseText[]>);
+  const uncategorized = filteredBases.filter(lb => !LEGAL_BASE_CATEGORIES.includes(lb.category as LegalBaseCategory));
+  if (uncategorized.length > 0) groupedBases["Autres"] = uncategorized;
 
   const handleSave = () => {
     if (!formData.title || !formData.content) return;
@@ -117,7 +126,7 @@ export default function AdministrativeLegalBasesPage() {
                  Nouveau Texte Réglementaire
                </h3>
                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                      <div className="space-y-2">
                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Titre / Référence</label>
                        <Input value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Ex: Art. 12 — Loi NA-00" />
@@ -125,6 +134,19 @@ export default function AdministrativeLegalBasesPage() {
                      <div className="space-y-2">
                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Source Légale</label>
                        <Input value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} placeholder="Ex: Code des Assurances" />
+                     </div>
+                     <div className="space-y-2">
+                       <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Catégorie Hiérarchique</label>
+                       <Select value={formData.category} onValueChange={(val) => setFormData({...formData, category: val as LegalBaseCategory})}>
+                         <SelectTrigger className="bg-white dark:bg-slate-950">
+                           <SelectValue placeholder="Catégorie" />
+                         </SelectTrigger>
+                         <SelectContent>
+                           {LEGAL_BASE_CATEGORIES.map(cat => (
+                             <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
                      </div>
                   </div>
                   
@@ -160,71 +182,95 @@ export default function AdministrativeLegalBasesPage() {
                <p className="font-bold text-lg text-slate-400">Aucun texte réglementaire trouvé.</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredBases.map((lb) => (
-                <div key={lb.id} className="p-6 hover:bg-slate-50/80 dark:hover:bg-slate-900/80 transition-colors">
-                  {editingId === lb.id ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                         <div className="space-y-2">
-                           <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Titre</label>
-                           <Input value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
-                         </div>
-                         <div className="space-y-2">
-                           <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Source</label>
-                           <Input value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} />
-                         </div>
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Contenu</label>
-                         <Textarea value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} className="min-h-[150px]"/>
-                      </div>
-                      <div className="flex items-center justify-between pt-2">
-                        <div className="flex items-center space-x-2">
-                          <Switch 
-                            checked={formData.isActive} 
-                            onCheckedChange={(v) => setFormData({...formData, isActive: v})}
-                          />
-                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Activer</span>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button variant="ghost" onClick={handleCancel}>Annuler</Button>
-                          <Button onClick={handleSave}>Enregistrer</Button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <h4 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-200">{lb.title}</h4>
-                            {lb.isActive ? (
-                              <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-900">
-                                <Activity className="w-3 h-3 mr-1" /> Actif
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-slate-500">Inactif</Badge>
-                            )}
+            <div className="divide-y divide-slate-100 dark:divide-slate-800 space-y-6 pt-2">
+              {Object.entries(groupedBases).map(([cat, list]) => list.length > 0 && (
+                <div key={cat} className="pt-6 first:pt-0">
+                  <div className="px-6 mb-4 flex items-center gap-2">
+                    <div className="h-6 w-1.5 bg-primary/80 rounded-full" />
+                    <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-200 uppercase">{cat}</h3>
+                    <Badge variant="outline" className="ml-2 bg-slate-100 text-slate-500 border-none">{list.length}</Badge>
+                  </div>
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {list.map((lb) => (
+                      <div key={lb.id} className="p-6 hover:bg-slate-50/80 dark:hover:bg-slate-900/80 transition-colors">
+                        {editingId === lb.id ? (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                               <div className="space-y-2">
+                                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Titre</label>
+                                 <Input value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+                               </div>
+                               <div className="space-y-2">
+                                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Source</label>
+                                 <Input value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} />
+                               </div>
+                               <div className="space-y-2">
+                                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Catégorie</label>
+                                 <Select value={formData.category} onValueChange={(val) => setFormData({...formData, category: val as LegalBaseCategory})}>
+                                   <SelectTrigger className="bg-white dark:bg-slate-950">
+                                     <SelectValue placeholder="Catégorie" />
+                                   </SelectTrigger>
+                                   <SelectContent>
+                                     {LEGAL_BASE_CATEGORIES.map(c => (
+                                       <SelectItem key={c} value={c}>{c}</SelectItem>
+                                     ))}
+                                   </SelectContent>
+                                 </Select>
+                               </div>
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Contenu</label>
+                               <Textarea value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} className="min-h-[150px]"/>
+                            </div>
+                            <div className="flex items-center justify-between pt-2">
+                              <div className="flex items-center space-x-2">
+                                <Switch 
+                                  checked={formData.isActive} 
+                                  onCheckedChange={(v) => setFormData({...formData, isActive: v})}
+                                />
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Activer</span>
+                              </div>
+                              <div className="flex space-x-2">
+                                <Button variant="ghost" onClick={handleCancel}>Annuler</Button>
+                                <Button onClick={handleSave}>Enregistrer</Button>
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mt-1">{lb.source}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => startEdit(lb)} className="text-slate-400 hover:text-blue-500">
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(lb.id, lb.title)} className="text-slate-400 hover:text-red-500">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        ) : (
+                          <div className="flex flex-col gap-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="flex items-center gap-3">
+                                  <h4 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-200">{lb.title}</h4>
+                                  {lb.isActive ? (
+                                    <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-900">
+                                      <Activity className="w-3 h-3 mr-1" /> Actif
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-slate-500">Inactif</Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mt-1">{lb.source}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button variant="ghost" size="icon" onClick={() => startEdit(lb)} className="text-slate-400 hover:text-blue-500">
+                                  <Edit3 className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => deleteLegalBase(lb.id)} className="text-slate-400 hover:text-red-500">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="pl-4 border-l-2 border-slate-200 dark:border-slate-800">
+                              <p className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-pre-wrap line-clamp-3">
+                                {lb.content}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="pl-4 border-l-2 border-slate-200 dark:border-slate-800">
-                        <p className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-pre-wrap line-clamp-3">
-                          {lb.content}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

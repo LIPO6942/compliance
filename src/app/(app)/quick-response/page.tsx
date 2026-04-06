@@ -85,7 +85,7 @@ export default function QuickResponsePage() {
     setSelectedFicheId(null);
     
     // Concaténer toutes les bases actives
-    let kb = (legalBases || []).filter(lb => lb.isActive).map(lb => `Source: ${lb.source}\nTitre: ${lb.title}\nContenu:\n${lb.content}\n---`).join('\n');
+    let kb = (legalBases || []).filter(lb => lb.isActive).map(lb => `Catégorie: ${lb.category || 'Non spécifiée'}\nSource: ${lb.source}\nTitre: ${lb.title}\nContenu:\n${lb.content}\n---`).join('\n');
     if (kb.length > 20000) {
       kb = kb.substring(0, 20000) + "\n...[Bases légales tronquées pour l'IA car trop longues]";
     }
