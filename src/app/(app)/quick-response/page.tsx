@@ -85,7 +85,10 @@ export default function QuickResponsePage() {
     setSelectedFicheId(null);
     
     // Concaténer toutes les bases actives
-    const kb = (legalBases || []).filter(lb => lb.isActive).map(lb => `Source: ${lb.source}\nTitre: ${lb.title}\nContenu:\n${lb.content}\n---`).join('\n');
+    let kb = (legalBases || []).filter(lb => lb.isActive).map(lb => `Source: ${lb.source}\nTitre: ${lb.title}\nContenu:\n${lb.content}\n---`).join('\n');
+    if (kb.length > 20000) {
+      kb = kb.substring(0, 20000) + "\n...[Bases légales tronquées pour l'IA car trop longues]";
+    }
     const result = await askQuickResponseAI({ query: searchQuery, customKnowledgeBase: kb });
     setAiResult(result);
     setIsAiLoading(false);
@@ -260,9 +263,9 @@ export default function QuickResponsePage() {
                         </span>
                       </div>
                     </div>
-                    <div className="relative pl-6 border-l-2 border-amber-300/50 dark:border-amber-700/50 italic font-serif text-slate-700 dark:text-slate-300 leading-relaxed text-base">
+                    <div className="relative pl-6 border-l-2 border-amber-300/50 dark:border-amber-700/50 italic font-serif text-slate-700 dark:text-slate-300 leading-relaxed text-base max-h-[400px] overflow-y-auto pr-4">
                       <span className="absolute left-0 top-0 text-4xl text-amber-300/50 leading-none -ml-1">"</span>
-                      {aiResult.verbatimText}
+                      <div className="whitespace-pre-wrap">{aiResult.verbatimText}</div>
                       <span className="text-4xl text-amber-300/50 leading-none">"</span>
                     </div>
                     <div className="flex items-center justify-between pt-4 border-t border-amber-200/30 dark:border-amber-800/30">
@@ -371,9 +374,9 @@ export default function QuickResponsePage() {
                           </div>
                         </div>
 
-                        <div className="relative pl-6 border-l-2 border-amber-300/50 dark:border-amber-700/50 italic font-serif text-slate-700 dark:text-slate-300 leading-relaxed text-base">
+                        <div className="relative pl-6 border-l-2 border-amber-300/50 dark:border-amber-700/50 italic font-serif text-slate-700 dark:text-slate-300 leading-relaxed text-base max-h-[400px] overflow-y-auto pr-4">
                           <span className="absolute left-0 top-0 text-4xl text-amber-300/50 leading-none -ml-1">"</span>
-                          {selectedFiche.legalBase.text}
+                          <div className="whitespace-pre-wrap">{selectedFiche.legalBase.text}</div>
                           <span className="text-4xl text-amber-300/50 leading-none">"</span>
                         </div>
 

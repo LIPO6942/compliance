@@ -39,7 +39,7 @@ export default function RegulatoryWatchPage() {
 
   const { keywords: keywordOptions, loading: keywordsLoading, addKeyword, removeKeyword } = useKeywords();
   const { legalBases } = useLegalBases();
-  const [newKeyword, React.useState] = React.useState("");
+  const [newKeyword, setNewKeyword] = React.useState("");
 
   const form = useForm<RegulatoryWatchFormValues>({
     resolver: zodResolver(formSchema),
@@ -67,7 +67,10 @@ export default function RegulatoryWatchPage() {
     setCurrentRegulationText(data.regulationText);
     setCurrentKeywords(data.keywords);
     try {
-      const kb = (legalBases || []).filter(lb => lb.isActive).map(lb => `Source: ${lb.source}\nTitre: ${lb.title}\nContenu:\n${lb.content}\n---`).join('\n');
+      let kb = (legalBases || []).filter(lb => lb.isActive).map(lb => `Source: ${lb.source}\nTitre: ${lb.title}\nContenu:\n${lb.content}\n---`).join('\n');
+      if (kb.length > 20000) {
+        kb = kb.substring(0, 20000) + "\n...[Bases légales tronquées pour l'IA car trop longues]";
+      }
       const result = await analyzeRegulationAction(data.regulationText, data.keywords, kb);
       if (result.error) {
         toast({
