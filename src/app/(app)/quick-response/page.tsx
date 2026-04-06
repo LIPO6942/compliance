@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Zap, ArrowLeft, History, X, Scale, FileText, ShieldCheck } from "lucide-react";
+import { Search, Zap, ArrowLeft, History, X, Scale, FileText, ShieldCheck, Sparkles, Loader2 } from "lucide-react";
 import { quickResponseFiches } from "@/data/quickResponseData";
 import { QuickResponseFiche } from "@/types/quick-response";
 import { cn } from "@/lib/utils";
@@ -36,15 +36,23 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useUser } from "@/contexts/UserContext";
+import { useLegalBases } from "@/contexts/LegalBasesContext";
+import { askQuickResponseAI, AnalyzeQuickResponseOutput } from "@/ai/flows/quick-response-ai";
 
 export default function QuickResponsePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFicheId, setSelectedFicheId] = useState<string | null>(null);
 
+  // AI states
+  const { legalBases } = useLegalBases();
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<AnalyzeQuickResponseOutput | null>(null);
+
   const selectedFiche = useMemo(() => 
     quickResponseFiches.find(f => f.id === selectedFicheId),
     [selectedFicheId]
   );
+  
   const filteredFiches = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const queryStr = searchQuery.toLowerCase();
@@ -62,24 +70,38 @@ export default function QuickResponsePage() {
 
   const handleSelectFiche = (id: string) => {
     setSelectedFicheId(id);
-    setSearchQuery("");
+    setAiResult(null);
   };
+
   const handleReset = () => {
     setSelectedFicheId(null);
-    setSearchQuery("");
+    setAiResult(null);
+  };
+
+  const handleAskAI = async () => {
+    if (!searchQuery.trim()) return;
+    setIsAiLoading(true);
+    setAiResult(null);
+    setSelectedFicheId(null);
+    
+    // Concaténer toutes les bases actives
+    const kb = (legalBases || []).filter(lb => lb.isActive).map(lb => `Source: ${lb.source}\nTitre: ${lb.title}\nContenu:\n${lb.content}\n---`).join('\n');
+    const result = await askQuickResponseAI({ query: searchQuery, customKnowledgeBase: kb });
+    setAiResult(result);
+    setIsAiLoading(false);
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       {/* Header & Search */}
-      {!selectedFiche && (
+      {!selectedFiche && !aiResult && (
         <div className="text-center space-y-6 pt-12">
           <div className="space-y-2">
             <h1 className="text-4xl font-extrabold tracking-tighter text-slate-900 dark:text-white sm:text-5xl">
               Que se passe-t-il ?
             </h1>
             <p className="text-slate-500 dark:text-slate-400 font-medium">
-              Obtenez une réponse conformité en moins de 30 secondes.
+              Obtenez une réponse conformité en moins de 30 secondes via la base ou l'IA.
             </p>
           </div>
 
@@ -88,19 +110,30 @@ export default function QuickResponsePage() {
               <Search className="h-6 w-6 text-slate-400 group-focus-within:text-primary transition-colors" />
             </div>
             <Input
-              className="pl-12 h-16 text-lg rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-2xl focus:border-primary focus:ring-primary/20 transition-all placeholder:text-slate-400"
-              placeholder="Ex : CIN expirée, client listé, PPE, document non certifié..."
+              className="pl-12 pr-40 h-16 text-lg rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-2xl focus:border-primary focus:ring-primary/20 transition-all placeholder:text-slate-400"
+              placeholder="Ex : CIN expirée, client listé, PPE..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAskAI()}
               autoFocus
             />
             {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery("")}
-                className="absolute inset-y-0 right-4 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="h-6 w-6" />
-              </button>
+              <div className="absolute inset-y-2 right-2 flex items-center gap-2">
+                 <Button 
+                   onClick={handleAskAI} 
+                   disabled={isAiLoading}
+                   className="h-full rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold gap-2"
+                 >
+                   {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                   IA
+                 </Button>
+                 <button 
+                   onClick={() => setSearchQuery("")}
+                   className="flex items-center justify-center p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                 >
+                   <X className="h-5 w-5" />
+                 </button>
+              </div>
             )}
           </div>
 
@@ -154,8 +187,102 @@ export default function QuickResponsePage() {
         </div>
       )}
 
-      {/* Fiche Detail View */}
-      {selectedFiche && (
+      {/* AI Result Detail View */}
+      {aiResult && !selectedFiche && (
+         <div className="space-y-6 animate-in zoom-in-95 fade-in duration-300">
+            <div className="flex items-center justify-between h-14">
+              <Button 
+                variant="ghost" 
+                onClick={handleReset}
+                className="text-slate-500 dark:text-slate-400 hover:text-primary font-bold px-0 hover:bg-transparent"
+              >
+                <ArrowLeft className="mr-2 h-5 w-5" />
+                Retour à la recherche
+              </Button>
+              <Badge variant="outline" className="text-purple-600 border-purple-200 bg-purple-50"><Sparkles className="w-3 h-3 mr-1"/> Généré par IA</Badge>
+            </div>
+
+            <Card className="overflow-hidden border-0 shadow-2xl bg-white dark:bg-slate-950 rounded-3xl ring-2 ring-purple-100 dark:ring-purple-900/50">
+              {/* Verdict Banner */}
+              <div className={cn(
+                "px-8 py-10 text-center space-y-2 relative overflow-hidden",
+                aiResult.color === 'red' ? "bg-red-600 text-white" : 
+                aiResult.color === 'orange' ? "bg-orange-500 text-white" : 
+                "bg-green-600 text-white"
+              )}>
+                <Sparkles className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 text-white" />
+                <p className="text-xs font-black uppercase tracking-[0.3em] opacity-80 relative z-10">Verdict IA (Bases Légales)</p>
+                <h2 className="text-4xl font-black tracking-tight relative z-10">{aiResult.verdict}</h2>
+              </div>
+
+              <div className="p-8 space-y-8">
+                {/* Steps */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Étapes à suivre (IA)</h3>
+                  <div className="space-y-3">
+                    {aiResult.steps.map((step, index) => (
+                      <div key={index} className="flex gap-4 items-start p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                        <span className={cn(
+                          "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-black text-sm",
+                          aiResult.color === 'red' ? "bg-red-100 text-red-600" : 
+                          aiResult.color === 'orange' ? "bg-orange-100 text-orange-600" : 
+                          "bg-green-100 text-green-600"
+                        )}>
+                          {index + 1}
+                        </span>
+                        <p className="font-bold text-slate-700 dark:text-slate-300 pt-1 leading-tight">
+                          {step}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* AI Interpretation */}
+                <div className="p-6 rounded-2xl bg-purple-50 dark:bg-purple-900/10 text-purple-900 dark:text-purple-100 border border-purple-100 dark:border-purple-800/30 shadow-md">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-3 flex items-center"><Sparkles className="w-3 h-3 mr-2" />Interprétation & Contexte</h4>
+                  <div className="font-bold leading-relaxed whitespace-pre-line text-sm">
+                    {aiResult.interpretation}
+                  </div>
+                </div>
+
+                {/* Legal Base Strict Quotation */}
+                <div className="relative overflow-hidden rounded-2xl bg-amber-50/50 dark:bg-slate-900/50 border border-amber-200/50 dark:border-amber-900/30 p-6 space-y-4">
+                  <Scale className="absolute -right-8 -bottom-8 h-32 w-32 text-amber-200/20 dark:text-amber-900/10 -rotate-12" />
+                  <div className="relative space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                          <Scale className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-500">
+                          Texte Verbatim (Strict)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="relative pl-6 border-l-2 border-amber-300/50 dark:border-amber-700/50 italic font-serif text-slate-700 dark:text-slate-300 leading-relaxed text-base">
+                      <span className="absolute left-0 top-0 text-4xl text-amber-300/50 leading-none -ml-1">"</span>
+                      {aiResult.verbatimText}
+                      <span className="text-4xl text-amber-300/50 leading-none">"</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-4 border-t border-amber-200/30 dark:border-amber-800/30">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] font-bold text-amber-600/60 dark:text-amber-500/40 uppercase tracking-tighter">Source Légale Identifiée</span>
+                        <span className="text-[10px] font-bold text-amber-800/80 dark:text-amber-400/80 italic">
+                          {aiResult.source}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </Card>
+         </div>
+      )}
+
+      {/* Fiche Detail View (Static) */}
+      {selectedFiche && !aiResult && (
         <div className="space-y-6 animate-in zoom-in-95 fade-in duration-300">
           <div className="flex items-center justify-between h-14">
             <Button 
@@ -485,4 +612,3 @@ function DecisionHistorySheet({ ficheId, ficheTitle }: { ficheId: string, ficheT
     </Sheet>
   );
 }
-

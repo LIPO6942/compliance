@@ -26,6 +26,7 @@ const spaceGrotesk = Space_Grotesk({
 import { UserProvider } from "@/contexts/UserContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ActivityLogProvider } from "@/contexts/ActivityLogContext";
+import { LegalBasesProvider } from "@/contexts/LegalBasesContext";
 
 export default function RootLayout({
   children,
@@ -42,8 +43,10 @@ export default function RootLayout({
         <ThemeProvider>
           <ActivityLogProvider>
             <UserProvider>
-              {children}
-              <Toaster />
+              <LegalBasesProvider>
+                {children}
+                <Toaster />
+              </LegalBasesProvider>
             </UserProvider>
           </ActivityLogProvider>
         </ThemeProvider>

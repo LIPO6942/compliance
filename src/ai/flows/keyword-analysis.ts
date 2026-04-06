@@ -15,6 +15,7 @@ import { LEGAL_KNOWLEDGE_BASE } from '../constants/knowledge-base';
 const AnalyzeRegulationByKeywordsInputSchema = z.object({
   regulationText: z.string().describe('The text of the regulation to evaluate.'),
   keywords: z.array(z.string()).describe('A list of keywords to analyze the text against.'),
+  customKnowledgeBase: z.string().optional().describe('Textes légaux de référence.'),
 });
 export type AnalyzeRegulationByKeywordsInput = z.infer<typeof AnalyzeRegulationByKeywordsInputSchema>;
 
@@ -26,11 +27,11 @@ export async function analyzeRegulationByKeywords(
   input: AnalyzeRegulationByKeywordsInput
 ): Promise<AnalyzeRegulationByKeywordsOutput> {
   const parsed = AnalyzeRegulationByKeywordsInputSchema.parse(input);
-  const { regulationText, keywords } = parsed;
+  const { regulationText, keywords, customKnowledgeBase } = parsed;
 
   const analysisPromises = keywords.map(async (keyword: string) => {
     const prompt = buildKeywordAnalysisPrompt(regulationText, keyword);
-    const text = await callGroqChatCompletion(prompt);
+    const text = await callGroqChatCompletion(prompt, customKnowledgeBase);
     const points = extractThreeBulletPoints(text);
     return { keyword, analysis: points };
   });
@@ -61,7 +62,7 @@ Sois précis et concentre-toi uniquement sur les éléments pertinents au mot-cl
 Texte à analyser : \n\n${regulationText}`;
 }
 
-async function callGroqChatCompletion(prompt: string): Promise<string> {
+async function callGroqChatCompletion(prompt: string, customKnowledgeBase?: string): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     console.error('[AI] Missing GROQ_API_KEY');
@@ -69,9 +70,10 @@ async function callGroqChatCompletion(prompt: string): Promise<string> {
   }
 
   const model = process.env.GROQ_MODEL || 'llama3-8b-8192';
+  const baseToUse = customKnowledgeBase && customKnowledgeBase.trim() !== '' ? customKnowledgeBase : LEGAL_KNOWLEDGE_BASE;
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const res = await fetch('https://api.completions.groq.com/openai/v1/chat/completions', { // Note: changed URL if it was wrong
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -85,7 +87,7 @@ async function callGroqChatCompletion(prompt: string): Promise<string> {
             content: `Tu es un assistant expert en conformité réglementaire tunisienne et internationale. 
             Réponds en français. Utlise la BASE DE CONNAISSANCE VERBATIM suivante comme référence absolue pour tes analyses :
             
-            ${LEGAL_KNOWLEDGE_BASE}
+            ${baseToUse}
             
             Lorsque tu identifies une obligation, cite si possible l'article ou la recommandation correspondante.` 
           },

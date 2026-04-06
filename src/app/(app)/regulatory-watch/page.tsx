@@ -18,6 +18,7 @@ import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContex
 import { Checkbox } from "@/components/ui/checkbox";
 import { Logo } from "@/components/icons/Logo";
 import { useKeywords } from "@/contexts/KeywordsContext";
+import { useLegalBases } from "@/contexts/LegalBasesContext";
 
 const formSchema = z.object({
   regulationText: z.string().min(50, { message: "Le texte réglementaire doit contenir au moins 50 caractères." }),
@@ -37,7 +38,8 @@ export default function RegulatoryWatchPage() {
   const { addIdentifiedRegulation } = useIdentifiedRegulations();
 
   const { keywords: keywordOptions, loading: keywordsLoading, addKeyword, removeKeyword } = useKeywords();
-  const [newKeyword, setNewKeyword] = React.useState("");
+  const { legalBases } = useLegalBases();
+  const [newKeyword, React.useState] = React.useState("");
 
   const form = useForm<RegulatoryWatchFormValues>({
     resolver: zodResolver(formSchema),
@@ -65,7 +67,8 @@ export default function RegulatoryWatchPage() {
     setCurrentRegulationText(data.regulationText);
     setCurrentKeywords(data.keywords);
     try {
-      const result = await analyzeRegulationAction(data.regulationText, data.keywords);
+      const kb = (legalBases || []).filter(lb => lb.isActive).map(lb => `Source: ${lb.source}\nTitre: ${lb.title}\nContenu:\n${lb.content}\n---`).join('\n');
+      const result = await analyzeRegulationAction(data.regulationText, data.keywords, kb);
       if (result.error) {
         toast({
           variant: "destructive",

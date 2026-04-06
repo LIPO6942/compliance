@@ -9,10 +9,11 @@ export interface AnalyzeRegulationResult {
 
 export async function analyzeRegulationAction(
   regulationText: string,
-  keywords: string[]
+  keywords: string[],
+  customKnowledgeBase?: string
 ): Promise<AnalyzeRegulationResult> {
   try {
-    const input: AnalyzeRegulationByKeywordsInput = { regulationText, keywords };
+    const input: AnalyzeRegulationByKeywordsInput = { regulationText, keywords, customKnowledgeBase };
     const analysisResult = await analyzeRegulationByKeywords(input);
     return { analysis: analysisResult };
   } catch (error) {
