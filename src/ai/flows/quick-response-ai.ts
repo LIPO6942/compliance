@@ -9,7 +9,7 @@ const AnalyzeQuickResponseInputSchema = z.object({
 });
 
 // The output structure
-export const AnalyzeQuickResponseOutputSchema = z.object({
+const AnalyzeQuickResponseOutputSchema = z.object({
   verdict: z.string(),
   color: z.enum(['red', 'orange', 'green']),
   verbatimText: z.string().describe('Le texte légal exact entre guillemets.'),

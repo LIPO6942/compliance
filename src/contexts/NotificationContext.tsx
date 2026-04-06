@@ -42,7 +42,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         const q = query(
             notificationsRef, 
             where('read', '==', false),
-            orderBy('createdAt', 'desc'),
+            // orderBy('createdAt', 'desc'), // Commenté pour éviter l'erreur d'index Firebase.
             limit(5)
         );
 
