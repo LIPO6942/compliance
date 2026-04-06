@@ -22,14 +22,17 @@ export type AnalyzeQuickResponseOutput = z.infer<typeof AnalyzeQuickResponseOutp
 export async function askQuickResponseAI(
   input: { query: string, customKnowledgeBase?: string }
 ): Promise<AnalyzeQuickResponseOutput | null> {
-  const parsed = AnalyzeQuickResponseInputSchema.parse(input);
-  const { query, customKnowledgeBase } = parsed;
+  console.log("[AI QuickResponse] Function called with query:", input.query?.substring(0, 50) + "...");
+  
+  try {
+    const parsed = AnalyzeQuickResponseInputSchema.parse(input);
+    const { query, customKnowledgeBase } = parsed;
 
-  const baseToUse = customKnowledgeBase && customKnowledgeBase.trim() !== '' 
-    ? customKnowledgeBase 
-    : LEGAL_KNOWLEDGE_BASE;
+    const baseToUse = customKnowledgeBase && customKnowledgeBase.trim() !== '' 
+      ? customKnowledgeBase 
+      : LEGAL_KNOWLEDGE_BASE;
 
-  const prompt = `Tu es un expert en conformité réglementaire de très haut niveau, spécialisé en assurance et LBA/FT.
+    const prompt = `Tu es un expert en conformité réglementaire de très haut niveau, spécialisé en assurance et LBA/FT.
 Un collaborateur de terrain te soumet le cas suivant, et a besoin d'une action immédiate :
 " ${query} "
 
@@ -50,21 +53,26 @@ BASE DE CONNAISSANCE DISPONIBLE :
 ${baseToUse}
 `;
 
-  try {
     const text = await callGroqChatCompletion(prompt);
     
     // We expect Groq to return JSON in the output. We might need to strip markdown around it.
     const jsonStr = extractJsonFromText(text);
     if (!jsonStr) {
-      console.error("[AI QuickResponse] Failed to extract JSON", text);
+      console.error("[AI QuickResponse] Failed to extract JSON from text", text?.substring(0, 100) + "...");
       return null;
     }
 
-    const data = JSON.parse(jsonStr);
-    return AnalyzeQuickResponseOutputSchema.parse(data);
+    try {
+      const data = JSON.parse(jsonStr);
+      return AnalyzeQuickResponseOutputSchema.parse(data) as AnalyzeQuickResponseOutput;
+    } catch (parseErr) {
+      console.error("[AI QuickResponse] JSON parse or validation failed:", parseErr, "Raw JSON:", jsonStr);
+      return null;
+    }
 
   } catch (err) {
-    console.error('[AI QuickResponse] AI flow failed', err);
+    console.error('[AI QuickResponse] Global flow failed:', err);
+    // Explicitly return null rather than letting it throw to avoid 500 error in Next.js
     return null;
   }
 }

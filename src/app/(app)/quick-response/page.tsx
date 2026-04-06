@@ -513,7 +513,7 @@ function DecisionHistorySheet({ ficheId, ficheTitle }: { ficheId: string, ficheT
     const q = query(
       collection(db, "quickResponseHistory"),
       where("ficheId", "==", ficheId),
-      orderBy("date", "desc")
+      // orderBy("date", "desc") // Commenté pour éviter l'erreur d'index Firebase. Créez l'index composite (ficheId, date) dans la console Firebase pour réactiver.
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
