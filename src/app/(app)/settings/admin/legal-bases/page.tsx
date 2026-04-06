@@ -8,11 +8,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, FileText, Trash2, Edit3, Save, X, Activity } from "lucide-react";
 import { useLegalBases } from "@/contexts/LegalBasesContext";
+import { useActivityLog } from "@/contexts/ActivityLogContext";
+import { useUser } from "@/contexts/UserContext";
 import { LegalBaseText } from "@/types/legal-base";
 import { Switch } from "@/components/ui/switch";
 
 export default function AdministrativeLegalBasesPage() {
   const { legalBases, addLegalBase, updateLegalBase, deleteLegalBase } = useLegalBases();
+  const { logAction } = useActivityLog();
+  const { user } = useUser();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,8 +52,22 @@ export default function AdministrativeLegalBasesPage() {
     
     if (isAdding) {
       addLegalBase(formData);
+      logAction({
+        action: 'SETTINGS_UPDATE',
+        label: `A ajouté une base légale : ${formData.title}`,
+        module: 'Admin - Bases Légales',
+        userName: user?.name || 'Inconnu',
+        userEmail: user?.email || '',
+      });
     } else if (editingId) {
       updateLegalBase(editingId, formData);
+      logAction({
+        action: 'SETTINGS_UPDATE',
+        label: `A modifié la base légale : ${formData.title}`,
+        module: 'Admin - Bases Légales',
+        userName: user?.name || 'Inconnu',
+        userEmail: user?.email || '',
+      });
     }
     
     setIsAdding(false);
@@ -195,7 +213,7 @@ export default function AdministrativeLegalBasesPage() {
                           <Button variant="ghost" size="icon" onClick={() => startEdit(lb)} className="text-slate-400 hover:text-blue-500">
                             <Edit3 className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => deleteLegalBase(lb.id)} className="text-slate-400 hover:text-red-500">
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(lb.id, lb.title)} className="text-slate-400 hover:text-red-500">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>

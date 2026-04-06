@@ -131,6 +131,9 @@ service cloud.firestore {
     match /audit_logs/{logId} {
       allow read, write: if true;
     }
+    match /activity_logs/{logId} {
+      allow read, write: if true;
+    }
 
     // ============================================
     // CONFIG & SETTINGS - Configuration de l'application

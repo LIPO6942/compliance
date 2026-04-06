@@ -16,7 +16,7 @@ import { useTeam } from "@/contexts/TeamContext";
 import { useActivityLog } from "@/contexts/ActivityLogContext";
 import { useState, useEffect, useMemo } from "react";
 import { useTimeline } from "@/contexts/TimelineContext";
-import { Trash2, Plus, Calendar, Bookmark, Palette, Settings as SettingsIcon, FileType, ChevronRight, UserCheck, ShieldCheck, Activity } from "lucide-react";
+import { Trash2, Plus, Calendar, Bookmark, Palette, Settings as SettingsIcon, FileType, ChevronRight, UserCheck, ShieldCheck, Activity, Scale } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { UserProfile } from "@/contexts/UserContext";
@@ -358,7 +358,7 @@ export default function SettingsPage() {
                         <div className="flex items-center gap-4">
                             <FileType className="h-6 w-6 text-muted-foreground" />
                             <div>
-                                <Label>Gestion des Types de Documents</Label>
+                                <Label className="cursor-pointer">Gestion des Types de Documents</Label>
                                 <p className="text-sm text-muted-foreground">
                                     Ajoutez, modifiez ou supprimez les types de documents.
                                 </p>
@@ -366,6 +366,21 @@ export default function SettingsPage() {
                         </div>
                         <ChevronRight className="h-5 w-5 text-muted-foreground" />
                     </Link>
+
+                    {isAdmin(profile.email || '') && (
+                        <Link href="/settings/admin/legal-bases" className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50/50 p-4 hover:bg-amber-100/50 transition-colors">
+                            <div className="flex items-center gap-4">
+                                <Scale className="h-6 w-6 text-amber-600" />
+                                <div>
+                                    <Label className="text-amber-900 cursor-pointer">Bases Légales (Intelligence Artificielle)</Label>
+                                    <p className="text-sm text-amber-700/80">
+                                        Gérez les textes réglementaires et procédures qui alimentent le moteur IA.
+                                    </p>
+                                </div>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-amber-600" />
+                        </Link>
+                    )}
                 </CardContent>
             </Card>
 
