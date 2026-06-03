@@ -40,6 +40,7 @@ import {
   List,
   ShieldCheck,
   ClipboardList,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -86,6 +87,7 @@ const navItems = [
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },
   { href: "/training", icon: Users, label: "Formations", title: "Formations et Sensibilisation" },
   { href: "/reports", icon: FilePieChart, label: "Reporting Automatisé", title: "Reporting Automatisé" },
+  { href: "/regtools-diff", icon: FileSpreadsheet, label: "Rapprochement RegTools", title: "Rapprochement Clients (Tab RegTools vs NS)" },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
