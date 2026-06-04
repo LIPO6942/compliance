@@ -672,6 +672,8 @@ export default function RegtoolsDiffPage() {
         nsCols.forEach(h => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
+        return newRow;
+      });
 
       const sheetAOA = [
         [`RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS - AGENCE ${agencyCode}`],
