@@ -1375,6 +1375,8 @@ export default function RegtoolsDiffPage() {
         (report.columnsNS || []).forEach((h: string) => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
+        return newRow;
+      });
 
       const sheetAOA = [
         [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - ${report.monthLabel}`],
