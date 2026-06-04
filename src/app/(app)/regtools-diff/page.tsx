@@ -872,15 +872,48 @@ export default function RegtoolsDiffPage() {
   const handleSaveReport = async () => {
     if (!comparisonDone || !files.ns || !data.ns) return;
 
+    let month = "";
+    let year = "";
     const fileName = files.ns.name;
-    const match = fileName.trim().match(/^(\d{2})(\d{4})/);
+
+    // 1. Try to find 6 digits at the beginning
+    let match = fileName.trim().match(/^(\d{2})(\d{4})/);
+
+    // 2. Try to find 6 digits separated anywhere in the filename
     if (!match) {
-      alert("Erreur de sauvegarde : Le nom du fichier NS doit débuter par 6 chiffres indiquant le MoisAnnée (ex: 052026_NS.xlsx).");
-      return;
+      match = fileName.trim().match(/(?:^|[^0-9])(\d{2})(\d{4})(?:[^0-9]|$)/);
     }
 
-    const month = match[1];
-    const year = match[2];
+    // 3. Try with hyphen/underscore separators anywhere in the filename
+    if (!match) {
+      const sepMatch = fileName.trim().match(/(?:^|[^0-9])(\d{2})[_-](\d{4})(?:[^0-9]|$)/);
+      if (sepMatch) {
+        match = sepMatch;
+      }
+    }
+
+    if (match) {
+      month = match[1];
+      year = match[2];
+    } else {
+      // Fallback: Ask user via prompt
+      const userInput = prompt(
+        "Impossible de détecter le mois/année (format 052026) dans le nom du fichier.\n" +
+        "Veuillez saisir le mois et l'année de ce rapport (format MMAAAA ou MM/AAAA, ex: 052026) :"
+      );
+      if (!userInput) return; // User cancelled
+
+      let inputMatch = userInput.trim().match(/^(\d{2})(\d{4})$/);
+      if (!inputMatch) {
+        inputMatch = userInput.trim().match(/^(\d{2})[/\-_](\d{4})$/);
+      }
+      if (!inputMatch) {
+        alert("Format invalide. La sauvegarde a été annulée. Veuillez saisir le format MMAAAA ou MM/AAAA (ex: 052026 ou 05/2026).");
+        return;
+      }
+      month = inputMatch[1];
+      year = inputMatch[2];
+    }
     const months = [
       "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
       "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
