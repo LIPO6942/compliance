@@ -151,5 +151,16 @@ service cloud.firestore {
     match /quickResponseHistory/{decisionId} {
       allow read, write: if true;  // Ouvert en dev
     }
+
+    // ============================================
+    // REGTOOLS HISTORY - Historique des rapprochements
+    // ============================================
+    match /regtoolsHistory/{monthId} {
+      allow read, write: if true;  // Ouvert en dev
+      
+      match /details/{rowId} {
+        allow read, write: if true;
+      }
+    }
   }
 }

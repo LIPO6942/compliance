@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import * as XLSX from "xlsx";
 import {
   Upload,
@@ -16,6 +16,7 @@ import {
   FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { db, isFirebaseConfigured } from "@/lib/firebase";
 
 // Normalization helper
 const normalizeKey = (val: any): string => {
@@ -101,6 +102,24 @@ export default function RegtoolsDiffPage() {
   // Agency stats and tabs state
   const [activeTab, setActiveTab] = useState<"list" | "stats">("list");
   const [statsSearchQuery, setStatsSearchQuery] = useState("");
+  const [statsSortField, setStatsSortField] = useState<"agence" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
+  const [statsSortDirection, setStatsSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Page Tab state and History state
+  const [pageTab, setPageTab] = useState<"new" | "history">("new");
+  const [savedReports, setSavedReports] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isSavingReport, setIsSavingReport] = useState(false);
+  const [selectedHistoryReport, setSelectedHistoryReport] = useState<any | null>(null);
+
+  // History detail view states
+  const [historyTab, setHistoryTab] = useState<"stats" | "list">("stats");
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [historyStatsSearchQuery, setHistoryStatsSearchQuery] = useState("");
+  const [historySortField, setHistorySortField] = useState<"agence" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
+  const [historySortDirection, setHistorySortDirection] = useState<"asc" | "desc">("asc");
+  const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(15);
 
   // File size formatter
   const formatFileSize = (bytes: number) => {
@@ -488,6 +507,8 @@ export default function RegtoolsDiffPage() {
     setSearchQuery("");
     setActiveTab("list");
     setStatsSearchQuery("");
+    setStatsSortField("agence");
+    setStatsSortDirection("asc");
   };
 
   // Calculation parameters
@@ -538,15 +559,41 @@ export default function RegtoolsDiffPage() {
           pctMissing,
           pctExisting
         };
-      })
-      .sort((a, b) => a.agence.localeCompare(b));
+      });
   }, [data.ns, missingRows, comparisonDone, mapping.nsAgence]);
 
+  const sortedAgencyStats = useMemo(() => {
+    const items = [...agencyStats];
+    
+    items.sort((a, b) => {
+      let valA = a[statsSortField];
+      let valB = b[statsSortField];
+
+      // Handle string comparison for agence
+      if (statsSortField === "agence") {
+        const strA = String(valA);
+        const strB = String(valB);
+        return statsSortDirection === "asc"
+          ? strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' })
+          : strB.localeCompare(strA, undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      // Handle numeric comparison for others
+      const numA = Number(valA);
+      const numB = Number(valB);
+      if (numA < numB) return statsSortDirection === "asc" ? -1 : 1;
+      if (numA > numB) return statsSortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return items;
+  }, [agencyStats, statsSortField, statsSortDirection]);
+
   const filteredAgencyStats = useMemo(() => {
-    if (statsSearchQuery.trim() === "") return agencyStats;
+    if (statsSearchQuery.trim() === "") return sortedAgencyStats;
     const query = statsSearchQuery.toLowerCase();
-    return agencyStats.filter(stat => stat.agence.toLowerCase().includes(query));
-  }, [agencyStats, statsSearchQuery]);
+    return sortedAgencyStats.filter(stat => stat.agence.toLowerCase().includes(query));
+  }, [sortedAgencyStats, statsSearchQuery]);
 
   const globalStats = useMemo(() => {
     if (!comparisonDone || !data.ns) return null;
@@ -564,648 +611,1646 @@ export default function RegtoolsDiffPage() {
     };
   }, [data.ns, missingRows, comparisonDone]);
 
+  // Load History from Firestore & LocalStorage
+  const loadHistory = useCallback(async () => {
+    setIsLoadingHistory(true);
+    let reportsList: any[] = [];
+
+    // 1. Fetch from Firestore if configured
+    if (isFirebaseConfigured && db) {
+      try {
+        const { collection, getDocs, orderBy, query } = await import("firebase/firestore");
+        const q = query(collection(db, "regtoolsHistory"), orderBy("savedAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((docSnap) => {
+          reportsList.push({ id: docSnap.id, ...docSnap.data() });
+        });
+      } catch (err) {
+        console.error("Erreur lors de la lecture de l'historique Firestore :", err);
+      }
+    }
+
+    // 2. Load from localStorage as fallback or merge
+    try {
+      const localHistoryJSON = localStorage.getItem("regtools_history_list");
+      if (localHistoryJSON) {
+        const localList = JSON.parse(localHistoryJSON);
+        // Merge without duplicates
+        localList.forEach((localReport: any) => {
+          if (!reportsList.some(r => r.monthKey === localReport.monthKey)) {
+            reportsList.push(localReport);
+          }
+        });
+      }
+    } catch (err) {
+      console.error("Erreur lors de la lecture de l'historique local :", err);
+    }
+
+    // Sort by monthKey descending (e.g. 062026, 052026)
+    reportsList.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+    setSavedReports(reportsList);
+    setIsLoadingHistory(false);
+  }, []);
+
+  // Fetch full report from local storage if loading a local-only one
+  const handleLoadReport = async (report: any) => {
+    setIsLoadingHistory(true);
+    try {
+      // 1. If it's already a full report (fetched from Firestore)
+      if (report.missingRows && report.agencyStats) {
+        setSelectedHistoryReport(report);
+        setIsLoadingHistory(false);
+        return;
+      }
+
+      // 2. If it's a Firestore report, try to fetch full data (in case it wasn't preloaded)
+      if (isFirebaseConfigured && db) {
+        try {
+          const { doc, getDoc } = await import("firebase/firestore");
+          const docSnap = await getDoc(doc(db, "regtoolsHistory", report.monthKey));
+          if (docSnap.exists()) {
+            setSelectedHistoryReport({ id: docSnap.id, ...docSnap.data() });
+            setIsLoadingHistory(false);
+            return;
+          }
+        } catch (err) {
+          console.error("Erreur lors du chargement complet Firestore :", err);
+        }
+      }
+
+      // 3. Fallback to localStorage
+      const localReportJSON = localStorage.getItem(`regtools_report_${report.monthKey}`);
+      if (localReportJSON) {
+        setSelectedHistoryReport(JSON.parse(localReportJSON));
+      } else {
+        alert("Impossible de charger les détails de ce rapport (données introuvables).");
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement du rapport :", err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  // Load history on mount
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  const handleSaveReport = async () => {
+    if (!comparisonDone || !files.ns || !data.ns) return;
+
+    const fileName = files.ns.name;
+    const match = fileName.trim().match(/^(\d{2})(\d{4})/);
+    if (!match) {
+      alert("Erreur de sauvegarde : Le nom du fichier NS doit débuter par 6 chiffres indiquant le MoisAnnée (ex: 052026_NS.xlsx).");
+      return;
+    }
+
+    const month = match[1];
+    const year = match[2];
+    const months = [
+      "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+      "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+    ];
+    const monthIdx = parseInt(month, 10) - 1;
+    if (monthIdx < 0 || monthIdx >= 12) {
+      alert(`Erreur de sauvegarde : Le mois "${month}" extrait est invalide.`);
+      return;
+    }
+
+    const monthKey = `${month}${year}`;
+    const monthLabel = `${months[monthIdx]} ${year}`;
+
+    setIsSavingReport(true);
+
+    const reportPayload = {
+      monthKey,
+      monthLabel,
+      fileNameNS: files.ns.name,
+      fileNameRegtools: files.regtools ? files.regtools.name : "",
+      savedAt: new Date().toISOString(),
+      globalStats: {
+        total: globalStats ? globalStats.total : data.ns.length,
+        missing: globalStats ? globalStats.missing : missingRows.length,
+        existing: globalStats ? globalStats.existing : data.ns.length - missingRows.length,
+        pctExisting: globalStats ? globalStats.pctExisting : matchRate,
+        pctMissing: globalStats ? globalStats.pctMissing : parseFloat((100 - matchRate).toFixed(2))
+      },
+      agencyStats: agencyStats,
+      missingRows: missingRows,
+      columnsNS: columns.ns,
+      mapping: mapping
+    };
+
+    let savedInFirestore = false;
+
+    if (isFirebaseConfigured && db) {
+      try {
+        const { doc, setDoc } = await import("firebase/firestore");
+        await setDoc(doc(db, "regtoolsHistory", monthKey), reportPayload);
+        savedInFirestore = true;
+      } catch (err: any) {
+        console.error("Erreur de sauvegarde Firestore :", err);
+      }
+    }
+
+    try {
+      localStorage.setItem(`regtools_report_${monthKey}`, JSON.stringify(reportPayload));
+
+      const localHistoryJSON = localStorage.getItem("regtools_history_list");
+      let localList = localHistoryJSON ? JSON.parse(localHistoryJSON) : [];
+      localList = localList.filter((r: any) => r.monthKey !== monthKey);
+      
+      const metadata = {
+        monthKey,
+        monthLabel,
+        fileNameNS: files.ns.name,
+        fileNameRegtools: files.regtools ? files.regtools.name : "",
+        savedAt: reportPayload.savedAt,
+        globalStats: reportPayload.globalStats
+      };
+      localList.push(metadata);
+      localStorage.setItem("regtools_history_list", JSON.stringify(localList));
+    } catch (err: any) {
+      console.error("Erreur de sauvegarde locale :", err);
+    }
+
+    setIsSavingReport(false);
+    alert(`Rapport pour ${monthLabel} sauvegardé avec succès ! ${savedInFirestore ? "(Base de données)" : "(Stockage local)"}`);
+    loadHistory();
+  };
+
+  const handleDeleteReport = async (report: any) => {
+    if (!confirm(`Voulez-vous vraiment supprimer le rapport pour ${report.monthLabel} ?`)) return;
+
+    if (isFirebaseConfigured && db) {
+      try {
+        const { doc, deleteDoc } = await import("firebase/firestore");
+        await deleteDoc(doc(db, "regtoolsHistory", report.monthKey));
+      } catch (err) {
+        console.error("Erreur de suppression Firestore :", err);
+      }
+    }
+
+    try {
+      localStorage.removeItem(`regtools_report_${report.monthKey}`);
+      const localHistoryJSON = localStorage.getItem("regtools_history_list");
+      if (localHistoryJSON) {
+        let localList = JSON.parse(localHistoryJSON);
+        localList = localList.filter((r: any) => r.monthKey !== report.monthKey);
+        localStorage.setItem("regtools_history_list", JSON.stringify(localList));
+      }
+    } catch (err) {
+      console.error("Erreur de suppression locale :", err);
+    }
+
+    if (selectedHistoryReport?.monthKey === report.monthKey) {
+      setSelectedHistoryReport(null);
+    }
+    loadHistory();
+    alert("Rapport supprimé avec succès.");
+  };
+
+  // Memos for selected history report
+  const sortedHistoryAgencyStats = useMemo(() => {
+    if (!selectedHistoryReport) return [];
+    const items = [...selectedHistoryReport.agencyStats];
+    
+    items.sort((a, b) => {
+      let valA = a[historySortField];
+      let valB = b[historySortField];
+
+      if (historySortField === "agence") {
+        const strA = String(valA);
+        const strB = String(valB);
+        return historySortDirection === "asc"
+          ? strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' })
+          : strB.localeCompare(strA, undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      const numA = Number(valA);
+      const numB = Number(valB);
+      if (numA < numB) return historySortDirection === "asc" ? -1 : 1;
+      if (numA > numB) return historySortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return items;
+  }, [selectedHistoryReport, historySortField, historySortDirection]);
+
+  const filteredHistoryAgencyStats = useMemo(() => {
+    if (historyStatsSearchQuery.trim() === "") return sortedHistoryAgencyStats;
+    const query = historyStatsSearchQuery.toLowerCase();
+    return sortedHistoryAgencyStats.filter(stat => stat.agence.toLowerCase().includes(query));
+  }, [sortedHistoryAgencyStats, historyStatsSearchQuery]);
+
+  const filteredHistoryRows = useMemo(() => {
+    if (!selectedHistoryReport) return [];
+    const rows = selectedHistoryReport.missingRows || [];
+    if (historySearchQuery.trim() === "") return rows;
+    const query = historySearchQuery.toLowerCase();
+    return rows.filter((row: any) => 
+      Object.values(row).some(val => 
+        val !== undefined && val !== null && String(val).toLowerCase().includes(query)
+      )
+    );
+  }, [selectedHistoryReport, historySearchQuery]);
+
+  const paginatedHistoryRows = useMemo(() => {
+    const startIndex = (historyCurrentPage - 1) * historyPageSize;
+    return filteredHistoryRows.slice(startIndex, startIndex + historyPageSize);
+  }, [filteredHistoryRows, historyCurrentPage, historyPageSize]);
+
+  const totalHistoryPages = Math.ceil(filteredHistoryRows.length / historyPageSize);
+
+  const historyPaginationRange = useMemo(() => {
+    if (totalHistoryPages <= 6) {
+      return Array.from({ length: totalHistoryPages }, (_, i) => i + 1);
+    }
+    const pages: (number | string)[] = [1];
+    if (historyCurrentPage > 3) {
+      pages.push("...");
+    }
+    const start = Math.max(2, historyCurrentPage - 1);
+    const end = Math.min(totalHistoryPages - 1, historyCurrentPage + 1);
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    if (historyCurrentPage < totalHistoryPages - 2) {
+      pages.push("...");
+    }
+    pages.push(totalHistoryPages);
+    return pages;
+  }, [historyCurrentPage, totalHistoryPages]);
+
+  // History export function
+  const exportHistoryExcel = () => {
+    if (!selectedHistoryReport) return;
+    try {
+      const report = selectedHistoryReport;
+      const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
+      const exportHeaders = [...(report.columnsNS || []), "CONSIGNE"];
+      const exportData = (report.missingRows || []).map((row: any) => {
+        const newRow: any = {};
+        (report.columnsNS || []).forEach((h: string) => {
+          newRow[h] = row[h] !== undefined && row[h] !== null ? row[h] : "";
+        });
+        newRow["CONSIGNE"] = "Veuillez créer des fiches KYC pour ces clients";
+        return newRow;
+      });
+
+      const sheetAOA = [
+        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - ${report.monthLabel}`],
+        ["CONSIGNE : Veuillez créer des fiches KYC pour ces clients"],
+        [`Fichier NS d'origine : ${report.fileNameNS} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [],
+        exportHeaders
+      ];
+
+      exportData.forEach((row: any) => {
+        sheetAOA.push(exportHeaders.map(h => row[h]));
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetAOA);
+      const wb = XLSX.utils.book_new();
+
+      ws["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: exportHeaders.length - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: exportHeaders.length - 1 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: exportHeaders.length - 1 } }
+      ];
+
+      ws["!rows"] = [
+        { hpt: 25 },
+        { hpt: 20 },
+        { hpt: 18 },
+        { hpt: 15 }
+      ];
+
+      const colWidths = exportHeaders.map((header, colIdx) => {
+        let maxLen = header.length;
+        for (let rIdx = 5; rIdx < sheetAOA.length; rIdx++) {
+          const val = sheetAOA[rIdx][colIdx];
+          if (val !== undefined && val !== null) {
+            maxLen = Math.max(maxLen, String(val).length);
+          }
+        }
+        return { wch: Math.min(Math.max(maxLen + 3, 10), 45) };
+      });
+      ws["!cols"] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, "Manquants");
+      XLSX.writeFile(wb, `NS_manquants_RegTools_Historique_${report.monthKey}.xlsx`);
+    } catch (error: any) {
+      alert("Erreur lors de l'export Excel historique : " + error.message);
+    }
+  };
+
+  const exportHistoryStatsExcel = () => {
+    if (!selectedHistoryReport) return;
+    try {
+      const report = selectedHistoryReport;
+      const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
+      const exportHeaders = [
+        "Agence",
+        "Total NS",
+        "Présentes dans RegTools (KYC Conformes)",
+        "Absentes de RegTools (KYC Manquants)",
+        "Taux de Présence (%)",
+        "Taux d'Absence (%)"
+      ];
+
+      const sheetAOA = [
+        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - STATISTIQUES AGENCE - ${report.monthLabel}`],
+        [`Date d'export : ${currentDate} | Nombre d'agences : ${report.agencyStats.length}`],
+        [],
+        exportHeaders
+      ];
+
+      report.agencyStats.forEach((stat: any) => {
+        sheetAOA.push([
+          stat.agence,
+          stat.total,
+          stat.existing,
+          stat.missing,
+          stat.pctExisting,
+          stat.pctMissing
+        ]);
+      });
+
+      if (report.globalStats) {
+        sheetAOA.push([]);
+        sheetAOA.push([
+          "TOTAL GLOBAL",
+          report.globalStats.total,
+          report.globalStats.existing,
+          report.globalStats.missing,
+          report.globalStats.pctExisting,
+          report.globalStats.pctMissing
+        ]);
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetAOA);
+      const wb = XLSX.utils.book_new();
+
+      ws["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: exportHeaders.length - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: exportHeaders.length - 1 } }
+      ];
+
+      ws["!rows"] = [
+        { hpt: 25 },
+        { hpt: 20 },
+        { hpt: 15 }
+      ];
+
+      const colWidths = exportHeaders.map((header, colIdx) => {
+        let maxLen = header.length;
+        for (let rIdx = 3; rIdx < sheetAOA.length; rIdx++) {
+          const val = sheetAOA[rIdx][colIdx];
+          if (val !== undefined && val !== null) {
+            maxLen = Math.max(maxLen, String(val).length);
+          }
+        }
+        return { wch: Math.min(Math.max(maxLen + 3, 10), 45) };
+      });
+      ws["!cols"] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, "Stats Agences");
+      XLSX.writeFile(wb, `NS_Statistiques_Par_Agence_Historique_${report.monthKey}.xlsx`);
+    } catch (error: any) {
+      alert("Erreur lors de l'export Excel historique stats : " + error.message);
+    }
+  };
+
+  // Sort helper functions for History
+  const handleHistorySort = (field: "agence" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing") => {
+    if (historySortField === field) {
+      setHistorySortDirection(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setHistorySortField(field);
+      setHistorySortDirection("asc");
+    }
+  };
+
+  const renderHistorySortableHeader = (
+    label: string, 
+    field: "agence" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing", 
+    align: "left" | "center" = "left"
+  ) => {
+    const isActive = historySortField === field;
+    return (
+      <th 
+        onClick={() => handleHistorySort(field)}
+        className={cn(
+          "p-3 border-b border-slate-100 dark:border-slate-800/60 cursor-pointer select-none hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors text-[10px] uppercase font-bold tracking-wider text-slate-400",
+          align === "center" && "text-center"
+        )}
+      >
+        <div className={cn("flex items-center gap-1", align === "center" ? "justify-center" : "justify-start")}>
+          <span>{label}</span>
+          <span className={cn(
+            "text-[9px] transition-colors",
+            isActive ? "text-blue-600 dark:text-blue-400 font-bold" : "text-slate-300 dark:text-slate-600"
+          )}>
+            {isActive ? (historySortDirection === "asc" ? "▲" : "▼") : "▲▼"}
+          </span>
+        </div>
+      </th>
+    );
+  };
+
+  // Sort helper functions
+  const handleSort = (field: "agence" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing") => {
+    if (statsSortField === field) {
+      setStatsSortDirection(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setStatsSortField(field);
+      setStatsSortDirection("asc");
+    }
+  };
+
+  const renderSortableHeader = (
+    label: string, 
+    field: "agence" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing", 
+    align: "left" | "center" = "left"
+  ) => {
+    const isActive = statsSortField === field;
+    return (
+      <th 
+        onClick={() => handleSort(field)}
+        className={cn(
+          "p-3 border-b border-slate-100 dark:border-slate-800/60 cursor-pointer select-none hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors text-[10px] uppercase font-bold tracking-wider text-slate-400",
+          align === "center" && "text-center"
+        )}
+      >
+        <div className={cn("flex items-center gap-1", align === "center" ? "justify-center" : "justify-start")}>
+          <span>{label}</span>
+          <span className={cn(
+            "text-[9px] transition-colors",
+            isActive ? "text-blue-600 dark:text-blue-400 font-bold" : "text-slate-300 dark:text-slate-600"
+          )}>
+            {isActive ? (statsSortDirection === "asc" ? "▲" : "▼") : "▲▼"}
+          </span>
+        </div>
+      </th>
+    );
+  };
+
+
+
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Page Header */}
-      <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-          Rapprochement Clients RegTools vs NS
-        </h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Comparez les identifiants de votre base globale avec la liste NS pour identifier et extraire les écarts par agence.
-        </p>
-      </div>
-
-      {/* Dashboard Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* RegTools Stat Card */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-4">
-          <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl">
-            <FileSpreadsheet className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Base Tab RegTools</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">
-              {data.regtools ? data.regtools.length.toLocaleString("fr-FR") : "-"}
-            </p>
-            <p className="text-xs text-slate-400 truncate max-w-[200px] mt-0.5">
-              {files.regtools ? files.regtools.name : "Aucun fichier chargé"}
-            </p>
-          </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Rapprochement Clients RegTools vs NS
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Comparez les identifiants de votre base globale avec la liste NS pour identifier et extraire les écarts par agence.
+          </p>
         </div>
 
-        {/* NS Stat Card */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-4">
-          <div className="p-3 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-xl">
-            <FileText className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Fichier NS</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">
-              {data.ns ? data.ns.length.toLocaleString("fr-FR") : "-"}
-            </p>
-            <p className="text-xs text-slate-400 truncate max-w-[200px] mt-0.5">
-              {files.ns ? files.ns.name : "Aucun fichier chargé"}
-            </p>
-          </div>
-        </div>
-
-        {/* Diff Stat Card */}
-        <div className={cn(
-          "bg-white dark:bg-slate-900 p-5 rounded-2xl border flex items-center gap-4 transition-colors",
-          comparisonDone
-            ? missingRows.length > 0
-              ? "border-red-500/30 bg-red-50/10 dark:bg-red-950/5"
-              : "border-emerald-500/30 bg-emerald-50/10 dark:bg-emerald-950/5"
-            : "border-slate-200/60 dark:border-slate-800/60"
-        )}>
-          <div className={cn(
-            "p-3 rounded-xl",
-            comparisonDone
-              ? missingRows.length > 0
-                ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-              : "bg-slate-500/10 text-slate-400"
-          )}>
-            <AlertTriangle className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Clients Manquants</p>
-            <p className="text-2xl font-bold mt-1">
-              {comparisonDone ? missingRows.length.toLocaleString("fr-FR") : "-"}
-            </p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {comparisonDone 
-                ? `${matchRate}% trouvé (${(data.ns!.length - missingRows.length).toLocaleString("fr-FR")} lignes)`
-                : "Prêt pour comparaison"
-              }
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Upload & Mapping Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Upload RegTools */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <h3 className="font-semibold text-slate-800 dark:text-white">1. Base Référence (Tab RegTools)</h3>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              Attendu : ~350K lignes
-            </span>
-          </div>
-
-          <div
-            onDragOver={(e) => handleDragOver(e, "regtools")}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, "regtools")}
+        {/* Page Switcher */}
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
+          <button
+            onClick={() => setPageTab("new")}
             className={cn(
-              "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-height-[150px]",
-              dragOverRole === "regtools"
-                ? "border-blue-500 bg-blue-500/5"
-                : files.regtools
-                  ? "border-emerald-500/30 bg-emerald-500/5"
-                  : "border-slate-200 dark:border-slate-800 hover:border-blue-500/50"
+              "px-4 py-2 text-xs font-semibold rounded-lg transition-all",
+              pageTab === "new"
+                ? "bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
             )}
-            onClick={() => document.getElementById("input-regtools")?.click()}
           >
-            <input
-              type="file"
-              id="input-regtools"
-              className="hidden"
-              accept=".csv,.xlsx,.xls"
-              onChange={(e) => e.target.files?.[0] && handleFileChange("regtools", e.target.files[0])}
-            />
-            {isParsing.regtools ? (
-              <div className="flex flex-col items-center gap-2">
-                <RefreshCw className="h-8 w-8 text-blue-500 animate-spin" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Analyse en cours...</p>
-              </div>
-            ) : files.regtools ? (
-              <div className="flex flex-col items-center gap-1.5">
-                <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Chargé avec succès</p>
-                <p className="text-xs text-slate-400 truncate max-w-[280px]">{files.regtools.name}</p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <Upload className="h-8 w-8 text-slate-400" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  Déposez le fichier ici ou <span className="text-blue-500 underline">parcourez</span>
-                </p>
-                <p className="text-xs text-slate-400">Formats acceptés : CSV, XLSX, XLS</p>
-              </div>
+            Nouveau Rapprochement
+          </button>
+          <button
+            onClick={() => {
+              setPageTab("history");
+              loadHistory();
+            }}
+            className={cn(
+              "px-4 py-2 text-xs font-semibold rounded-lg transition-all",
+              pageTab === "history"
+                ? "bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
             )}
-          </div>
+          >
+            Historique des Rapports ({savedReports.length})
+          </button>
+        </div>
+      </div>
 
-          {files.regtools && data.regtools && (
-            <div className="p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/50 rounded-lg flex flex-col gap-2">
-              <div className="flex justify-between text-xs text-slate-400 font-medium">
-                <span>{files.regtools.name}</span>
-                <span>{formatFileSize(files.regtools.size)}</span>
+      {pageTab === "new" ? (
+        <>
+          {/* Dashboard Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* RegTools Stat Card */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-4">
+              <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl">
+                <FileSpreadsheet className="h-6 w-6" />
               </div>
-              <div className="flex flex-col gap-1 mt-1">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Colonne d'identifiant :
-                </label>
-                <select
-                  value={mapping.regtoolsId}
-                  onChange={(e) => {
-                    setMapping(prev => ({ ...prev, regtoolsId: e.target.value }));
-                    setComparisonDone(false);
-                  }}
-                  className="w-full text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1.5 outline-none focus:border-blue-500"
-                >
-                  {columns.regtools.map(col => (
-                    <option key={`regtools-col-${col}`} value={col}>{col}</option>
-                  ))}
-                </select>
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Base Tab RegTools</p>
+                <p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">
+                  {data.regtools ? data.regtools.length.toLocaleString("fr-FR") : "-"}
+                </p>
+                <p className="text-xs text-slate-400 truncate max-w-[200px] mt-0.5">
+                  {files.regtools ? files.regtools.name : "Aucun fichier chargé"}
+                </p>
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Upload NS */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <h3 className="font-semibold text-slate-800 dark:text-white">2. Fichier à Contrôler (NS)</h3>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400">
-              Attendu : ~12K lignes
-            </span>
-          </div>
-
-          <div
-            onDragOver={(e) => handleDragOver(e, "ns")}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, "ns")}
-            className={cn(
-              "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-height-[150px]",
-              dragOverRole === "ns"
-                ? "border-purple-500 bg-purple-500/5"
-                : files.ns
-                  ? "border-emerald-500/30 bg-emerald-500/5"
-                  : "border-slate-200 dark:border-slate-800 hover:border-purple-500/50"
-            )}
-            onClick={() => document.getElementById("input-ns")?.click()}
-          >
-            <input
-              type="file"
-              id="input-ns"
-              className="hidden"
-              accept=".csv,.xlsx,.xls"
-              onChange={(e) => e.target.files?.[0] && handleFileChange("ns", e.target.files[0])}
-            />
-            {isParsing.ns ? (
-              <div className="flex flex-col items-center gap-2">
-                <RefreshCw className="h-8 w-8 text-purple-500 animate-spin" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Analyse en cours...</p>
+            {/* NS Stat Card */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-4">
+              <div className="p-3 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-xl">
+                <FileText className="h-6 w-6" />
               </div>
-            ) : files.ns ? (
-              <div className="flex flex-col items-center gap-1.5">
-                <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Chargé avec succès</p>
-                <p className="text-xs text-slate-400 truncate max-w-[280px]">{files.ns.name}</p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <Upload className="h-8 w-8 text-slate-400" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  Déposez le fichier ici ou <span className="text-purple-500 underline">parcourez</span>
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Fichier NS</p>
+                <p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">
+                  {data.ns ? data.ns.length.toLocaleString("fr-FR") : "-"}
                 </p>
-                <p className="text-xs text-slate-400">Formats acceptés : CSV, XLSX, XLS</p>
-              </div>
-            )}
-          </div>
-
-          {files.ns && data.ns && (
-            <div className="p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/50 rounded-lg flex flex-col gap-2">
-              <div className="flex justify-between text-xs text-slate-400 font-medium">
-                <span>{files.ns.name}</span>
-                <span>{formatFileSize(files.ns.size)}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mt-1">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Identifiant :
-                  </label>
-                  <select
-                    value={mapping.nsId}
-                    onChange={(e) => {
-                      setMapping(prev => ({ ...prev, nsId: e.target.value }));
-                      setComparisonDone(false);
-                    }}
-                    className="w-full text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1.5 outline-none focus:border-purple-500"
-                  >
-                    {columns.ns.map(col => (
-                      <option key={`ns-col-id-${col}`} value={col}>{col}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Agence :
-                  </label>
-                  <select
-                    value={mapping.nsAgence}
-                    onChange={(e) => {
-                      setMapping(prev => ({ ...prev, nsAgence: e.target.value }));
-                      setComparisonDone(false);
-                    }}
-                    className="w-full text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1.5 outline-none focus:border-purple-500"
-                  >
-                    {columns.ns.map(col => (
-                      <option key={`ns-col-agence-${col}`} value={col}>{col}</option>
-                    ))}
-                  </select>
-                </div>
+                <p className="text-xs text-slate-400 truncate max-w-[200px] mt-0.5">
+                  {files.ns ? files.ns.name : "Aucun fichier chargé"}
+                </p>
               </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Compare Control Bar */}
-      {data.regtools && data.ns && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 p-4 rounded-2xl flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
-            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-              {comparisonDone ? "Comparaison exécutée avec succès." : "Fichiers prêts pour rapprochement."}
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleReset}
-              className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 rounded-xl transition-all flex items-center gap-1.5"
-            >
-              <Trash2 className="h-4 w-4" />
-              Réinitialiser
-            </button>
-            <button
-              onClick={handleCompare}
-              disabled={isComparing}
-              className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5"
-            >
-              <RefreshCw className={cn("h-4 w-4", isComparing && "animate-spin")} />
-              {isComparing ? "Comparaison..." : "Lancer la Comparaison"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Comparison Results Container */}
-      {comparisonDone && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-5 flex flex-col gap-4">
-          {/* Tabs header */}
-          <div className="flex border-b border-slate-200 dark:border-slate-800 mb-2">
-            <button
-              onClick={() => setActiveTab("list")}
-              className={cn(
-                "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
-                activeTab === "list"
-                  ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
-                  : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              )}
-            >
-              <FileText className="h-4 w-4" />
-              Détails des Écarts ({filteredRows.length.toLocaleString("fr-FR")} lignes)
-            </button>
-            <button
-              onClick={() => setActiveTab("stats")}
-              className={cn(
-                "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
-                activeTab === "stats"
-                  ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
-                  : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              )}
-            >
-              <AlertTriangle className="h-4 w-4" />
-              Statistiques par Agence ({filteredAgencyStats.length} agences)
-            </button>
+            {/* Diff Stat Card */}
+            <div className={cn(
+              "bg-white dark:bg-slate-900 p-5 rounded-2xl border flex items-center gap-4 transition-colors",
+              comparisonDone
+                ? missingRows.length > 0
+                  ? "border-red-500/30 bg-red-50/10 dark:bg-red-950/5"
+                  : "border-emerald-500/30 bg-emerald-50/10 dark:bg-emerald-950/5"
+                : "border-slate-200/60 dark:border-slate-800/60"
+            )}>
+              <div className={cn(
+                "p-3 rounded-xl",
+                comparisonDone
+                  ? missingRows.length > 0
+                    ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "bg-slate-500/10 text-slate-400"
+              )}>
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Clients Manquants</p>
+                <p className="text-2xl font-bold mt-1">
+                  {comparisonDone ? missingRows.length.toLocaleString("fr-FR") : "-"}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {comparisonDone 
+                    ? `${matchRate}% trouvé (${(data.ns!.length - missingRows.length).toLocaleString("fr-FR")} lignes)`
+                    : "Prêt pour comparaison"
+                  }
+                </p>
+              </div>
+            </div>
           </div>
 
-          {activeTab === "list" ? (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-slate-800 dark:text-white">Lignes NS absentes de RegTools</h3>
-                  <span className="text-xs font-bold px-2 py-0.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-full">
-                    {filteredRows.length.toLocaleString("fr-FR")} lignes
-                  </span>
-                </div>
+          {/* Upload & Mapping Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Upload RegTools */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <h3 className="font-semibold text-slate-800 dark:text-white">1. Base Référence (Tab RegTools)</h3>
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  Attendu : ~350K lignes
+                </span>
+              </div>
 
-                {/* Actions Panel */}
-                <div className="flex items-center gap-4 flex-wrap">
-                  {/* Agency Filter */}
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Agence :</label>
+              <div
+                onDragOver={(e) => handleDragOver(e, "regtools")}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, "regtools")}
+                className={cn(
+                  "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-height-[150px]",
+                  dragOverRole === "regtools"
+                    ? "border-blue-500 bg-blue-500/5"
+                    : files.regtools
+                      ? "border-emerald-500/30 bg-emerald-500/5"
+                      : "border-slate-200 dark:border-slate-800 hover:border-blue-500/50"
+                )}
+                onClick={() => document.getElementById("input-regtools")?.click()}
+              >
+                <input
+                  type="file"
+                  id="input-regtools"
+                  className="hidden"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={(e) => e.target.files?.[0] && handleFileChange("regtools", e.target.files[0])}
+                />
+                {isParsing.regtools ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <RefreshCw className="h-8 w-8 text-blue-500 animate-spin" />
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Analyse en cours...</p>
+                  </div>
+                ) : files.regtools ? (
+                  <div className="flex flex-col items-center gap-1.5">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Chargé avec succès</p>
+                    <p className="text-xs text-slate-400 truncate max-w-[280px]">{files.regtools.name}</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="h-8 w-8 text-slate-400" />
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      Déposez le fichier ici ou <span className="text-blue-500 underline">parcourez</span>
+                    </p>
+                    <p className="text-xs text-slate-400">Formats acceptés : CSV, XLSX, XLS</p>
+                  </div>
+                )}
+              </div>
+
+              {files.regtools && data.regtools && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/50 rounded-lg flex flex-col gap-2">
+                  <div className="flex justify-between text-xs text-slate-400 font-medium">
+                    <span>{files.regtools.name}</span>
+                    <span>{formatFileSize(files.regtools.size)}</span>
+                  </div>
+                  <div className="flex flex-col gap-1 mt-1">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      Colonne d'identifiant :
+                    </label>
                     <select
-                      value={selectedAgency}
+                      value={mapping.regtoolsId}
                       onChange={(e) => {
-                        setSelectedAgency(e.target.value);
-                        setCurrentPage(1);
+                        setMapping(prev => ({ ...prev, regtoolsId: e.target.value }));
+                        setComparisonDone(false);
                       }}
-                      className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[150px]"
+                      className="w-full text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1.5 outline-none focus:border-blue-500"
                     >
-                      <option value="ALL">Toutes les agences</option>
-                      {agenciesList.map(agence => (
-                        <option key={`filter-agence-${agence}`} value={agence}>{agence}</option>
+                      {columns.regtools.map(col => (
+                        <option key={`regtools-col-${col}`} value={col}>{col}</option>
                       ))}
                     </select>
                   </div>
-
-                  {/* Search Bar */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Rechercher..."
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className="pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none w-[200px] focus:border-blue-500 focus:bg-white transition-all"
-                    />
-                  </div>
-
-                  {/* Export Trigger */}
-                  <button
-                    onClick={exportExcel}
-                    disabled={filteredRows.length === 0}
-                    className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5"
-                  >
-                    <Download className="h-4 w-4" />
-                    Exporter Excel
-                  </button>
                 </div>
+              )}
+            </div>
+
+            {/* Upload NS */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <h3 className="font-semibold text-slate-800 dark:text-white">2. Fichier à Contrôler (NS)</h3>
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  Attendu : ~12K lignes
+                </span>
               </div>
 
-              {/* Table Element */}
-              {filteredRows.length === 0 ? (
-                <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
-                  <CheckCircle2 className="h-12 w-12 text-emerald-500" />
-                  <h4 className="font-semibold text-slate-800 dark:text-white">Aucun écart détecté !</h4>
-                  <p className="text-xs text-slate-400">Toutes les lignes correspondent aux critères actuels.</p>
+              <div
+                onDragOver={(e) => handleDragOver(e, "ns")}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, "ns")}
+                className={cn(
+                  "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-height-[150px]",
+                  dragOverRole === "ns"
+                    ? "border-purple-500 bg-purple-500/5"
+                    : files.ns
+                      ? "border-emerald-500/30 bg-emerald-500/5"
+                      : "border-slate-200 dark:border-slate-800 hover:border-purple-500/50"
+                )}
+                onClick={() => document.getElementById("input-ns")?.click()}
+              >
+                <input
+                  type="file"
+                  id="input-ns"
+                  className="hidden"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={(e) => e.target.files?.[0] && handleFileChange("ns", e.target.files[0])}
+                />
+                {isParsing.ns ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <RefreshCw className="h-8 w-8 text-purple-500 animate-spin" />
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Analyse en cours...</p>
+                  </div>
+                ) : files.ns ? (
+                  <div className="flex flex-col items-center gap-1.5">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Chargé avec succès</p>
+                    <p className="text-xs text-slate-400 truncate max-w-[280px]">{files.ns.name}</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="h-8 w-8 text-slate-400" />
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      Déposez le fichier ici ou <span className="text-purple-500 underline">parcourez</span>
+                    </p>
+                    <p className="text-xs text-slate-400">Formats acceptés : CSV, XLSX, XLS</p>
+                  </div>
+                )}
+              </div>
+
+              {files.ns && data.ns && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/50 rounded-lg flex flex-col gap-2">
+                  <div className="flex justify-between text-xs text-slate-400 font-medium">
+                    <span>{files.ns.name}</span>
+                    <span>{formatFileSize(files.ns.size)}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-1">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        Identifiant :
+                      </label>
+                      <select
+                        value={mapping.nsId}
+                        onChange={(e) => {
+                          setMapping(prev => ({ ...prev, nsId: e.target.value }));
+                          setComparisonDone(false);
+                        }}
+                        className="w-full text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1.5 outline-none focus:border-purple-500"
+                      >
+                        {columns.ns.map(col => (
+                          <option key={`ns-col-id-${col}`} value={col}>{col}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        Agence :
+                      </label>
+                      <select
+                        value={mapping.nsAgence}
+                        onChange={(e) => {
+                          setMapping(prev => ({ ...prev, nsAgence: e.target.value }));
+                          setComparisonDone(false);
+                        }}
+                        className="w-full text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1.5 outline-none focus:border-purple-500"
+                      >
+                        {columns.ns.map(col => (
+                          <option key={`ns-col-agence-${col}`} value={col}>{col}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Compare Control Bar */}
+          {data.regtools && data.ns && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 p-4 rounded-2xl flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
+                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                  {comparisonDone ? "Comparaison exécutée avec succès." : "Fichiers prêts pour rapprochement."}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleReset}
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 rounded-xl transition-all flex items-center gap-1.5"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Réinitialiser
+                </button>
+                <button
+                  onClick={handleCompare}
+                  disabled={isComparing}
+                  className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5"
+                >
+                  <RefreshCw className={cn("h-4 w-4", isComparing && "animate-spin")} />
+                  {isComparing ? "Comparaison..." : "Lancer la Comparaison"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Comparison Results Container */}
+          {comparisonDone && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-5 flex flex-col gap-4">
+              {/* Tabs header */}
+              <div className="flex border-b border-slate-200 dark:border-slate-800 justify-between items-center pb-0 mb-2 flex-wrap gap-2">
+                <div className="flex flex-wrap">
+                  <button
+                    onClick={() => setActiveTab("list")}
+                    className={cn(
+                      "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
+                      activeTab === "list"
+                        ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
+                        : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    )}
+                  >
+                    <FileText className="h-4 w-4" />
+                    Détails des Écarts ({filteredRows.length.toLocaleString("fr-FR")} lignes)
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("stats")}
+                    className={cn(
+                      "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
+                      activeTab === "stats"
+                        ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
+                        : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    )}
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                    Statistiques par Agence ({filteredAgencyStats.length} agences)
+                  </button>
+                </div>
+                
+                <button
+                  onClick={handleSaveReport}
+                  disabled={isSavingReport}
+                  className="mb-2 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5"
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5", isSavingReport && "animate-spin")} />
+                  {isSavingReport ? "Sauvegarde..." : "Sauvegarder le Rapport Mensuel"}
+                </button>
+              </div>
+
+              {activeTab === "list" ? (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-slate-800 dark:text-white">Lignes NS absentes de RegTools</h3>
+                      <span className="text-xs font-bold px-2 py-0.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-full">
+                        {filteredRows.length.toLocaleString("fr-FR")} lignes
+                      </span>
+                    </div>
+
+                    {/* Actions Panel */}
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {/* Agency Filter */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Agence :</label>
+                        <select
+                          value={selectedAgency}
+                          onChange={(e) => {
+                            setSelectedAgency(e.target.value);
+                            setCurrentPage(1);
+                          }}
+                          className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[150px]"
+                        >
+                          <option value="ALL">Toutes les agences</option>
+                          {agenciesList.map(agence => (
+                            <option key={`filter-agence-${agence}`} value={agence}>{agence}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Search Bar */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Rechercher..."
+                          value={searchQuery}
+                          onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setCurrentPage(1);
+                          }}
+                          className="pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none w-[200px] focus:border-blue-500 focus:bg-white transition-all"
+                        />
+                      </div>
+
+                      {/* Export Trigger */}
+                      <button
+                        onClick={exportExcel}
+                        disabled={filteredRows.length === 0}
+                        className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5"
+                      >
+                        <Download className="h-4 w-4" />
+                        Exporter Excel
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Table Element */}
+                  {filteredRows.length === 0 ? (
+                    <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
+                      <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+                      <h4 className="font-semibold text-slate-800 dark:text-white">Aucun écart détecté !</h4>
+                      <p className="text-xs text-slate-400">Toutes les lignes correspondent aux critères actuels.</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      <div className="overflow-x-auto border border-slate-100 dark:border-slate-800/60 rounded-xl">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                              {columns.ns.map(col => (
+                                <th 
+                                  key={`th-${col}`} 
+                                  className={cn(
+                                    "p-3 border-b border-slate-100 dark:border-slate-800/60",
+                                    col === mapping.nsId && "text-purple-600 dark:text-purple-400",
+                                    col === mapping.nsAgence && "text-blue-600 dark:text-blue-400"
+                                  )}
+                                >
+                                  {col}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paginatedRows.map((row, rIdx) => (
+                              <tr key={`tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                                {columns.ns.map(col => (
+                                  <td 
+                                    key={`td-${rIdx}-${col}`} 
+                                    className={cn(
+                                      "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300",
+                                      col === mapping.nsId && "font-bold text-purple-600 dark:text-purple-400",
+                                      col === mapping.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
+                                    )}
+                                  >
+                                    {row[col] !== undefined && row[col] !== null ? String(row[col]) : ""}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Pagination controls */}
+                      {totalPages > 1 && (
+                        <div className="flex justify-between items-center gap-4 flex-wrap pt-2">
+                          <span className="text-xs text-slate-400 font-medium">
+                            Affichage de <span className="font-bold text-slate-700 dark:text-white">{(currentPage - 1) * pageSize + 1}</span> à{" "}
+                            <span className="font-bold text-slate-700 dark:text-white">{Math.min(currentPage * pageSize, filteredRows.length)}</span> sur{" "}
+                            <span className="font-bold text-slate-700 dark:text-white">{filteredRows.length}</span> lignes
+                          </span>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              disabled={currentPage === 1}
+                              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                              className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            
+                            <div className="flex items-center gap-1">
+                              {paginationRange.map((p, pIdx) => {
+                                if (p === "...") {
+                                  return <span key={`ellip-${pIdx}`} className="px-2 text-slate-400">...</span>;
+                                }
+                                return (
+                                  <button
+                                    key={`page-btn-${p}`}
+                                    onClick={() => setCurrentPage(p as number)}
+                                    className={cn(
+                                      "h-7 w-7 text-xs font-semibold rounded-lg transition-all",
+                                      p === currentPage
+                                        ? "bg-blue-600 text-white shadow-md shadow-blue-500/10"
+                                        : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                                    )}
+                                  >
+                                    {p}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <button
+                              disabled={currentPage === totalPages}
+                              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                              className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
+
+                            <div className="flex items-center gap-1.5 ml-2">
+                              <span className="text-xs text-slate-400">Par page :</span>
+                              <select
+                                value={pageSize}
+                                onChange={(e) => {
+                                  setPageSize(parseInt(e.target.value));
+                                  setCurrentPage(1);
+                                }}
+                                className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1 outline-none"
+                              >
+                                <option value="15">15</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="500">500</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col gap-4">
-                  <div className="overflow-x-auto border border-slate-100 dark:border-slate-800/60 rounded-xl">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                          {columns.ns.map(col => (
-                            <th 
-                              key={`th-${col}`} 
-                              className={cn(
-                                "p-3 border-b border-slate-100 dark:border-slate-800/60",
-                                col === mapping.nsId && "text-purple-600 dark:text-purple-400",
-                                col === mapping.nsAgence && "text-blue-600 dark:text-blue-400"
-                              )}
-                            >
-                              {col}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paginatedRows.map((row, rIdx) => (
-                          <tr key={`tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                            {columns.ns.map(col => (
-                              <td 
-                                key={`td-${rIdx}-${col}`} 
-                                className={cn(
-                                  "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300",
-                                  col === mapping.nsId && "font-bold text-purple-600 dark:text-purple-400",
-                                  col === mapping.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
-                                )}
-                              >
-                                {row[col] !== undefined && row[col] !== null ? String(row[col]) : ""}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-slate-800 dark:text-white">Rapprochement par Agence</h3>
+                      <span className="text-xs font-bold px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full">
+                        {filteredAgencyStats.length} agences
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {/* Search Bar */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Rechercher une agence..."
+                          value={statsSearchQuery}
+                          onChange={(e) => setStatsSearchQuery(e.target.value)}
+                          className="pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none w-[200px] focus:border-blue-500 focus:bg-white transition-all"
+                        />
+                      </div>
+
+                      {/* Export Stats Trigger */}
+                      <button
+                        onClick={exportStatsExcel}
+                        disabled={filteredAgencyStats.length === 0}
+                        className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5"
+                      >
+                        <Download className="h-4 w-4" />
+                        Exporter les Statistiques
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Pagination controls */}
-                  {totalPages > 1 && (
-                    <div className="flex justify-between items-center gap-4 flex-wrap pt-2">
-                      <span className="text-xs text-slate-400 font-medium">
-                        Affichage de <span className="font-bold text-slate-700 dark:text-white">{(currentPage - 1) * pageSize + 1}</span> à{" "}
-                        <span className="font-bold text-slate-700 dark:text-white">{Math.min(currentPage * pageSize, filteredRows.length)}</span> sur{" "}
-                        <span className="font-bold text-slate-700 dark:text-white">{filteredRows.length}</span> lignes
-                      </span>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          disabled={currentPage === 1}
-                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                          className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </button>
-                        
-                        <div className="flex items-center gap-1">
-                          {paginationRange.map((p, pIdx) => {
-                            if (p === "...") {
-                              return <span key={`ellip-${pIdx}`} className="px-2 text-slate-400">...</span>;
-                            }
-                            return (
-                              <button
-                                key={`page-btn-${p}`}
-                                onClick={() => setCurrentPage(p as number)}
-                                className={cn(
-                                  "h-7 w-7 text-xs font-semibold rounded-lg transition-all",
-                                  p === currentPage
-                                    ? "bg-blue-600 text-white shadow-md shadow-blue-500/10"
-                                    : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
-                                )}
-                              >
-                                {p}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        <button
-                          disabled={currentPage === totalPages}
-                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                          className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
-
-                        <div className="flex items-center gap-1.5 ml-2">
-                          <span className="text-xs text-slate-400">Par page :</span>
-                          <select
-                            value={pageSize}
-                            onChange={(e) => {
-                              setPageSize(parseInt(e.target.value));
-                              setCurrentPage(1);
-                            }}
-                            className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1 outline-none"
-                          >
-                            <option value="15">15</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                            <option value="500">500</option>
-                          </select>
-                        </div>
-                      </div>
+                  {filteredAgencyStats.length === 0 ? (
+                    <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
+                      <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+                      <h4 className="font-semibold text-slate-800 dark:text-white">Aucune agence trouvée</h4>
+                      <p className="text-xs text-slate-400">Aucune agence ne correspond à votre recherche.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto border border-slate-100 dark:border-slate-800/60 rounded-xl">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                            {renderSortableHeader("Agence", "agence")}
+                            {renderSortableHeader("Total NS", "total", "center")}
+                            {renderSortableHeader("Présentes (Conformes)", "existing", "center")}
+                            {renderSortableHeader("Absentes (Écarts)", "missing", "center")}
+                            {renderSortableHeader("Taux Présence", "pctExisting", "center")}
+                            {renderSortableHeader("Taux Absence", "pctMissing", "center")}
+                            <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[200px]">Proportion Visuelle</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredAgencyStats.map((stat, idx) => (
+                            <tr key={`stat-row-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 font-medium text-slate-900 dark:text-white">
+                                {stat.agence}
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-semibold text-slate-700 dark:text-slate-300">
+                                {stat.total.toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-emerald-600 dark:text-emerald-400 font-medium">
+                                {stat.existing.toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-rose-600 dark:text-rose-400 font-medium">
+                                {stat.missing.toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-bold text-emerald-600 dark:text-emerald-400">
+                                {stat.pctExisting}%
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-bold text-rose-600 dark:text-rose-400">
+                                {stat.pctMissing}%
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60">
+                                <div className="flex flex-col gap-1 w-full">
+                                  <div className="flex h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                    <div 
+                                      style={{ width: `${stat.pctExisting}%` }} 
+                                      className="bg-emerald-500 transition-all duration-500" 
+                                      title={`Présentes: ${stat.pctExisting}%`}
+                                    />
+                                    <div 
+                                      style={{ width: `${stat.pctMissing}%` }} 
+                                      className="bg-rose-500 transition-all duration-500" 
+                                      title={`Absentes: ${stat.pctMissing}%`}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between text-[9px] text-slate-400">
+                                    <span>{stat.pctExisting}% présent</span>
+                                    <span>{stat.pctMissing}% absent</span>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          {globalStats && (
+                            <tr className="bg-slate-50/80 dark:bg-slate-900/80 font-bold border-t border-slate-200 dark:border-slate-800">
+                              <td className="p-3 text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">
+                                TOTAL GLOBAL
+                              </td>
+                              <td className="p-3 text-center text-slate-900 dark:text-white">
+                                {globalStats.total.toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 text-center text-emerald-600 dark:text-emerald-400">
+                                {globalStats.existing.toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 text-center text-rose-600 dark:text-rose-400">
+                                {globalStats.missing.toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 text-center text-emerald-600 dark:text-emerald-400">
+                                {globalStats.pctExisting}%
+                              </td>
+                              <td className="p-3 text-center text-rose-600 dark:text-rose-400">
+                                {globalStats.pctMissing}%
+                              </td>
+                              <td className="p-3">
+                                <div className="flex flex-col gap-1 w-full">
+                                  <div className="flex h-2.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                    <div 
+                                      style={{ width: `${globalStats.pctExisting}%` }} 
+                                      className="bg-emerald-600 transition-all duration-500" 
+                                      title={`Présentes: ${globalStats.pctExisting}%`}
+                                    />
+                                    <div 
+                                      style={{ width: `${globalStats.pctMissing}%` }} 
+                                      className="bg-rose-600 transition-all duration-500" 
+                                      title={`Absentes: ${globalStats.pctMissing}%`}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between text-[9px] text-slate-500">
+                                    <span>{globalStats.pctExisting}% global</span>
+                                    <span>{globalStats.pctMissing}% global</span>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
               )}
             </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-slate-800 dark:text-white">Rapprochement par Agence</h3>
-                  <span className="text-xs font-bold px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full">
-                    {filteredAgencyStats.length} agences
-                  </span>
-                </div>
+          )}
+        </>
+      ) : (
+        /* History Section */
+        selectedHistoryReport === null ? (
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Rapports de rapprochement sauvegardés</h3>
+              <button 
+                onClick={loadHistory}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+                title="Actualiser la liste"
+              >
+                <RefreshCw className={cn("h-4 w-4", isLoadingHistory && "animate-spin")} />
+              </button>
+            </div>
 
-                <div className="flex items-center gap-4 flex-wrap">
-                  {/* Search Bar */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Rechercher une agence..."
-                      value={statsSearchQuery}
-                      onChange={(e) => setStatsSearchQuery(e.target.value)}
-                      className="pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none w-[200px] focus:border-blue-500 focus:bg-white transition-all"
-                    />
-                  </div>
-
-                  {/* Export Stats Trigger */}
-                  <button
-                    onClick={exportStatsExcel}
-                    disabled={filteredAgencyStats.length === 0}
-                    className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5"
+            {isLoadingHistory ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400">
+                <RefreshCw className="h-8 w-8 animate-spin" />
+                <p className="text-sm">Chargement de l'historique...</p>
+              </div>
+            ) : savedReports.length === 0 ? (
+              <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
+                <FileSpreadsheet className="h-12 w-12 text-slate-300 dark:text-slate-700" />
+                <h4 className="font-semibold text-slate-800 dark:text-white">Aucun rapport sauvegardé</h4>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  Lancez un rapprochement dans l'onglet "Nouveau Rapprochement" et cliquez sur "Sauvegarder le Rapport Mensuel" pour l'enregistrer ici.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {savedReports.map((report) => (
+                  <div 
+                    key={`report-card-${report.monthKey}`}
+                    className="border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-5 hover:border-blue-500/50 hover:shadow-md transition-all bg-slate-50/30 dark:bg-slate-900/10 flex flex-col justify-between"
                   >
-                    <Download className="h-4 w-4" />
-                    Exporter les Statistiques
+                    <div>
+                      <div className="flex justify-between items-start gap-2 mb-3">
+                        <div>
+                          <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                            {report.monthLabel}
+                          </h4>
+                          <span className="text-[10px] text-slate-400">
+                            Sauvegardé le {new Date(report.savedAt).toLocaleDateString("fr-FR")} à {new Date(report.savedAt).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                          {report.monthKey}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 text-xs text-slate-500 mb-4 border-t border-b border-slate-100 dark:border-slate-800/50 py-3 my-3">
+                        <div className="flex justify-between">
+                          <span>Fichier NS :</span>
+                          <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[150px]" title={report.fileNameNS}>
+                            {report.fileNameNS}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Base RegTools :</span>
+                          <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[150px]" title={report.fileNameRegtools}>
+                            {report.fileNameRegtools || "-"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between pt-1 font-semibold text-slate-700 dark:text-slate-300">
+                          <span>Taux de Présence :</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                            {report.globalStats?.pctExisting}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between font-semibold text-slate-700 dark:text-slate-300">
+                          <span>Taux d'Écart :</span>
+                          <span className="text-rose-600 dark:text-rose-400 font-bold">
+                            {report.globalStats?.pctMissing}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleLoadReport(report)}
+                        className="flex-1 px-3 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-1 shadow-md shadow-blue-500/10"
+                      >
+                        Consulter
+                      </button>
+                      <button
+                        onClick={() => handleDeleteReport(report)}
+                        className="px-3 py-2 text-xs font-semibold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 dark:bg-rose-950/20 dark:hover:bg-rose-600 border border-rose-200/50 dark:border-rose-900/50 rounded-lg transition-colors flex items-center justify-center"
+                        title="Supprimer ce rapport"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {/* Header of selected history report */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-5 flex justify-between items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setSelectedHistoryReport(null)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all border border-slate-200 dark:border-slate-800/60 flex items-center justify-center"
+                  title="Retour à l'historique"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                    Rapport de Rapprochement : {selectedHistoryReport.monthLabel}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Sauvegardé le {new Date(selectedHistoryReport.savedAt).toLocaleDateString("fr-FR")} à {new Date(selectedHistoryReport.savedAt).toLocaleTimeString("fr-FR")} • Fichier NS : {selectedHistoryReport.fileNameNS}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  Taux Présence : {selectedHistoryReport.globalStats?.pctExisting}%
+                </span>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                  Taux Absence : {selectedHistoryReport.globalStats?.pctMissing}%
+                </span>
+              </div>
+            </div>
+
+            {/* History sub-tabs container */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-5 flex flex-col gap-4">
+              <div className="flex border-b border-slate-200 dark:border-slate-800 justify-between items-center pb-0 mb-2 flex-wrap gap-2">
+                <div className="flex flex-wrap">
+                  <button
+                    onClick={() => setHistoryTab("stats")}
+                    className={cn(
+                      "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
+                      historyTab === "stats"
+                        ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
+                        : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    )}
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                    Statistiques par Agence
+                  </button>
+                  <button
+                    onClick={() => setHistoryTab("list")}
+                    className={cn(
+                      "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
+                      historyTab === "list"
+                        ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
+                        : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    )}
+                  >
+                    <FileText className="h-4 w-4" />
+                    Détails des Écarts ({filteredHistoryRows.length.toLocaleString("fr-FR")} lignes)
                   </button>
                 </div>
               </div>
 
-              {filteredAgencyStats.length === 0 ? (
-                <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
-                  <CheckCircle2 className="h-12 w-12 text-emerald-500" />
-                  <h4 className="font-semibold text-slate-800 dark:text-white">Aucune agence trouvée</h4>
-                  <p className="text-xs text-slate-400">Aucune agence ne correspond à votre recherche.</p>
+              {historyTab === "stats" ? (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-slate-800 dark:text-white">Rapprochement par Agence (Historique)</h3>
+                      <span className="text-xs font-bold px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full">
+                        {filteredHistoryAgencyStats.length} agences
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {/* Search Bar */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Rechercher une agence..."
+                          value={historyStatsSearchQuery}
+                          onChange={(e) => setHistoryStatsSearchQuery(e.target.value)}
+                          className="pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none w-[200px] focus:border-blue-500 focus:bg-white transition-all"
+                        />
+                      </div>
+
+                      {/* Export Stats Trigger */}
+                      <button
+                        onClick={exportHistoryStatsExcel}
+                        className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5"
+                      >
+                        <Download className="h-4 w-4" />
+                        Exporter les Statistiques
+                      </button>
+                    </div>
+                  </div>
+
+                  {filteredHistoryAgencyStats.length === 0 ? (
+                    <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
+                      <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+                      <h4 className="font-semibold text-slate-800 dark:text-white">Aucune agence trouvée</h4>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto border border-slate-100 dark:border-slate-800/60 rounded-xl">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                            {renderHistorySortableHeader("Agence", "agence")}
+                            {renderHistorySortableHeader("Total NS", "total", "center")}
+                            {renderHistorySortableHeader("Présentes (Conformes)", "existing", "center")}
+                            {renderHistorySortableHeader("Absentes (Écarts)", "missing", "center")}
+                            {renderHistorySortableHeader("Taux Présence", "pctExisting", "center")}
+                            {renderHistorySortableHeader("Taux Absence", "pctMissing", "center")}
+                            <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[200px]">Proportion Visuelle</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredHistoryAgencyStats.map((stat, idx) => (
+                            <tr key={`history-stat-row-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 font-medium text-slate-900 dark:text-white">
+                                {stat.agence}
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-semibold text-slate-700 dark:text-slate-300">
+                                {stat.total.toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-emerald-600 dark:text-emerald-400 font-medium">
+                                {stat.existing.toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-rose-600 dark:text-rose-400 font-medium">
+                                {stat.missing.toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-bold text-emerald-600 dark:text-emerald-400">
+                                {stat.pctExisting}%
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-bold text-rose-600 dark:text-rose-400">
+                                {stat.pctMissing}%
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60">
+                                <div className="flex flex-col gap-1 w-full">
+                                  <div className="flex h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                    <div 
+                                      style={{ width: `${stat.pctExisting}%` }} 
+                                      className="bg-emerald-500 transition-all duration-500" 
+                                      title={`Présentes: ${stat.pctExisting}%`}
+                                    />
+                                    <div 
+                                      style={{ width: `${stat.pctMissing}%` }} 
+                                      className="bg-rose-500 transition-all duration-500" 
+                                      title={`Absentes: ${stat.pctMissing}%`}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between text-[9px] text-slate-400">
+                                    <span>{stat.pctExisting}% présent</span>
+                                    <span>{stat.pctMissing}% absent</span>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          {selectedHistoryReport.globalStats && (
+                            <tr className="bg-slate-50/80 dark:bg-slate-900/80 font-bold border-t border-slate-200 dark:border-slate-800">
+                              <td className="p-3 text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">
+                                TOTAL GLOBAL
+                              </td>
+                              <td className="p-3 text-center text-slate-900 dark:text-white">
+                                {selectedHistoryReport.globalStats.total.toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 text-center text-emerald-600 dark:text-emerald-400">
+                                {selectedHistoryReport.globalStats.existing.toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 text-center text-rose-600 dark:text-rose-400">
+                                {selectedHistoryReport.globalStats.missing.toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 text-center text-emerald-600 dark:text-emerald-400">
+                                {selectedHistoryReport.globalStats.pctExisting}%
+                              </td>
+                              <td className="p-3 text-center text-rose-600 dark:text-rose-400">
+                                {selectedHistoryReport.globalStats.pctMissing}%
+                              </td>
+                              <td className="p-3">
+                                <div className="flex flex-col gap-1 w-full">
+                                  <div className="flex h-2.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                    <div 
+                                      style={{ width: `${selectedHistoryReport.globalStats.pctExisting}%` }} 
+                                      className="bg-emerald-600 transition-all duration-500" 
+                                      title={`Présentes: ${selectedHistoryReport.globalStats.pctExisting}%`}
+                                    />
+                                    <div 
+                                      style={{ width: `${selectedHistoryReport.globalStats.pctMissing}%` }} 
+                                      className="bg-rose-600 transition-all duration-500" 
+                                      title={`Absentes: ${selectedHistoryReport.globalStats.pctMissing}%`}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between text-[9px] text-slate-500">
+                                    <span>{selectedHistoryReport.globalStats.pctExisting}% global</span>
+                                    <span>{selectedHistoryReport.globalStats.pctMissing}% global</span>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="overflow-x-auto border border-slate-100 dark:border-slate-800/60 rounded-xl">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60">Agence</th>
-                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Total NS</th>
-                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Présentes (Conformes)</th>
-                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Absentes (Écarts)</th>
-                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Taux Présence</th>
-                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Taux Absence</th>
-                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[200px]">Proportion Visuelle</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredAgencyStats.map((stat, idx) => (
-                        <tr key={`stat-row-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 font-medium text-slate-900 dark:text-white">
-                            {stat.agence}
-                          </td>
-                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-semibold text-slate-700 dark:text-slate-300">
-                            {stat.total.toLocaleString("fr-FR")}
-                          </td>
-                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-emerald-600 dark:text-emerald-400 font-medium">
-                            {stat.existing.toLocaleString("fr-FR")}
-                          </td>
-                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-rose-600 dark:text-rose-400 font-medium">
-                            {stat.missing.toLocaleString("fr-FR")}
-                          </td>
-                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-bold text-emerald-600 dark:text-emerald-400">
-                            {stat.pctExisting}%
-                          </td>
-                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-bold text-rose-600 dark:text-rose-400">
-                            {stat.pctMissing}%
-                          </td>
-                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60">
-                            <div className="flex flex-col gap-1 w-full">
-                              <div className="flex h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                                <div 
-                                  style={{ width: `${stat.pctExisting}%` }} 
-                                  className="bg-emerald-500 transition-all duration-500" 
-                                  title={`Présentes: ${stat.pctExisting}%`}
-                                />
-                                <div 
-                                  style={{ width: `${stat.pctMissing}%` }} 
-                                  className="bg-rose-500 transition-all duration-500" 
-                                  title={`Absentes: ${stat.pctMissing}%`}
-                                />
-                              </div>
-                              <div className="flex justify-between text-[9px] text-slate-400">
-                                <span>{stat.pctExisting}% présent</span>
-                                <span>{stat.pctMissing}% absent</span>
-                              </div>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-slate-800 dark:text-white">Détails des Écarts (Historique)</h3>
+                      <span className="text-xs font-bold px-2 py-0.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-full">
+                        {filteredHistoryRows.length.toLocaleString("fr-FR")} lignes
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {/* Search Bar */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Rechercher..."
+                          value={historySearchQuery}
+                          onChange={(e) => {
+                            setHistorySearchQuery(e.target.value);
+                            setHistoryCurrentPage(1);
+                          }}
+                          className="pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none w-[200px] focus:border-blue-500 focus:bg-white transition-all"
+                        />
+                      </div>
+
+                      {/* Export Trigger */}
+                      <button
+                        onClick={exportHistoryExcel}
+                        disabled={filteredHistoryRows.length === 0}
+                        className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5"
+                      >
+                        <Download className="h-4 w-4" />
+                        Exporter Excel
+                      </button>
+                    </div>
+                  </div>
+
+                  {filteredHistoryRows.length === 0 ? (
+                    <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
+                      <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+                      <h4 className="font-semibold text-slate-800 dark:text-white">Aucun écart</h4>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      <div className="overflow-x-auto border border-slate-100 dark:border-slate-800/60 rounded-xl">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                              {(selectedHistoryReport.columnsNS || []).map((col: string) => (
+                                <th 
+                                  key={`history-th-${col}`} 
+                                  className={cn(
+                                    "p-3 border-b border-slate-100 dark:border-slate-800/60",
+                                    col === selectedHistoryReport.mapping?.nsId && "text-purple-600 dark:text-purple-400",
+                                    col === selectedHistoryReport.mapping?.nsAgence && "text-blue-600 dark:text-blue-400"
+                                  )}
+                                >
+                                  {col}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paginatedHistoryRows.map((row: any, rIdx: number) => (
+                              <tr key={`history-tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                                {(selectedHistoryReport.columnsNS || []).map((col: string) => (
+                                  <td 
+                                    key={`history-td-${rIdx}-${col}`} 
+                                    className={cn(
+                                      "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300",
+                                      col === selectedHistoryReport.mapping?.nsId && "font-bold text-purple-600 dark:text-purple-400",
+                                      col === selectedHistoryReport.mapping?.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
+                                    )}
+                                  >
+                                    {row[col] !== undefined && row[col] !== null ? String(row[col]) : ""}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Pagination controls */}
+                      {totalHistoryPages > 1 && (
+                        <div className="flex justify-between items-center gap-4 flex-wrap pt-2">
+                          <span className="text-xs text-slate-400 font-medium">
+                            Affichage de <span className="font-bold text-slate-700 dark:text-white">{(historyCurrentPage - 1) * historyPageSize + 1}</span> à{" "}
+                            <span className="font-bold text-slate-700 dark:text-white">{Math.min(historyCurrentPage * historyPageSize, filteredHistoryRows.length)}</span> sur{" "}
+                            <span className="font-bold text-slate-700 dark:text-white">{filteredHistoryRows.length}</span> lignes
+                          </span>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              disabled={historyCurrentPage === 1}
+                              onClick={() => setHistoryCurrentPage(prev => Math.max(prev - 1, 1))}
+                              className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            
+                            <div className="flex items-center gap-1">
+                              {historyPaginationRange.map((p, pIdx) => {
+                                if (p === "...") {
+                                  return <span key={`history-ellip-${pIdx}`} className="px-2 text-slate-400">...</span>;
+                                }
+                                return (
+                                  <button
+                                    key={`history-page-btn-${p}`}
+                                    onClick={() => setHistoryCurrentPage(p as number)}
+                                    className={cn(
+                                      "h-7 w-7 text-xs font-semibold rounded-lg transition-all",
+                                      p === historyCurrentPage
+                                        ? "bg-blue-600 text-white shadow-md shadow-blue-500/10"
+                                        : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                                    )}
+                                  >
+                                    {p}
+                                  </button>
+                                );
+                              })}
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {globalStats && (
-                        <tr className="bg-slate-50/80 dark:bg-slate-900/80 font-bold border-t border-slate-200 dark:border-slate-800">
-                          <td className="p-3 text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">
-                            TOTAL GLOBAL
-                          </td>
-                          <td className="p-3 text-center text-slate-900 dark:text-white">
-                            {globalStats.total.toLocaleString("fr-FR")}
-                          </td>
-                          <td className="p-3 text-center text-emerald-600 dark:text-emerald-400">
-                            {globalStats.existing.toLocaleString("fr-FR")}
-                          </td>
-                          <td className="p-3 text-center text-rose-600 dark:text-rose-400">
-                            {globalStats.missing.toLocaleString("fr-FR")}
-                          </td>
-                          <td className="p-3 text-center text-emerald-600 dark:text-emerald-400">
-                            {globalStats.pctExisting}%
-                          </td>
-                          <td className="p-3 text-center text-rose-600 dark:text-rose-400">
-                            {globalStats.pctMissing}%
-                          </td>
-                          <td className="p-3">
-                            <div className="flex flex-col gap-1 w-full">
-                              <div className="flex h-2.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                                <div 
-                                  style={{ width: `${globalStats.pctExisting}%` }} 
-                                  className="bg-emerald-600 transition-all duration-500" 
-                                  title={`Présentes: ${globalStats.pctExisting}%`}
-                                />
-                                <div 
-                                  style={{ width: `${globalStats.pctMissing}%` }} 
-                                  className="bg-rose-600 transition-all duration-500" 
-                                  title={`Absentes: ${globalStats.pctMissing}%`}
-                                />
-                              </div>
-                              <div className="flex justify-between text-[9px] text-slate-500">
-                                <span>{globalStats.pctExisting}% global</span>
-                                <span>{globalStats.pctMissing}% global</span>
-                              </div>
+
+                            <button
+                              disabled={historyCurrentPage === totalHistoryPages}
+                              onClick={() => setHistoryCurrentPage(prev => Math.min(prev + 1, totalHistoryPages))}
+                              className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
+
+                            <div className="flex items-center gap-1.5 ml-2">
+                              <span className="text-xs text-slate-400">Par page :</span>
+                              <select
+                                value={historyPageSize}
+                                onChange={(e) => {
+                                  setHistoryPageSize(parseInt(e.target.value));
+                                  setHistoryCurrentPage(1);
+                                }}
+                                className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1 outline-none"
+                              >
+                                <option value="15">15</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="500">500</option>
+                              </select>
                             </div>
-                          </td>
-                        </tr>
+                          </div>
+                        </div>
                       )}
-                    </tbody>
-                  </table>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )
       )}
     </div>
   );
