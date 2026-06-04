@@ -280,6 +280,15 @@ export default function RegtoolsDiffPage() {
   const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(15);
 
+  // New filters and sort states
+  const [statsTypeFilter, setStatsTypeFilter] = useState<string>("ALL");
+  const [historyStatsTypeFilter, setHistoryStatsTypeFilter] = useState<string>("ALL");
+  const [historySelectedAgency, setHistorySelectedAgency] = useState<string>("ALL");
+  const [detailsSortField, setDetailsSortField] = useState<string>("");
+  const [detailsSortDirection, setDetailsSortDirection] = useState<"asc" | "desc">("asc");
+  const [historyDetailsSortField, setHistoryDetailsSortField] = useState<string>("");
+  const [historyDetailsSortDirection, setHistoryDetailsSortDirection] = useState<"asc" | "desc">("asc");
+
   // File size formatter
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Octet";
@@ -474,11 +483,39 @@ export default function RegtoolsDiffPage() {
     });
   }, [missingRows, comparisonDone, selectedAgency, searchQuery, mapping.nsAgence]);
 
+  // Sort the filtered rows
+  const sortedRows = useMemo(() => {
+    if (!detailsSortField) return filteredRows;
+    const items = [...filteredRows];
+    items.sort((a, b) => {
+      const valA = a[detailsSortField];
+      const valB = b[detailsSortField];
+      
+      if (valA === undefined || valA === null) return detailsSortDirection === "asc" ? 1 : -1;
+      if (valB === undefined || valB === null) return detailsSortDirection === "asc" ? -1 : 1;
+      
+      const strA = String(valA).trim();
+      const strB = String(valB).trim();
+      
+      // Check if numeric
+      const numA = Number(strA);
+      const numB = Number(strB);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return detailsSortDirection === "asc" ? numA - numB : numB - numA;
+      }
+      
+      return detailsSortDirection === "asc"
+        ? strA.localeCompare(strB, undefined, { numeric: true, sensitivity: "base" })
+        : strB.localeCompare(strA, undefined, { numeric: true, sensitivity: "base" });
+    });
+    return items;
+  }, [filteredRows, detailsSortField, detailsSortDirection]);
+
   // Paginated data
   const paginatedRows = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize;
-    return filteredRows.slice(startIndex, startIndex + pageSize);
-  }, [filteredRows, currentPage, pageSize]);
+    return sortedRows.slice(startIndex, startIndex + pageSize);
+  }, [sortedRows, currentPage, pageSize]);
 
   const totalPages = Math.ceil(filteredRows.length / pageSize);
 
@@ -571,9 +608,104 @@ export default function RegtoolsDiffPage() {
     }
   };
 
+  // Export a single agency's discrepancy details
+  const exportSingleAgencyExcel = (agencyCode: string, isHistory: boolean) => {
+    try {
+      const agencyInfo = resolveAgencyInfo(agencyCode);
+      const currentDate = new Date().toLocaleDateString("fr-FR");
+      
+      let rowsToExport: any[] = [];
+      let nsCols: string[] = [];
+      let nsFileName = "";
+      
+      if (!isHistory) {
+        if (!comparisonDone || !mapping.nsAgence) return;
+        rowsToExport = missingRows.filter(row => {
+          const val = row[mapping.nsAgence];
+          return val !== undefined && val !== null && String(val).trim().replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
+        });
+        nsCols = columns.ns;
+        nsFileName = files.ns ? files.ns.name : "";
+      } else {
+        if (!selectedHistoryReport) return;
+        const agencyCol = selectedHistoryReport.mapping?.nsAgence;
+        if (!agencyCol) return;
+        rowsToExport = (selectedHistoryReport.missingRows || []).filter((row: any) => {
+          const val = row[agencyCol];
+          return val !== undefined && val !== null && String(val).trim().replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
+        });
+        nsCols = selectedHistoryReport.columnsNS || [];
+        nsFileName = selectedHistoryReport.fileNameNS || "";
+      }
+
+      if (rowsToExport.length === 0) {
+        alert(`Aucun écart trouvé pour l'agence ${agencyCode} (${agencyInfo.name}).`);
+        return;
+      }
+
+      const exportHeaders = [...nsCols, "CONSIGNE"];
+      const exportData = rowsToExport.map(row => {
+        const newRow: any = {};
+        nsCols.forEach(h => {
+          newRow[h] = row[h] !== undefined && row[h] !== null ? row[h] : "";
+        });
+        newRow["CONSIGNE"] = "Veuillez créer des fiches KYC pour ces clients";
+        return newRow;
+      });
+
+      const sheetAOA = [
+        [`RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS - AGENCE ${agencyCode}`],
+        [`Nom Agence : ${agencyInfo.name} | Type : ${agencyInfo.type}`],
+        ["CONSIGNE : Veuillez créer des fiches KYC pour ces clients"],
+        [`Fichier NS d'origine : ${nsFileName} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [],
+        exportHeaders
+      ];
+
+      exportData.forEach(row => {
+        sheetAOA.push(exportHeaders.map(h => row[h]));
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetAOA);
+      const wb = XLSX.utils.book_new();
+
+      ws["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: exportHeaders.length - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: exportHeaders.length - 1 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: exportHeaders.length - 1 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: exportHeaders.length - 1 } }
+      ];
+
+      ws["!rows"] = [
+        { hpt: 25 },
+        { hpt: 20 },
+        { hpt: 20 },
+        { hpt: 18 },
+        { hpt: 15 }
+      ];
+
+      const colWidths = exportHeaders.map((header, colIdx) => {
+        let maxLen = header.length;
+        for (let rIdx = 5; rIdx < sheetAOA.length; rIdx++) {
+          const val = sheetAOA[rIdx][colIdx];
+          if (val !== undefined && val !== null) {
+            maxLen = Math.max(maxLen, String(val).length);
+          }
+        }
+        return { wch: Math.min(Math.max(maxLen + 3, 10), 45) };
+      });
+      ws["!cols"] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, "Manquants");
+      XLSX.writeFile(wb, `NS_manquants_RegTools_Agence_${agencyCode}.xlsx`);
+    } catch (error: any) {
+      alert("Erreur lors de l'export Excel par agence : " + error.message);
+    }
+  };
+
   // Export Agency Statistics Excel function
   const exportStatsExcel = () => {
-    if (agencyStats.length === 0) return;
+    if (filteredAgencyStats.length === 0) return;
 
     try {
       const currentDate = new Date().toLocaleDateString("fr-FR");
@@ -591,12 +723,12 @@ export default function RegtoolsDiffPage() {
 
       const sheetAOA = [
         ["RAPPORT DE RAPPROCHEMENT - STATISTIQUES PAR AGENCE"],
-        [`Date d'export : ${currentDate} | Nombre d'agences : ${agencyStats.length}`],
+        [`Date d'export : ${currentDate} | Nombre d'agences : ${filteredAgencyStats.length}`],
         [],
         exportHeaders
       ];
 
-      agencyStats.forEach(stat => {
+      filteredAgencyStats.forEach(stat => {
         sheetAOA.push([
           stat.agence,
           stat.nom,
@@ -674,6 +806,11 @@ export default function RegtoolsDiffPage() {
     setStatsSearchQuery("");
     setStatsSortField("agence");
     setStatsSortDirection("asc");
+    
+    // Reset filters and sort
+    setStatsTypeFilter("ALL");
+    setDetailsSortField("");
+    setDetailsSortDirection("asc");
   };
 
   // Calculation parameters
@@ -758,14 +895,25 @@ export default function RegtoolsDiffPage() {
   }, [agencyStats, statsSortField, statsSortDirection]);
 
   const filteredAgencyStats = useMemo(() => {
-    if (statsSearchQuery.trim() === "") return sortedAgencyStats;
-    const query = statsSearchQuery.toLowerCase();
-    return sortedAgencyStats.filter(stat => 
-      stat.agence.toLowerCase().includes(query) ||
-      (stat.nom && stat.nom.toLowerCase().includes(query)) ||
-      (stat.type && stat.type.toLowerCase().includes(query))
-    );
-  }, [sortedAgencyStats, statsSearchQuery]);
+    return sortedAgencyStats.filter(stat => {
+      // Type Filter
+      let matchType = true;
+      if (statsTypeFilter !== "ALL") {
+        matchType = stat.type && stat.type.toLowerCase() === statsTypeFilter.toLowerCase();
+      }
+      
+      // Search Filter
+      let matchSearch = true;
+      if (statsSearchQuery.trim() !== "") {
+        const query = statsSearchQuery.toLowerCase();
+        matchSearch = stat.agence.toLowerCase().includes(query) ||
+          (stat.nom && stat.nom.toLowerCase().includes(query)) ||
+          (stat.type && stat.type.toLowerCase().includes(query));
+      }
+      
+      return matchType && matchSearch;
+    });
+  }, [sortedAgencyStats, statsSearchQuery, statsTypeFilter]);
 
   const globalStats = useMemo(() => {
     if (!comparisonDone || !data.ns) return null;
@@ -1058,31 +1206,101 @@ export default function RegtoolsDiffPage() {
   }, [resolvedHistoryAgencyStats, historySortField, historySortDirection]);
 
   const filteredHistoryAgencyStats = useMemo(() => {
-    if (historyStatsSearchQuery.trim() === "") return sortedHistoryAgencyStats;
-    const query = historyStatsSearchQuery.toLowerCase();
-    return sortedHistoryAgencyStats.filter(stat => 
-      stat.agence.toLowerCase().includes(query) ||
-      (stat.nom && stat.nom.toLowerCase().includes(query)) ||
-      (stat.type && stat.type.toLowerCase().includes(query))
-    );
-  }, [sortedHistoryAgencyStats, historyStatsSearchQuery]);
+    return sortedHistoryAgencyStats.filter(stat => {
+      // Type Filter
+      let matchType = true;
+      if (historyStatsTypeFilter !== "ALL") {
+        matchType = stat.type && stat.type.toLowerCase() === historyStatsTypeFilter.toLowerCase();
+      }
+      
+      // Search Filter
+      let matchSearch = true;
+      if (historyStatsSearchQuery.trim() !== "") {
+        const query = historyStatsSearchQuery.toLowerCase();
+        matchSearch = stat.agence.toLowerCase().includes(query) ||
+          (stat.nom && stat.nom.toLowerCase().includes(query)) ||
+          (stat.type && stat.type.toLowerCase().includes(query));
+      }
+      
+      return matchType && matchSearch;
+    });
+  }, [sortedHistoryAgencyStats, historyStatsSearchQuery, historyStatsTypeFilter]);
+
+  const historyAgenciesList = useMemo(() => {
+    if (!selectedHistoryReport || !selectedHistoryReport.missingRows) return [];
+    const agencyCol = selectedHistoryReport.mapping?.nsAgence;
+    if (!agencyCol) return [];
+    const agenciesSet = new Set<string>();
+    selectedHistoryReport.missingRows.forEach((row: any) => {
+      const agenceVal = row[agencyCol];
+      if (agenceVal !== undefined && agenceVal !== null) {
+        const agenceStr = String(agenceVal).trim();
+        if (agenceStr !== "") {
+          agenciesSet.add(agenceStr);
+        }
+      }
+    });
+    return Array.from(agenciesSet).sort((a, b) => a.localeCompare(b));
+  }, [selectedHistoryReport]);
 
   const filteredHistoryRows = useMemo(() => {
     if (!selectedHistoryReport) return [];
     const rows = selectedHistoryReport.missingRows || [];
-    if (historySearchQuery.trim() === "") return rows;
-    const query = historySearchQuery.toLowerCase();
-    return rows.filter((row: any) => 
-      Object.values(row).some(val => 
-        val !== undefined && val !== null && String(val).toLowerCase().includes(query)
-      )
-    );
-  }, [selectedHistoryReport, historySearchQuery]);
+    const agencyCol = selectedHistoryReport.mapping?.nsAgence;
+
+    return rows.filter((row: any) => {
+      // Agency Filter
+      let matchAgency = true;
+      if (historySelectedAgency !== "ALL" && agencyCol) {
+        const rowAgency = row[agencyCol];
+        matchAgency = rowAgency !== undefined && rowAgency !== null && String(rowAgency).trim() === historySelectedAgency;
+      }
+
+      // Search Filter
+      let matchSearch = true;
+      if (historySearchQuery.trim() !== "") {
+        const query = historySearchQuery.toLowerCase();
+        matchSearch = Object.values(row).some(val => 
+          val !== undefined && val !== null && String(val).toLowerCase().includes(query)
+        );
+      }
+
+      return matchAgency && matchSearch;
+    });
+  }, [selectedHistoryReport, historySearchQuery, historySelectedAgency]);
+
+  // Sort history rows
+  const sortedHistoryRows = useMemo(() => {
+    if (!historyDetailsSortField) return filteredHistoryRows;
+    const items = [...filteredHistoryRows];
+    items.sort((a, b) => {
+      const valA = a[historyDetailsSortField];
+      const valB = b[historyDetailsSortField];
+      
+      if (valA === undefined || valA === null) return historyDetailsSortDirection === "asc" ? 1 : -1;
+      if (valB === undefined || valB === null) return historyDetailsSortDirection === "asc" ? -1 : 1;
+      
+      const strA = String(valA).trim();
+      const strB = String(valB).trim();
+      
+      // Check if numeric
+      const numA = Number(strA);
+      const numB = Number(strB);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return historyDetailsSortDirection === "asc" ? numA - numB : numB - numA;
+      }
+      
+      return historyDetailsSortDirection === "asc"
+        ? strA.localeCompare(strB, undefined, { numeric: true, sensitivity: "base" })
+        : strB.localeCompare(strA, undefined, { numeric: true, sensitivity: "base" });
+    });
+    return items;
+  }, [filteredHistoryRows, historyDetailsSortField, historyDetailsSortDirection]);
 
   const paginatedHistoryRows = useMemo(() => {
     const startIndex = (historyCurrentPage - 1) * historyPageSize;
-    return filteredHistoryRows.slice(startIndex, startIndex + historyPageSize);
-  }, [filteredHistoryRows, historyCurrentPage, historyPageSize]);
+    return sortedHistoryRows.slice(startIndex, startIndex + historyPageSize);
+  }, [sortedHistoryRows, historyCurrentPage, historyPageSize]);
 
   const totalHistoryPages = Math.ceil(filteredHistoryRows.length / historyPageSize);
 
@@ -1109,11 +1327,12 @@ export default function RegtoolsDiffPage() {
   // History export function
   const exportHistoryExcel = () => {
     if (!selectedHistoryReport) return;
+    if (filteredHistoryRows.length === 0) return;
     try {
       const report = selectedHistoryReport;
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
       const exportHeaders = [...(report.columnsNS || []), "CONSIGNE"];
-      const exportData = (report.missingRows || []).map((row: any) => {
+      const exportData = filteredHistoryRows.map((row: any) => {
         const newRow: any = {};
         (report.columnsNS || []).forEach((h: string) => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? row[h] : "";
@@ -1171,6 +1390,7 @@ export default function RegtoolsDiffPage() {
 
   const exportHistoryStatsExcel = () => {
     if (!selectedHistoryReport) return;
+    if (filteredHistoryAgencyStats.length === 0) return;
     try {
       const report = selectedHistoryReport;
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
@@ -1187,12 +1407,12 @@ export default function RegtoolsDiffPage() {
 
       const sheetAOA = [
         [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - STATISTIQUES AGENCE - ${report.monthLabel}`],
-        [`Date d'export : ${currentDate} | Nombre d'agences : ${report.agencyStats.length}`],
+        [`Date d'export : ${currentDate} | Nombre d'agences : ${filteredHistoryAgencyStats.length}`],
         [],
         exportHeaders
       ];
 
-      resolvedHistoryAgencyStats.forEach((stat: any) => {
+      filteredHistoryAgencyStats.forEach((stat: any) => {
         sheetAOA.push([
           stat.agence,
           stat.nom,
@@ -1287,6 +1507,24 @@ export default function RegtoolsDiffPage() {
         </div>
       </th>
     );
+  };
+
+  const handleDetailsSort = (col: string) => {
+    if (detailsSortField === col) {
+      setDetailsSortDirection(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setDetailsSortField(col);
+      setDetailsSortDirection("asc");
+    }
+  };
+
+  const handleHistoryDetailsSort = (col: string) => {
+    if (historyDetailsSortField === col) {
+      setHistoryDetailsSortDirection(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setHistoryDetailsSortField(col);
+      setHistoryDetailsSortDirection("asc");
+    }
   };
 
   // Sort helper functions
@@ -1763,18 +2001,30 @@ export default function RegtoolsDiffPage() {
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                              {columns.ns.map(col => (
-                                <th 
-                                  key={`th-${col}`} 
-                                  className={cn(
-                                    "p-3 border-b border-slate-100 dark:border-slate-800/60",
-                                    col === mapping.nsId && "text-purple-600 dark:text-purple-400",
-                                    col === mapping.nsAgence && "text-blue-600 dark:text-blue-400"
-                                  )}
-                                >
-                                  {col}
-                                </th>
-                              ))}
+                              {columns.ns.map(col => {
+                                const isSortedCol = detailsSortField === col;
+                                return (
+                                  <th 
+                                    key={`th-${col}`} 
+                                    onClick={() => handleDetailsSort(col)}
+                                    className={cn(
+                                      "p-3 border-b border-slate-100 dark:border-slate-800/60 cursor-pointer select-none hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors",
+                                      col === mapping.nsId && "text-purple-600 dark:text-purple-400",
+                                      col === mapping.nsAgence && "text-blue-600 dark:text-blue-400"
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-1">
+                                      <span>{col}</span>
+                                      <span className={cn(
+                                        "text-[9px] transition-colors",
+                                        isSortedCol ? "text-blue-600 dark:text-blue-400 font-bold" : "text-slate-300 dark:text-slate-600"
+                                      )}>
+                                        {isSortedCol ? (detailsSortDirection === "asc" ? "▲" : "▼") : "▲▼"}
+                                      </span>
+                                    </div>
+                                  </th>
+                                );
+                              })}
                             </tr>
                           </thead>
                           <tbody>
@@ -1879,6 +2129,23 @@ export default function RegtoolsDiffPage() {
                     </div>
 
                     <div className="flex items-center gap-4 flex-wrap">
+                      {/* Type Filter */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Type :</label>
+                        <select
+                          value={statsTypeFilter}
+                          onChange={(e) => setStatsTypeFilter(e.target.value)}
+                          className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[130px]"
+                        >
+                          <option value="ALL">Tous les types</option>
+                          <option value="Succursale">Succursale</option>
+                          <option value="Agence">Agence</option>
+                          <option value="Courtier">Courtier</option>
+                          <option value="Bureau direct">Bureau direct</option>
+                          <option value="Agence Stagiaire">Agence Stagiaire</option>
+                        </select>
+                      </div>
+
                       {/* Search Bar */}
                       <div className="relative">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -1923,6 +2190,7 @@ export default function RegtoolsDiffPage() {
                             {renderSortableHeader("Taux Présence", "pctExisting", "center")}
                             {renderSortableHeader("Taux Absence", "pctMissing", "center")}
                             <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[200px]">Proportion Visuelle</th>
+                            <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[80px] text-center">Action</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1972,6 +2240,16 @@ export default function RegtoolsDiffPage() {
                                   </div>
                                 </div>
                               </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">
+                                <button
+                                  onClick={() => exportSingleAgencyExcel(stat.agence, false)}
+                                  disabled={stat.missing === 0}
+                                  className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors inline-flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent"
+                                  title="Exporter les écarts de cette agence"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </button>
+                              </td>
                             </tr>
                           ))}
                           {globalStats && (
@@ -2014,6 +2292,7 @@ export default function RegtoolsDiffPage() {
                                   </div>
                                 </div>
                               </td>
+                              <td className="p-3"></td>
                             </tr>
                           )}
                         </tbody>
@@ -2197,6 +2476,23 @@ export default function RegtoolsDiffPage() {
                     </div>
 
                     <div className="flex items-center gap-4 flex-wrap">
+                      {/* Type Filter */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Type :</label>
+                        <select
+                          value={historyStatsTypeFilter}
+                          onChange={(e) => setHistoryStatsTypeFilter(e.target.value)}
+                          className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[130px]"
+                        >
+                          <option value="ALL">Tous les types</option>
+                          <option value="Succursale">Succursale</option>
+                          <option value="Agence">Agence</option>
+                          <option value="Courtier">Courtier</option>
+                          <option value="Bureau direct">Bureau direct</option>
+                          <option value="Agence Stagiaire">Agence Stagiaire</option>
+                        </select>
+                      </div>
+
                       {/* Search Bar */}
                       <div className="relative">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -2239,6 +2535,7 @@ export default function RegtoolsDiffPage() {
                             {renderHistorySortableHeader("Taux Présence", "pctExisting", "center")}
                             {renderHistorySortableHeader("Taux Absence", "pctMissing", "center")}
                             <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[200px]">Proportion Visuelle</th>
+                            <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[80px] text-center">Action</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2288,6 +2585,16 @@ export default function RegtoolsDiffPage() {
                                   </div>
                                 </div>
                               </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">
+                                <button
+                                  onClick={() => exportSingleAgencyExcel(stat.agence, true)}
+                                  disabled={stat.missing === 0}
+                                  className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors inline-flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent"
+                                  title="Exporter les écarts de cette agence"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </button>
+                              </td>
                             </tr>
                           ))}
                           {selectedHistoryReport.globalStats && (
@@ -2330,6 +2637,7 @@ export default function RegtoolsDiffPage() {
                                   </div>
                                 </div>
                               </td>
+                              <td className="p-3"></td>
                             </tr>
                           )}
                         </tbody>
@@ -2348,6 +2656,24 @@ export default function RegtoolsDiffPage() {
                     </div>
 
                     <div className="flex items-center gap-4 flex-wrap">
+                      {/* Agency Filter */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Agence :</label>
+                        <select
+                          value={historySelectedAgency}
+                          onChange={(e) => {
+                            setHistorySelectedAgency(e.target.value);
+                            setHistoryCurrentPage(1);
+                          }}
+                          className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[150px]"
+                        >
+                          <option value="ALL">Toutes les agences</option>
+                          {historyAgenciesList.map(agence => (
+                            <option key={`history-filter-agence-${agence}`} value={agence}>{agence}</option>
+                          ))}
+                        </select>
+                      </div>
+
                       {/* Search Bar */}
                       <div className="relative">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -2386,18 +2712,30 @@ export default function RegtoolsDiffPage() {
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                              {(selectedHistoryReport.columnsNS || []).map((col: string) => (
-                                <th 
-                                  key={`history-th-${col}`} 
-                                  className={cn(
-                                    "p-3 border-b border-slate-100 dark:border-slate-800/60",
-                                    col === selectedHistoryReport.mapping?.nsId && "text-purple-600 dark:text-purple-400",
-                                    col === selectedHistoryReport.mapping?.nsAgence && "text-blue-600 dark:text-blue-400"
-                                  )}
-                                >
-                                  {col}
-                                </th>
-                              ))}
+                              {(selectedHistoryReport.columnsNS || []).map((col: string) => {
+                                const isSortedCol = historyDetailsSortField === col;
+                                return (
+                                  <th 
+                                    key={`history-th-${col}`} 
+                                    onClick={() => handleHistoryDetailsSort(col)}
+                                    className={cn(
+                                      "p-3 border-b border-slate-100 dark:border-slate-800/60 cursor-pointer select-none hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors",
+                                      col === selectedHistoryReport.mapping?.nsId && "text-purple-600 dark:text-purple-400",
+                                      col === selectedHistoryReport.mapping?.nsAgence && "text-blue-600 dark:text-blue-400"
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-1">
+                                      <span>{col}</span>
+                                      <span className={cn(
+                                        "text-[9px] transition-colors",
+                                        isSortedCol ? "text-blue-600 dark:text-blue-400 font-bold" : "text-slate-300 dark:text-slate-600"
+                                      )}>
+                                        {isSortedCol ? (historyDetailsSortDirection === "asc" ? "▲" : "▼") : "▲▼"}
+                                      </span>
+                                    </div>
+                                  </th>
+                                );
+                              })}
                             </tr>
                           </thead>
                           <tbody>
