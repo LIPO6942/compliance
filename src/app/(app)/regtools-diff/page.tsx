@@ -739,8 +739,8 @@ export default function RegtoolsDiffPage() {
         "Total NS",
         "Présentes dans RegTools (KYC Conformes)",
         "Absentes de RegTools (KYC Manquants)",
-        "Taux de Présence (%)",
-        "Taux d'Absence (%)"
+        "Taux de Présence KYC (%)",
+        "Taux d'Absence KYC (%)"
       ];
 
       const sheetAOA = [
@@ -1438,8 +1438,8 @@ export default function RegtoolsDiffPage() {
         "Total NS",
         "Présentes dans RegTools (KYC Conformes)",
         "Absentes de RegTools (KYC Manquants)",
-        "Taux de Présence (%)",
-        "Taux d'Absence (%)"
+        "Taux de Présence KYC (%)",
+        "Taux d'Absence KYC (%)"
       ];
 
       const sheetAOA = [
@@ -2224,8 +2224,8 @@ export default function RegtoolsDiffPage() {
                             {renderSortableHeader("Total NS", "total", "center")}
                             {renderSortableHeader("Présentes (Conformes)", "existing", "center")}
                             {renderSortableHeader("Absentes (Écarts)", "missing", "center")}
-                            {renderSortableHeader("Taux Présence", "pctExisting", "center")}
-                            {renderSortableHeader("Taux Absence", "pctMissing", "center")}
+                            {renderSortableHeader("Taux Présence KYC", "pctExisting", "center")}
+                            {renderSortableHeader("Taux Absence KYC", "pctMissing", "center")}
                             <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[200px]">Proportion Visuelle</th>
                             <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[80px] text-center">Action</th>
                           </tr>
@@ -2405,13 +2405,13 @@ export default function RegtoolsDiffPage() {
                           </span>
                         </div>
                         <div className="flex justify-between pt-1 font-semibold text-slate-700 dark:text-slate-300">
-                          <span>Taux de Présence :</span>
+                          <span>Taux de Présence KYC :</span>
                           <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                             {report.globalStats?.pctExisting}%
                           </span>
                         </div>
                         <div className="flex justify-between font-semibold text-slate-700 dark:text-slate-300">
-                          <span>Taux d'Écart :</span>
+                          <span>Taux d'Absence KYC :</span>
                           <span className="text-rose-600 dark:text-rose-400 font-bold">
                             {report.globalStats?.pctMissing}%
                           </span>
@@ -2463,10 +2463,10 @@ export default function RegtoolsDiffPage() {
 
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                  Taux Présence : {selectedHistoryReport.globalStats?.pctExisting}%
+                  Taux Présence KYC : {selectedHistoryReport.globalStats?.pctExisting}%
                 </span>
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                  Taux Absence : {selectedHistoryReport.globalStats?.pctMissing}%
+                  Taux Absence KYC : {selectedHistoryReport.globalStats?.pctMissing}%
                 </span>
               </div>
             </div>
@@ -2569,8 +2569,8 @@ export default function RegtoolsDiffPage() {
                             {renderHistorySortableHeader("Total NS", "total", "center")}
                             {renderHistorySortableHeader("Présentes (Conformes)", "existing", "center")}
                             {renderHistorySortableHeader("Absentes (Écarts)", "missing", "center")}
-                            {renderHistorySortableHeader("Taux Présence", "pctExisting", "center")}
-                            {renderHistorySortableHeader("Taux Absence", "pctMissing", "center")}
+                            {renderHistorySortableHeader("Taux Présence KYC", "pctExisting", "center")}
+                            {renderHistorySortableHeader("Taux Absence KYC", "pctMissing", "center")}
                             <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[200px]">Proportion Visuelle</th>
                             <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[80px] text-center">Action</th>
                           </tr>
