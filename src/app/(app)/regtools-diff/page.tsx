@@ -98,6 +98,10 @@ export default function RegtoolsDiffPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
 
+  // Agency stats and tabs state
+  const [activeTab, setActiveTab] = useState<"list" | "stats">("list");
+  const [statsSearchQuery, setStatsSearchQuery] = useState("");
+
   // File size formatter
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Octet";
@@ -389,6 +393,88 @@ export default function RegtoolsDiffPage() {
     }
   };
 
+  // Export Agency Statistics Excel function
+  const exportStatsExcel = () => {
+    if (agencyStats.length === 0) return;
+
+    try {
+      const currentDate = new Date().toLocaleDateString("fr-FR");
+
+      const exportHeaders = [
+        "Agence",
+        "Total NS",
+        "Présentes dans RegTools (KYC Conformes)",
+        "Absentes de RegTools (KYC Manquants)",
+        "Taux de Présence (%)",
+        "Taux d'Absence (%)"
+      ];
+
+      const sheetAOA = [
+        ["RAPPORT DE RAPPROCHEMENT - STATISTIQUES PAR AGENCE"],
+        [`Date d'export : ${currentDate} | Nombre d'agences : ${agencyStats.length}`],
+        [],
+        exportHeaders
+      ];
+
+      agencyStats.forEach(stat => {
+        sheetAOA.push([
+          stat.agence,
+          stat.total,
+          stat.existing,
+          stat.missing,
+          stat.pctExisting,
+          stat.pctMissing
+        ]);
+      });
+
+      if (globalStats) {
+        sheetAOA.push([]);
+        sheetAOA.push([
+          "TOTAL GLOBAL",
+          globalStats.total,
+          globalStats.existing,
+          globalStats.missing,
+          globalStats.pctExisting,
+          globalStats.pctMissing
+        ]);
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetAOA);
+      const wb = XLSX.utils.book_new();
+
+      // Merges
+      ws["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: exportHeaders.length - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: exportHeaders.length - 1 } }
+      ];
+
+      // Row Heights
+      ws["!rows"] = [
+        { hpt: 25 },
+        { hpt: 20 },
+        { hpt: 15 }
+      ];
+
+      // Column widths Auto-Fit
+      const colWidths = exportHeaders.map((header, colIdx) => {
+        let maxLen = header.length;
+        for (let rIdx = 3; rIdx < sheetAOA.length; rIdx++) {
+          const val = sheetAOA[rIdx][colIdx];
+          if (val !== undefined && val !== null) {
+            maxLen = Math.max(maxLen, String(val).length);
+          }
+        }
+        return { wch: Math.min(Math.max(maxLen + 3, 10), 45) };
+      });
+      ws["!cols"] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, "Stats Agences");
+      XLSX.writeFile(wb, `NS_Statistiques_Par_Agence_${currentDate.replace(/\//g, "-")}.xlsx`);
+    } catch (error: any) {
+      alert("Erreur lors de l'export Excel des statistiques : " + error.message);
+    }
+  };
+
   // Reset function
   const handleReset = () => {
     setFiles({ regtools: null, ns: null });
@@ -400,6 +486,8 @@ export default function RegtoolsDiffPage() {
     setComparisonDone(false);
     setSelectedAgency("ALL");
     setSearchQuery("");
+    setActiveTab("list");
+    setStatsSearchQuery("");
   };
 
   // Calculation parameters
@@ -407,6 +495,73 @@ export default function RegtoolsDiffPage() {
     if (!data.ns || !comparisonDone) return 0;
     const foundCount = data.ns.length - missingRows.length;
     return parseFloat(((foundCount / data.ns.length) * 100).toFixed(2));
+  }, [data.ns, missingRows, comparisonDone]);
+
+  // Agency statistics calculations
+  const agencyStats = useMemo(() => {
+    if (!comparisonDone || !data.ns || !mapping.nsAgence) return [];
+
+    const statsMap = new Map<string, { total: number; missing: number }>();
+
+    // Count total rows per agency in NS
+    data.ns.forEach(row => {
+      const agenceVal = row[mapping.nsAgence];
+      const agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
+      if (!statsMap.has(agenceStr)) {
+        statsMap.set(agenceStr, { total: 0, missing: 0 });
+      }
+      statsMap.get(agenceStr)!.total += 1;
+    });
+
+    // Count missing rows per agency
+    missingRows.forEach(row => {
+      const agenceVal = row[mapping.nsAgence];
+      const agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
+      if (statsMap.has(agenceStr)) {
+        statsMap.get(agenceStr)!.missing += 1;
+      } else {
+        statsMap.set(agenceStr, { total: 0, missing: 1 });
+      }
+    });
+
+    // Convert to array and calculate percentages
+    return Array.from(statsMap.entries())
+      .map(([agence, counts]) => {
+        const existing = counts.total - counts.missing;
+        const pctMissing = counts.total > 0 ? parseFloat(((counts.missing / counts.total) * 100).toFixed(2)) : 0;
+        const pctExisting = counts.total > 0 ? parseFloat(((existing / counts.total) * 100).toFixed(2)) : 0;
+        return {
+          agence,
+          total: counts.total,
+          missing: counts.missing,
+          existing,
+          pctMissing,
+          pctExisting
+        };
+      })
+      .sort((a, b) => a.agence.localeCompare(b));
+  }, [data.ns, missingRows, comparisonDone, mapping.nsAgence]);
+
+  const filteredAgencyStats = useMemo(() => {
+    if (statsSearchQuery.trim() === "") return agencyStats;
+    const query = statsSearchQuery.toLowerCase();
+    return agencyStats.filter(stat => stat.agence.toLowerCase().includes(query));
+  }, [agencyStats, statsSearchQuery]);
+
+  const globalStats = useMemo(() => {
+    if (!comparisonDone || !data.ns) return null;
+    const total = data.ns.length;
+    const missing = missingRows.length;
+    const existing = total - missing;
+    const pctExisting = total > 0 ? parseFloat(((existing / total) * 100).toFixed(2)) : 0;
+    const pctMissing = total > 0 ? parseFloat(((missing / total) * 100).toFixed(2)) : 0;
+    return {
+      total,
+      missing,
+      existing,
+      pctExisting,
+      pctMissing
+    };
   }, [data.ns, missingRows, comparisonDone]);
 
   return (
@@ -698,177 +853,354 @@ export default function RegtoolsDiffPage() {
         </div>
       )}
 
-      {/* Comparison Results Table */}
+      {/* Comparison Results Container */}
       {comparisonDone && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-5 flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-800 dark:text-white">Lignes NS absentes de RegTools</h3>
-              <span className="text-xs font-bold px-2 py-0.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-full">
-                {filteredRows.length.toLocaleString("fr-FR")} lignes
-              </span>
-            </div>
-
-            {/* Actions Panel */}
-            <div className="flex items-center gap-4 flex-wrap">
-              {/* Agency Filter */}
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Agence :</label>
-                <select
-                  value={selectedAgency}
-                  onChange={(e) => {
-                    setSelectedAgency(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[150px]"
-                >
-                  <option value="ALL">Toutes les agences</option>
-                  {agenciesList.map(agence => (
-                    <option key={`filter-agence-${agence}`} value={agence}>{agence}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Rechercher..."
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none w-[200px] focus:border-blue-500 focus:bg-white transition-all"
-                />
-              </div>
-
-              {/* Export Trigger */}
-              <button
-                onClick={exportExcel}
-                disabled={filteredRows.length === 0}
-                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5"
-              >
-                <Download className="h-4 w-4" />
-                Exporter Excel
-              </button>
-            </div>
+          {/* Tabs header */}
+          <div className="flex border-b border-slate-200 dark:border-slate-800 mb-2">
+            <button
+              onClick={() => setActiveTab("list")}
+              className={cn(
+                "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
+                activeTab === "list"
+                  ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
+                  : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              )}
+            >
+              <FileText className="h-4 w-4" />
+              Détails des Écarts ({filteredRows.length.toLocaleString("fr-FR")} lignes)
+            </button>
+            <button
+              onClick={() => setActiveTab("stats")}
+              className={cn(
+                "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
+                activeTab === "stats"
+                  ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
+                  : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              )}
+            >
+              <AlertTriangle className="h-4 w-4" />
+              Statistiques par Agence ({filteredAgencyStats.length} agences)
+            </button>
           </div>
 
-          {/* Table Element */}
-          {filteredRows.length === 0 ? (
-            <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
-              <CheckCircle2 className="h-12 w-12 text-emerald-500" />
-              <h4 className="font-semibold text-slate-800 dark:text-white">Aucun écart détecté !</h4>
-              <p className="text-xs text-slate-400">Toutes les lignes correspondent aux critères actuels.</p>
+          {activeTab === "list" ? (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-slate-800 dark:text-white">Lignes NS absentes de RegTools</h3>
+                  <span className="text-xs font-bold px-2 py-0.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-full">
+                    {filteredRows.length.toLocaleString("fr-FR")} lignes
+                  </span>
+                </div>
+
+                {/* Actions Panel */}
+                <div className="flex items-center gap-4 flex-wrap">
+                  {/* Agency Filter */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Agence :</label>
+                    <select
+                      value={selectedAgency}
+                      onChange={(e) => {
+                        setSelectedAgency(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[150px]"
+                    >
+                      <option value="ALL">Toutes les agences</option>
+                      {agenciesList.map(agence => (
+                        <option key={`filter-agence-${agence}`} value={agence}>{agence}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none w-[200px] focus:border-blue-500 focus:bg-white transition-all"
+                    />
+                  </div>
+
+                  {/* Export Trigger */}
+                  <button
+                    onClick={exportExcel}
+                    disabled={filteredRows.length === 0}
+                    className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5"
+                  >
+                    <Download className="h-4 w-4" />
+                    Exporter Excel
+                  </button>
+                </div>
+              </div>
+
+              {/* Table Element */}
+              {filteredRows.length === 0 ? (
+                <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
+                  <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+                  <h4 className="font-semibold text-slate-800 dark:text-white">Aucun écart détecté !</h4>
+                  <p className="text-xs text-slate-400">Toutes les lignes correspondent aux critères actuels.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <div className="overflow-x-auto border border-slate-100 dark:border-slate-800/60 rounded-xl">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                          {columns.ns.map(col => (
+                            <th 
+                              key={`th-${col}`} 
+                              className={cn(
+                                "p-3 border-b border-slate-100 dark:border-slate-800/60",
+                                col === mapping.nsId && "text-purple-600 dark:text-purple-400",
+                                col === mapping.nsAgence && "text-blue-600 dark:text-blue-400"
+                              )}
+                            >
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedRows.map((row, rIdx) => (
+                          <tr key={`tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                            {columns.ns.map(col => (
+                              <td 
+                                key={`td-${rIdx}-${col}`} 
+                                className={cn(
+                                  "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300",
+                                  col === mapping.nsId && "font-bold text-purple-600 dark:text-purple-400",
+                                  col === mapping.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
+                                )}
+                              >
+                                {row[col] !== undefined && row[col] !== null ? String(row[col]) : ""}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination controls */}
+                  {totalPages > 1 && (
+                    <div className="flex justify-between items-center gap-4 flex-wrap pt-2">
+                      <span className="text-xs text-slate-400 font-medium">
+                        Affichage de <span className="font-bold text-slate-700 dark:text-white">{(currentPage - 1) * pageSize + 1}</span> à{" "}
+                        <span className="font-bold text-slate-700 dark:text-white">{Math.min(currentPage * pageSize, filteredRows.length)}</span> sur{" "}
+                        <span className="font-bold text-slate-700 dark:text-white">{filteredRows.length}</span> lignes
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        
+                        <div className="flex items-center gap-1">
+                          {paginationRange.map((p, pIdx) => {
+                            if (p === "...") {
+                              return <span key={`ellip-${pIdx}`} className="px-2 text-slate-400">...</span>;
+                            }
+                            return (
+                              <button
+                                key={`page-btn-${p}`}
+                                onClick={() => setCurrentPage(p as number)}
+                                className={cn(
+                                  "h-7 w-7 text-xs font-semibold rounded-lg transition-all",
+                                  p === currentPage
+                                    ? "bg-blue-600 text-white shadow-md shadow-blue-500/10"
+                                    : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                                )}
+                              >
+                                {p}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                          className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+
+                        <div className="flex items-center gap-1.5 ml-2">
+                          <span className="text-xs text-slate-400">Par page :</span>
+                          <select
+                            value={pageSize}
+                            onChange={(e) => {
+                              setPageSize(parseInt(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1 outline-none"
+                          >
+                            <option value="15">15</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="500">500</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              <div className="overflow-x-auto border border-slate-100 dark:border-slate-800/60 rounded-xl">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                      {columns.ns.map(col => (
-                        <th 
-                          key={`th-${col}`} 
-                          className={cn(
-                            "p-3 border-b border-slate-100 dark:border-slate-800/60",
-                            col === mapping.nsId && "text-purple-600 dark:text-purple-400",
-                            col === mapping.nsAgence && "text-blue-600 dark:text-blue-400"
-                          )}
-                        >
-                          {col}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedRows.map((row, rIdx) => (
-                      <tr key={`tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                        {columns.ns.map(col => (
-                          <td 
-                            key={`td-${rIdx}-${col}`} 
-                            className={cn(
-                              "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300",
-                              col === mapping.nsId && "font-bold text-purple-600 dark:text-purple-400",
-                              col === mapping.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
-                            )}
-                          >
-                            {row[col] !== undefined && row[col] !== null ? String(row[col]) : ""}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-slate-800 dark:text-white">Rapprochement par Agence</h3>
+                  <span className="text-xs font-bold px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full">
+                    {filteredAgencyStats.length} agences
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-4 flex-wrap">
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher une agence..."
+                      value={statsSearchQuery}
+                      onChange={(e) => setStatsSearchQuery(e.target.value)}
+                      className="pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none w-[200px] focus:border-blue-500 focus:bg-white transition-all"
+                    />
+                  </div>
+
+                  {/* Export Stats Trigger */}
+                  <button
+                    onClick={exportStatsExcel}
+                    disabled={filteredAgencyStats.length === 0}
+                    className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5"
+                  >
+                    <Download className="h-4 w-4" />
+                    Exporter les Statistiques
+                  </button>
+                </div>
               </div>
 
-              {/* Pagination controls */}
-              {totalPages > 1 && (
-                <div className="flex justify-between items-center gap-4 flex-wrap pt-2">
-                  <span className="text-xs text-slate-400 font-medium">
-                    Affichage de <span className="font-bold text-slate-700 dark:text-white">{(currentPage - 1) * pageSize + 1}</span> à{" "}
-                    <span className="font-bold text-slate-700 dark:text-white">{Math.min(currentPage * pageSize, filteredRows.length)}</span> sur{" "}
-                    <span className="font-bold text-slate-700 dark:text-white">{filteredRows.length}</span> lignes
-                  </span>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    
-                    <div className="flex items-center gap-1">
-                      {paginationRange.map((p, pIdx) => {
-                        if (p === "...") {
-                          return <span key={`ellip-${pIdx}`} className="px-2 text-slate-400">...</span>;
-                        }
-                        return (
-                          <button
-                            key={`page-btn-${p}`}
-                            onClick={() => setCurrentPage(p as number)}
-                            className={cn(
-                              "h-7 w-7 text-xs font-semibold rounded-lg transition-all",
-                              p === currentPage
-                                ? "bg-blue-600 text-white shadow-md shadow-blue-500/10"
-                                : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
-                            )}
-                          >
-                            {p}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <button
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-
-                    <div className="flex items-center gap-1.5 ml-2">
-                      <span className="text-xs text-slate-400">Par page :</span>
-                      <select
-                        value={pageSize}
-                        onChange={(e) => {
-                          setPageSize(parseInt(e.target.value));
-                          setCurrentPage(1);
-                        }}
-                        className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1 outline-none"
-                      >
-                        <option value="15">15</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="500">500</option>
-                      </select>
-                    </div>
-                  </div>
+              {filteredAgencyStats.length === 0 ? (
+                <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
+                  <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+                  <h4 className="font-semibold text-slate-800 dark:text-white">Aucune agence trouvée</h4>
+                  <p className="text-xs text-slate-400">Aucune agence ne correspond à votre recherche.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-slate-100 dark:border-slate-800/60 rounded-xl">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60">Agence</th>
+                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Total NS</th>
+                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Présentes (Conformes)</th>
+                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Absentes (Écarts)</th>
+                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Taux Présence</th>
+                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Taux Absence</th>
+                        <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[200px]">Proportion Visuelle</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredAgencyStats.map((stat, idx) => (
+                        <tr key={`stat-row-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 font-medium text-slate-900 dark:text-white">
+                            {stat.agence}
+                          </td>
+                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-semibold text-slate-700 dark:text-slate-300">
+                            {stat.total.toLocaleString("fr-FR")}
+                          </td>
+                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-emerald-600 dark:text-emerald-400 font-medium">
+                            {stat.existing.toLocaleString("fr-FR")}
+                          </td>
+                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-rose-600 dark:text-rose-400 font-medium">
+                            {stat.missing.toLocaleString("fr-FR")}
+                          </td>
+                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-bold text-emerald-600 dark:text-emerald-400">
+                            {stat.pctExisting}%
+                          </td>
+                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-bold text-rose-600 dark:text-rose-400">
+                            {stat.pctMissing}%
+                          </td>
+                          <td className="p-3 border-b border-slate-100 dark:border-slate-800/60">
+                            <div className="flex flex-col gap-1 w-full">
+                              <div className="flex h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                <div 
+                                  style={{ width: `${stat.pctExisting}%` }} 
+                                  className="bg-emerald-500 transition-all duration-500" 
+                                  title={`Présentes: ${stat.pctExisting}%`}
+                                />
+                                <div 
+                                  style={{ width: `${stat.pctMissing}%` }} 
+                                  className="bg-rose-500 transition-all duration-500" 
+                                  title={`Absentes: ${stat.pctMissing}%`}
+                                />
+                              </div>
+                              <div className="flex justify-between text-[9px] text-slate-400">
+                                <span>{stat.pctExisting}% présent</span>
+                                <span>{stat.pctMissing}% absent</span>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {globalStats && (
+                        <tr className="bg-slate-50/80 dark:bg-slate-900/80 font-bold border-t border-slate-200 dark:border-slate-800">
+                          <td className="p-3 text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">
+                            TOTAL GLOBAL
+                          </td>
+                          <td className="p-3 text-center text-slate-900 dark:text-white">
+                            {globalStats.total.toLocaleString("fr-FR")}
+                          </td>
+                          <td className="p-3 text-center text-emerald-600 dark:text-emerald-400">
+                            {globalStats.existing.toLocaleString("fr-FR")}
+                          </td>
+                          <td className="p-3 text-center text-rose-600 dark:text-rose-400">
+                            {globalStats.missing.toLocaleString("fr-FR")}
+                          </td>
+                          <td className="p-3 text-center text-emerald-600 dark:text-emerald-400">
+                            {globalStats.pctExisting}%
+                          </td>
+                          <td className="p-3 text-center text-rose-600 dark:text-rose-400">
+                            {globalStats.pctMissing}%
+                          </td>
+                          <td className="p-3">
+                            <div className="flex flex-col gap-1 w-full">
+                              <div className="flex h-2.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                <div 
+                                  style={{ width: `${globalStats.pctExisting}%` }} 
+                                  className="bg-emerald-600 transition-all duration-500" 
+                                  title={`Présentes: ${globalStats.pctExisting}%`}
+                                />
+                                <div 
+                                  style={{ width: `${globalStats.pctMissing}%` }} 
+                                  className="bg-rose-600 transition-all duration-500" 
+                                  title={`Absentes: ${globalStats.pctMissing}%`}
+                                />
+                              </div>
+                              <div className="flex justify-between text-[9px] text-slate-500">
+                                <span>{globalStats.pctExisting}% global</span>
+                                <span>{globalStats.pctMissing}% global</span>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
