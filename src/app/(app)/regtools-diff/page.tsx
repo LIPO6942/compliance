@@ -219,6 +219,25 @@ const resolveAgencyInfo = (code: any) => {
   };
 };
 
+// Excel Date formatting helper
+const formatExcelValue = (colName: string, val: any): string => {
+  if (val === undefined || val === null || val === "") return "";
+  const strVal = String(val).trim();
+  
+  if (colName.toLowerCase().includes("date")) {
+    const num = Number(strVal);
+    if (!isNaN(num) && num > 10000 && num < 100000) {
+      const days = num - (num > 59 ? 25569 : 25568);
+      const date = new Date(days * 24 * 3600 * 1000);
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const year = date.getUTCFullYear();
+      return `${day}/${month}/${year}`;
+    }
+  }
+  return strVal;
+};
+
 export default function RegtoolsDiffPage() {
   // File state
   const [files, setFiles] = useState<{ regtools: File | null; ns: File | null }>({
@@ -552,7 +571,7 @@ export default function RegtoolsDiffPage() {
       const exportData = filteredRows.map(row => {
         const newRow: any = {};
         columns.ns.forEach(h => {
-          newRow[h] = row[h] !== undefined && row[h] !== null ? row[h] : "";
+          newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
         newRow["CONSIGNE"] = "Veuillez créer des fiches KYC pour ces clients";
         return newRow;
@@ -647,7 +666,7 @@ export default function RegtoolsDiffPage() {
       const exportData = rowsToExport.map(row => {
         const newRow: any = {};
         nsCols.forEach(h => {
-          newRow[h] = row[h] !== undefined && row[h] !== null ? row[h] : "";
+          newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
         newRow["CONSIGNE"] = "Veuillez créer des fiches KYC pour ces clients";
         return newRow;
@@ -1335,7 +1354,7 @@ export default function RegtoolsDiffPage() {
       const exportData = filteredHistoryRows.map((row: any) => {
         const newRow: any = {};
         (report.columnsNS || []).forEach((h: string) => {
-          newRow[h] = row[h] !== undefined && row[h] !== null ? row[h] : "";
+          newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
         newRow["CONSIGNE"] = "Veuillez créer des fiches KYC pour ces clients";
         return newRow;
@@ -1568,7 +1587,7 @@ export default function RegtoolsDiffPage() {
 
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 w-full">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
@@ -2039,7 +2058,7 @@ export default function RegtoolsDiffPage() {
                                       col === mapping.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
                                     )}
                                   >
-                                    {row[col] !== undefined && row[col] !== null ? String(row[col]) : ""}
+                                    {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   </td>
                                 ))}
                               </tr>
@@ -2750,7 +2769,7 @@ export default function RegtoolsDiffPage() {
                                       col === selectedHistoryReport.mapping?.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
                                     )}
                                   >
-                                    {row[col] !== undefined && row[col] !== null ? String(row[col]) : ""}
+                                    {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   </td>
                                 ))}
                               </tr>
