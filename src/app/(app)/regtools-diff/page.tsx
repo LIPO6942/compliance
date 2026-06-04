@@ -60,6 +60,165 @@ const autoDetectCol = (cols: string[], possibleNames: string[]): string => {
   return cols[0] || "";
 };
 
+const AGENCY_MAPPING: Record<string, { name: string; type: string }> = {
+  "101": { name: "Place Barcelone", type: "Succursale" },
+  "102": { name: "Bizerte", type: "Succursale" },
+  "103": { name: "Sousse 1", type: "Succursale" },
+  "104": { name: "Sfax 1", type: "Succursale" },
+  "105": { name: "Bab Bnet", type: "Succursale" },
+  "106": { name: "Kairouan", type: "Succursale" },
+  "107": { name: "Gabès", type: "Succursale" },
+  "108": { name: "Béja", type: "Succursale" },
+  "109": { name: "Nabeul", type: "Succursale" },
+  "110": { name: "Al Djazira", type: "Succursale" },
+  "111": { name: "Monastir", type: "Succursale" },
+  "112": { name: "Jean Jaurès", type: "Succursale" },
+  "113": { name: "Lafayette", type: "Succursale" },
+  "114": { name: "Kef", type: "Succursale" },
+  "115": { name: "Ariana", type: "Succursale" },
+  "116": { name: "Bardo", type: "Succursale" },
+  "117": { name: "Sfax 2", type: "Succursale" },
+  "118": { name: "Sousse 2", type: "Succursale" },
+  "119": { name: "Ben Arous I", type: "Succursale" },
+  "120": { name: "Djerba", type: "Succursale" },
+  "121": { name: "Gafsa", type: "Succursale" },
+  "122": { name: "Mourouj", type: "Succursale" },
+  "123": { name: "Siliana", type: "Succursale" },
+  "124": { name: "Mahdia", type: "Succursale" },
+  "125": { name: "Kelibia", type: "Succursale" },
+  "126": { name: "Jendouba", type: "Succursale" },
+  "127": { name: "Les Berges du Lac", type: "Succursale" },
+  "128": { name: "Manar", type: "Succursale" },
+  "129": { name: "Sakiet Ezzit", type: "Succursale" },
+  "130": { name: "Hammam Lif", type: "Succursale" },
+  "131": { name: "Hammamet", type: "Succursale" },
+  "132": { name: "M'saken", type: "Succursale" },
+  "133": { name: "Zarzis", type: "Succursale" },
+  "134": { name: "Sakiet Eddayer", type: "Succursale" },
+  "135": { name: "Manouba", type: "Succursale" },
+  "136": { name: "Ennasr", type: "Succursale" },
+  "137": { name: "Ben Arous II", type: "Succursale" },
+  "138": { name: "El Menzah", type: "Succursale" },
+  "139": { name: "El Kram", type: "Succursale" },
+  "140": { name: "Tataouine", type: "Succursale" },
+  "141": { name: "Soukra", type: "Succursale" },
+  "142": { name: "Béja II", type: "Succursale" },
+  "143": { name: "Nabeul II", type: "Succursale" },
+  "144": { name: "AG Sousse (Tafala)", type: "Agence" },
+  "146": { name: "AG Gabès", type: "Agence" },
+  "147": { name: "AG Raoued", type: "Agence" },
+  "149": { name: "AG El Mourouj 3", type: "Agence" },
+  "150": { name: "AG Ezzouhour", type: "Agence" },
+  "151": { name: "AG Sousse Erriadh", type: "Agence" },
+  "152": { name: "AG Sahloul sousse1", type: "Agence" },
+  "154": { name: "AG Ennasr II", type: "Agence" },
+  "155": { name: "AG Sidi hassine", type: "Agence" },
+  "156": { name: "AG El Ouardia", type: "Agence" },
+  "157": { name: "AG Mannouba", type: "Agence" },
+  "160": { name: "AG chebba", type: "Agence" },
+  "161": { name: "AG Boumerdès", type: "Agence" },
+  "162": { name: "AG kef", type: "Agence" },
+  "165": { name: "AG Enfidha", type: "Agence" },
+  "167": { name: "AG Menzel Bourguiba", type: "Agence" },
+  "168": { name: "AG Grombalia", type: "Agence" },
+  "169": { name: "Testour", type: "Succursale" },
+  "170": { name: "AG TRIGUI", type: "Agence" },
+  "171": { name: "AG Ettadhamen", type: "Agence" },
+  "172": { name: "AG Mjez El Bab", type: "Agence" },
+  "173": { name: "AG Ezzahra", type: "Agence" },
+  "176": { name: "AG L'Aouina", type: "Agence" },
+  "179": { name: "AG Gafsa", type: "Agence" },
+  "180": { name: "Zaghouan", type: "Succursale" },
+  "181": { name: "AG Kairouan", type: "Agence" },
+  "183": { name: "AG Kebili", type: "Agence" },
+  "184": { name: "AG Mégrine", type: "Agence" },
+  "185": { name: "AG Sfax", type: "Agence" },
+  "186": { name: "AG Sfax I", type: "Agence" },
+  "187": { name: "AG Médenine", type: "Agence" },
+  "188": { name: "AG Korba", type: "Agence" },
+  "191": { name: "AG Moknine", type: "Agence" },
+  "192": { name: "AG Djerba", type: "Agence" },
+  "193": { name: "AG Feriana", type: "Agence" },
+  "194": { name: "AG Kasserine", type: "Agence" },
+  "195": { name: "AG Tozeur", type: "Agence" },
+  "196": { name: "AG El Hamma", type: "Agence" },
+  "199": { name: "AG Fouchana", type: "Agence" },
+  "271": { name: "Lamine Taieb", type: "courtier" },
+  "272": { name: "IMN'ASS", type: "courtier" },
+  "273": { name: "Arab African Ins", type: "courtier" },
+  "274": { name: "Kais Karaoun", type: "courtier" },
+  "275": { name: "El Amana Selcar", type: "courtier" },
+  "276": { name: "Timar", type: "courtier" },
+  "277": { name: "ST Tunisie cortage", type: "courtier" },
+  "278": { name: "ST Macecar", type: "courtier" },
+  "279": { name: "Pre-Assur", type: "courtier" },
+  "800": { name: "AG Sousse (Kalaa Kebira)", type: "Agence" },
+  "801": { name: "Radès", type: "Succursale" },
+  "804": { name: "AG Ben Gerdane", type: "Agence" },
+  "805": { name: "El Mechtel", type: "Succursale" },
+  "807": { name: "Monastir II", type: "Succursale" },
+  "808": { name: "AG Hammamet", type: "Agence" },
+  "809": { name: "soliman", type: "Succursale" },
+  "810": { name: "Zarzis II", type: "Succursale" },
+  "811": { name: "El-Jem", type: "Succursale" },
+  "812": { name: "Ettoufik", type: "Succursale" },
+  "813": { name: "Ghardimaou", type: "Agence" },
+  "814": { name: "La Goulette", type: "Succursale" },
+  "817": { name: "Sfax V", type: "Succursale" },
+  "818": { name: "Lac II", type: "Succursale" },
+  "820": { name: "Med Chaouki Ben Amor", type: "Agence Stagiaire" },
+  "821": { name: "Kaouther Selmi", type: "Agence" },
+  "822": { name: "Med Ali Larjimi", type: "Agence" },
+  "823": { name: "Skander Ben Aissa", type: "Agence" },
+  "824": { name: "Affef Mrafeq", type: "Agence" },
+  "825": { name: "Aziz Tenjel", type: "Agence Stagiaire" },
+  "827": { name: "Gabès II", type: "Succursale" },
+  "830": { name: "Emna Ayari", type: "Agence Stagiaire" },
+  "831": { name: "Nourhene Alouini", type: "Agence Stagiaire" },
+  "850": { name: "ghassen Ramdhani", type: "Bureau direct" },
+  "832": { name: "La Marsa", type: "Succursale" },
+  "833": { name: "Sodab", type: "courtier" },
+  "834": { name: "Ines derbel", type: "Agence Stagiaire" },
+  "835": { name: "Sonia Mathlouthi", type: "Agence" },
+  "837": { name: "Rehab dridi", type: "Agence Stagiaire" },
+  "838": { name: "Souha emnaa", type: "Agence Stagiaire" },
+  "839": { name: "Bekri Fatma", type: "Agence Stagiaire" },
+  "840": { name: "Nouha ayadi", type: "Agence Stagiaire" },
+  "841": { name: "Imen trabelsi", type: "Agence Stagiaire" },
+  "842": { name: "Asma Mathlouthi", type: "Agence Stagiaire" },
+  "843": { name: "OLEA", type: "courtier" },
+  "851": { name: "Nadia Ferjallah", type: "Bureau direct" },
+  "846": { name: "Bousselem", type: "Succursale" },
+  "847": { name: "Jemmel", type: "Succursale" },
+  "852": { name: "Mourouj 6", type: "Succursale" },
+  "281": { name: "asse assurances", type: "courtier" },
+  "844": { name: "hanen gridi", type: "Agence" },
+  "848": { name: "Rym aouayni", type: "Agence Stagiaire" },
+  "845": { name: "cyrine kedri", type: "Agence Stagiaire" },
+  "854": { name: "yassine chanaoueh", type: "Agence Stagiaire" },
+  "857": { name: "olfa eschi", type: "Agence Stagiaire" }
+};
+
+const resolveAgencyInfo = (code: any) => {
+  if (code === undefined || code === null) {
+    return { code: "", name: "Non spécifié", type: "-" };
+  }
+  const normalizedCode = String(code).trim().replace(/^0+(?!$)/, '');
+  const info = AGENCY_MAPPING[normalizedCode];
+  if (info) {
+    return {
+      code: normalizedCode,
+      name: info.name,
+      type: info.type
+    };
+  }
+  return {
+    code: normalizedCode,
+    name: `Agence ${normalizedCode}`,
+    type: "Inconnu"
+  };
+};
+
 export default function RegtoolsDiffPage() {
   // File state
   const [files, setFiles] = useState<{ regtools: File | null; ns: File | null }>({
@@ -102,7 +261,7 @@ export default function RegtoolsDiffPage() {
   // Agency stats and tabs state
   const [activeTab, setActiveTab] = useState<"list" | "stats">("list");
   const [statsSearchQuery, setStatsSearchQuery] = useState("");
-  const [statsSortField, setStatsSortField] = useState<"agence" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
+  const [statsSortField, setStatsSortField] = useState<"agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
   const [statsSortDirection, setStatsSortDirection] = useState<"asc" | "desc">("asc");
 
   // Page Tab state and History state
@@ -116,7 +275,7 @@ export default function RegtoolsDiffPage() {
   const [historyTab, setHistoryTab] = useState<"stats" | "list">("stats");
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [historyStatsSearchQuery, setHistoryStatsSearchQuery] = useState("");
-  const [historySortField, setHistorySortField] = useState<"agence" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
+  const [historySortField, setHistorySortField] = useState<"agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
   const [historySortDirection, setHistorySortDirection] = useState<"asc" | "desc">("asc");
   const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(15);
@@ -420,7 +579,9 @@ export default function RegtoolsDiffPage() {
       const currentDate = new Date().toLocaleDateString("fr-FR");
 
       const exportHeaders = [
-        "Agence",
+        "Code Agence",
+        "Nom Agence",
+        "Type",
         "Total NS",
         "Présentes dans RegTools (KYC Conformes)",
         "Absentes de RegTools (KYC Manquants)",
@@ -438,6 +599,8 @@ export default function RegtoolsDiffPage() {
       agencyStats.forEach(stat => {
         sheetAOA.push([
           stat.agence,
+          stat.nom,
+          stat.type,
           stat.total,
           stat.existing,
           stat.missing,
@@ -450,6 +613,8 @@ export default function RegtoolsDiffPage() {
         sheetAOA.push([]);
         sheetAOA.push([
           "TOTAL GLOBAL",
+          "",
+          "",
           globalStats.total,
           globalStats.existing,
           globalStats.missing,
@@ -551,8 +716,11 @@ export default function RegtoolsDiffPage() {
         const existing = counts.total - counts.missing;
         const pctMissing = counts.total > 0 ? parseFloat(((counts.missing / counts.total) * 100).toFixed(2)) : 0;
         const pctExisting = counts.total > 0 ? parseFloat(((existing / counts.total) * 100).toFixed(2)) : 0;
+        const agencyInfo = resolveAgencyInfo(agence);
         return {
-          agence,
+          agence: agencyInfo.code,
+          nom: agencyInfo.name,
+          type: agencyInfo.type,
           total: counts.total,
           missing: counts.missing,
           existing,
@@ -569,18 +737,18 @@ export default function RegtoolsDiffPage() {
       let valA = a[statsSortField];
       let valB = b[statsSortField];
 
-      // Handle string comparison for agence
-      if (statsSortField === "agence") {
-        const strA = String(valA);
-        const strB = String(valB);
+      // Handle string comparison for agence, nom, type
+      if (statsSortField === "agence" || statsSortField === "nom" || statsSortField === "type") {
+        const strA = String(valA || "");
+        const strB = String(valB || "");
         return statsSortDirection === "asc"
-          ? strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' })
-          : strB.localeCompare(strA, undefined, { numeric: true, sensitivity: 'base' });
+          ? strA.localeCompare(strB, undefined, { numeric: statsSortField === "agence", sensitivity: 'base' })
+          : strB.localeCompare(strA, undefined, { numeric: statsSortField === "agence", sensitivity: 'base' });
       }
 
       // Handle numeric comparison for others
-      const numA = Number(valA);
-      const numB = Number(valB);
+      const numA = Number(valA || 0);
+      const numB = Number(valB || 0);
       if (numA < numB) return statsSortDirection === "asc" ? -1 : 1;
       if (numA > numB) return statsSortDirection === "asc" ? 1 : -1;
       return 0;
@@ -592,7 +760,11 @@ export default function RegtoolsDiffPage() {
   const filteredAgencyStats = useMemo(() => {
     if (statsSearchQuery.trim() === "") return sortedAgencyStats;
     const query = statsSearchQuery.toLowerCase();
-    return sortedAgencyStats.filter(stat => stat.agence.toLowerCase().includes(query));
+    return sortedAgencyStats.filter(stat => 
+      stat.agence.toLowerCase().includes(query) ||
+      (stat.nom && stat.nom.toLowerCase().includes(query)) ||
+      (stat.type && stat.type.toLowerCase().includes(query))
+    );
   }, [sortedAgencyStats, statsSearchQuery]);
 
   const globalStats = useMemo(() => {
@@ -813,36 +985,53 @@ export default function RegtoolsDiffPage() {
   };
 
   // Memos for selected history report
+  // Pre-resolve agency info for selected history report to ensure name/type are always present
+  const resolvedHistoryAgencyStats = useMemo(() => {
+    if (!selectedHistoryReport || !selectedHistoryReport.agencyStats) return [];
+    return selectedHistoryReport.agencyStats.map((stat: any) => {
+      if (stat.nom && stat.type) return stat;
+      const info = resolveAgencyInfo(stat.agence);
+      return {
+        ...stat,
+        nom: info.name,
+        type: info.type
+      };
+    });
+  }, [selectedHistoryReport]);
+
   const sortedHistoryAgencyStats = useMemo(() => {
-    if (!selectedHistoryReport) return [];
-    const items = [...selectedHistoryReport.agencyStats];
+    const items = [...resolvedHistoryAgencyStats];
     
     items.sort((a, b) => {
       let valA = a[historySortField];
       let valB = b[historySortField];
 
-      if (historySortField === "agence") {
-        const strA = String(valA);
-        const strB = String(valB);
+      if (historySortField === "agence" || historySortField === "nom" || historySortField === "type") {
+        const strA = String(valA || "");
+        const strB = String(valB || "");
         return historySortDirection === "asc"
-          ? strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' })
-          : strB.localeCompare(strA, undefined, { numeric: true, sensitivity: 'base' });
+          ? strA.localeCompare(strB, undefined, { numeric: historySortField === "agence", sensitivity: 'base' })
+          : strB.localeCompare(strA, undefined, { numeric: historySortField === "agence", sensitivity: 'base' });
       }
 
-      const numA = Number(valA);
-      const numB = Number(valB);
+      const numA = Number(valA || 0);
+      const numB = Number(valB || 0);
       if (numA < numB) return historySortDirection === "asc" ? -1 : 1;
       if (numA > numB) return historySortDirection === "asc" ? 1 : -1;
       return 0;
     });
 
     return items;
-  }, [selectedHistoryReport, historySortField, historySortDirection]);
+  }, [resolvedHistoryAgencyStats, historySortField, historySortDirection]);
 
   const filteredHistoryAgencyStats = useMemo(() => {
     if (historyStatsSearchQuery.trim() === "") return sortedHistoryAgencyStats;
     const query = historyStatsSearchQuery.toLowerCase();
-    return sortedHistoryAgencyStats.filter(stat => stat.agence.toLowerCase().includes(query));
+    return sortedHistoryAgencyStats.filter(stat => 
+      stat.agence.toLowerCase().includes(query) ||
+      (stat.nom && stat.nom.toLowerCase().includes(query)) ||
+      (stat.type && stat.type.toLowerCase().includes(query))
+    );
   }, [sortedHistoryAgencyStats, historyStatsSearchQuery]);
 
   const filteredHistoryRows = useMemo(() => {
@@ -953,7 +1142,9 @@ export default function RegtoolsDiffPage() {
       const report = selectedHistoryReport;
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
       const exportHeaders = [
-        "Agence",
+        "Code Agence",
+        "Nom Agence",
+        "Type",
         "Total NS",
         "Présentes dans RegTools (KYC Conformes)",
         "Absentes de RegTools (KYC Manquants)",
@@ -968,9 +1159,11 @@ export default function RegtoolsDiffPage() {
         exportHeaders
       ];
 
-      report.agencyStats.forEach((stat: any) => {
+      resolvedHistoryAgencyStats.forEach((stat: any) => {
         sheetAOA.push([
           stat.agence,
+          stat.nom,
+          stat.type,
           stat.total,
           stat.existing,
           stat.missing,
@@ -983,6 +1176,8 @@ export default function RegtoolsDiffPage() {
         sheetAOA.push([]);
         sheetAOA.push([
           "TOTAL GLOBAL",
+          "",
+          "",
           report.globalStats.total,
           report.globalStats.existing,
           report.globalStats.missing,
@@ -1025,7 +1220,7 @@ export default function RegtoolsDiffPage() {
   };
 
   // Sort helper functions for History
-  const handleHistorySort = (field: "agence" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing") => {
+  const handleHistorySort = (field: "agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing") => {
     if (historySortField === field) {
       setHistorySortDirection(prev => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -1036,7 +1231,7 @@ export default function RegtoolsDiffPage() {
 
   const renderHistorySortableHeader = (
     label: string, 
-    field: "agence" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing", 
+    field: "agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing", 
     align: "left" | "center" = "left"
   ) => {
     const isActive = historySortField === field;
@@ -1062,7 +1257,7 @@ export default function RegtoolsDiffPage() {
   };
 
   // Sort helper functions
-  const handleSort = (field: "agence" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing") => {
+  const handleSort = (field: "agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing") => {
     if (statsSortField === field) {
       setStatsSortDirection(prev => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -1073,7 +1268,7 @@ export default function RegtoolsDiffPage() {
 
   const renderSortableHeader = (
     label: string, 
-    field: "agence" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing", 
+    field: "agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing", 
     align: "left" | "center" = "left"
   ) => {
     const isActive = statsSortField === field;
@@ -1686,7 +1881,9 @@ export default function RegtoolsDiffPage() {
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
                           <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                            {renderSortableHeader("Agence", "agence")}
+                            {renderSortableHeader("Code Agence", "agence")}
+                            {renderSortableHeader("Nom Agence", "nom")}
+                            {renderSortableHeader("Type", "type")}
                             {renderSortableHeader("Total NS", "total", "center")}
                             {renderSortableHeader("Présentes (Conformes)", "existing", "center")}
                             {renderSortableHeader("Absentes (Écarts)", "missing", "center")}
@@ -1698,8 +1895,14 @@ export default function RegtoolsDiffPage() {
                         <tbody>
                           {filteredAgencyStats.map((stat, idx) => (
                             <tr key={`stat-row-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 font-medium text-slate-900 dark:text-white">
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 font-semibold text-slate-900 dark:text-white">
                                 {stat.agence}
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300">
+                                {stat.nom}
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-600 dark:text-slate-400">
+                                {stat.type}
                               </td>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-semibold text-slate-700 dark:text-slate-300">
                                 {stat.total.toLocaleString("fr-FR")}
@@ -1740,7 +1943,7 @@ export default function RegtoolsDiffPage() {
                           ))}
                           {globalStats && (
                             <tr className="bg-slate-50/80 dark:bg-slate-900/80 font-bold border-t border-slate-200 dark:border-slate-800">
-                              <td className="p-3 text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">
+                              <td colSpan={3} className="p-3 text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">
                                 TOTAL GLOBAL
                               </td>
                               <td className="p-3 text-center text-slate-900 dark:text-white">
@@ -1994,7 +2197,9 @@ export default function RegtoolsDiffPage() {
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
                           <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                            {renderHistorySortableHeader("Agence", "agence")}
+                            {renderHistorySortableHeader("Code Agence", "agence")}
+                            {renderHistorySortableHeader("Nom Agence", "nom")}
+                            {renderHistorySortableHeader("Type", "type")}
                             {renderHistorySortableHeader("Total NS", "total", "center")}
                             {renderHistorySortableHeader("Présentes (Conformes)", "existing", "center")}
                             {renderHistorySortableHeader("Absentes (Écarts)", "missing", "center")}
@@ -2006,8 +2211,14 @@ export default function RegtoolsDiffPage() {
                         <tbody>
                           {filteredHistoryAgencyStats.map((stat, idx) => (
                             <tr key={`history-stat-row-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 font-medium text-slate-900 dark:text-white">
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 font-semibold text-slate-900 dark:text-white">
                                 {stat.agence}
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300">
+                                {stat.nom}
+                              </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-600 dark:text-slate-400">
+                                {stat.type}
                               </td>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-semibold text-slate-700 dark:text-slate-300">
                                 {stat.total.toLocaleString("fr-FR")}
@@ -2048,7 +2259,7 @@ export default function RegtoolsDiffPage() {
                           ))}
                           {selectedHistoryReport.globalStats && (
                             <tr className="bg-slate-50/80 dark:bg-slate-900/80 font-bold border-t border-slate-200 dark:border-slate-800">
-                              <td className="p-3 text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">
+                              <td colSpan={3} className="p-3 text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">
                                 TOTAL GLOBAL
                               </td>
                               <td className="p-3 text-center text-slate-900 dark:text-white">
