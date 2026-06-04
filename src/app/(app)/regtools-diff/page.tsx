@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db, isFirebaseConfigured } from "@/lib/firebase";
+import { useUser } from "@/contexts/UserContext";
+import { useActivityLog } from "@/contexts/ActivityLogContext";
 
 // Normalization helper
 const normalizeKey = (val: any): string => {
@@ -239,6 +241,9 @@ const formatExcelValue = (colName: string, val: any): string => {
 };
 
 export default function RegtoolsDiffPage() {
+  const { user } = useUser();
+  const { logAction, isAdmin } = useActivityLog();
+
   // File state
   const [files, setFiles] = useState<{ regtools: File | null; ns: File | null }>({
     regtools: null,
@@ -567,13 +572,12 @@ export default function RegtoolsDiffPage() {
       const agenceStr = selectedAgency === "ALL" ? "Toutes les agences" : selectedAgency;
       const currentDate = new Date().toLocaleDateString("fr-FR");
 
-      const exportHeaders = [...columns.ns, "CONSIGNE"];
+      const exportHeaders = [...columns.ns];
       const exportData = filteredRows.map(row => {
         const newRow: any = {};
         columns.ns.forEach(h => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
-        newRow["CONSIGNE"] = "Veuillez créer des fiches KYC pour ces clients";
         return newRow;
       });
 
@@ -662,15 +666,12 @@ export default function RegtoolsDiffPage() {
         return;
       }
 
-      const exportHeaders = [...nsCols, "CONSIGNE"];
+      const exportHeaders = [...nsCols];
       const exportData = rowsToExport.map(row => {
         const newRow: any = {};
         nsCols.forEach(h => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
-        newRow["CONSIGNE"] = "Veuillez créer des fiches KYC pour ces clients";
-        return newRow;
-      });
 
       const sheetAOA = [
         [`RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS - AGENCE ${agencyCode}`],
@@ -995,22 +996,19 @@ export default function RegtoolsDiffPage() {
   const handleLoadReport = async (report: any) => {
     setIsLoadingHistory(true);
     try {
+      let loadedReport = null;
       // 1. If it's already a full report (fetched from Firestore)
       if (report.missingRows && report.agencyStats) {
-        setSelectedHistoryReport(report);
-        setIsLoadingHistory(false);
-        return;
+        loadedReport = report;
       }
 
       // 2. If it's a Firestore report, try to fetch full data (in case it wasn't preloaded)
-      if (isFirebaseConfigured && db) {
+      if (!loadedReport && isFirebaseConfigured && db) {
         try {
           const { doc, getDoc } = await import("firebase/firestore");
           const docSnap = await getDoc(doc(db, "regtoolsHistory", report.monthKey));
           if (docSnap.exists()) {
-            setSelectedHistoryReport({ id: docSnap.id, ...docSnap.data() });
-            setIsLoadingHistory(false);
-            return;
+            loadedReport = { id: docSnap.id, ...docSnap.data() };
           }
         } catch (err) {
           console.error("Erreur lors du chargement complet Firestore :", err);
@@ -1018,9 +1016,28 @@ export default function RegtoolsDiffPage() {
       }
 
       // 3. Fallback to localStorage
-      const localReportJSON = localStorage.getItem(`regtools_report_${report.monthKey}`);
-      if (localReportJSON) {
-        setSelectedHistoryReport(JSON.parse(localReportJSON));
+      if (!loadedReport) {
+        const localReportJSON = localStorage.getItem(`regtools_report_${report.monthKey}`);
+        if (localReportJSON) {
+          loadedReport = JSON.parse(localReportJSON);
+        }
+      }
+
+      if (loadedReport) {
+        setSelectedHistoryReport(loadedReport);
+        
+        // Log consultation for non-admin users
+        const email = user?.email || "";
+        if (email && !isAdmin(email)) {
+          logAction({
+            userEmail: email,
+            userName: user?.name || "Utilisateur",
+            action: "OTHER",
+            label: "Consultation de rapport de rapprochement",
+            detail: `Rapport mensuel : ${report.monthLabel}`,
+            module: "Rapprochement RegTools"
+          });
+        }
       } else {
         alert("Impossible de charger les détails de ce rapport (données introuvables).");
       }
@@ -1350,15 +1367,12 @@ export default function RegtoolsDiffPage() {
     try {
       const report = selectedHistoryReport;
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
-      const exportHeaders = [...(report.columnsNS || []), "CONSIGNE"];
+      const exportHeaders = [...(report.columnsNS || [])];
       const exportData = filteredHistoryRows.map((row: any) => {
         const newRow: any = {};
         (report.columnsNS || []).forEach((h: string) => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
-        newRow["CONSIGNE"] = "Veuillez créer des fiches KYC pour ces clients";
-        return newRow;
-      });
 
       const sheetAOA = [
         [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - ${report.monthLabel}`],
