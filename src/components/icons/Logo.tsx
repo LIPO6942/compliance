@@ -12,7 +12,7 @@ export function Logo({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
       )}
     >
       <img
-        src="/logo.png"
+        src="/mae_logo.png"
         alt="Compliance Navigator Logo"
         className="h-full w-full object-contain"
       />
