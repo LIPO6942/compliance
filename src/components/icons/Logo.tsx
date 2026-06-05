@@ -7,8 +7,8 @@ export function Logo({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
     <div
       {...props}
       className={cn(
-        'flex size-8 items-center justify-center overflow-hidden rounded-lg',
-        className
+        'flex items-center justify-center',
+        className || 'h-8 w-8'
       )}
     >
       <img
