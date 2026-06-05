@@ -64,7 +64,7 @@ export default function LoginPage() {
             <Card className="w-full max-w-md border-2 border-slate-100 shadow-xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300">
                 <CardHeader className="text-center pt-10">
                     <div className="mx-auto mb-4 flex justify-center">
-                        <Logo className="h-20 w-20 shadow-2xl shadow-primary/20 rounded-3xl" />
+                        <Logo className="h-20 w-20 bg-white shadow-xl rounded-full p-2" />
                     </div>
                     <CardTitle className="text-3xl font-black tracking-tight">Bienvenue</CardTitle>
                     <CardDescription className="text-slate-500 font-medium px-6">
