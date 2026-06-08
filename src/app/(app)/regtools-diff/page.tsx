@@ -1347,10 +1347,21 @@ export default function RegtoolsDiffPage() {
               
               querySnapshot.forEach((chunkDoc) => {
                 const chunkData = chunkDoc.data();
+                let chunkRows: any[][] = [];
+                if (typeof chunkData.rows === "string") {
+                  try {
+                    chunkRows = JSON.parse(chunkData.rows);
+                  } catch (e) {
+                    console.error("Erreur de parsing JSON pour chunk rows:", e);
+                  }
+                } else if (Array.isArray(chunkData.rows)) {
+                  chunkRows = chunkData.rows;
+                }
+
                 if (chunkData.type === "missing") {
-                  missingChunksList.push({ index: chunkData.index, rows: chunkData.rows || [] });
+                  missingChunksList.push({ index: chunkData.index, rows: chunkRows || [] });
                 } else if (chunkData.type === "similar") {
-                  similarChunksList.push({ index: chunkData.index, rows: chunkData.rows || [] });
+                  similarChunksList.push({ index: chunkData.index, rows: chunkRows || [] });
                 }
               });
               
@@ -1550,7 +1561,7 @@ export default function RegtoolsDiffPage() {
           await setDoc(doc(db, "regtoolsHistory", monthKey, "details", `missing_${i}`), {
             type: "missing",
             index: i,
-            rows: missingChunks[i]
+            rows: JSON.stringify(missingChunks[i])
           });
         }
 
@@ -1558,7 +1569,7 @@ export default function RegtoolsDiffPage() {
           await setDoc(doc(db, "regtoolsHistory", monthKey, "details", `similar_${i}`), {
             type: "similar",
             index: i,
-            rows: similarChunks[i]
+            rows: JSON.stringify(similarChunks[i])
           });
         }
 
