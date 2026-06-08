@@ -14,7 +14,7 @@ export function Logo({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
       <img
         src="/mae_logo.png"
         alt="Compliance Navigator Logo"
-        className="h-full w-full object-contain scale-[1.12]"
+        className="h-full w-full object-contain"
       />
     </div>
   );
