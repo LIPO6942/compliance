@@ -155,12 +155,8 @@ service cloud.firestore {
     // ============================================
     // REGTOOLS HISTORY - Historique des rapprochements
     // ============================================
-    match /regtoolsHistory/{monthId} {
-      allow read, write: if true;  // Ouvert en dev
-      
-      match /details/{rowId} {
-        allow read, write: if true;
-      }
+    match /regtoolsHistory/{document=**} {
+      allow read, write: if true;
     }
   }
 }

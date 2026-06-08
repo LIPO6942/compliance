@@ -1377,11 +1377,30 @@ export default function RegtoolsDiffPage() {
         }
       }
 
-      // 3. Fallback to localStorage
-      if (!loadedReport) {
-        const localReportJSON = localStorage.getItem(`regtools_report_${report.monthKey}`);
-        if (localReportJSON) {
-          loadedReport = JSON.parse(localReportJSON);
+      // 3. Fallback to localStorage (or merge rows if Firestore report metadata exists but details are missing)
+      const localReportJSON = localStorage.getItem(`regtools_report_${report.monthKey}`);
+      if (localReportJSON) {
+        try {
+          const localReport = JSON.parse(localReportJSON);
+          if (loadedReport) {
+            // Restore details from local storage if Firestore has empty details
+            if ((!loadedReport.missingRows || loadedReport.missingRows.length === 0) && localReport.missingRows && localReport.missingRows.length > 0) {
+              loadedReport.missingRows = localReport.missingRows;
+            }
+            if ((!loadedReport.similarRows || loadedReport.similarRows.length === 0) && localReport.similarRows && localReport.similarRows.length > 0) {
+              loadedReport.similarRows = localReport.similarRows;
+            }
+            if ((!loadedReport.minifiedMissingRows || loadedReport.minifiedMissingRows.length === 0) && localReport.minifiedMissingRows && localReport.minifiedMissingRows.length > 0) {
+              loadedReport.minifiedMissingRows = localReport.minifiedMissingRows;
+            }
+            if ((!loadedReport.minifiedSimilarRows || loadedReport.minifiedSimilarRows.length === 0) && localReport.minifiedSimilarRows && localReport.minifiedSimilarRows.length > 0) {
+              loadedReport.minifiedSimilarRows = localReport.minifiedSimilarRows;
+            }
+          } else {
+            loadedReport = localReport;
+          }
+        } catch (e) {
+          console.error("Erreur lors de la fusion du rapport local :", e);
         }
       }
 
@@ -1508,6 +1527,7 @@ export default function RegtoolsDiffPage() {
     };
 
     let savedInFirestore = false;
+    let firestoreError = "";
 
     if (isFirebaseConfigured && db) {
       try {
@@ -1525,22 +1545,7 @@ export default function RegtoolsDiffPage() {
         const missingChunks = chunkArray(minifiedMissing, 1000);
         const similarChunks = chunkArray(minifiedSimilar, 1000);
 
-        // 3. Save main document with metadata (extremely lightweight: < 10KB)
-        const firestoreMainPayload = {
-          monthKey,
-          monthLabel,
-          fileNameNS: files.ns.name,
-          fileNameRegtools: files.regtools ? files.regtools.name : "",
-          savedAt: reportPayload.savedAt,
-          globalStats: reportPayload.globalStats,
-          agencyStats: reportPayload.agencyStats,
-          columnsNS: columns.ns,
-          mapping: mapping,
-          hasSubCollectionDetails: true
-        };
-        await setDoc(doc(db, "regtoolsHistory", monthKey), firestoreMainPayload);
-
-        // 4. Save chunk documents to the subcollection
+        // 3. Save chunk documents to the subcollection FIRST
         for (let i = 0; i < missingChunks.length; i++) {
           await setDoc(doc(db, "regtoolsHistory", monthKey, "details", `missing_${i}`), {
             type: "missing",
@@ -1557,9 +1562,25 @@ export default function RegtoolsDiffPage() {
           });
         }
 
+        // 4. Save main document with metadata LAST (only if chunks succeeded)
+        const firestoreMainPayload = {
+          monthKey,
+          monthLabel,
+          fileNameNS: files.ns.name,
+          fileNameRegtools: files.regtools ? files.regtools.name : "",
+          savedAt: reportPayload.savedAt,
+          globalStats: reportPayload.globalStats,
+          agencyStats: reportPayload.agencyStats,
+          columnsNS: columns.ns,
+          mapping: mapping,
+          hasSubCollectionDetails: true
+        };
+        await setDoc(doc(db, "regtoolsHistory", monthKey), firestoreMainPayload);
+
         savedInFirestore = true;
       } catch (err: any) {
         console.error("Erreur de sauvegarde Firestore :", err);
+        firestoreError = err.message || "Erreur inconnue";
       }
     }
 
@@ -1585,7 +1606,11 @@ export default function RegtoolsDiffPage() {
     }
 
     setIsSavingReport(false);
-    alert(`Rapport pour ${monthLabel} sauvegardé avec succès ! ${savedInFirestore ? "(Base de données)" : "(Stockage local)"}`);
+    if (firestoreError) {
+      alert(`Rapport pour ${monthLabel} sauvegardé avec succès en LOCAL, mais la synchronisation CLOUD a échoué :\n${firestoreError}\n\nLes détails ne seront disponibles que sur cet appareil.`);
+    } else {
+      alert(`Rapport pour ${monthLabel} sauvegardé avec succès ! ${savedInFirestore ? "(Base de données Cloud et locale)" : "(Stockage local uniquement)"}`);
+    }
     loadHistory();
   };
 
