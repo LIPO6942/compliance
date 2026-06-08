@@ -240,6 +240,23 @@ const formatExcelValue = (colName: string, val: any): string => {
   return strVal;
 };
 
+// Row minification helpers to bypass Firestore 1MB limit
+const minifyRows = (rows: any[], columns: string[]): any[][] => {
+  if (!rows) return [];
+  return rows.map(row => columns.map(col => row[col] !== undefined ? row[col] : ""));
+};
+
+const unminifyRows = (minifiedRows: any[][], columns: string[]): any[] => {
+  if (!minifiedRows) return [];
+  return minifiedRows.map(rowArr => {
+    const rowObj: any = {};
+    columns.forEach((col, idx) => {
+      rowObj[col] = rowArr[idx];
+    });
+    return rowObj;
+  });
+};
+
 export default function RegtoolsDiffPage() {
   const { user } = useUser();
   const { logAction, isAdmin } = useActivityLog();
@@ -283,7 +300,7 @@ export default function RegtoolsDiffPage() {
   const [pageSize, setPageSize] = useState(15);
 
   // Agency stats and tabs state
-  const [activeTab, setActiveTab] = useState<"list" | "stats">("list");
+  const [activeTab, setActiveTab] = useState<"list" | "stats" | "similar">("list");
   const [statsSearchQuery, setStatsSearchQuery] = useState("");
   const [statsSortField, setStatsSortField] = useState<"agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
   const [statsSortDirection, setStatsSortDirection] = useState<"asc" | "desc">("asc");
@@ -296,7 +313,7 @@ export default function RegtoolsDiffPage() {
   const [selectedHistoryReport, setSelectedHistoryReport] = useState<any | null>(null);
 
   // History detail view states
-  const [historyTab, setHistoryTab] = useState<"stats" | "list">("stats");
+  const [historyTab, setHistoryTab] = useState<"stats" | "list" | "similar">("stats");
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [historyStatsSearchQuery, setHistoryStatsSearchQuery] = useState("");
   const [historySortField, setHistorySortField] = useState<"agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
@@ -312,6 +329,22 @@ export default function RegtoolsDiffPage() {
   const [detailsSortDirection, setDetailsSortDirection] = useState<"asc" | "desc">("asc");
   const [historyDetailsSortField, setHistoryDetailsSortField] = useState<string>("");
   const [historyDetailsSortDirection, setHistoryDetailsSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Similarities states (Active reconciliation)
+  const [similarSelectedAgency, setSimilarSelectedAgency] = useState<string>("ALL");
+  const [similarSearchQuery, setSimilarSearchQuery] = useState<string>("");
+  const [similarCurrentPage, setSimilarCurrentPage] = useState<number>(1);
+  const [similarPageSize, setSimilarPageSize] = useState<number>(15);
+  const [similarSortField, setSimilarSortField] = useState<string>("");
+  const [similarSortDirection, setSimilarSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Similarities states (History report)
+  const [historySimilarSelectedAgency, setHistorySimilarSelectedAgency] = useState<string>("ALL");
+  const [historySimilarSearchQuery, setHistorySimilarSearchQuery] = useState<string>("");
+  const [historySimilarCurrentPage, setHistorySimilarCurrentPage] = useState<number>(1);
+  const [historySimilarPageSize, setHistorySimilarPageSize] = useState<number>(15);
+  const [historySimilarSortField, setHistorySimilarSortField] = useState<string>("");
+  const [historySimilarSortDirection, setHistorySimilarSortDirection] = useState<"asc" | "desc">("asc");
 
   // File size formatter
   const formatFileSize = (bytes: number) => {
@@ -631,6 +664,69 @@ export default function RegtoolsDiffPage() {
     }
   };
 
+  const exportSimilarExcel = () => {
+    if (filteredSimilarRows.length === 0) return;
+
+    try {
+      const agenceStr = similarSelectedAgency === "ALL" ? "Toutes les agences" : similarSelectedAgency;
+      const currentDate = new Date().toLocaleDateString("fr-FR");
+
+      const exportHeaders = [...columns.ns];
+      const exportData = filteredSimilarRows.map(row => {
+        const newRow: any = {};
+        columns.ns.forEach(h => {
+          newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+        });
+        return newRow;
+      });
+
+      const sheetAOA = [
+        ["RAPPORT DE RAPPROCHEMENT - CLIENTS SIMILAIRES (CONFORMES REGTOOLS)"],
+        ["INFORMATION : Ces clients existent de part et d'autre (KYC conformes)"],
+        [`Filtre Agence : ${agenceStr} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [],
+        exportHeaders
+      ];
+
+      exportData.forEach(row => {
+        sheetAOA.push(exportHeaders.map(h => row[h]));
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetAOA);
+      const wb = XLSX.utils.book_new();
+
+      ws["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: exportHeaders.length - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: exportHeaders.length - 1 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: exportHeaders.length - 1 } }
+      ];
+
+      ws["!rows"] = [
+        { hpt: 25 },
+        { hpt: 20 },
+        { hpt: 18 },
+        { hpt: 15 }
+      ];
+
+      const colWidths = exportHeaders.map((header, colIdx) => {
+        let maxLen = header.length;
+        for (let rIdx = 5; rIdx < sheetAOA.length; rIdx++) {
+          const val = sheetAOA[rIdx][colIdx];
+          if (val !== undefined && val !== null) {
+            maxLen = Math.max(maxLen, String(val).length);
+          }
+        }
+        return { wch: Math.min(Math.max(maxLen + 3, 10), 45) };
+      });
+      ws["!cols"] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, "Similitudes");
+      XLSX.writeFile(wb, `NS_similitudes_RegTools_Agence_${agenceStr}.xlsx`);
+    } catch (error: any) {
+      alert("Erreur lors de l'export Excel des similitudes : " + error.message);
+    }
+  };
+
   // Export a single agency's discrepancy details
   const exportSingleAgencyExcel = (agencyCode: string, isHistory: boolean) => {
     try {
@@ -722,6 +818,99 @@ export default function RegtoolsDiffPage() {
       XLSX.writeFile(wb, `NS_manquants_RegTools_Agence_${agencyCode}.xlsx`);
     } catch (error: any) {
       alert("Erreur lors de l'export Excel par agence : " + error.message);
+    }
+  };
+
+  const exportSingleAgencySimilarExcel = (agencyCode: string, isHistory: boolean) => {
+    try {
+      const agencyInfo = resolveAgencyInfo(agencyCode);
+      const currentDate = new Date().toLocaleDateString("fr-FR");
+      
+      let rowsToExport: any[] = [];
+      let nsCols: string[] = [];
+      let nsFileName = "";
+      
+      if (!isHistory) {
+        if (!comparisonDone || !mapping.nsAgence) return;
+        rowsToExport = similarRows.filter(row => {
+          const val = row[mapping.nsAgence];
+          return val !== undefined && val !== null && String(val).trim().replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
+        });
+        nsCols = columns.ns;
+        nsFileName = files.ns ? files.ns.name : "";
+      } else {
+        if (!selectedHistoryReport) return;
+        const agencyCol = selectedHistoryReport.mapping?.nsAgence;
+        if (!agencyCol) return;
+        rowsToExport = (selectedHistoryReport.similarRows || []).filter((row: any) => {
+          const val = row[agencyCol];
+          return val !== undefined && val !== null && String(val).trim().replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
+        });
+        nsCols = selectedHistoryReport.columnsNS || [];
+        nsFileName = selectedHistoryReport.fileNameNS || "";
+      }
+
+      if (rowsToExport.length === 0) {
+        alert(`Aucune similitude trouvée pour l'agence ${agencyCode} (${agencyInfo.name}).`);
+        return;
+      }
+
+      const exportHeaders = [...nsCols];
+      const exportData = rowsToExport.map(row => {
+        const newRow: any = {};
+        nsCols.forEach(h => {
+          newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+        });
+        return newRow;
+      });
+
+      const sheetAOA = [
+        [`RAPPORT DE RAPPROCHEMENT - CLIENTS SIMILAIRES - AGENCE ${agencyCode}`],
+        [`Nom Agence : ${agencyInfo.name} | Type : ${agencyInfo.type}`],
+        ["INFORMATION : Ces clients existent de part et d'autre (KYC conformes)"],
+        [`Fichier NS d'origine : ${nsFileName} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [],
+        exportHeaders
+      ];
+
+      exportData.forEach(row => {
+        sheetAOA.push(exportHeaders.map(h => row[h]));
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetAOA);
+      const wb = XLSX.utils.book_new();
+
+      ws["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: exportHeaders.length - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: exportHeaders.length - 1 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: exportHeaders.length - 1 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: exportHeaders.length - 1 } }
+      ];
+
+      ws["!rows"] = [
+        { hpt: 25 },
+        { hpt: 20 },
+        { hpt: 20 },
+        { hpt: 18 },
+        { hpt: 15 }
+      ];
+
+      const colWidths = exportHeaders.map((header, colIdx) => {
+        let maxLen = header.length;
+        for (let rIdx = 5; rIdx < sheetAOA.length; rIdx++) {
+          const val = sheetAOA[rIdx][colIdx];
+          if (val !== undefined && val !== null) {
+            maxLen = Math.max(maxLen, String(val).length);
+          }
+        }
+        return { wch: Math.min(Math.max(maxLen + 3, 10), 45) };
+      });
+      ws["!cols"] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, "Similitudes");
+      XLSX.writeFile(wb, `NS_similitudes_RegTools_Agence_${agencyCode}.xlsx`);
+    } catch (error: any) {
+      alert("Erreur lors de l'export Excel des similitudes par agence : " + error.message);
     }
   };
 
@@ -833,6 +1022,14 @@ export default function RegtoolsDiffPage() {
     setStatsTypeFilter("ALL");
     setDetailsSortField("");
     setDetailsSortDirection("asc");
+
+    // Reset similarities states
+    setSimilarSelectedAgency("ALL");
+    setSimilarSearchQuery("");
+    setSimilarCurrentPage(1);
+    setSimilarPageSize(15);
+    setSimilarSortField("");
+    setSimilarSortDirection("asc");
   };
 
   // Calculation parameters
@@ -841,6 +1038,117 @@ export default function RegtoolsDiffPage() {
     const foundCount = data.ns.length - missingRows.length;
     return parseFloat(((foundCount / data.ns.length) * 100).toFixed(2));
   }, [data.ns, missingRows, comparisonDone]);
+
+  // Extract similar rows (existing in both NS and RegTools)
+  const similarRows = useMemo(() => {
+    if (!comparisonDone || !data.ns || !mapping.nsId || !data.regtools || !mapping.regtoolsId) return [];
+
+    const regtoolsId = mapping.regtoolsId;
+    const nsId = mapping.nsId;
+
+    // Index RegTools
+    const regToolsSet = new Set<string>();
+    for (let i = 0; i < data.regtools.length; i++) {
+      const row = data.regtools[i];
+      const key = normalizeKey(row[regtoolsId]);
+      if (key !== "") {
+        regToolsSet.add(key);
+      }
+    }
+
+    const similarities: any[] = [];
+    for (let i = 0; i < data.ns.length; i++) {
+      const row = data.ns[i];
+      const key = normalizeKey(row[nsId]);
+      if (key !== "" && regToolsSet.has(key)) {
+        similarities.push(row);
+      }
+    }
+
+    return similarities;
+  }, [data.ns, data.regtools, comparisonDone, mapping.nsId, mapping.regtoolsId]);
+
+  // Apply filters on the similar rows
+  const filteredSimilarRows = useMemo(() => {
+    if (!comparisonDone) return [];
+    
+    return similarRows.filter(row => {
+      // Agency Filter
+      let matchAgency = true;
+      if (similarSelectedAgency !== "ALL") {
+        const rowAgency = row[mapping.nsAgence];
+        matchAgency = rowAgency !== undefined && rowAgency !== null && String(rowAgency).trim() === similarSelectedAgency;
+      }
+
+      // Search Filter
+      let matchSearch = true;
+      if (similarSearchQuery.trim() !== "") {
+        const q = similarSearchQuery.toLowerCase();
+        matchSearch = Object.values(row).some(val => 
+          val !== undefined && val !== null && String(val).toLowerCase().includes(q)
+        );
+      }
+
+      return matchAgency && matchSearch;
+    });
+  }, [similarRows, comparisonDone, similarSelectedAgency, similarSearchQuery, mapping.nsAgence]);
+
+  // Sort the filtered similar rows
+  const sortedSimilarRows = useMemo(() => {
+    if (!similarSortField) return filteredSimilarRows;
+    const items = [...filteredSimilarRows];
+    items.sort((a, b) => {
+      const valA = a[similarSortField];
+      const valB = b[similarSortField];
+      
+      if (valA === undefined || valA === null) return similarSortDirection === "asc" ? 1 : -1;
+      if (valB === undefined || valB === null) return similarSortDirection === "asc" ? -1 : 1;
+      
+      const strA = String(valA).trim();
+      const strB = String(valB).trim();
+      
+      // Check if numeric
+      const numA = Number(strA);
+      const numB = Number(strB);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return similarSortDirection === "asc" ? numA - numB : numB - numA;
+      }
+      
+      return similarSortDirection === "asc"
+        ? strA.localeCompare(strB, undefined, { numeric: true, sensitivity: "base" })
+        : strB.localeCompare(strA, undefined, { numeric: true, sensitivity: "base" });
+    });
+    return items;
+  }, [filteredSimilarRows, similarSortField, similarSortDirection]);
+
+  // Paginated similar rows
+  const paginatedSimilarRows = useMemo(() => {
+    const startIndex = (similarCurrentPage - 1) * similarPageSize;
+    return sortedSimilarRows.slice(startIndex, startIndex + similarPageSize);
+  }, [sortedSimilarRows, similarCurrentPage, similarPageSize]);
+
+  const totalSimilarPages = Math.ceil(filteredSimilarRows.length / similarPageSize);
+
+  // Pagination helper range for similarities
+  const similarPaginationRange = useMemo(() => {
+    if (totalSimilarPages <= 6) {
+      return Array.from({ length: totalSimilarPages }, (_, i) => i + 1);
+    }
+    const pages: (number | string)[] = [1];
+    if (similarCurrentPage > 3) {
+      pages.push("...");
+    }
+    const start = Math.max(2, similarCurrentPage - 1);
+    const end = Math.min(totalSimilarPages - 1, similarCurrentPage + 1);
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    if (similarCurrentPage < totalSimilarPages - 2) {
+      pages.push("...");
+    }
+    pages.push(totalSimilarPages);
+    return pages;
+  }, [similarCurrentPage, totalSimilarPages]);
 
   // Agency statistics calculations
   const agencyStats = useMemo(() => {
@@ -1026,6 +1334,14 @@ export default function RegtoolsDiffPage() {
       }
 
       if (loadedReport) {
+        // Restore minified rows if present
+        const columnsNS = loadedReport.columnsNS || [];
+        if (loadedReport.minifiedMissingRows && (!loadedReport.missingRows || loadedReport.missingRows.length === 0)) {
+          loadedReport.missingRows = unminifyRows(loadedReport.minifiedMissingRows, columnsNS);
+        }
+        if (loadedReport.minifiedSimilarRows && (!loadedReport.similarRows || loadedReport.similarRows.length === 0)) {
+          loadedReport.similarRows = unminifyRows(loadedReport.minifiedSimilarRows, columnsNS);
+        }
         setSelectedHistoryReport(loadedReport);
         
         // Log consultation for non-admin users
@@ -1115,6 +1431,9 @@ export default function RegtoolsDiffPage() {
 
     setIsSavingReport(true);
 
+    const minifiedMissing = minifyRows(missingRows, columns.ns);
+    const minifiedSimilar = minifyRows(similarRows, columns.ns);
+
     const reportPayload = {
       monthKey,
       monthLabel,
@@ -1129,7 +1448,8 @@ export default function RegtoolsDiffPage() {
         pctMissing: globalStats ? globalStats.pctMissing : parseFloat((100 - matchRate).toFixed(2))
       },
       agencyStats: agencyStats,
-      missingRows: missingRows,
+      minifiedMissingRows: minifiedMissing,
+      minifiedSimilarRows: minifiedSimilar,
       columnsNS: columns.ns,
       mapping: mapping
     };
@@ -1139,7 +1459,17 @@ export default function RegtoolsDiffPage() {
     if (isFirebaseConfigured && db) {
       try {
         const { doc, setDoc } = await import("firebase/firestore");
-        await setDoc(doc(db, "regtoolsHistory", monthKey), reportPayload);
+        
+        let firestorePayload = { ...reportPayload };
+        const payloadSize = JSON.stringify(firestorePayload).length;
+        
+        if (payloadSize > 950000) {
+          console.warn("Le rapport dépasse la taille limite Firestore (1 Mo). Les détails des similitudes seront omis de la base de données cloud.");
+          firestorePayload.minifiedSimilarRows = [];
+          firestorePayload.similarRowsOmitted = true;
+        }
+        
+        await setDoc(doc(db, "regtoolsHistory", monthKey), firestorePayload);
         savedInFirestore = true;
       } catch (err: any) {
         console.error("Erreur de sauvegarde Firestore :", err);
@@ -1362,6 +1692,166 @@ export default function RegtoolsDiffPage() {
     return pages;
   }, [historyCurrentPage, totalHistoryPages]);
 
+  const historySimilarAgenciesList = useMemo(() => {
+    if (!selectedHistoryReport || !selectedHistoryReport.similarRows) return [];
+    const agencyCol = selectedHistoryReport.mapping?.nsAgence;
+    if (!agencyCol) return [];
+    const agenciesSet = new Set<string>();
+    selectedHistoryReport.similarRows.forEach((row: any) => {
+      const agenceVal = row[agencyCol];
+      if (agenceVal !== undefined && agenceVal !== null) {
+        const agenceStr = String(agenceVal).trim();
+        if (agenceStr !== "") {
+          agenciesSet.add(agenceStr);
+        }
+      }
+    });
+    return Array.from(agenciesSet).sort((a, b) => a.localeCompare(b));
+  }, [selectedHistoryReport]);
+
+  const filteredHistorySimilarRows = useMemo(() => {
+    if (!selectedHistoryReport) return [];
+    const rows = selectedHistoryReport.similarRows || [];
+    const agencyCol = selectedHistoryReport.mapping?.nsAgence;
+
+    return rows.filter((row: any) => {
+      // Agency Filter
+      let matchAgency = true;
+      if (historySimilarSelectedAgency !== "ALL" && agencyCol) {
+        const rowAgency = row[agencyCol];
+        matchAgency = rowAgency !== undefined && rowAgency !== null && String(rowAgency).trim() === historySimilarSelectedAgency;
+      }
+
+      // Search Filter
+      let matchSearch = true;
+      if (historySimilarSearchQuery.trim() !== "") {
+        const query = historySimilarSearchQuery.toLowerCase();
+        matchSearch = Object.values(row).some(val => 
+          val !== undefined && val !== null && String(val).toLowerCase().includes(query)
+        );
+      }
+
+      return matchAgency && matchSearch;
+    });
+  }, [selectedHistoryReport, historySimilarSearchQuery, historySimilarSelectedAgency]);
+
+  // Sort history similar rows
+  const sortedHistorySimilarRows = useMemo(() => {
+    if (!historySimilarSortField) return filteredHistorySimilarRows;
+    const items = [...filteredHistorySimilarRows];
+    items.sort((a, b) => {
+      const valA = a[historySimilarSortField];
+      const valB = b[historySimilarSortField];
+      
+      if (valA === undefined || valA === null) return historySimilarSortDirection === "asc" ? 1 : -1;
+      if (valB === undefined || valB === null) return historySimilarSortDirection === "asc" ? -1 : 1;
+      
+      const strA = String(valA).trim();
+      const strB = String(valB).trim();
+      
+      // Check if numeric
+      const numA = Number(strA);
+      const numB = Number(strB);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return historySimilarSortDirection === "asc" ? numA - numB : numB - numA;
+      }
+      
+      return historySimilarSortDirection === "asc"
+        ? strA.localeCompare(strB, undefined, { numeric: true, sensitivity: "base" })
+        : strB.localeCompare(strA, undefined, { numeric: true, sensitivity: "base" });
+    });
+    return items;
+  }, [filteredHistorySimilarRows, historySimilarSortField, historySimilarSortDirection]);
+
+  const paginatedHistorySimilarRows = useMemo(() => {
+    const startIndex = (historySimilarCurrentPage - 1) * historySimilarPageSize;
+    return sortedHistorySimilarRows.slice(startIndex, startIndex + historySimilarPageSize);
+  }, [sortedHistorySimilarRows, historySimilarCurrentPage, historySimilarPageSize]);
+
+  const totalHistorySimilarPages = Math.ceil(filteredHistorySimilarRows.length / historySimilarPageSize);
+
+  const historySimilarPaginationRange = useMemo(() => {
+    if (totalHistorySimilarPages <= 6) {
+      return Array.from({ length: totalHistorySimilarPages }, (_, i) => i + 1);
+    }
+    const pages: (number | string)[] = [1];
+    if (historySimilarCurrentPage > 3) {
+      pages.push("...");
+    }
+    const start = Math.max(2, historySimilarCurrentPage - 1);
+    const end = Math.min(totalHistorySimilarPages - 1, historySimilarCurrentPage + 1);
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    if (historySimilarCurrentPage < totalHistorySimilarPages - 2) {
+      pages.push("...");
+    }
+    pages.push(totalHistorySimilarPages);
+    return pages;
+  }, [historySimilarCurrentPage, totalHistorySimilarPages]);
+
+  const exportHistorySimilarExcel = () => {
+    if (!selectedHistoryReport) return;
+    if (filteredHistorySimilarRows.length === 0) return;
+    try {
+      const report = selectedHistoryReport;
+      const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
+      const exportHeaders = [...(report.columnsNS || [])];
+      const exportData = filteredHistorySimilarRows.map((row: any) => {
+        const newRow: any = {};
+        (report.columnsNS || []).forEach((h: string) => {
+          newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+        });
+        return newRow;
+      });
+
+      const sheetAOA = [
+        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - SIMILAIRES - ${report.monthLabel}`],
+        ["INFORMATION : Ces clients existent de part et d'autre (KYC conformes)"],
+        [`Fichier NS d'origine : ${report.fileNameNS} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [],
+        exportHeaders
+      ];
+
+      exportData.forEach((row: any) => {
+        sheetAOA.push(exportHeaders.map(h => row[h]));
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetAOA);
+      const wb = XLSX.utils.book_new();
+
+      ws["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: exportHeaders.length - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: exportHeaders.length - 1 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: exportHeaders.length - 1 } }
+      ];
+
+      ws["!rows"] = [
+        { hpt: 25 },
+        { hpt: 20 },
+        { hpt: 18 },
+        { hpt: 15 }
+      ];
+
+      const colWidths = exportHeaders.map((header, colIdx) => {
+        let maxLen = header.length;
+        for (let rIdx = 5; rIdx < sheetAOA.length; rIdx++) {
+          const val = sheetAOA[rIdx][colIdx];
+          if (val !== undefined && val !== null) {
+            maxLen = Math.max(maxLen, String(val).length);
+          }
+        }
+        return { wch: Math.min(Math.max(maxLen + 3, 10), 45) };
+      });
+      ws["!cols"] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, "Similitudes");
+      XLSX.writeFile(wb, `NS_similitudes_RegTools_Historique_${report.monthKey}.xlsx`);
+    } catch (error: any) {
+      alert("Erreur lors de l'export Excel historique des similitudes : " + error.message);
+    }
+  };
+
   // History export function
   const exportHistoryExcel = () => {
     if (!selectedHistoryReport) return;
@@ -1555,12 +2045,30 @@ export default function RegtoolsDiffPage() {
     }
   };
 
+  const handleSimilarDetailsSort = (col: string) => {
+    if (similarSortField === col) {
+      setSimilarSortDirection(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSimilarSortField(col);
+      setSimilarSortDirection("asc");
+    }
+  };
+
   const handleHistoryDetailsSort = (col: string) => {
     if (historyDetailsSortField === col) {
       setHistoryDetailsSortDirection(prev => (prev === "asc" ? "desc" : "asc"));
     } else {
       setHistoryDetailsSortField(col);
       setHistoryDetailsSortDirection("asc");
+    }
+  };
+
+  const handleHistorySimilarDetailsSort = (col: string) => {
+    if (historySimilarSortField === col) {
+      setHistorySimilarSortDirection(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setHistorySimilarSortField(col);
+      setHistorySimilarSortDirection("asc");
     }
   };
 
@@ -1945,6 +2453,18 @@ export default function RegtoolsDiffPage() {
                     Détails des Écarts ({filteredRows.length.toLocaleString("fr-FR")} lignes)
                   </button>
                   <button
+                    onClick={() => setActiveTab("similar")}
+                    className={cn(
+                      "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
+                      activeTab === "similar"
+                        ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
+                        : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    )}
+                  >
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    Détails des Similitudes ({filteredSimilarRows.length.toLocaleString("fr-FR")} lignes)
+                  </button>
+                  <button
                     onClick={() => setActiveTab("stats")}
                     className={cn(
                       "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
@@ -2155,6 +2675,193 @@ export default function RegtoolsDiffPage() {
                     </div>
                   )}
                 </div>
+              ) : activeTab === "similar" ? (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-slate-800 dark:text-white">Lignes NS présentes dans RegTools (Similitudes)</h3>
+                      <span className="text-xs font-bold px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full">
+                        {filteredSimilarRows.length.toLocaleString("fr-FR")} lignes
+                      </span>
+                    </div>
+
+                    {/* Actions Panel */}
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {/* Agency Filter */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Agence :</label>
+                        <select
+                          value={similarSelectedAgency}
+                          onChange={(e) => {
+                            setSimilarSelectedAgency(e.target.value);
+                            setSimilarCurrentPage(1);
+                          }}
+                          className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[150px]"
+                        >
+                          <option value="ALL">Toutes les agences</option>
+                          {agenciesList.map(agence => (
+                            <option key={`filter-similar-agence-${agence}`} value={agence}>{agence}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Search Bar */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Rechercher..."
+                          value={similarSearchQuery}
+                          onChange={(e) => {
+                            setSimilarSearchQuery(e.target.value);
+                            setSimilarCurrentPage(1);
+                          }}
+                          className="pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none w-[200px] focus:border-blue-500 focus:bg-white transition-all"
+                        />
+                      </div>
+
+                      {/* Export Trigger */}
+                      <button
+                        onClick={exportSimilarExcel}
+                        disabled={filteredSimilarRows.length === 0}
+                        className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5"
+                      >
+                        <Download className="h-4 w-4" />
+                        Exporter Excel
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Table Element */}
+                  {filteredSimilarRows.length === 0 ? (
+                    <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
+                      <AlertTriangle className="h-12 w-12 text-slate-300 dark:text-slate-700" />
+                      <h4 className="font-semibold text-slate-800 dark:text-white">Aucune ligne correspondante</h4>
+                      <p className="text-xs text-slate-400">Aucune ligne ne correspond aux filtres actuels.</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      <div className="overflow-x-auto border border-slate-100 dark:border-slate-800/60 rounded-xl">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                              {columns.ns.map(col => {
+                                const isSortedCol = similarSortField === col;
+                                return (
+                                  <th 
+                                    key={`similar-th-${col}`} 
+                                    onClick={() => handleSimilarDetailsSort(col)}
+                                    className={cn(
+                                      "p-3 border-b border-slate-100 dark:border-slate-800/60 cursor-pointer select-none hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors",
+                                      col === mapping.nsId && "text-purple-600 dark:text-purple-400",
+                                      col === mapping.nsAgence && "text-blue-600 dark:text-blue-400"
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-1">
+                                      <span>{col}</span>
+                                      <span className={cn(
+                                        "text-[9px] transition-colors",
+                                        isSortedCol ? "text-blue-600 dark:text-blue-400 font-bold" : "text-slate-300 dark:text-slate-600"
+                                      )}>
+                                        {isSortedCol ? (similarSortDirection === "asc" ? "▲" : "▼") : "▲▼"}
+                                      </span>
+                                    </div>
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paginatedSimilarRows.map((row, rIdx) => (
+                              <tr key={`similar-tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                                {columns.ns.map(col => (
+                                  <td 
+                                    key={`similar-td-${rIdx}-${col}`} 
+                                    className={cn(
+                                      "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300",
+                                      col === mapping.nsId && "font-bold text-purple-600 dark:text-purple-400",
+                                      col === mapping.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
+                                    )}
+                                  >
+                                    {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Pagination controls */}
+                      {totalSimilarPages > 1 && (
+                        <div className="flex justify-between items-center gap-4 flex-wrap pt-2">
+                          <span className="text-xs text-slate-400 font-medium">
+                            Affichage de <span className="font-bold text-slate-700 dark:text-white">{(similarCurrentPage - 1) * similarPageSize + 1}</span> à{" "}
+                            <span className="font-bold text-slate-700 dark:text-white">{Math.min(similarCurrentPage * similarPageSize, filteredSimilarRows.length)}</span> sur{" "}
+                            <span className="font-bold text-slate-700 dark:text-white">{filteredSimilarRows.length}</span> lignes
+                          </span>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              disabled={similarCurrentPage === 1}
+                              onClick={() => setSimilarCurrentPage(prev => Math.max(prev - 1, 1))}
+                              className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            
+                            <div className="flex items-center gap-1">
+                              {similarPaginationRange.map((p, pIdx) => {
+                                if (p === "...") {
+                                  return <span key={`similar-page-ellip-${pIdx}`} className="px-2 text-slate-400">...</span>;
+                                }
+                                return (
+                                  <button
+                                    key={`similar-page-btn-${p}`}
+                                    onClick={() => setSimilarCurrentPage(p as number)}
+                                    className={cn(
+                                      "h-7 w-7 text-xs font-semibold rounded-lg transition-all",
+                                      p === similarCurrentPage
+                                        ? "bg-blue-600 text-white shadow-md shadow-blue-500/10"
+                                        : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                                    )}
+                                  >
+                                    {p}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <button
+                              disabled={similarCurrentPage === totalSimilarPages}
+                              onClick={() => setSimilarCurrentPage(prev => Math.min(prev + 1, totalSimilarPages))}
+                              className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
+
+                            <div className="flex items-center gap-1.5 ml-2">
+                              <span className="text-xs text-slate-400">Par page :</span>
+                              <select
+                                value={similarPageSize}
+                                onChange={(e) => {
+                                  setSimilarPageSize(parseInt(e.target.value));
+                                  setSimilarCurrentPage(1);
+                                }}
+                                className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1 outline-none"
+                              >
+                                <option value="15">15</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="500">500</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
@@ -2278,14 +2985,24 @@ export default function RegtoolsDiffPage() {
                                 </div>
                               </td>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">
-                                <button
-                                  onClick={() => exportSingleAgencyExcel(stat.agence, false)}
-                                  disabled={stat.missing === 0}
-                                  className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors inline-flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent"
-                                  title="Exporter les écarts de cette agence"
-                                >
-                                  <Download className="h-4 w-4" />
-                                </button>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => exportSingleAgencyExcel(stat.agence, false)}
+                                    disabled={stat.missing === 0}
+                                    className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 rounded-lg transition-colors inline-flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent"
+                                    title="Exporter les écarts de cette agence (KYC Manquants)"
+                                  >
+                                    <AlertTriangle className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => exportSingleAgencySimilarExcel(stat.agence, false)}
+                                    disabled={stat.existing === 0}
+                                    className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors inline-flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent"
+                                    title="Exporter les similitudes de cette agence (KYC Conformes)"
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -2499,6 +3216,18 @@ export default function RegtoolsDiffPage() {
                     <FileText className="h-4 w-4" />
                     Détails des Écarts ({filteredHistoryRows.length.toLocaleString("fr-FR")} lignes)
                   </button>
+                  <button
+                    onClick={() => setHistoryTab("similar")}
+                    className={cn(
+                      "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
+                      historyTab === "similar"
+                        ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
+                        : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    )}
+                  >
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    Détails des Similitudes {selectedHistoryReport.similarRows ? `(${filteredHistorySimilarRows.length.toLocaleString("fr-FR")} lignes)` : "(Non dispo.)"}
+                  </button>
                 </div>
               </div>
 
@@ -2623,14 +3352,24 @@ export default function RegtoolsDiffPage() {
                                 </div>
                               </td>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">
-                                <button
-                                  onClick={() => exportSingleAgencyExcel(stat.agence, true)}
-                                  disabled={stat.missing === 0}
-                                  className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors inline-flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent"
-                                  title="Exporter les écarts de cette agence"
-                                >
-                                  <Download className="h-4 w-4" />
-                                </button>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => exportSingleAgencyExcel(stat.agence, true)}
+                                    disabled={stat.missing === 0}
+                                    className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 rounded-lg transition-colors inline-flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent"
+                                    title="Exporter les écarts de cette agence (KYC Manquants)"
+                                  >
+                                    <AlertTriangle className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => exportSingleAgencySimilarExcel(stat.agence, true)}
+                                    disabled={!selectedHistoryReport.similarRows || stat.existing === 0}
+                                    className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors inline-flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent"
+                                    title="Exporter les similitudes de cette agence (KYC Conformes)"
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -2679,6 +3418,203 @@ export default function RegtoolsDiffPage() {
                           )}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+                </div>
+              ) : historyTab === "similar" ? (
+                <div className="flex flex-col gap-4">
+                  {!selectedHistoryReport.similarRows ? (
+                    <div className="text-center py-12 flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                      <AlertTriangle className="h-12 w-12 text-amber-500" />
+                      <h4 className="font-semibold text-slate-800 dark:text-white">Détails des similitudes non disponibles</h4>
+                      <p className="text-xs text-slate-400 max-w-md mx-auto">
+                        Les lignes de similitudes n'ont pas été stockées dans la base de données cloud pour ce rapport car elles dépassaient la limite de taille Firestore (1 Mo).
+                        Les statistiques globales et par agence restent néanmoins disponibles.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-slate-800 dark:text-white">Détails des Similitudes (Historique)</h3>
+                          <span className="text-xs font-bold px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full">
+                            {filteredHistorySimilarRows.length.toLocaleString("fr-FR")} lignes
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-4 flex-wrap">
+                          {/* Agency Filter */}
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Agence :</label>
+                            <select
+                              value={historySimilarSelectedAgency}
+                              onChange={(e) => {
+                                setHistorySimilarSelectedAgency(e.target.value);
+                                setHistorySimilarCurrentPage(1);
+                              }}
+                              className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[150px]"
+                            >
+                              <option value="ALL">Toutes les agences</option>
+                              {historySimilarAgenciesList.map(agence => (
+                                <option key={`history-similar-filter-agence-${agence}`} value={agence}>{agence}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Search Bar */}
+                          <div className="relative">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                            <input
+                              type="text"
+                              placeholder="Rechercher..."
+                              value={historySimilarSearchQuery}
+                              onChange={(e) => {
+                                setHistorySimilarSearchQuery(e.target.value);
+                                setHistorySimilarCurrentPage(1);
+                              }}
+                              className="pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none w-[200px] focus:border-blue-500 focus:bg-white transition-all"
+                            />
+                          </div>
+
+                          {/* Export Trigger */}
+                          <button
+                            onClick={exportHistorySimilarExcel}
+                            disabled={filteredHistorySimilarRows.length === 0}
+                            className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5"
+                          >
+                            <Download className="h-4 w-4" />
+                            Exporter Excel
+                          </button>
+                        </div>
+                      </div>
+
+                      {filteredHistorySimilarRows.length === 0 ? (
+                        <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
+                          <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+                          <h4 className="font-semibold text-slate-800 dark:text-white">Aucune ligne correspondante</h4>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-4">
+                          <div className="overflow-x-auto border border-slate-100 dark:border-slate-800/60 rounded-xl">
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead>
+                                <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                                  {(selectedHistoryReport.columnsNS || []).map((col: string) => {
+                                    const isSortedCol = historySimilarSortField === col;
+                                    return (
+                                      <th 
+                                        key={`history-similar-th-${col}`} 
+                                        onClick={() => handleHistorySimilarDetailsSort(col)}
+                                        className={cn(
+                                          "p-3 border-b border-slate-100 dark:border-slate-800/60 cursor-pointer select-none hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors",
+                                          col === selectedHistoryReport.mapping?.nsId && "text-purple-600 dark:text-purple-400",
+                                          col === selectedHistoryReport.mapping?.nsAgence && "text-blue-600 dark:text-blue-400"
+                                        )}
+                                      >
+                                        <div className="flex items-center gap-1">
+                                          <span>{col}</span>
+                                          <span className={cn(
+                                            "text-[9px] transition-colors",
+                                            isSortedCol ? "text-blue-600 dark:text-blue-400 font-bold" : "text-slate-300 dark:text-slate-600"
+                                          )}>
+                                            {isSortedCol ? (historySimilarSortDirection === "asc" ? "▲" : "▼") : "▲▼"}
+                                          </span>
+                                        </div>
+                                      </th>
+                                    );
+                                  })}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {paginatedHistorySimilarRows.map((row: any, rIdx: number) => (
+                                  <tr key={`history-similar-tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                                    {(selectedHistoryReport.columnsNS || []).map((col: string) => (
+                                      <td 
+                                        key={`history-similar-td-${rIdx}-${col}`} 
+                                        className={cn(
+                                          "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300",
+                                          col === selectedHistoryReport.mapping?.nsId && "font-bold text-purple-600 dark:text-purple-400",
+                                          col === selectedHistoryReport.mapping?.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
+                                        )}
+                                      >
+                                        {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Pagination controls */}
+                          {totalHistorySimilarPages > 1 && (
+                            <div className="flex justify-between items-center gap-4 flex-wrap pt-2">
+                              <span className="text-xs text-slate-400 font-medium">
+                                Affichage de <span className="font-bold text-slate-700 dark:text-white">{(historySimilarCurrentPage - 1) * historySimilarPageSize + 1}</span> à{" "}
+                                <span className="font-bold text-slate-700 dark:text-white">{Math.min(historySimilarCurrentPage * historySimilarPageSize, filteredHistorySimilarRows.length)}</span> sur{" "}
+                                <span className="font-bold text-slate-700 dark:text-white">{filteredHistorySimilarRows.length}</span> lignes
+                              </span>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  disabled={historySimilarCurrentPage === 1}
+                                  onClick={() => setHistorySimilarCurrentPage(prev => Math.max(prev - 1, 1))}
+                                  className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
+                                >
+                                  <ChevronLeft className="h-4 w-4" />
+                                </button>
+                                
+                                <div className="flex items-center gap-1">
+                                  {historySimilarPaginationRange.map((p, pIdx) => {
+                                    if (p === "...") {
+                                      return <span key={`history-similar-ellip-${pIdx}`} className="px-2 text-slate-400">...</span>;
+                                    }
+                                    return (
+                                      <button
+                                        key={`history-similar-page-btn-${p}`}
+                                        onClick={() => setHistorySimilarCurrentPage(p as number)}
+                                        className={cn(
+                                          "h-7 w-7 text-xs font-semibold rounded-lg transition-all",
+                                          p === historySimilarCurrentPage
+                                            ? "bg-blue-600 text-white shadow-md shadow-blue-500/10"
+                                            : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                                        )}
+                                      >
+                                        {p}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                <button
+                                  disabled={historySimilarCurrentPage === totalHistorySimilarPages}
+                                  onClick={() => setHistorySimilarCurrentPage(prev => Math.min(prev + 1, totalHistorySimilarPages))}
+                                  className="p-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg disabled:opacity-50"
+                                >
+                                  <ChevronRight className="h-4 w-4" />
+                                </button>
+
+                                <div className="flex items-center gap-1.5 ml-2">
+                                  <span className="text-xs text-slate-400">Par page :</span>
+                                  <select
+                                    value={historySimilarPageSize}
+                                    onChange={(e) => {
+                                      setHistorySimilarPageSize(parseInt(e.target.value));
+                                      setHistorySimilarCurrentPage(1);
+                                    }}
+                                    className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1 outline-none"
+                                  >
+                                    <option value="15">15</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                    <option value="500">500</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
