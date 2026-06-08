@@ -257,6 +257,15 @@ const unminifyRows = (minifiedRows: any[][], columns: string[]): any[] => {
   });
 };
 
+const chunkArray = <T,>(arr: T[], size: number): T[][] => {
+  const chunks: T[][] = [];
+  if (!arr) return chunks;
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+};
+
 export default function RegtoolsDiffPage() {
   const { user } = useUser();
   const { logAction, isAdmin } = useActivityLog();
@@ -346,6 +355,12 @@ export default function RegtoolsDiffPage() {
   const [historySimilarSortField, setHistorySimilarSortField] = useState<string>("");
   const [historySimilarSortDirection, setHistorySimilarSortDirection] = useState<"asc" | "desc">("asc");
 
+  // Column visibility states (Active compare and history)
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
+  const [showColumnDropdown, setShowColumnDropdown] = useState<boolean>(false);
+  const [historyVisibleColumns, setHistoryVisibleColumns] = useState<string[]>([]);
+  const [showHistoryColumnDropdown, setShowHistoryColumnDropdown] = useState<boolean>(false);
+
   // File size formatter
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Octet";
@@ -428,6 +443,7 @@ export default function RegtoolsDiffPage() {
         const detectedId = autoDetectCol(result.columns, ['identifiant', 'id', 'identifier', 'code', 'numéro', 'num', 'ref', 'reference', 'matricule']);
         const detectedAgence = autoDetectCol(result.columns, ['agence', 'agency', 'code agence', 'code_agence', 'structure', 'bureau', 'succursale', 'agenc']);
         setMapping(prev => ({ ...prev, nsId: detectedId, nsAgence: detectedAgence }));
+        setVisibleColumns(result.columns.slice(0, 6));
       }
       
       setComparisonDone(false);
@@ -1315,10 +1331,46 @@ export default function RegtoolsDiffPage() {
       // 2. If it's a Firestore report, try to fetch full data (in case it wasn't preloaded)
       if (!loadedReport && isFirebaseConfigured && db) {
         try {
-          const { doc, getDoc } = await import("firebase/firestore");
+          const { doc, getDoc, collection, getDocs } = await import("firebase/firestore");
           const docSnap = await getDoc(doc(db, "regtoolsHistory", report.monthKey));
           if (docSnap.exists()) {
-            loadedReport = { id: docSnap.id, ...docSnap.data() };
+            const mainData = docSnap.data();
+            
+            let minifiedMissingRows: any[][] = mainData.minifiedMissingRows || [];
+            let minifiedSimilarRows: any[][] = mainData.minifiedSimilarRows || [];
+
+            if (mainData.hasSubCollectionDetails) {
+              const querySnapshot = await getDocs(collection(db, "regtoolsHistory", report.monthKey, "details"));
+              
+              const missingChunksList: { index: number; rows: any[][] }[] = [];
+              const similarChunksList: { index: number; rows: any[][] }[] = [];
+              
+              querySnapshot.forEach((chunkDoc) => {
+                const chunkData = chunkDoc.data();
+                if (chunkData.type === "missing") {
+                  missingChunksList.push({ index: chunkData.index, rows: chunkData.rows || [] });
+                } else if (chunkData.type === "similar") {
+                  similarChunksList.push({ index: chunkData.index, rows: chunkData.rows || [] });
+                }
+              });
+              
+              // Sort chunks by index
+              missingChunksList.sort((a, b) => a.index - b.index);
+              similarChunksList.sort((a, b) => a.index - b.index);
+              
+              minifiedMissingRows = [];
+              minifiedSimilarRows = [];
+              
+              missingChunksList.forEach(chunk => minifiedMissingRows.push(...chunk.rows));
+              similarChunksList.forEach(chunk => minifiedSimilarRows.push(...chunk.rows));
+            }
+
+            loadedReport = {
+              id: docSnap.id,
+              ...mainData,
+              minifiedMissingRows,
+              minifiedSimilarRows
+            };
           }
         } catch (err) {
           console.error("Erreur lors du chargement complet Firestore :", err);
@@ -1343,6 +1395,7 @@ export default function RegtoolsDiffPage() {
           loadedReport.similarRows = unminifyRows(loadedReport.minifiedSimilarRows, columnsNS);
         }
         setSelectedHistoryReport(loadedReport);
+        setHistoryVisibleColumns(columnsNS.slice(0, 6));
         
         // Log consultation for non-admin users
         const email = user?.email || "";
@@ -1458,18 +1511,52 @@ export default function RegtoolsDiffPage() {
 
     if (isFirebaseConfigured && db) {
       try {
-        const { doc, setDoc } = await import("firebase/firestore");
+        const { doc, setDoc, collection, getDocs, deleteDoc } = await import("firebase/firestore");
         
-        let firestorePayload = { ...reportPayload };
-        const payloadSize = JSON.stringify(firestorePayload).length;
-        
-        if (payloadSize > 950000) {
-          console.warn("Le rapport dépasse la taille limite Firestore (1 Mo). Les détails des similitudes seront omis de la base de données cloud.");
-          firestorePayload.minifiedSimilarRows = [];
-          firestorePayload.similarRowsOmitted = true;
+        // 1. Clean up existing chunks in sub-collection if this month report is overwritten
+        const oldDetailsDocs = await getDocs(collection(db, "regtoolsHistory", monthKey, "details"));
+        const deletePromises: Promise<any>[] = [];
+        oldDetailsDocs.forEach(docSnap => {
+          deletePromises.push(deleteDoc(docSnap.ref));
+        });
+        await Promise.all(deletePromises);
+
+        // 2. Prepare chunk arrays of 1000 items each
+        const missingChunks = chunkArray(minifiedMissing, 1000);
+        const similarChunks = chunkArray(minifiedSimilar, 1000);
+
+        // 3. Save main document with metadata (extremely lightweight: < 10KB)
+        const firestoreMainPayload = {
+          monthKey,
+          monthLabel,
+          fileNameNS: files.ns.name,
+          fileNameRegtools: files.regtools ? files.regtools.name : "",
+          savedAt: reportPayload.savedAt,
+          globalStats: reportPayload.globalStats,
+          agencyStats: reportPayload.agencyStats,
+          columnsNS: columns.ns,
+          mapping: mapping,
+          hasSubCollectionDetails: true
+        };
+        await setDoc(doc(db, "regtoolsHistory", monthKey), firestoreMainPayload);
+
+        // 4. Save chunk documents to the subcollection
+        for (let i = 0; i < missingChunks.length; i++) {
+          await setDoc(doc(db, "regtoolsHistory", monthKey, "details", `missing_${i}`), {
+            type: "missing",
+            index: i,
+            rows: missingChunks[i]
+          });
         }
-        
-        await setDoc(doc(db, "regtoolsHistory", monthKey), firestorePayload);
+
+        for (let i = 0; i < similarChunks.length; i++) {
+          await setDoc(doc(db, "regtoolsHistory", monthKey, "details", `similar_${i}`), {
+            type: "similar",
+            index: i,
+            rows: similarChunks[i]
+          });
+        }
+
         savedInFirestore = true;
       } catch (err: any) {
         console.error("Erreur de sauvegarde Firestore :", err);
@@ -1528,6 +1615,8 @@ export default function RegtoolsDiffPage() {
 
     if (selectedHistoryReport?.monthKey === report.monthKey) {
       setSelectedHistoryReport(null);
+      setHistoryVisibleColumns([]);
+      setShowHistoryColumnDropdown(false);
     }
     loadHistory();
     alert("Rapport supprimé avec succès.");
@@ -2128,7 +2217,10 @@ export default function RegtoolsDiffPage() {
         {/* Page Switcher */}
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
           <button
-            onClick={() => setPageTab("new")}
+            onClick={() => {
+              setPageTab("new");
+              setShowHistoryColumnDropdown(false);
+            }}
             className={cn(
               "px-4 py-2 text-xs font-semibold rounded-lg transition-all",
               pageTab === "new"
@@ -2142,6 +2234,7 @@ export default function RegtoolsDiffPage() {
             onClick={() => {
               setPageTab("history");
               loadHistory();
+              setShowColumnDropdown(false);
             }}
             className={cn(
               "px-4 py-2 text-xs font-semibold rounded-lg transition-all",
@@ -2533,6 +2626,51 @@ export default function RegtoolsDiffPage() {
                         />
                       </div>
 
+                      {/* Column Selector Dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+                          className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 rounded-xl transition-all flex items-center gap-1.5"
+                        >
+                          Colonnes ({visibleColumns.length > 0 ? visibleColumns.length : columns.ns.length})
+                        </button>
+                        {showColumnDropdown && (
+                          <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-50 p-2 max-h-60 overflow-y-auto">
+                            <div className="flex justify-between items-center pb-2 mb-2 border-b border-slate-100 dark:border-slate-800/60">
+                              <button 
+                                onClick={() => setVisibleColumns(columns.ns)}
+                                className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                              >
+                                Toutes
+                              </button>
+                              <button 
+                                onClick={() => setVisibleColumns(columns.ns.slice(0, 6))}
+                                className="text-[10px] text-slate-500 hover:underline"
+                              >
+                                Défaut
+                              </button>
+                            </div>
+                            {columns.ns.map(col => (
+                              <label key={`col-toggle-${col}`} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer text-xs text-slate-700 dark:text-slate-300">
+                                <input
+                                  type="checkbox"
+                                  checked={visibleColumns.includes(col)}
+                                  onChange={() => {
+                                    if (visibleColumns.includes(col)) {
+                                      setVisibleColumns(visibleColumns.filter(c => c !== col));
+                                    } else {
+                                      setVisibleColumns([...visibleColumns, col]);
+                                    }
+                                  }}
+                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="truncate">{col}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Export Trigger */}
                       <button
                         onClick={exportExcel}
@@ -2558,7 +2696,7 @@ export default function RegtoolsDiffPage() {
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                              {columns.ns.map(col => {
+                              {(visibleColumns.length > 0 ? visibleColumns : columns.ns).map(col => {
                                 const isSortedCol = detailsSortField === col;
                                 return (
                                   <th 
@@ -2587,14 +2725,15 @@ export default function RegtoolsDiffPage() {
                           <tbody>
                             {paginatedRows.map((row, rIdx) => (
                               <tr key={`tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                                {columns.ns.map(col => (
+                                {(visibleColumns.length > 0 ? visibleColumns : columns.ns).map(col => (
                                   <td 
                                     key={`td-${rIdx}-${col}`} 
                                     className={cn(
-                                      "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300",
+                                      "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300 max-w-[200px] truncate whitespace-nowrap",
                                       col === mapping.nsId && "font-bold text-purple-600 dark:text-purple-400",
                                       col === mapping.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
                                     )}
+                                    title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   >
                                     {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   </td>
@@ -2720,6 +2859,51 @@ export default function RegtoolsDiffPage() {
                         />
                       </div>
 
+                      {/* Column Selector Dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+                          className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 rounded-xl transition-all flex items-center gap-1.5"
+                        >
+                          Colonnes ({visibleColumns.length > 0 ? visibleColumns.length : columns.ns.length})
+                        </button>
+                        {showColumnDropdown && (
+                          <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-50 p-2 max-h-60 overflow-y-auto">
+                            <div className="flex justify-between items-center pb-2 mb-2 border-b border-slate-100 dark:border-slate-800/60">
+                              <button 
+                                onClick={() => setVisibleColumns(columns.ns)}
+                                className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                              >
+                                Toutes
+                              </button>
+                              <button 
+                                onClick={() => setVisibleColumns(columns.ns.slice(0, 6))}
+                                className="text-[10px] text-slate-500 hover:underline"
+                              >
+                                Défaut
+                              </button>
+                            </div>
+                            {columns.ns.map(col => (
+                              <label key={`col-toggle-similar-${col}`} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer text-xs text-slate-700 dark:text-slate-300">
+                                <input
+                                  type="checkbox"
+                                  checked={visibleColumns.includes(col)}
+                                  onChange={() => {
+                                    if (visibleColumns.includes(col)) {
+                                      setVisibleColumns(visibleColumns.filter(c => c !== col));
+                                    } else {
+                                      setVisibleColumns([...visibleColumns, col]);
+                                    }
+                                  }}
+                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="truncate">{col}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Export Trigger */}
                       <button
                         onClick={exportSimilarExcel}
@@ -2745,7 +2929,7 @@ export default function RegtoolsDiffPage() {
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                              {columns.ns.map(col => {
+                              {(visibleColumns.length > 0 ? visibleColumns : columns.ns).map(col => {
                                 const isSortedCol = similarSortField === col;
                                 return (
                                   <th 
@@ -2774,14 +2958,15 @@ export default function RegtoolsDiffPage() {
                           <tbody>
                             {paginatedSimilarRows.map((row, rIdx) => (
                               <tr key={`similar-tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                                {columns.ns.map(col => (
+                                {(visibleColumns.length > 0 ? visibleColumns : columns.ns).map(col => (
                                   <td 
                                     key={`similar-td-${rIdx}-${col}`} 
                                     className={cn(
-                                      "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300",
+                                      "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300 max-w-[200px] truncate whitespace-nowrap",
                                       col === mapping.nsId && "font-bold text-purple-600 dark:text-purple-400",
                                       col === mapping.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
                                     )}
+                                    title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   >
                                     {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   </td>
@@ -3162,7 +3347,12 @@ export default function RegtoolsDiffPage() {
             <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-5 flex justify-between items-center gap-4 flex-wrap">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setSelectedHistoryReport(null)}
+                  onClick={() => {
+                    setSelectedHistoryReport(null);
+                    setHistoryVisibleColumns([]);
+                    setShowHistoryColumnDropdown(false);
+                    setHistoryTab("stats");
+                  }}
                   className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all border border-slate-200 dark:border-slate-800/60 flex items-center justify-center"
                   title="Retour à l'historique"
                 >
@@ -3193,7 +3383,10 @@ export default function RegtoolsDiffPage() {
               <div className="flex border-b border-slate-200 dark:border-slate-800 justify-between items-center pb-0 mb-2 flex-wrap gap-2">
                 <div className="flex flex-wrap">
                   <button
-                    onClick={() => setHistoryTab("stats")}
+                    onClick={() => {
+                      setHistoryTab("stats");
+                      setShowHistoryColumnDropdown(false);
+                    }}
                     className={cn(
                       "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
                       historyTab === "stats"
@@ -3205,7 +3398,10 @@ export default function RegtoolsDiffPage() {
                     Statistiques par Agence
                   </button>
                   <button
-                    onClick={() => setHistoryTab("list")}
+                    onClick={() => {
+                      setHistoryTab("list");
+                      setShowHistoryColumnDropdown(false);
+                    }}
                     className={cn(
                       "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
                       historyTab === "list"
@@ -3217,7 +3413,10 @@ export default function RegtoolsDiffPage() {
                     Détails des Écarts ({filteredHistoryRows.length.toLocaleString("fr-FR")} lignes)
                   </button>
                   <button
-                    onClick={() => setHistoryTab("similar")}
+                    onClick={() => {
+                      setHistoryTab("similar");
+                      setShowHistoryColumnDropdown(false);
+                    }}
                     className={cn(
                       "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
                       historyTab === "similar"
@@ -3476,6 +3675,51 @@ export default function RegtoolsDiffPage() {
                             />
                           </div>
 
+                          {/* Column Selector Dropdown */}
+                          <div className="relative">
+                            <button
+                              onClick={() => setShowHistoryColumnDropdown(!showHistoryColumnDropdown)}
+                              className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 rounded-xl transition-all flex items-center gap-1.5"
+                            >
+                              Colonnes ({historyVisibleColumns.length > 0 ? historyVisibleColumns.length : (selectedHistoryReport.columnsNS || []).length})
+                            </button>
+                            {showHistoryColumnDropdown && (
+                              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-50 p-2 max-h-60 overflow-y-auto">
+                                <div className="flex justify-between items-center pb-2 mb-2 border-b border-slate-100 dark:border-slate-800/60">
+                                  <button 
+                                    onClick={() => setHistoryVisibleColumns(selectedHistoryReport.columnsNS || [])}
+                                    className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                                  >
+                                    Toutes
+                                  </button>
+                                  <button 
+                                    onClick={() => setHistoryVisibleColumns((selectedHistoryReport.columnsNS || []).slice(0, 6))}
+                                    className="text-[10px] text-slate-500 hover:underline"
+                                  >
+                                    Défaut
+                                  </button>
+                                </div>
+                                {(selectedHistoryReport.columnsNS || []).map(col => (
+                                  <label key={`col-toggle-history-similar-${col}`} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer text-xs text-slate-700 dark:text-slate-300">
+                                    <input
+                                      type="checkbox"
+                                      checked={historyVisibleColumns.includes(col)}
+                                      onChange={() => {
+                                        if (historyVisibleColumns.includes(col)) {
+                                          setHistoryVisibleColumns(historyVisibleColumns.filter(c => c !== col));
+                                        } else {
+                                          setHistoryVisibleColumns([...historyVisibleColumns, col]);
+                                        }
+                                      }}
+                                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="truncate">{col}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
                           {/* Export Trigger */}
                           <button
                             onClick={exportHistorySimilarExcel}
@@ -3499,7 +3743,7 @@ export default function RegtoolsDiffPage() {
                             <table className="w-full text-left border-collapse text-xs">
                               <thead>
                                 <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                                  {(selectedHistoryReport.columnsNS || []).map((col: string) => {
+                                  {(historyVisibleColumns.length > 0 ? historyVisibleColumns : selectedHistoryReport.columnsNS || []).map((col: string) => {
                                     const isSortedCol = historySimilarSortField === col;
                                     return (
                                       <th 
@@ -3528,14 +3772,15 @@ export default function RegtoolsDiffPage() {
                               <tbody>
                                 {paginatedHistorySimilarRows.map((row: any, rIdx: number) => (
                                   <tr key={`history-similar-tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                                    {(selectedHistoryReport.columnsNS || []).map((col: string) => (
+                                    {(historyVisibleColumns.length > 0 ? historyVisibleColumns : selectedHistoryReport.columnsNS || []).map((col: string) => (
                                       <td 
                                         key={`history-similar-td-${rIdx}-${col}`} 
                                         className={cn(
-                                          "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300",
+                                          "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300 max-w-[200px] truncate whitespace-nowrap",
                                           col === selectedHistoryReport.mapping?.nsId && "font-bold text-purple-600 dark:text-purple-400",
                                           col === selectedHistoryReport.mapping?.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
                                         )}
+                                        title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                       >
                                         {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                       </td>
@@ -3662,6 +3907,51 @@ export default function RegtoolsDiffPage() {
                         />
                       </div>
 
+                      {/* Column Selector Dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowHistoryColumnDropdown(!showHistoryColumnDropdown)}
+                          className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 rounded-xl transition-all flex items-center gap-1.5"
+                        >
+                          Colonnes ({historyVisibleColumns.length > 0 ? historyVisibleColumns.length : (selectedHistoryReport.columnsNS || []).length})
+                        </button>
+                        {showHistoryColumnDropdown && (
+                          <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-50 p-2 max-h-60 overflow-y-auto">
+                            <div className="flex justify-between items-center pb-2 mb-2 border-b border-slate-100 dark:border-slate-800/60">
+                              <button 
+                                onClick={() => setHistoryVisibleColumns(selectedHistoryReport.columnsNS || [])}
+                                className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                              >
+                                Toutes
+                              </button>
+                              <button 
+                                onClick={() => setHistoryVisibleColumns((selectedHistoryReport.columnsNS || []).slice(0, 6))}
+                                className="text-[10px] text-slate-500 hover:underline"
+                              >
+                                Défaut
+                              </button>
+                            </div>
+                            {(selectedHistoryReport.columnsNS || []).map(col => (
+                              <label key={`col-toggle-history-list-${col}`} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer text-xs text-slate-700 dark:text-slate-300">
+                                <input
+                                  type="checkbox"
+                                  checked={historyVisibleColumns.includes(col)}
+                                  onChange={() => {
+                                    if (historyVisibleColumns.includes(col)) {
+                                      setHistoryVisibleColumns(historyVisibleColumns.filter(c => c !== col));
+                                    } else {
+                                      setHistoryVisibleColumns([...historyVisibleColumns, col]);
+                                    }
+                                  }}
+                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="truncate">{col}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Export Trigger */}
                       <button
                         onClick={exportHistoryExcel}
@@ -3685,7 +3975,7 @@ export default function RegtoolsDiffPage() {
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                              {(selectedHistoryReport.columnsNS || []).map((col: string) => {
+                              {(historyVisibleColumns.length > 0 ? historyVisibleColumns : selectedHistoryReport.columnsNS || []).map((col: string) => {
                                 const isSortedCol = historyDetailsSortField === col;
                                 return (
                                   <th 
@@ -3714,14 +4004,15 @@ export default function RegtoolsDiffPage() {
                           <tbody>
                             {paginatedHistoryRows.map((row: any, rIdx: number) => (
                               <tr key={`history-tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                                {(selectedHistoryReport.columnsNS || []).map((col: string) => (
+                                {(historyVisibleColumns.length > 0 ? historyVisibleColumns : selectedHistoryReport.columnsNS || []).map((col: string) => (
                                   <td 
                                     key={`history-td-${rIdx}-${col}`} 
                                     className={cn(
-                                      "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300",
+                                      "p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300 max-w-[200px] truncate whitespace-nowrap",
                                       col === selectedHistoryReport.mapping?.nsId && "font-bold text-purple-600 dark:text-purple-400",
                                       col === selectedHistoryReport.mapping?.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
                                     )}
+                                    title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   >
                                     {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   </td>
