@@ -88,6 +88,7 @@ const navItems = [
   { href: "/training", icon: Users, label: "Formations", title: "Formations et Sensibilisation" },
   { href: "/reports", icon: FilePieChart, label: "Reporting Automatisé", title: "Reporting Automatisé" },
   { href: "/regtools-diff", icon: FileSpreadsheet, label: "Rapprochement RegTools", title: "Rapprochement Clients (Tab RegTools vs NS)" },
+  { href: "/controle-suivi", icon: ClipboardList, label: "Controle et suivi", title: "Contrôle et Suivi" },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {

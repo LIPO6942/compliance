@@ -13,7 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
-  FileText
+  FileText,
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db, isFirebaseConfigured } from "@/lib/firebase";
@@ -413,6 +414,152 @@ export default function RegtoolsDiffPage() {
   const [historyVisibleColumns, setHistoryVisibleColumns] = useState<string[]>([]);
   const [showHistoryColumnDropdown, setShowHistoryColumnDropdown] = useState<boolean>(false);
 
+  // Sampling / Checklist creation states
+  const [samplingAgency, setSamplingAgency] = useState<string>("");
+  const [isSamplingModalOpen, setIsSamplingModalOpen] = useState(false);
+  const [samplingStep, setSamplingStep] = useState<1 | 2>(1); // Step 1: selection, Step 2: configuration
+  const [samplingSearchQuery, setSamplingSearchQuery] = useState("");
+  const [selectedSampleIds, setSelectedSampleIds] = useState<Record<string, boolean>>({}); // clientId -> boolean
+  const [configEntityType, setConfigEntityType] = useState<"Personne Physique" | "Association (OBNL)" | "Personne Morale">("Personne Physique");
+  const [configCheckData, setConfigCheckData] = useState(true);
+  const [configCheckDocs, setConfigCheckDocs] = useState(true);
+  const [isSavingSample, setIsSavingSample] = useState(false);
+
+  const openSamplingModal = (agencyCode: string) => {
+    setSamplingAgency(agencyCode);
+    setSamplingStep(1);
+    setSamplingSearchQuery("");
+    setSelectedSampleIds({});
+    setConfigEntityType("Personne Physique");
+    setConfigCheckData(true);
+    setConfigCheckDocs(true);
+    setIsSamplingModalOpen(true);
+  };
+
+  const getAgencySimilarRows = useCallback(() => {
+    if (!selectedHistoryReport || !samplingAgency) return [];
+    const agencyCol = selectedHistoryReport.mapping?.nsAgence;
+    if (!agencyCol) return [];
+    
+    return (selectedHistoryReport.similarRows || []).filter((row: any) => {
+      const val = row[agencyCol];
+      return val !== undefined && val !== null && String(val).trim().replace(/^0+(?!$)/, '') === samplingAgency.replace(/^0+(?!$)/, '');
+    });
+  }, [selectedHistoryReport, samplingAgency]);
+
+  const filteredAgencySimilarRows = useMemo(() => {
+    const rows = getAgencySimilarRows();
+    if (!samplingSearchQuery.trim() || !selectedHistoryReport) return rows;
+    
+    const query = samplingSearchQuery.toLowerCase().trim();
+    const idCol = selectedHistoryReport.mapping?.nsId || "";
+    const nameCol = selectedHistoryReport.mapping?.nsNom || selectedHistoryReport.columnsNS?.find((c: string) => /nom|client|raison/i.test(c)) || "";
+    
+    return rows.filter((row: any) => {
+      const idVal = String(row[idCol] || "").toLowerCase();
+      const nameVal = String(row[nameCol] || "").toLowerCase();
+      return idVal.includes(query) || nameVal.includes(query);
+    });
+  }, [getAgencySimilarRows, samplingSearchQuery, selectedHistoryReport]);
+
+  const saveSampleChecklist = async () => {
+    if (!selectedHistoryReport || !samplingAgency) return;
+    const agencyRows = getAgencySimilarRows();
+    const idCol = selectedHistoryReport.mapping?.nsId || "";
+    const nameCol = selectedHistoryReport.mapping?.nsNom || selectedHistoryReport.columnsNS?.find((c: string) => /nom|client|raison/i.test(c)) || "";
+    
+    const selectedRows = agencyRows.filter((row: any) => {
+      const idVal = String(row[idCol] || "");
+      return !!selectedSampleIds[idVal];
+    });
+    
+    if (selectedRows.length === 0) {
+      alert("Veuillez sélectionner au moins un dossier.");
+      return;
+    }
+    
+    setIsSavingSample(true);
+    try {
+      const categories: string[] = [];
+      if (configCheckData) categories.push("Données");
+      if (configCheckDocs) categories.push("Documents");
+      
+      const newItems = selectedRows.map((row: any) => {
+        const clientId = String(row[idCol] || "").trim();
+        const clientName = String(row[nameCol] || "").trim();
+        const agencyInfo = resolveAgencyInfo(samplingAgency);
+        
+        return {
+          id: `${clientId}_${selectedHistoryReport.monthKey}`,
+          clientId,
+          clientName,
+          agencyCode: samplingAgency,
+          agencyName: agencyInfo.name,
+          monthKey: selectedHistoryReport.monthKey,
+          monthLabel: selectedHistoryReport.monthLabel,
+          entityType: configEntityType,
+          checkCategories: categories,
+          status: "Non commencé",
+          comments: "",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          checklist: {}
+        };
+      });
+      
+      let firestoreCount = 0;
+      if (isFirebaseConfigured && db) {
+        const { doc, setDoc } = await import("firebase/firestore");
+        for (const item of newItems) {
+          try {
+            await setDoc(doc(db, "controleSuivi", item.id), item);
+            firestoreCount++;
+          } catch (err) {
+            console.error("Firestore save error for doc: ", item.id, err);
+          }
+        }
+      }
+      
+      const localKey = "compliance_controle_suivi";
+      const existing = localStorage.getItem(localKey);
+      const list = existing ? JSON.parse(existing) : [];
+      const updatedList = [...list];
+      
+      for (const item of newItems) {
+        const idx = updatedList.findIndex(x => x.id === item.id);
+        if (idx > -1) {
+          updatedList[idx] = item;
+        } else {
+          updatedList.push(item);
+        }
+      }
+      localStorage.setItem(localKey, JSON.stringify(updatedList));
+      
+      if (user) {
+        logAction({
+          actionType: "CREATE",
+          description: `Échantillonnage de ${newItems.length} dossier(s) pour contrôle (Agence: ${samplingAgency})`,
+          details: {
+            agencyCode: samplingAgency,
+            monthKey: selectedHistoryReport.monthKey,
+            count: newItems.length,
+            entityType: configEntityType,
+            categories
+          },
+          targetId: selectedHistoryReport.monthKey,
+          userEmail: user.email || user.authEmail || ""
+        });
+      }
+      
+      alert(`Échantillonnage réussi !\n${newItems.length} fiches de contrôle créées et sauvegardées (Cloud: ${firestoreCount}/${newItems.length}).`);
+      setIsSamplingModalOpen(false);
+    } catch (error: any) {
+      alert("Erreur lors de la sauvegarde de l'échantillon : " + error.message);
+    } finally {
+      setIsSavingSample(false);
+    }
+  };
+
   // File size formatter
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Octet";
@@ -673,13 +820,12 @@ export default function RegtoolsDiffPage() {
       const agenceStr = selectedAgency === "ALL" ? "Toutes les agences" : selectedAgency;
       const currentDate = new Date().toLocaleDateString("fr-FR");
 
-      const exportHeaders = [...columns.ns, "Type d'Entité"];
+      const exportHeaders = [...columns.ns];
       const exportData = filteredRows.map(row => {
         const newRow: any = {};
         columns.ns.forEach(h => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
-        newRow["Type d'Entité"] = detectRowEntityType(row, mapping.nsId);
         return newRow;
       });
 
@@ -740,13 +886,12 @@ export default function RegtoolsDiffPage() {
       const agenceStr = similarSelectedAgency === "ALL" ? "Toutes les agences" : similarSelectedAgency;
       const currentDate = new Date().toLocaleDateString("fr-FR");
 
-      const exportHeaders = [...columns.ns, "Type d'Entité"];
+      const exportHeaders = [...columns.ns];
       const exportData = filteredSimilarRows.map(row => {
         const newRow: any = {};
         columns.ns.forEach(h => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
-        newRow["Type d'Entité"] = detectRowEntityType(row, mapping.nsId);
         return newRow;
       });
 
@@ -832,13 +977,12 @@ export default function RegtoolsDiffPage() {
         return;
       }
 
-      const exportHeaders = [...nsCols, "Type d'Entité"];
+      const exportHeaders = [...nsCols];
       const exportData = rowsToExport.map(row => {
         const newRow: any = {};
         nsCols.forEach(h => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
-        newRow["Type d'Entité"] = detectRowEntityType(row, isHistory ? (selectedHistoryReport.mapping?.nsId || "") : mapping.nsId);
         return newRow;
       });
 
@@ -926,13 +1070,12 @@ export default function RegtoolsDiffPage() {
         return;
       }
 
-      const exportHeaders = [...nsCols, "Type d'Entité"];
+      const exportHeaders = [...nsCols];
       const exportData = rowsToExport.map(row => {
         const newRow: any = {};
         nsCols.forEach(h => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
-        newRow["Type d'Entité"] = detectRowEntityType(row, isHistory ? (selectedHistoryReport.mapping?.nsId || "") : mapping.nsId);
         return newRow;
       });
 
@@ -1977,13 +2120,12 @@ export default function RegtoolsDiffPage() {
     try {
       const report = selectedHistoryReport;
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
-      const exportHeaders = [...(report.columnsNS || []), "Type d'Entité"];
+      const exportHeaders = [...(report.columnsNS || [])];
       const exportData = filteredHistorySimilarRows.map((row: any) => {
         const newRow: any = {};
         (report.columnsNS || []).forEach((h: string) => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
-        newRow["Type d'Entité"] = detectRowEntityType(row, report.mapping?.nsId || "");
         return newRow;
       });
 
@@ -2041,13 +2183,12 @@ export default function RegtoolsDiffPage() {
     try {
       const report = selectedHistoryReport;
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
-      const exportHeaders = [...(report.columnsNS || []), "Type d'Entité"];
+      const exportHeaders = [...(report.columnsNS || [])];
       const exportData = filteredHistoryRows.map((row: any) => {
         const newRow: any = {};
         (report.columnsNS || []).forEach((h: string) => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
-        newRow["Type d'Entité"] = detectRowEntityType(row, report.mapping?.nsId || "");
         return newRow;
       });
 
@@ -2830,19 +2971,6 @@ export default function RegtoolsDiffPage() {
                                     title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   >
                                     {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
-                                    {col === mapping.nsId && (() => {
-                                      const type = detectRowEntityType(row, mapping.nsId);
-                                      const badgeColors = 
-                                        type === "Personne Physique (CIN)" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" :
-                                        type === "Personne Physique (Passeport)" ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20" :
-                                        type === "Association (OBNL)" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" :
-                                        "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20";
-                                      return (
-                                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-bold block mt-1 w-max uppercase tracking-wider", badgeColors)}>
-                                          {type}
-                                        </span>
-                                      );
-                                    })()}
                                   </td>
                                 ))}
                               </tr>
@@ -3076,19 +3204,6 @@ export default function RegtoolsDiffPage() {
                                     title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   >
                                     {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
-                                    {col === mapping.nsId && (() => {
-                                      const type = detectRowEntityType(row, mapping.nsId);
-                                      const badgeColors = 
-                                        type === "Personne Physique (CIN)" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" :
-                                        type === "Personne Physique (Passeport)" ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20" :
-                                        type === "Association (OBNL)" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" :
-                                        "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20";
-                                      return (
-                                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-bold block mt-1 w-max uppercase tracking-wider", badgeColors)}>
-                                          {type}
-                                        </span>
-                                      );
-                                    })()}
                                   </td>
                                 ))}
                               </tr>
@@ -3688,6 +3803,14 @@ export default function RegtoolsDiffPage() {
                                   >
                                     <CheckCircle2 className="h-4 w-4" />
                                   </button>
+                                  <button
+                                    onClick={() => openSamplingModal(stat.agence)}
+                                    disabled={!selectedHistoryReport.similarRows || stat.existing === 0}
+                                    className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-blue-600 dark:text-blue-400 rounded-lg transition-colors inline-flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent"
+                                    title="Échantillonner pour contrôle"
+                                  >
+                                    <ClipboardList className="h-4 w-4" />
+                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -3903,19 +4026,6 @@ export default function RegtoolsDiffPage() {
                                         title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                       >
                                         {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
-                                        {col === selectedHistoryReport.mapping?.nsId && (() => {
-                                          const type = detectRowEntityType(row, selectedHistoryReport.mapping?.nsId || "");
-                                          const badgeColors = 
-                                            type === "Personne Physique (CIN)" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" :
-                                            type === "Personne Physique (Passeport)" ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20" :
-                                            type === "Association (OBNL)" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" :
-                                            "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20";
-                                          return (
-                                            <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-bold block mt-1 w-max uppercase tracking-wider", badgeColors)}>
-                                              {type}
-                                            </span>
-                                          );
-                                        })()}
                                       </td>
                                     ))}
                                   </tr>
@@ -4148,19 +4258,6 @@ export default function RegtoolsDiffPage() {
                                     title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   >
                                     {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
-                                    {col === selectedHistoryReport.mapping?.nsId && (() => {
-                                      const type = detectRowEntityType(row, selectedHistoryReport.mapping?.nsId || "");
-                                      const badgeColors = 
-                                        type === "Personne Physique (CIN)" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" :
-                                        type === "Personne Physique (Passeport)" ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20" :
-                                        type === "Association (OBNL)" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" :
-                                        "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20";
-                                      return (
-                                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-bold block mt-1 w-max uppercase tracking-wider", badgeColors)}>
-                                          {type}
-                                        </span>
-                                      );
-                                    })()}
                                   </td>
                                 ))}
                               </tr>
@@ -4243,6 +4340,273 @@ export default function RegtoolsDiffPage() {
             </div>
           </div>
         )
+      )}
+      {/* Sampling Modal */}
+      {isSamplingModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400">Contrôle & Échantillonnage</span>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1">
+                  {samplingStep === 1 
+                    ? `Sélection de l'échantillon - Agence ${samplingAgency} (${resolveAgencyInfo(samplingAgency).name})`
+                    : `Configuration du contrôle - Agence ${samplingAgency}`
+                  }
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsSamplingModalOpen(false)}
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            {samplingStep === 1 ? (
+              <>
+                {/* Step 1 Content: Row selection */}
+                <div className="p-6 flex-1 overflow-y-auto space-y-4">
+                  <div className="flex items-center gap-4 justify-between flex-wrap">
+                    <div className="relative flex-1 min-w-[280px]">
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Rechercher par identifiant ou nom de client..."
+                        value={samplingSearchQuery}
+                        onChange={(e) => setSamplingSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-blue-500/50 transition-colors"
+                      />
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          const allIds: Record<string, boolean> = {};
+                          filteredAgencySimilarRows.forEach((row: any) => {
+                            const idCol = selectedHistoryReport?.mapping?.nsId || "";
+                            const idVal = String(row[idCol] || "");
+                            if (idVal) allIds[idVal] = true;
+                          });
+                          setSelectedSampleIds(allIds);
+                        }}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-500 transition-colors"
+                      >
+                        Tout cocher
+                      </button>
+                      <span className="text-slate-300 dark:text-slate-700">|</span>
+                      <button
+                        onClick={() => setSelectedSampleIds({})}
+                        className="text-xs font-bold text-slate-500 hover:text-slate-400 transition-colors"
+                      >
+                        Tout décocher
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-100 dark:border-slate-850 rounded-xl overflow-hidden bg-slate-50/20 dark:bg-slate-900/5">
+                    <div className="max-h-[40vh] overflow-y-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase font-semibold border-b border-slate-100 dark:border-slate-800">
+                            <th className="p-3 w-12 text-center">Choix</th>
+                            <th className="p-3">Identifiant</th>
+                            <th className="p-3">Nom Client</th>
+                            {selectedHistoryReport?.columnsNS?.slice(0, 3).map((col: string) => {
+                              const idCol = selectedHistoryReport.mapping?.nsId;
+                              const agenceCol = selectedHistoryReport.mapping?.nsAgence;
+                              if (col === idCol || col === agenceCol || /nom|client|raison/i.test(col)) return null;
+                              return <th key={`sample-th-${col}`} className="p-3">{col}</th>;
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredAgencySimilarRows.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="p-8 text-center text-slate-400 italic">
+                                Aucun dossier correspondant.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredAgencySimilarRows.map((row: any, rIdx: number) => {
+                              const idCol = selectedHistoryReport?.mapping?.nsId || "";
+                              const nameCol = selectedHistoryReport?.mapping?.nsNom || selectedHistoryReport?.columnsNS?.find((c: string) => /nom|client|raison/i.test(c)) || "";
+                              const idVal = String(row[idCol] || "");
+                              const nameVal = String(row[nameCol] || "");
+                              const isChecked = !!selectedSampleIds[idVal];
+
+                              return (
+                                <tr 
+                                  key={`sample-tr-${rIdx}`} 
+                                  onClick={() => {
+                                    setSelectedSampleIds(prev => ({
+                                      ...prev,
+                                      [idVal]: !prev[idVal]
+                                    }));
+                                  }}
+                                  className={cn(
+                                    "hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors cursor-pointer border-b border-slate-100 dark:border-slate-900",
+                                    isChecked && "bg-blue-500/5 dark:bg-blue-500/5"
+                                  )}
+                                >
+                                  <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        setSelectedSampleIds(prev => ({
+                                          ...prev,
+                                          [idVal]: !prev[idVal]
+                                        }));
+                                      }}
+                                      className="h-4 w-4 rounded border-slate-350 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                    />
+                                  </td>
+                                  <td className="p-3 font-bold text-slate-900 dark:text-white">{idVal}</td>
+                                  <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">{nameVal}</td>
+                                  {selectedHistoryReport?.columnsNS?.slice(0, 3).map((col: string) => {
+                                    if (col === idCol || col === selectedHistoryReport.mapping?.nsAgence || /nom|client|raison/i.test(col)) return null;
+                                    return (
+                                      <td key={`sample-td-${rIdx}-${col}`} className="p-3 text-slate-500 dark:text-slate-400">
+                                        {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 1 Footer */}
+                <div className="p-6 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/30 dark:bg-slate-900/5 flex items-center justify-between">
+                  <span className="text-xs text-slate-500 font-medium">
+                    {Object.values(selectedSampleIds).filter(Boolean).length} dossier(s) sélectionné(s) sur {filteredAgencySimilarRows.length} visible(s) ({getAgencySimilarRows().length} total agence).
+                  </span>
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setIsSamplingModalOpen(false)}
+                      className="px-4 py-2 border border-slate-200 dark:border-slate-800 text-sm font-semibold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      disabled={Object.values(selectedSampleIds).filter(Boolean).length === 0}
+                      onClick={() => setSamplingStep(2)}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-500/10"
+                    >
+                      Configurer le contrôle
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Step 2 Content: Configuration */}
+                <div className="p-6 flex-1 overflow-y-auto space-y-6">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">1. Type d'Entité Juridique</h4>
+                    <p className="text-xs text-slate-400 mb-3">Sélectionnez le type d'entité correspondant aux dossiers de cet échantillon afin d'adapter dynamiquement les critères de contrôle KYC.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {(["Personne Physique", "Association (OBNL)", "Personne Morale"] as const).map((type) => (
+                        <label
+                          key={type}
+                          className={cn(
+                            "flex flex-col items-center justify-center p-4 rounded-xl border border-slate-250 dark:border-slate-800 cursor-pointer transition-all hover:bg-slate-50/50 dark:hover:bg-slate-900/30 text-center space-y-1",
+                            configEntityType === type && "border-blue-500 bg-blue-500/5 dark:bg-blue-500/5 dark:border-blue-500/70"
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name="entityType"
+                            checked={configEntityType === type}
+                            onChange={() => setConfigEntityType(type)}
+                            className="sr-only"
+                          />
+                          <span className="text-sm font-bold text-slate-900 dark:text-white">{type}</span>
+                          <span className="text-[10px] text-slate-400">
+                            {type === "Personne Physique" ? "Client individuel, CIN ou Passeport" :
+                             type === "Association (OBNL)" ? "Organisation à but non lucratif" :
+                             "Société commerciale, SA, SARL, etc."}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">2. Périphérie de Contrôle</h4>
+                    <p className="text-xs text-slate-400 mb-3">Définissez quels aspects de conformité doivent être validés pour cet échantillon (Complétude & Exactitude).</p>
+                    
+                    <div className="space-y-3">
+                      <label className="flex items-start gap-3 p-3 border border-slate-100 dark:border-slate-800/80 rounded-xl hover:bg-slate-50/50 dark:hover:bg-slate-900/20 cursor-pointer transition-all">
+                        <input
+                          type="checkbox"
+                          checked={configCheckData}
+                          onChange={(e) => setConfigCheckData(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <div>
+                          <span className="text-sm font-bold text-slate-900 dark:text-white block">Contrôle des Données (Données de base)</span>
+                          <span className="text-xs text-slate-400 block mt-0.5">Vérification de l'exactitude des informations saisies (noms, identifiants, adresses, dates de naissance, etc.).</span>
+                        </div>
+                      </label>
+
+                      <label className="flex items-start gap-3 p-3 border border-slate-100 dark:border-slate-800/80 rounded-xl hover:bg-slate-50/50 dark:hover:bg-slate-900/20 cursor-pointer transition-all">
+                        <input
+                          type="checkbox"
+                          checked={configCheckDocs}
+                          onChange={(e) => setConfigCheckDocs(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-slate-350 text-blue-600 focus:ring-blue-500"
+                        />
+                        <div>
+                          <span className="text-sm font-bold text-slate-900 dark:text-white block">Contrôle des Documents (Pièces justificatives)</span>
+                          <span className="text-xs text-slate-400 block mt-0.5">Vérification de la présence, validité et lisibilité des justificatifs requis (CIN, Passeport, Statuts, RNE, etc.).</span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 2 Footer */}
+                <div className="p-6 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/30 dark:bg-slate-900/5 flex items-center justify-between">
+                  <span className="text-xs text-slate-500 font-medium">
+                    Configuration appliquée à {Object.values(selectedSampleIds).filter(Boolean).length} dossier(s).
+                  </span>
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setSamplingStep(1)}
+                      className="px-4 py-2 border border-slate-200 dark:border-slate-800 text-sm font-semibold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                    >
+                      Retour
+                    </button>
+                    <button
+                      disabled={isSavingSample || (!configCheckData && !configCheckDocs)}
+                      onClick={saveSampleChecklist}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors shadow-md shadow-blue-500/10 flex items-center gap-2"
+                    >
+                      {isSavingSample ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          Création...
+                        </>
+                      ) : (
+                        "Valider et Créer les checklists"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

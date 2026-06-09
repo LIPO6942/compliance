@@ -15,63 +15,20 @@ Pour associer un client présent dans le fichier NS avec la base de données de 
 
 ---
 
-## 2. Règles de Classification des Entités (Type de Fiche)
+## 2. Processus de Classification et de Contrôle Manuel (Échantillonnage)
 
-Le type d'entité d'un client est déterminé dynamiquement en analysant la structure de son **identifiant** et la valeur de la colonne **CAT_I** (Catégorie d'intervenant) du fichier NS :
+La qualification du type d'entité n'est plus automatisée à la volée. L'utilisateur qualifie manuellement un échantillon de dossiers depuis l'historique des rapprochements pour les insérer dans le processus de contrôle :
 
-| Type d'Entité | Règle d'Identification | Exemple |
-| :--- | :--- | :--- |
-| **Personne Physique (CIN)** | L'identifiant est **uniquement numérique** (ne contient que des chiffres). | `1416431` |
-| **Personne Physique (Passeport)** | L'identifiant **commence par un chiffre** mais contient des lettres **OU** commence par une lettre et se termine par un chiffre. | `N941169`, `J029825`, `12345A` |
-| **Association (OBNL)** | L'identifiant contient des **lettres à la fin** **ET** la colonne `CAT_I` contient le chiffre `"6"`. | `ASS100B` (avec CAT_I = `6`) |
-| **Personne Morale** | L'identifiant contient des **lettres à la fin** mais la colonne `CAT_I` ne contient pas le chiffre `"6"`. | `STE200B` (avec CAT_I = `1`) |
+1. **Sélection de l'échantillon :**
+   - Depuis l'onglet **Statistiques par Agence** d'un rapprochement sauvegardé, l'utilisateur clique sur l'icône de contrôle d'une agence.
+   - Il sélectionne ensuite un échantillon de clients parmi le tableau des similitudes de cette agence.
+2. **Qualification Manuelle :**
+   - L'utilisateur définit via un popup le type d'entité du lot ou de la ligne parmi :
+     - **Personne Physique**
+     - **Association (OBNL)**
+     - **Personne Morale**
+   - Il définit également l'objet du contrôle : **Données** et/ou **Documents** (pour la complétude et exactitude).
+3. **Création du Contrôle :**
+   - Ces dossiers sont insérés dans le tableau de bord de **Contrôle et Suivi** (collection `/controleSuivi` et stockage local), pré-remplis avec les données de l'agence (code, nom) et du client (identifiant, nom).
+   - Les listes de contrôle (checklists) dynamiques s'adapteront à ces choix lors de la construction ultérieure.
 
----
-
-## 3. Implémentation Technique (Algorithme)
-
-Voici l'algorithme JavaScript implémenté dans l'application pour cette classification :
-
-```typescript
-/**
- * Détecte le type d'entité d'un client
- * @param idRaw Identifiant brut
- * @param catIRaw Valeur brute de la colonne de catégorie (CAT_I)
- */
-const detectClientType = (idRaw: any, catIRaw: any): string => {
-  if (idRaw === undefined || idRaw === null) return "Inconnu";
-  const id = String(idRaw).trim().toUpperCase();
-  if (id === "") return "Inconnu";
-  
-  const catI = catIRaw !== undefined && catIRaw !== null ? String(catIRaw).trim() : "";
-  
-  // 1. Uniquement numérique => Personne Physique (CIN)
-  if (/^\d+$/.test(id)) {
-    return "Personne Physique (CIN)";
-  }
-  
-  // 2. Commence par un chiffre (et contient des lettres car non uniquement numérique) => Personne Physique (Passeport)
-  if (/^\d/.test(id)) {
-    return "Personne Physique (Passeport)";
-  }
-  
-  // 3. Contient des lettres à la fin => Personne Morale ou Association (OBNL)
-  if (/[A-Z]$/.test(id)) {
-    if (catI === "6" || catI.includes("6")) {
-      return "Association (OBNL)";
-    }
-    return "Personne Morale";
-  }
-  
-  // 4. Par défaut, si commence par une lettre et se termine par un chiffre (ex: J029825) => Personne Physique (Passeport)
-  if (/^[A-Z]/.test(id) && /\d$/.test(id)) {
-    return "Personne Physique (Passeport)";
-  }
-  
-  // Autre cas (par défaut)
-  if (catI === "6" || catI.includes("6")) {
-    return "Association (OBNL)";
-  }
-  return "Personne Morale";
-};
-```

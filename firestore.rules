@@ -158,5 +158,12 @@ service cloud.firestore {
     match /regtoolsHistory/{document=**} {
       allow read, write: if true;
     }
+
+    // ============================================
+    // CONTROLE ET SUIVI - Checklists de contrôle
+    // ============================================
+    match /controleSuivi/{document=**} {
+      allow read, write: if true;
+    }
   }
 }
