@@ -23,7 +23,7 @@ import { useActivityLog } from "@/contexts/ActivityLogContext";
 // Normalization helper
 const normalizeKey = (val: any): string => {
   if (val === undefined || val === null) return "";
-  let str = String(val).trim();
+  let str = String(val).trim().toUpperCase();
   
   // Remove trailing ".0" if it's an Excel float formatting of an integer
   if (str.endsWith(".0")) {
@@ -33,6 +33,58 @@ const normalizeKey = (val: any): string => {
   // Remove leading zeros
   return str.replace(/^0+(?!$)/, '');
 };
+
+// Detect client entity type based on ID structure and CAT_I code
+const detectClientType = (idRaw: any, catIRaw: any): string => {
+  if (idRaw === undefined || idRaw === null) return "Inconnu";
+  const id = String(idRaw).trim().toUpperCase();
+  if (id === "") return "Inconnu";
+  
+  const catI = catIRaw !== undefined && catIRaw !== null ? String(catIRaw).trim() : "";
+  
+  // 1. Uniquement numérique => Personne Physique (CIN)
+  if (/^\d+$/.test(id)) {
+    return "Personne Physique (CIN)";
+  }
+  
+  // 2. Commence par un chiffre (et contient des lettres car non uniquement numérique) => Personne Physique (Passeport)
+  if (/^\d/.test(id)) {
+    return "Personne Physique (Passeport)";
+  }
+  
+  // 3. Contient des lettres à la fin => Personne Morale ou Association (OBNL)
+  if (/[A-Z]$/.test(id)) {
+    if (catI === "6" || catI.includes("6")) {
+      return "Association (OBNL)";
+    }
+    return "Personne Morale";
+  }
+  
+  // 4. Par défaut, si commence par une lettre et se termine par un chiffre (ex: J029825) => Personne Physique (Passeport)
+  if (/^[A-Z]/.test(id) && /\d$/.test(id)) {
+    return "Personne Physique (Passeport)";
+  }
+  
+  // Autre cas (par défaut)
+  if (catI === "6" || catI.includes("6")) {
+    return "Association (OBNL)";
+  }
+  return "Personne Morale";
+};
+
+// Extract dynamic CAT_I from row object and detect entity type
+const detectRowEntityType = (row: any, idCol: string): string => {
+  if (!row || !idCol) return "Inconnu";
+  const idVal = row[idCol];
+  const keys = Object.keys(row);
+  const catICol = keys.find(k => {
+    const norm = k.replace(/[\s_.-]+/g, "").toUpperCase();
+    return norm === "CATI" || norm === "CATEGORIE" || norm === "CAT";
+  });
+  const catIVal = catICol ? row[catICol] : undefined;
+  return detectClientType(idVal, catIVal);
+};
+
 
 // Footer row detection helper
 const isFooterRow = (row: any): boolean => {
@@ -621,12 +673,13 @@ export default function RegtoolsDiffPage() {
       const agenceStr = selectedAgency === "ALL" ? "Toutes les agences" : selectedAgency;
       const currentDate = new Date().toLocaleDateString("fr-FR");
 
-      const exportHeaders = [...columns.ns];
+      const exportHeaders = [...columns.ns, "Type d'Entité"];
       const exportData = filteredRows.map(row => {
         const newRow: any = {};
         columns.ns.forEach(h => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
+        newRow["Type d'Entité"] = detectRowEntityType(row, mapping.nsId);
         return newRow;
       });
 
@@ -687,12 +740,13 @@ export default function RegtoolsDiffPage() {
       const agenceStr = similarSelectedAgency === "ALL" ? "Toutes les agences" : similarSelectedAgency;
       const currentDate = new Date().toLocaleDateString("fr-FR");
 
-      const exportHeaders = [...columns.ns];
+      const exportHeaders = [...columns.ns, "Type d'Entité"];
       const exportData = filteredSimilarRows.map(row => {
         const newRow: any = {};
         columns.ns.forEach(h => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
+        newRow["Type d'Entité"] = detectRowEntityType(row, mapping.nsId);
         return newRow;
       });
 
@@ -778,12 +832,13 @@ export default function RegtoolsDiffPage() {
         return;
       }
 
-      const exportHeaders = [...nsCols];
+      const exportHeaders = [...nsCols, "Type d'Entité"];
       const exportData = rowsToExport.map(row => {
         const newRow: any = {};
         nsCols.forEach(h => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
+        newRow["Type d'Entité"] = detectRowEntityType(row, isHistory ? (selectedHistoryReport.mapping?.nsId || "") : mapping.nsId);
         return newRow;
       });
 
@@ -871,12 +926,13 @@ export default function RegtoolsDiffPage() {
         return;
       }
 
-      const exportHeaders = [...nsCols];
+      const exportHeaders = [...nsCols, "Type d'Entité"];
       const exportData = rowsToExport.map(row => {
         const newRow: any = {};
         nsCols.forEach(h => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
+        newRow["Type d'Entité"] = detectRowEntityType(row, isHistory ? (selectedHistoryReport.mapping?.nsId || "") : mapping.nsId);
         return newRow;
       });
 
@@ -1921,12 +1977,13 @@ export default function RegtoolsDiffPage() {
     try {
       const report = selectedHistoryReport;
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
-      const exportHeaders = [...(report.columnsNS || [])];
+      const exportHeaders = [...(report.columnsNS || []), "Type d'Entité"];
       const exportData = filteredHistorySimilarRows.map((row: any) => {
         const newRow: any = {};
         (report.columnsNS || []).forEach((h: string) => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
+        newRow["Type d'Entité"] = detectRowEntityType(row, report.mapping?.nsId || "");
         return newRow;
       });
 
@@ -1984,12 +2041,13 @@ export default function RegtoolsDiffPage() {
     try {
       const report = selectedHistoryReport;
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
-      const exportHeaders = [...(report.columnsNS || [])];
+      const exportHeaders = [...(report.columnsNS || []), "Type d'Entité"];
       const exportData = filteredHistoryRows.map((row: any) => {
         const newRow: any = {};
         (report.columnsNS || []).forEach((h: string) => {
           newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
         });
+        newRow["Type d'Entité"] = detectRowEntityType(row, report.mapping?.nsId || "");
         return newRow;
       });
 
@@ -2772,6 +2830,19 @@ export default function RegtoolsDiffPage() {
                                     title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   >
                                     {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                    {col === mapping.nsId && (() => {
+                                      const type = detectRowEntityType(row, mapping.nsId);
+                                      const badgeColors = 
+                                        type === "Personne Physique (CIN)" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" :
+                                        type === "Personne Physique (Passeport)" ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20" :
+                                        type === "Association (OBNL)" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" :
+                                        "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20";
+                                      return (
+                                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-bold block mt-1 w-max uppercase tracking-wider", badgeColors)}>
+                                          {type}
+                                        </span>
+                                      );
+                                    })()}
                                   </td>
                                 ))}
                               </tr>
@@ -3005,6 +3076,19 @@ export default function RegtoolsDiffPage() {
                                     title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   >
                                     {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                    {col === mapping.nsId && (() => {
+                                      const type = detectRowEntityType(row, mapping.nsId);
+                                      const badgeColors = 
+                                        type === "Personne Physique (CIN)" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" :
+                                        type === "Personne Physique (Passeport)" ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20" :
+                                        type === "Association (OBNL)" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" :
+                                        "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20";
+                                      return (
+                                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-bold block mt-1 w-max uppercase tracking-wider", badgeColors)}>
+                                          {type}
+                                        </span>
+                                      );
+                                    })()}
                                   </td>
                                 ))}
                               </tr>
@@ -3819,6 +3903,19 @@ export default function RegtoolsDiffPage() {
                                         title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                       >
                                         {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                        {col === selectedHistoryReport.mapping?.nsId && (() => {
+                                          const type = detectRowEntityType(row, selectedHistoryReport.mapping?.nsId || "");
+                                          const badgeColors = 
+                                            type === "Personne Physique (CIN)" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" :
+                                            type === "Personne Physique (Passeport)" ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20" :
+                                            type === "Association (OBNL)" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" :
+                                            "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20";
+                                          return (
+                                            <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-bold block mt-1 w-max uppercase tracking-wider", badgeColors)}>
+                                              {type}
+                                            </span>
+                                          );
+                                        })()}
                                       </td>
                                     ))}
                                   </tr>
@@ -4051,6 +4148,19 @@ export default function RegtoolsDiffPage() {
                                     title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
                                   >
                                     {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                    {col === selectedHistoryReport.mapping?.nsId && (() => {
+                                      const type = detectRowEntityType(row, selectedHistoryReport.mapping?.nsId || "");
+                                      const badgeColors = 
+                                        type === "Personne Physique (CIN)" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" :
+                                        type === "Personne Physique (Passeport)" ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20" :
+                                        type === "Association (OBNL)" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" :
+                                        "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20";
+                                      return (
+                                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-bold block mt-1 w-max uppercase tracking-wider", badgeColors)}>
+                                          {type}
+                                        </span>
+                                      );
+                                    })()}
                                   </td>
                                 ))}
                               </tr>
