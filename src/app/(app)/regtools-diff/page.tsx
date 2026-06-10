@@ -2165,6 +2165,43 @@ export default function RegtoolsDiffPage() {
     alert("Rapport supprimé avec succès.");
   };
 
+  // Group history reports by base month key (first 6 characters, e.g. "052026")
+  const groupedHistoryReports = useMemo(() => {
+    const groups: Record<string, {
+      baseMonthKey: string;
+      monthLabel: string;
+      nsReport?: any;
+      vieReport?: any;
+      maxSavedAt: string;
+    }> = {};
+
+    savedReports.forEach(report => {
+      if (!report.monthKey) return;
+      const baseKey = report.monthKey.substring(0, 6);
+      const type = report.reconciliationType || "NS";
+
+      if (!groups[baseKey]) {
+        groups[baseKey] = {
+          baseMonthKey: baseKey,
+          monthLabel: report.monthLabel || "Inconnu",
+          maxSavedAt: report.savedAt
+        };
+      }
+
+      if (new Date(report.savedAt) > new Date(groups[baseKey].maxSavedAt)) {
+        groups[baseKey].maxSavedAt = report.savedAt;
+      }
+
+      if (type === "VIE") {
+        groups[baseKey].vieReport = report;
+      } else {
+        groups[baseKey].nsReport = report;
+      }
+    });
+
+    return Object.values(groups).sort((a, b) => b.baseMonthKey.localeCompare(a.baseMonthKey));
+  }, [savedReports]);
+
   // Memos for selected history report
   // Pre-resolve agency info for selected history report to ensure name/type are always present
   const resolvedHistoryAgencyStats = useMemo(() => {
@@ -3877,78 +3914,121 @@ export default function RegtoolsDiffPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {savedReports.map((report) => (
+                {groupedHistoryReports.map((group) => (
                   <div 
-                    key={`report-card-${report.monthKey}`}
-                    className="border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-5 hover:border-blue-500/50 hover:shadow-md transition-all bg-slate-50/30 dark:bg-slate-900/10 flex flex-col justify-between"
+                    key={`grouped-report-card-${group.baseMonthKey}`}
+                    className="border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-5 bg-slate-50/30 dark:bg-slate-900/10 flex flex-col justify-between"
                   >
                     <div>
-                      <div className="flex justify-between items-start gap-2 mb-3">
+                      <div className="flex justify-between items-start gap-2 mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
                         <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-bold text-slate-900 dark:text-white text-base">
-                              {report.monthLabel}
-                            </h4>
-                            <span className={cn(
-                              "text-[10px] font-bold px-2 py-0.5 rounded-full",
-                              report.reconciliationType === "VIE"
-                                ? "bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400"
-                                : "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
-                            )}>
-                              {report.reconciliationType === "VIE" ? "VIE" : "NS"}
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-slate-400">
-                            Sauvegardé le {new Date(report.savedAt).toLocaleDateString("fr-FR")} à {new Date(report.savedAt).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                          <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                            {group.monthLabel}
+                          </h4>
+                          <p className="text-[10px] text-slate-400">
+                            Dernière activité le {new Date(group.maxSavedAt).toLocaleDateString("fr-FR")}
+                          </p>
                         </div>
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                          {report.monthKey.split('_')[0]}
+                          {group.baseMonthKey}
                         </span>
                       </div>
 
-                      <div className="space-y-1.5 text-xs text-slate-500 mb-4 border-t border-b border-slate-100 dark:border-slate-800/50 py-3 my-3">
-                        <div className="flex justify-between">
-                          <span>Fichier {report.reconciliationType === "VIE" ? "VIE" : "NS"} :</span>
-                          <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[150px]" title={report.fileNameNS}>
-                            {report.fileNameNS}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Base RegTools :</span>
-                          <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[150px]" title={report.fileNameRegtools}>
-                            {report.fileNameRegtools || "-"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between pt-1 font-semibold text-slate-700 dark:text-slate-300">
-                          <span>Taux de Présence KYC :</span>
-                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                            {report.globalStats?.pctExisting}%
-                          </span>
-                        </div>
-                        <div className="flex justify-between font-semibold text-slate-700 dark:text-slate-300">
-                          <span>Taux d'Absence KYC :</span>
-                          <span className="text-rose-600 dark:text-rose-400 font-bold">
-                            {report.globalStats?.pctMissing}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                      <div className="space-y-4">
+                        {/* NS Report Section */}
+                        {group.nsReport ? (
+                          <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200/50 dark:border-slate-800/80 flex flex-col gap-2 shadow-sm">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                Non-Vie (NS)
+                              </span>
+                              <span className="text-[9px] text-slate-400">
+                                {new Date(group.nsReport.savedAt).toLocaleDateString("fr-FR")}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 space-y-1 my-1">
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">Fichier :</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[140px]" title={group.nsReport.fileNameNS}>
+                                  {group.nsReport.fileNameNS}
+                                </span>
+                              </div>
+                              <div className="flex justify-between font-semibold">
+                                <span className="text-slate-400">Présence :</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                  {group.nsReport.globalStats?.pctExisting}%
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex gap-1.5 mt-1 border-t border-slate-100 dark:border-slate-800 pt-2">
+                              <button
+                                onClick={() => handleLoadReport(group.nsReport)}
+                                className="flex-1 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-1 shadow-sm"
+                              >
+                                Consulter
+                              </button>
+                              <button
+                                onClick={() => handleDeleteReport(group.nsReport)}
+                                className="px-2 py-1.5 text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-600 dark:bg-rose-950/20 dark:hover:bg-rose-600 rounded-md transition-colors flex items-center justify-center border border-rose-200/50 dark:border-rose-900/50"
+                                title="Supprimer ce rapprochement"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-slate-100/30 dark:bg-slate-900/20 rounded-lg border border-dashed border-slate-200 dark:border-slate-800 text-center py-4">
+                            <p className="text-[10px] text-slate-400">Aucun rapprochement Non-Vie (NS)</p>
+                          </div>
+                        )}
 
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleLoadReport(report)}
-                        className="flex-1 px-3 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-1 shadow-md shadow-blue-500/10"
-                      >
-                        Consulter
-                      </button>
-                      <button
-                        onClick={() => handleDeleteReport(report)}
-                        className="px-3 py-2 text-xs font-semibold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 dark:bg-rose-950/20 dark:hover:bg-rose-600 border border-rose-200/50 dark:border-rose-900/50 rounded-lg transition-colors flex items-center justify-center"
-                        title="Supprimer ce rapport"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                        {/* VIE Report Section */}
+                        {group.vieReport ? (
+                          <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200/50 dark:border-slate-800/80 flex flex-col gap-2 shadow-sm">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                                Assurance VIE
+                              </span>
+                              <span className="text-[9px] text-slate-400">
+                                {new Date(group.vieReport.savedAt).toLocaleDateString("fr-FR")}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 space-y-1 my-1">
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">Fichier :</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[140px]" title={group.vieReport.fileNameNS}>
+                                  {group.vieReport.fileNameNS}
+                                </span>
+                              </div>
+                              <div className="flex justify-between font-semibold">
+                                <span className="text-slate-400">Présence :</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                  {group.vieReport.globalStats?.pctExisting}%
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex gap-1.5 mt-1 border-t border-slate-100 dark:border-slate-800 pt-2">
+                              <button
+                                onClick={() => handleLoadReport(group.vieReport)}
+                                className="flex-1 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-1 shadow-sm"
+                              >
+                                Consulter
+                              </button>
+                              <button
+                                onClick={() => handleDeleteReport(group.vieReport)}
+                                className="px-2 py-1.5 text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-600 dark:bg-rose-950/20 dark:hover:bg-rose-600 rounded-md transition-colors flex items-center justify-center border border-rose-200/50 dark:border-rose-900/50"
+                                title="Supprimer ce rapprochement"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-slate-100/30 dark:bg-slate-900/20 rounded-lg border border-dashed border-slate-200 dark:border-slate-800 text-center py-4">
+                            <p className="text-[10px] text-slate-400">Aucun rapprochement Assurance VIE</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
