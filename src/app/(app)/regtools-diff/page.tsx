@@ -267,6 +267,16 @@ const resolveAgencyInfo = (code: any) => {
       type: info.type
     };
   }
+
+  // Try to find by name matching
+  const normalizedStr = normalizedCode.toLowerCase();
+  const entries = Object.entries(AGENCY_MAPPING);
+  for (const [c, inf] of entries) {
+    if (inf.name.toLowerCase() === normalizedStr) {
+      return { code: c, name: inf.name, type: inf.type };
+    }
+  }
+
   return {
     code: normalizedCode,
     name: `Agence ${normalizedCode}`,
@@ -278,8 +288,9 @@ const resolveAgencyInfo = (code: any) => {
 const formatExcelValue = (colName: string, val: any): string => {
   if (val === undefined || val === null || val === "") return "";
   const strVal = String(val).trim();
+  const colLower = colName.toLowerCase();
   
-  if (colName.toLowerCase().includes("date")) {
+  if (colLower.includes("date") || colLower.includes("sous")) {
     const num = Number(strVal);
     if (!isNaN(num) && num > 10000 && num < 100000) {
       const days = num - (num > 59 ? 25569 : 25568);
@@ -291,6 +302,186 @@ const formatExcelValue = (colName: string, val: any): string => {
     }
   }
   return strVal;
+};
+
+// Resolve agency code from text descriptions (e.g. AGENT D'AS Sousse 1)
+const resolveAgencyFromText = (text: any) => {
+  if (text === undefined || text === null || text === "") {
+    return { code: "", name: "Non spécifié", type: "-" };
+  }
+  const str = String(text).trim().toLowerCase();
+  
+  // Check if it's already a numeric code
+  const codeMatch = str.match(/\b\d+\b/);
+  if (codeMatch) {
+    const code = codeMatch[0].replace(/^0+(?!$)/, '');
+    if (AGENCY_MAPPING[code]) {
+      return { code, ...AGENCY_MAPPING[code] };
+    }
+  }
+
+  // Try to match the name
+  const entries = Object.entries(AGENCY_MAPPING).sort((a, b) => b[1].name.length - a[1].name.length);
+  for (const [code, info] of entries) {
+    const normName = info.name.toLowerCase();
+    if (str.includes(normName)) {
+      return { code, ...info };
+    }
+  }
+
+  // Try flexible words match
+  for (const [code, info] of entries) {
+    const nameWords = info.name.toLowerCase().replace(/[()]/g, "").split(/\s+/).filter(w => w.length > 2 && w !== "agent" && w !== "agence");
+    if (nameWords.length > 0 && nameWords.every(word => str.includes(word))) {
+      return { code, ...info };
+    }
+  }
+
+  return {
+    code: text,
+    name: text,
+    type: "Inconnu"
+  };
+};
+
+// Harmonized agency retriever
+const getRowAgencyCode = (row: any, agenceCol: string, isVie: boolean): string => {
+  if (!row || !agenceCol) return "";
+  const val = row[agenceCol];
+  if (val === undefined || val === null) return "";
+  const strVal = String(val).trim();
+  if (isVie) {
+    return resolveAgencyFromText(strVal).code;
+  }
+  return strVal;
+};
+
+// Parse month and year from subscription date
+const parseMonthYearFromDateStr = (dateStr: string): { month: string; year: string } | null => {
+  if (!dateStr) return null;
+  const cleaned = dateStr.trim();
+  
+  // DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+  const pattern1 = cleaned.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})/);
+  if (pattern1) {
+    return { month: pattern1[2].padStart(2, '0'), year: pattern1[3] };
+  }
+
+  // YYYY/MM/DD or YYYY-MM-DD
+  const pattern2 = cleaned.match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})/);
+  if (pattern2) {
+    return { month: pattern2[2].padStart(2, '0'), year: pattern2[1] };
+  }
+
+  // Excel serial date number
+  const num = Number(cleaned);
+  if (!isNaN(num) && num > 10000 && num < 100000) {
+    const days = num - (num > 59 ? 25569 : 25568);
+    const date = new Date(days * 24 * 3600 * 1000);
+    return {
+      month: String(date.getUTCMonth() + 1).padStart(2, '0'),
+      year: String(date.getUTCFullYear())
+    };
+  }
+
+  return null;
+};
+
+// Keyword-based column search
+const findColumnByKeywords = (cols: string[], keywords: string[]): string => {
+  const normalizedKeywords = keywords.map(k => k.toLowerCase().trim());
+  for (const col of cols) {
+    const colLower = col.toLowerCase().trim();
+    if (normalizedKeywords.includes(colLower)) return col;
+  }
+  for (const col of cols) {
+    const colLower = col.toLowerCase().trim();
+    if (keywords.every(kw => colLower.includes(kw.toLowerCase().trim()))) {
+      return col;
+    }
+  }
+  for (const col of cols) {
+    const colLower = col.toLowerCase().trim();
+    for (const kw of keywords) {
+      if (colLower.includes(kw.toLowerCase().trim())) return col;
+    }
+  }
+  return "";
+};
+
+// Process VIE data: filter & clean
+const processVieData = (
+  rawData: any[],
+  cols: string[]
+): {
+  filteredData: any[];
+  detectedMonthKey: string;
+  detectedMonthLabel: string;
+  detectedMappings: { idCol: string; agenceCol: string };
+} => {
+  const avenantCol = findColumnByKeywords(cols, ["avenant", "appliqu"]) || findColumnByKeywords(cols, ["avenenat", "appliqu"]) || autoDetectCol(cols, ["avenant", "avenenat"]);
+  const statutCol = findColumnByKeywords(cols, ["statut", "contrat"]) || autoDetectCol(cols, ["statut"]);
+  const idCol = findColumnByKeywords(cols, ["carte", "identite"]) || findColumnByKeywords(cols, ["matricule", "fiscal"]) || autoDetectCol(cols, ["carte", "matricule"]);
+  const dateCol = findColumnByKeywords(cols, ["date", "souscription"]) || findColumnByKeywords(cols, ["date", "sous"]) || autoDetectCol(cols, ["souscription", "sous"]);
+  const agenceCol = findColumnByKeywords(cols, ["canal", "souscription"]) || findColumnByKeywords(cols, ["canal", "sou"]) || autoDetectCol(cols, ["canal", "agence", "structure"]);
+
+  let monthKey = "";
+  let monthLabel = "";
+  const months = [
+    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+  ];
+
+  for (const row of rawData) {
+    const rawDateVal = row[dateCol];
+    if (rawDateVal) {
+      const formattedDate = formatExcelValue(dateCol, rawDateVal);
+      const parsed = parseMonthYearFromDateStr(formattedDate);
+      if (parsed) {
+        const mIdx = parseInt(parsed.month, 10) - 1;
+        if (mIdx >= 0 && mIdx < 12) {
+          monthKey = `${parsed.month}${parsed.year}`;
+          monthLabel = `${months[mIdx]} ${parsed.year}`;
+          break;
+        }
+      }
+    }
+  }
+
+  // Filter
+  const filtered = rawData.filter(row => {
+    const avenantVal = String(row[avenantCol] || "").trim().toLowerCase();
+    const statutVal = String(row[statutCol] || "").trim().toLowerCase();
+    const matchAvenant = avenantVal.includes("affaire nouvelle");
+    const matchStatut = statutVal.includes("en cours");
+    return matchAvenant && matchStatut;
+  });
+
+  // Deduplicate on unique card/fiscal ID
+  const seenIds = new Set<string>();
+  const deduplicated: any[] = [];
+  
+  for (const row of filtered) {
+    const idVal = normalizeKey(row[idCol]);
+    if (idVal !== "") {
+      if (!seenIds.has(idVal)) {
+        seenIds.add(idVal);
+        deduplicated.push(row);
+      }
+    } else {
+      deduplicated.push(row);
+    }
+  }
+
+  return {
+    filteredData: deduplicated,
+    detectedMonthKey: monthKey,
+    detectedMonthLabel: monthLabel,
+    detectedMappings: {
+      idCol: idCol || cols[0],
+      agenceCol: agenceCol || cols[0]
+    }
+  };
 };
 
 // Row minification helpers to bypass Firestore 1MB limit
@@ -319,9 +510,16 @@ const chunkArray = <T,>(arr: T[], size: number): T[][] => {
   return chunks;
 };
 
+
 export default function RegtoolsDiffPage() {
   const { user } = useUser();
   const { logAction, isAdmin } = useActivityLog();
+
+  // Reconciliation type state
+  const [reconciliationType, setReconciliationType] = useState<"NS" | "VIE">("NS");
+  const [detectedMonthKey, setDetectedMonthKey] = useState("");
+  const [detectedMonthLabel, setDetectedMonthLabel] = useState("");
+  const [historyReconciliationType, setHistoryReconciliationType] = useState<"NS" | "VIE">("NS");
 
   // File state
   const [files, setFiles] = useState<{ regtools: File | null; ns: File | null }>({
@@ -464,10 +662,11 @@ export default function RegtoolsDiffPage() {
     if (selectedHistoryReport) {
       const agencyCol = selectedHistoryReport.mapping?.nsAgence;
       const idCol = selectedHistoryReport.mapping?.nsId || "";
+      const isVie = selectedHistoryReport.reconciliationType === "VIE";
       if (agencyCol && idCol) {
         const rows = (selectedHistoryReport.similarRows || []).filter((row: any) => {
-          const val = row[agencyCol];
-          return val !== undefined && val !== null && String(val).trim().replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
+          const code = getRowAgencyCode(row, agencyCol, isVie);
+          return code.replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
         });
         
         const initialTypes: Record<string, "Personne Physique" | "Association (OBNL)" | "Personne Morale"> = {};
@@ -498,10 +697,11 @@ export default function RegtoolsDiffPage() {
     if (!selectedHistoryReport || !samplingAgency) return [];
     const agencyCol = selectedHistoryReport.mapping?.nsAgence;
     if (!agencyCol) return [];
+    const isVie = selectedHistoryReport.reconciliationType === "VIE";
     
     return (selectedHistoryReport.similarRows || []).filter((row: any) => {
-      const val = row[agencyCol];
-      return val !== undefined && val !== null && String(val).trim().replace(/^0+(?!$)/, '') === samplingAgency.replace(/^0+(?!$)/, '');
+      const code = getRowAgencyCode(row, agencyCol, isVie);
+      return code.replace(/^0+(?!$)/, '') === samplingAgency.replace(/^0+(?!$)/, '');
     });
   }, [selectedHistoryReport, samplingAgency]);
 
@@ -687,18 +887,37 @@ export default function RegtoolsDiffPage() {
       const result = await parseFile(file);
       
       setFiles(prev => ({ ...prev, [role]: file }));
-      setData(prev => ({ ...prev, [role]: result.data }));
-      setColumns(prev => ({ ...prev, [role]: result.columns }));
 
-      // Auto-detect mappings
-      if (role === "regtools") {
-        const detected = autoDetectCol(result.columns, ['identifiant', 'id', 'identifier', 'code', 'numéro', 'num', 'ref', 'reference', 'matricule']);
-        setMapping(prev => ({ ...prev, regtoolsId: detected }));
-      } else {
-        const detectedId = autoDetectCol(result.columns, ['identifiant', 'id', 'identifier', 'code', 'numéro', 'num', 'ref', 'reference', 'matricule']);
-        const detectedAgence = autoDetectCol(result.columns, ['agence', 'agency', 'code agence', 'code_agence', 'structure', 'bureau', 'succursale', 'agenc']);
-        setMapping(prev => ({ ...prev, nsId: detectedId, nsAgence: detectedAgence }));
+      if (role === "ns" && reconciliationType === "VIE") {
+        const processed = processVieData(result.data, result.columns);
+        setData(prev => ({ ...prev, ns: processed.filteredData }));
+        setColumns(prev => ({ ...prev, ns: result.columns }));
+        setDetectedMonthKey(processed.detectedMonthKey);
+        setDetectedMonthLabel(processed.detectedMonthLabel);
+
+        // Auto mappings for VIE
+        setMapping(prev => ({
+          ...prev,
+          nsId: processed.detectedMappings.idCol,
+          nsAgence: processed.detectedMappings.agenceCol
+        }));
         setVisibleColumns(result.columns.slice(0, 6));
+      } else {
+        setData(prev => ({ ...prev, [role]: result.data }));
+        setColumns(prev => ({ ...prev, [role]: result.columns }));
+
+        // Auto-detect mappings
+        if (role === "regtools") {
+          const detected = autoDetectCol(result.columns, ['identifiant', 'id', 'identifier', 'code', 'numéro', 'num', 'ref', 'reference', 'matricule']);
+          setMapping(prev => ({ ...prev, regtoolsId: detected }));
+        } else {
+          const detectedId = autoDetectCol(result.columns, ['identifiant', 'id', 'identifier', 'code', 'numéro', 'num', 'ref', 'reference', 'matricule']);
+          const detectedAgence = autoDetectCol(result.columns, ['agence', 'agency', 'code agence', 'code_agence', 'structure', 'bureau', 'succursale', 'agenc']);
+          setMapping(prev => ({ ...prev, nsId: detectedId, nsAgence: detectedAgence }));
+          setVisibleColumns(result.columns.slice(0, 6));
+          setDetectedMonthKey("");
+          setDetectedMonthLabel("");
+        }
       }
       
       setComparisonDone(false);
@@ -751,21 +970,19 @@ export default function RegtoolsDiffPage() {
           }
         }
 
-        // 2. Scan NS
+        // 2. Scan NS / VIE
         const missing: any[] = [];
         const agenciesSet = new Set<string>();
+        const isVie = reconciliationType === "VIE";
 
         for (let i = 0; i < data.ns.length; i++) {
           const row = data.ns[i];
           const key = normalizeKey(row[nsId]);
           
           // Agence collection
-          const agenceVal = row[nsAgence];
-          if (agenceVal !== undefined && agenceVal !== null) {
-            const agenceStr = String(agenceVal).trim();
-            if (agenceStr !== "") {
-              agenciesSet.add(agenceStr);
-            }
+          const agenceCode = getRowAgencyCode(row, nsAgence, isVie);
+          if (agenceCode !== "") {
+            agenciesSet.add(agenceCode);
           }
 
           if (key === "" || !regToolsSet.has(key)) {
@@ -789,13 +1006,14 @@ export default function RegtoolsDiffPage() {
   // Apply filters on the missing rows
   const filteredRows = useMemo(() => {
     if (!comparisonDone) return [];
+    const isVie = reconciliationType === "VIE";
     
     return missingRows.filter(row => {
       // Agency Filter
       let matchAgency = true;
       if (selectedAgency !== "ALL") {
-        const rowAgency = row[mapping.nsAgence];
-        matchAgency = rowAgency !== undefined && rowAgency !== null && String(rowAgency).trim() === selectedAgency;
+        const agencyCode = getRowAgencyCode(row, mapping.nsAgence, isVie);
+        matchAgency = agencyCode === selectedAgency;
       }
 
       // Search Filter
@@ -809,7 +1027,7 @@ export default function RegtoolsDiffPage() {
 
       return matchAgency && matchSearch;
     });
-  }, [missingRows, comparisonDone, selectedAgency, searchQuery, mapping.nsAgence]);
+  }, [missingRows, comparisonDone, selectedAgency, searchQuery, mapping.nsAgence, reconciliationType]);
 
   // Sort the filtered rows
   const sortedRows = useMemo(() => {
@@ -875,6 +1093,8 @@ export default function RegtoolsDiffPage() {
     try {
       const agenceStr = selectedAgency === "ALL" ? "Toutes les agences" : selectedAgency;
       const currentDate = new Date().toLocaleDateString("fr-FR");
+      const isVie = reconciliationType === "VIE";
+      const fileLabel = isVie ? "VIE" : "NS";
 
       const exportHeaders = [...columns.ns];
       const exportData = filteredRows.map(row => {
@@ -886,7 +1106,7 @@ export default function RegtoolsDiffPage() {
       });
 
       const sheetAOA = [
-        ["RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS DE REGTOOLS"],
+        [`RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS DE REGTOOLS (${fileLabel})`],
         ["CONSIGNE : Veuillez créer des fiches KYC pour ces clients"],
         [`Filtre Agence : ${agenceStr} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
@@ -929,7 +1149,7 @@ export default function RegtoolsDiffPage() {
       ws["!cols"] = colWidths;
 
       XLSX.utils.book_append_sheet(wb, ws, "Manquants");
-      XLSX.writeFile(wb, `NS_manquants_RegTools_Agence_${agenceStr}.xlsx`);
+      XLSX.writeFile(wb, `${fileLabel}_manquants_RegTools_Agence_${agenceStr}.xlsx`);
     } catch (error: any) {
       alert("Erreur lors de l'export Excel : " + error.message);
     }
@@ -941,6 +1161,8 @@ export default function RegtoolsDiffPage() {
     try {
       const agenceStr = similarSelectedAgency === "ALL" ? "Toutes les agences" : similarSelectedAgency;
       const currentDate = new Date().toLocaleDateString("fr-FR");
+      const isVie = reconciliationType === "VIE";
+      const fileLabel = isVie ? "VIE" : "NS";
 
       const exportHeaders = [...columns.ns];
       const exportData = filteredSimilarRows.map(row => {
@@ -952,7 +1174,7 @@ export default function RegtoolsDiffPage() {
       });
 
       const sheetAOA = [
-        ["RAPPORT DE RAPPROCHEMENT - CLIENTS SIMILAIRES (CONFORMES REGTOOLS)"],
+        [`RAPPORT DE RAPPROCHEMENT - CLIENTS SIMILAIRES (CONFORMES REGTOOLS) (${fileLabel})`],
         ["INFORMATION : Ces clients existent de part et d'autre (KYC conformes)"],
         [`Filtre Agence : ${agenceStr} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
@@ -992,7 +1214,7 @@ export default function RegtoolsDiffPage() {
       ws["!cols"] = colWidths;
 
       XLSX.utils.book_append_sheet(wb, ws, "Similitudes");
-      XLSX.writeFile(wb, `NS_similitudes_RegTools_Agence_${agenceStr}.xlsx`);
+      XLSX.writeFile(wb, `${fileLabel}_similitudes_RegTools_Agence_${agenceStr}.xlsx`);
     } catch (error: any) {
       alert("Erreur lors de l'export Excel des similitudes : " + error.message);
     }
@@ -1003,6 +1225,8 @@ export default function RegtoolsDiffPage() {
     try {
       const agencyInfo = resolveAgencyInfo(agencyCode);
       const currentDate = new Date().toLocaleDateString("fr-FR");
+      const isVie = isHistory ? (selectedHistoryReport?.reconciliationType === "VIE") : (reconciliationType === "VIE");
+      const fileLabel = isVie ? "VIE" : "NS";
       
       let rowsToExport: any[] = [];
       let nsCols: string[] = [];
@@ -1011,8 +1235,8 @@ export default function RegtoolsDiffPage() {
       if (!isHistory) {
         if (!comparisonDone || !mapping.nsAgence) return;
         rowsToExport = missingRows.filter(row => {
-          const val = row[mapping.nsAgence];
-          return val !== undefined && val !== null && String(val).trim().replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
+          const code = getRowAgencyCode(row, mapping.nsAgence, isVie);
+          return code.replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
         });
         nsCols = columns.ns;
         nsFileName = files.ns ? files.ns.name : "";
@@ -1021,8 +1245,8 @@ export default function RegtoolsDiffPage() {
         const agencyCol = selectedHistoryReport.mapping?.nsAgence;
         if (!agencyCol) return;
         rowsToExport = (selectedHistoryReport.missingRows || []).filter((row: any) => {
-          const val = row[agencyCol];
-          return val !== undefined && val !== null && String(val).trim().replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
+          const code = getRowAgencyCode(row, agencyCol, isVie);
+          return code.replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
         });
         nsCols = selectedHistoryReport.columnsNS || [];
         nsFileName = selectedHistoryReport.fileNameNS || "";
@@ -1043,10 +1267,10 @@ export default function RegtoolsDiffPage() {
       });
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS - AGENCE ${agencyCode}`],
+        [`RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS - AGENCE ${agencyCode} (${fileLabel})`],
         [`Nom Agence : ${agencyInfo.name} | Type : ${agencyInfo.type}`],
         ["CONSIGNE : Veuillez créer des fiches KYC pour ces clients"],
-        [`Fichier NS d'origine : ${nsFileName} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [`Fichier ${fileLabel} d'origine : ${nsFileName} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
         exportHeaders
       ];
@@ -1086,7 +1310,7 @@ export default function RegtoolsDiffPage() {
       ws["!cols"] = colWidths;
 
       XLSX.utils.book_append_sheet(wb, ws, "Manquants");
-      XLSX.writeFile(wb, `NS_manquants_RegTools_Agence_${agencyCode}.xlsx`);
+      XLSX.writeFile(wb, `${fileLabel}_manquants_RegTools_Agence_${agencyCode}.xlsx`);
     } catch (error: any) {
       alert("Erreur lors de l'export Excel par agence : " + error.message);
     }
@@ -1096,6 +1320,8 @@ export default function RegtoolsDiffPage() {
     try {
       const agencyInfo = resolveAgencyInfo(agencyCode);
       const currentDate = new Date().toLocaleDateString("fr-FR");
+      const isVie = isHistory ? (selectedHistoryReport?.reconciliationType === "VIE") : (reconciliationType === "VIE");
+      const fileLabel = isVie ? "VIE" : "NS";
       
       let rowsToExport: any[] = [];
       let nsCols: string[] = [];
@@ -1104,8 +1330,8 @@ export default function RegtoolsDiffPage() {
       if (!isHistory) {
         if (!comparisonDone || !mapping.nsAgence) return;
         rowsToExport = similarRows.filter(row => {
-          const val = row[mapping.nsAgence];
-          return val !== undefined && val !== null && String(val).trim().replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
+          const code = getRowAgencyCode(row, mapping.nsAgence, isVie);
+          return code.replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
         });
         nsCols = columns.ns;
         nsFileName = files.ns ? files.ns.name : "";
@@ -1114,8 +1340,8 @@ export default function RegtoolsDiffPage() {
         const agencyCol = selectedHistoryReport.mapping?.nsAgence;
         if (!agencyCol) return;
         rowsToExport = (selectedHistoryReport.similarRows || []).filter((row: any) => {
-          const val = row[agencyCol];
-          return val !== undefined && val !== null && String(val).trim().replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
+          const code = getRowAgencyCode(row, agencyCol, isVie);
+          return code.replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
         });
         nsCols = selectedHistoryReport.columnsNS || [];
         nsFileName = selectedHistoryReport.fileNameNS || "";
@@ -1136,10 +1362,10 @@ export default function RegtoolsDiffPage() {
       });
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT - CLIENTS SIMILAIRES - AGENCE ${agencyCode}`],
+        [`RAPPORT DE RAPPROCHEMENT - CLIENTS SIMILAIRES - AGENCE ${agencyCode} (${fileLabel})`],
         [`Nom Agence : ${agencyInfo.name} | Type : ${agencyInfo.type}`],
         ["INFORMATION : Ces clients existent de part et d'autre (KYC conformes)"],
-        [`Fichier NS d'origine : ${nsFileName} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [`Fichier ${fileLabel} d'origine : ${nsFileName} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
         exportHeaders
       ];
@@ -1179,7 +1405,7 @@ export default function RegtoolsDiffPage() {
       ws["!cols"] = colWidths;
 
       XLSX.utils.book_append_sheet(wb, ws, "Similitudes");
-      XLSX.writeFile(wb, `NS_similitudes_RegTools_Agence_${agencyCode}.xlsx`);
+      XLSX.writeFile(wb, `${fileLabel}_similitudes_RegTools_Agence_${agencyCode}.xlsx`);
     } catch (error: any) {
       alert("Erreur lors de l'export Excel des similitudes par agence : " + error.message);
     }
@@ -1191,12 +1417,14 @@ export default function RegtoolsDiffPage() {
 
     try {
       const currentDate = new Date().toLocaleDateString("fr-FR");
+      const isVie = reconciliationType === "VIE";
+      const fileLabel = isVie ? "VIE" : "NS";
 
       const exportHeaders = [
         "Code Agence",
         "Nom Agence",
         "Type",
-        "Total NS",
+        `Total ${fileLabel}`,
         "Présentes dans RegTools (KYC Conformes)",
         "Absentes de RegTools (KYC Manquants)",
         "Taux de Présence KYC (%)",
@@ -1204,7 +1432,7 @@ export default function RegtoolsDiffPage() {
       ];
 
       const sheetAOA = [
-        ["RAPPORT DE RAPPROCHEMENT - STATISTIQUES PAR AGENCE"],
+        [`RAPPORT DE RAPPROCHEMENT - STATISTIQUES PAR AGENCE (${fileLabel})`],
         [`Date d'export : ${currentDate} | Nombre d'agences : ${filteredAgencyStats.length}`],
         [],
         exportHeaders
@@ -1267,7 +1495,7 @@ export default function RegtoolsDiffPage() {
       ws["!cols"] = colWidths;
 
       XLSX.utils.book_append_sheet(wb, ws, "Stats Agences");
-      XLSX.writeFile(wb, `NS_Statistiques_Par_Agence_${currentDate.replace(/\//g, "-")}.xlsx`);
+      XLSX.writeFile(wb, `${fileLabel}_Statistiques_Par_Agence_${currentDate.replace(/\//g, "-")}.xlsx`);
     } catch (error: any) {
       alert("Erreur lors de l'export Excel des statistiques : " + error.message);
     }
@@ -1301,6 +1529,10 @@ export default function RegtoolsDiffPage() {
     setSimilarPageSize(15);
     setSimilarSortField("");
     setSimilarSortDirection("asc");
+
+    // Reset auto-detected dates
+    setDetectedMonthKey("");
+    setDetectedMonthLabel("");
   };
 
   // Calculation parameters
@@ -1342,13 +1574,14 @@ export default function RegtoolsDiffPage() {
   // Apply filters on the similar rows
   const filteredSimilarRows = useMemo(() => {
     if (!comparisonDone) return [];
+    const isVie = reconciliationType === "VIE";
     
     return similarRows.filter(row => {
       // Agency Filter
       let matchAgency = true;
       if (similarSelectedAgency !== "ALL") {
-        const rowAgency = row[mapping.nsAgence];
-        matchAgency = rowAgency !== undefined && rowAgency !== null && String(rowAgency).trim() === similarSelectedAgency;
+        const agencyCode = getRowAgencyCode(row, mapping.nsAgence, isVie);
+        matchAgency = agencyCode === similarSelectedAgency;
       }
 
       // Search Filter
@@ -1362,7 +1595,7 @@ export default function RegtoolsDiffPage() {
 
       return matchAgency && matchSearch;
     });
-  }, [similarRows, comparisonDone, similarSelectedAgency, similarSearchQuery, mapping.nsAgence]);
+  }, [similarRows, comparisonDone, similarSelectedAgency, similarSearchQuery, mapping.nsAgence, reconciliationType]);
 
   // Sort the filtered similar rows
   const sortedSimilarRows = useMemo(() => {
@@ -1426,11 +1659,15 @@ export default function RegtoolsDiffPage() {
     if (!comparisonDone || !data.ns || !mapping.nsAgence) return [];
 
     const statsMap = new Map<string, { total: number; missing: number }>();
+    const isVie = reconciliationType === "VIE";
 
     // Count total rows per agency in NS
     data.ns.forEach(row => {
       const agenceVal = row[mapping.nsAgence];
-      const agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
+      let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
+      if (isVie && agenceStr !== "Non spécifié") {
+        agenceStr = resolveAgencyFromText(agenceStr).code;
+      }
       if (!statsMap.has(agenceStr)) {
         statsMap.set(agenceStr, { total: 0, missing: 0 });
       }
@@ -1440,7 +1677,10 @@ export default function RegtoolsDiffPage() {
     // Count missing rows per agency
     missingRows.forEach(row => {
       const agenceVal = row[mapping.nsAgence];
-      const agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
+      let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
+      if (isVie && agenceStr !== "Non spécifié") {
+        agenceStr = resolveAgencyFromText(agenceStr).code;
+      }
       if (statsMap.has(agenceStr)) {
         statsMap.get(agenceStr)!.missing += 1;
       } else {
@@ -1466,7 +1706,7 @@ export default function RegtoolsDiffPage() {
           pctExisting
         };
       });
-  }, [data.ns, missingRows, comparisonDone, mapping.nsAgence]);
+  }, [data.ns, missingRows, comparisonDone, mapping.nsAgence, reconciliationType]);
 
   const sortedAgencyStats = useMemo(() => {
     const items = [...agencyStats];
@@ -1679,6 +1919,7 @@ export default function RegtoolsDiffPage() {
         if (loadedReport.minifiedSimilarRows && (!loadedReport.similarRows || loadedReport.similarRows.length === 0)) {
           loadedReport.similarRows = unminifyRows(loadedReport.minifiedSimilarRows, columnsNS);
         }
+        setHistoryReconciliationType(loadedReport.reconciliationType || "NS");
         setSelectedHistoryReport(loadedReport);
         setHistoryVisibleColumns(columnsNS.slice(0, 6));
         
@@ -1714,58 +1955,66 @@ export default function RegtoolsDiffPage() {
 
     let month = "";
     let year = "";
-    const fileName = files.ns.name;
+    let monthKey = "";
+    let monthLabel = "";
 
-    // 1. Try to find 6 digits at the beginning
-    let match = fileName.trim().match(/^(\d{2})(\d{4})/);
-
-    // 2. Try to find 6 digits separated anywhere in the filename
-    if (!match) {
-      match = fileName.trim().match(/(?:^|[^0-9])(\d{2})(\d{4})(?:[^0-9]|$)/);
-    }
-
-    // 3. Try with hyphen/underscore separators anywhere in the filename
-    if (!match) {
-      const sepMatch = fileName.trim().match(/(?:^|[^0-9])(\d{2})[_-](\d{4})(?:[^0-9]|$)/);
-      if (sepMatch) {
-        match = sepMatch;
-      }
-    }
-
-    if (match) {
-      month = match[1];
-      year = match[2];
+    if (reconciliationType === "VIE" && detectedMonthKey && detectedMonthLabel) {
+      monthKey = `${detectedMonthKey}_VIE`;
+      monthLabel = detectedMonthLabel;
     } else {
-      // Fallback: Ask user via prompt
-      const userInput = prompt(
-        "Impossible de détecter le mois/année (format 052026) dans le nom du fichier.\n" +
-        "Veuillez saisir le mois et l'année de ce rapport (format MMAAAA ou MM/AAAA, ex: 052026) :"
-      );
-      if (!userInput) return; // User cancelled
+      const fileName = files.ns.name;
 
-      let inputMatch = userInput.trim().match(/^(\d{2})(\d{4})$/);
-      if (!inputMatch) {
-        inputMatch = userInput.trim().match(/^(\d{2})[/\-_](\d{4})$/);
+      // 1. Try to find 6 digits at the beginning
+      let match = fileName.trim().match(/^(\d{2})(\d{4})/);
+
+      // 2. Try to find 6 digits separated anywhere in the filename
+      if (!match) {
+        match = fileName.trim().match(/(?:^|[^0-9])(\d{2})(\d{4})(?:[^0-9]|$)/);
       }
-      if (!inputMatch) {
-        alert("Format invalide. La sauvegarde a été annulée. Veuillez saisir le format MMAAAA ou MM/AAAA (ex: 052026 ou 05/2026).");
+
+      // 3. Try with hyphen/underscore separators anywhere in the filename
+      if (!match) {
+        const sepMatch = fileName.trim().match(/(?:^|[^0-9])(\d{2})[_-](\d{4})(?:[^0-9]|$)/);
+        if (sepMatch) {
+          match = sepMatch;
+        }
+      }
+
+      if (match) {
+        month = match[1];
+        year = match[2];
+      } else {
+        // Fallback: Ask user via prompt
+        const userInput = prompt(
+          "Impossible de détecter le mois/année (format 052026) dans le nom du fichier.\n" +
+          "Veuillez saisir le mois et l'année de ce rapport (format MMAAAA ou MM/AAAA, ex: 052026) :"
+        );
+        if (!userInput) return; // User cancelled
+
+        let inputMatch = userInput.trim().match(/^(\d{2})(\d{4})$/);
+        if (!inputMatch) {
+          inputMatch = userInput.trim().match(/^(\d{2})[/\-_](\d{4})$/);
+        }
+        if (!inputMatch) {
+          alert("Format invalide. La sauvegarde a été annulée. Veuillez saisir le format MMAAAA ou MM/AAAA (ex: 052026 ou 05/2026).");
+          return;
+        }
+        month = inputMatch[1];
+        year = inputMatch[2];
+      }
+      const months = [
+        "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+        "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+      ];
+      const monthIdx = parseInt(month, 10) - 1;
+      if (monthIdx < 0 || monthIdx >= 12) {
+        alert(`Erreur de sauvegarde : Le mois "${month}" extrait est invalide.`);
         return;
       }
-      month = inputMatch[1];
-      year = inputMatch[2];
-    }
-    const months = [
-      "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-      "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
-    ];
-    const monthIdx = parseInt(month, 10) - 1;
-    if (monthIdx < 0 || monthIdx >= 12) {
-      alert(`Erreur de sauvegarde : Le mois "${month}" extrait est invalide.`);
-      return;
-    }
 
-    const monthKey = `${month}${year}`;
-    const monthLabel = `${months[monthIdx]} ${year}`;
+      monthKey = `${month}${year}_NS`;
+      monthLabel = `${months[monthIdx]} ${year}`;
+    }
 
     setIsSavingReport(true);
 
@@ -1789,7 +2038,8 @@ export default function RegtoolsDiffPage() {
       minifiedMissingRows: minifiedMissing,
       minifiedSimilarRows: minifiedSimilar,
       columnsNS: columns.ns,
-      mapping: mapping
+      mapping: mapping,
+      reconciliationType: reconciliationType
     };
 
     let savedInFirestore = false;
@@ -1839,7 +2089,8 @@ export default function RegtoolsDiffPage() {
           agencyStats: reportPayload.agencyStats,
           columnsNS: columns.ns,
           mapping: mapping,
-          hasSubCollectionDetails: true
+          hasSubCollectionDetails: true,
+          reconciliationType: reconciliationType
         };
         await setDoc(doc(db, "regtoolsHistory", monthKey), firestoreMainPayload);
 
@@ -1863,7 +2114,8 @@ export default function RegtoolsDiffPage() {
         fileNameNS: files.ns.name,
         fileNameRegtools: files.regtools ? files.regtools.name : "",
         savedAt: reportPayload.savedAt,
-        globalStats: reportPayload.globalStats
+        globalStats: reportPayload.globalStats,
+        reconciliationType: reconciliationType
       };
       localList.push(metadata);
       localStorage.setItem("regtools_history_list", JSON.stringify(localList));
@@ -1978,14 +2230,12 @@ export default function RegtoolsDiffPage() {
     if (!selectedHistoryReport || !selectedHistoryReport.missingRows) return [];
     const agencyCol = selectedHistoryReport.mapping?.nsAgence;
     if (!agencyCol) return [];
+    const isVie = selectedHistoryReport.reconciliationType === "VIE";
     const agenciesSet = new Set<string>();
     selectedHistoryReport.missingRows.forEach((row: any) => {
-      const agenceVal = row[agencyCol];
-      if (agenceVal !== undefined && agenceVal !== null) {
-        const agenceStr = String(agenceVal).trim();
-        if (agenceStr !== "") {
-          agenciesSet.add(agenceStr);
-        }
+      const agenceCode = getRowAgencyCode(row, agencyCol, isVie);
+      if (agenceCode !== "") {
+        agenciesSet.add(agenceCode);
       }
     });
     return Array.from(agenciesSet).sort((a, b) => a.localeCompare(b));
@@ -1995,13 +2245,14 @@ export default function RegtoolsDiffPage() {
     if (!selectedHistoryReport) return [];
     const rows = selectedHistoryReport.missingRows || [];
     const agencyCol = selectedHistoryReport.mapping?.nsAgence;
+    const isVie = selectedHistoryReport.reconciliationType === "VIE";
 
     return rows.filter((row: any) => {
       // Agency Filter
       let matchAgency = true;
       if (historySelectedAgency !== "ALL" && agencyCol) {
-        const rowAgency = row[agencyCol];
-        matchAgency = rowAgency !== undefined && rowAgency !== null && String(rowAgency).trim() === historySelectedAgency;
+        const agencyCode = getRowAgencyCode(row, agencyCol, isVie);
+        matchAgency = agencyCode === historySelectedAgency;
       }
 
       // Search Filter
@@ -2076,14 +2327,12 @@ export default function RegtoolsDiffPage() {
     if (!selectedHistoryReport || !selectedHistoryReport.similarRows) return [];
     const agencyCol = selectedHistoryReport.mapping?.nsAgence;
     if (!agencyCol) return [];
+    const isVie = selectedHistoryReport.reconciliationType === "VIE";
     const agenciesSet = new Set<string>();
     selectedHistoryReport.similarRows.forEach((row: any) => {
-      const agenceVal = row[agencyCol];
-      if (agenceVal !== undefined && agenceVal !== null) {
-        const agenceStr = String(agenceVal).trim();
-        if (agenceStr !== "") {
-          agenciesSet.add(agenceStr);
-        }
+      const agenceCode = getRowAgencyCode(row, agencyCol, isVie);
+      if (agenceCode !== "") {
+        agenciesSet.add(agenceCode);
       }
     });
     return Array.from(agenciesSet).sort((a, b) => a.localeCompare(b));
@@ -2093,13 +2342,14 @@ export default function RegtoolsDiffPage() {
     if (!selectedHistoryReport) return [];
     const rows = selectedHistoryReport.similarRows || [];
     const agencyCol = selectedHistoryReport.mapping?.nsAgence;
+    const isVie = selectedHistoryReport.reconciliationType === "VIE";
 
     return rows.filter((row: any) => {
       // Agency Filter
       let matchAgency = true;
       if (historySimilarSelectedAgency !== "ALL" && agencyCol) {
-        const rowAgency = row[agencyCol];
-        matchAgency = rowAgency !== undefined && rowAgency !== null && String(rowAgency).trim() === historySimilarSelectedAgency;
+        const agencyCode = getRowAgencyCode(row, agencyCol, isVie);
+        matchAgency = agencyCode === historySimilarSelectedAgency;
       }
 
       // Search Filter
@@ -2175,6 +2425,8 @@ export default function RegtoolsDiffPage() {
     if (filteredHistorySimilarRows.length === 0) return;
     try {
       const report = selectedHistoryReport;
+      const isVie = report.reconciliationType === "VIE";
+      const fileLabel = isVie ? "VIE" : "NS";
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
       const exportHeaders = [...(report.columnsNS || [])];
       const exportData = filteredHistorySimilarRows.map((row: any) => {
@@ -2186,9 +2438,9 @@ export default function RegtoolsDiffPage() {
       });
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - SIMILAIRES - ${report.monthLabel}`],
+        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - SIMILAIRES - ${report.monthLabel} (${fileLabel})`],
         ["INFORMATION : Ces clients existent de part et d'autre (KYC conformes)"],
-        [`Fichier NS d'origine : ${report.fileNameNS} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [`Fichier ${fileLabel} d'origine : ${report.fileNameNS} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
         exportHeaders
       ];
@@ -2226,7 +2478,7 @@ export default function RegtoolsDiffPage() {
       ws["!cols"] = colWidths;
 
       XLSX.utils.book_append_sheet(wb, ws, "Similitudes");
-      XLSX.writeFile(wb, `NS_similitudes_RegTools_Historique_${report.monthKey}.xlsx`);
+      XLSX.writeFile(wb, `${fileLabel}_similitudes_RegTools_Historique_${report.monthKey}.xlsx`);
     } catch (error: any) {
       alert("Erreur lors de l'export Excel historique des similitudes : " + error.message);
     }
@@ -2238,6 +2490,8 @@ export default function RegtoolsDiffPage() {
     if (filteredHistoryRows.length === 0) return;
     try {
       const report = selectedHistoryReport;
+      const isVie = report.reconciliationType === "VIE";
+      const fileLabel = isVie ? "VIE" : "NS";
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
       const exportHeaders = [...(report.columnsNS || [])];
       const exportData = filteredHistoryRows.map((row: any) => {
@@ -2249,9 +2503,9 @@ export default function RegtoolsDiffPage() {
       });
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - ${report.monthLabel}`],
+        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - ${report.monthLabel} (${fileLabel})`],
         ["CONSIGNE : Veuillez créer des fiches KYC pour ces clients"],
-        [`Fichier NS d'origine : ${report.fileNameNS} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [`Fichier ${fileLabel} d'origine : ${report.fileNameNS} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
         exportHeaders
       ];
@@ -2289,7 +2543,7 @@ export default function RegtoolsDiffPage() {
       ws["!cols"] = colWidths;
 
       XLSX.utils.book_append_sheet(wb, ws, "Manquants");
-      XLSX.writeFile(wb, `NS_manquants_RegTools_Historique_${report.monthKey}.xlsx`);
+      XLSX.writeFile(wb, `${fileLabel}_manquants_RegTools_Historique_${report.monthKey}.xlsx`);
     } catch (error: any) {
       alert("Erreur lors de l'export Excel historique : " + error.message);
     }
@@ -2300,12 +2554,14 @@ export default function RegtoolsDiffPage() {
     if (filteredHistoryAgencyStats.length === 0) return;
     try {
       const report = selectedHistoryReport;
+      const isVie = report.reconciliationType === "VIE";
+      const fileLabel = isVie ? "VIE" : "NS";
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
       const exportHeaders = [
         "Code Agence",
         "Nom Agence",
         "Type",
-        "Total NS",
+        `Total ${fileLabel}`,
         "Présentes dans RegTools (KYC Conformes)",
         "Absentes de RegTools (KYC Manquants)",
         "Taux de Présence KYC (%)",
@@ -2313,7 +2569,7 @@ export default function RegtoolsDiffPage() {
       ];
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - STATISTIQUES AGENCE - ${report.monthLabel}`],
+        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - STATISTIQUES AGENCE - ${report.monthLabel} (${fileLabel})`],
         [`Date d'export : ${currentDate} | Nombre d'agences : ${filteredHistoryAgencyStats.length}`],
         [],
         exportHeaders
@@ -2373,7 +2629,7 @@ export default function RegtoolsDiffPage() {
       ws["!cols"] = colWidths;
 
       XLSX.utils.book_append_sheet(wb, ws, "Stats Agences");
-      XLSX.writeFile(wb, `NS_Statistiques_Par_Agence_Historique_${report.monthKey}.xlsx`);
+      XLSX.writeFile(wb, `${fileLabel}_Statistiques_Par_Agence_Historique_${report.monthKey}.xlsx`);
     } catch (error: any) {
       alert("Erreur lors de l'export Excel historique stats : " + error.message);
     }
@@ -2498,10 +2754,18 @@ export default function RegtoolsDiffPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Rapprochement Clients RegTools vs NS
+            {pageTab === "new" 
+              ? `Rapprochement Clients RegTools vs ${reconciliationType}`
+              : selectedHistoryReport
+                ? `Rapport Historique : RegTools vs ${selectedHistoryReport.reconciliationType || "NS"}`
+                : "Rapprochement Clients RegTools - Historique"
+            }
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Comparez les identifiants de votre base globale avec la liste NS pour identifier et extraire les écarts par agence.
+            {pageTab === "new"
+              ? `Comparez les identifiants de votre base globale avec la liste ${reconciliationType} pour identifier et extraire les écarts par agence.`
+              : "Consultez et gérez l'historique des rapports de rapprochement mensuels sauvegardés."
+            }
           </p>
         </div>
 
@@ -2541,6 +2805,49 @@ export default function RegtoolsDiffPage() {
 
       {pageTab === "new" ? (
         <>
+          {/* Portfolio Type Selector Toggle */}
+          <div className="bg-white dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex flex-col gap-0.5">
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Type de Portefeuille</h3>
+              <p className="text-xs text-slate-400">Sélectionnez le portefeuille de clients à importer et contrôler.</p>
+            </div>
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/50 dark:border-slate-700/50 self-start sm:self-center">
+              <button
+                onClick={() => {
+                  if (files.ns || files.regtools) {
+                    if (!confirm("Changer de type de portefeuille réinitialisera les fichiers chargés. Continuer ?")) return;
+                  }
+                  setReconciliationType("NS");
+                  handleReset();
+                }}
+                className={cn(
+                  "px-4 py-2 text-xs font-semibold rounded-lg transition-all",
+                  reconciliationType === "NS"
+                    ? "bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                )}
+              >
+                Non-Vie (NS)
+              </button>
+              <button
+                onClick={() => {
+                  if (files.ns || files.regtools) {
+                    if (!confirm("Changer de type de portefeuille réinitialisera les fichiers chargés. Continuer ?")) return;
+                  }
+                  setReconciliationType("VIE");
+                  handleReset();
+                }}
+                className={cn(
+                  "px-4 py-2 text-xs font-semibold rounded-lg transition-all",
+                  reconciliationType === "VIE"
+                    ? "bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                )}
+              >
+                Assurance VIE
+              </button>
+            </div>
+          </div>
           {/* Dashboard Section */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* RegTools Stat Card */}
@@ -2565,7 +2872,9 @@ export default function RegtoolsDiffPage() {
                 <FileText className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Fichier NS</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  {reconciliationType === "VIE" ? "Fichier VIE (Filtré)" : "Fichier NS"}
+                </p>
                 <p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">
                   {data.ns ? data.ns.length.toLocaleString("fr-FR") : "-"}
                 </p>
@@ -2693,9 +3002,11 @@ export default function RegtoolsDiffPage() {
             {/* Upload NS */}
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col gap-4">
               <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-slate-800 dark:text-white">2. Fichier à Contrôler (NS)</h3>
+                <h3 className="font-semibold text-slate-800 dark:text-white">
+                  2. Fichier à Contrôler ({reconciliationType})
+                </h3>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                  Attendu : ~12K lignes
+                  {reconciliationType === "VIE" ? "Nettoyage & Période auto" : "Attendu : ~12K lignes"}
                 </span>
               </div>
 
@@ -2876,7 +3187,9 @@ export default function RegtoolsDiffPage() {
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-slate-800 dark:text-white">Lignes NS absentes de RegTools</h3>
+                      <h3 className="font-semibold text-slate-800 dark:text-white">
+                        Lignes {reconciliationType} absentes de RegTools
+                      </h3>
                       <span className="text-xs font-bold px-2 py-0.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-full">
                         {filteredRows.length.toLocaleString("fr-FR")} lignes
                       </span>
@@ -3404,7 +3717,7 @@ export default function RegtoolsDiffPage() {
                             {renderSortableHeader("Code Agence", "agence")}
                             {renderSortableHeader("Nom Agence", "nom")}
                             {renderSortableHeader("Type", "type")}
-                            {renderSortableHeader("Total NS", "total", "center")}
+                            {renderSortableHeader(`Total ${reconciliationType}`, "total", "center")}
                             {renderSortableHeader("Présentes (Conformes)", "existing", "center")}
                             {renderSortableHeader("Absentes (Écarts)", "missing", "center")}
                             {renderSortableHeader("Taux Présence KYC", "pctExisting", "center")}
@@ -3572,21 +3885,31 @@ export default function RegtoolsDiffPage() {
                     <div>
                       <div className="flex justify-between items-start gap-2 mb-3">
                         <div>
-                          <h4 className="font-bold text-slate-900 dark:text-white text-base">
-                            {report.monthLabel}
-                          </h4>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                              {report.monthLabel}
+                            </h4>
+                            <span className={cn(
+                              "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                              report.reconciliationType === "VIE"
+                                ? "bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400"
+                                : "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
+                            )}>
+                              {report.reconciliationType === "VIE" ? "VIE" : "NS"}
+                            </span>
+                          </div>
                           <span className="text-[10px] text-slate-400">
                             Sauvegardé le {new Date(report.savedAt).toLocaleDateString("fr-FR")} à {new Date(report.savedAt).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                          {report.monthKey}
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          {report.monthKey.split('_')[0]}
                         </span>
                       </div>
 
                       <div className="space-y-1.5 text-xs text-slate-500 mb-4 border-t border-b border-slate-100 dark:border-slate-800/50 py-3 my-3">
                         <div className="flex justify-between">
-                          <span>Fichier NS :</span>
+                          <span>Fichier {report.reconciliationType === "VIE" ? "VIE" : "NS"} :</span>
                           <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[150px]" title={report.fileNameNS}>
                             {report.fileNameNS}
                           </span>
@@ -3650,11 +3973,19 @@ export default function RegtoolsDiffPage() {
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     Rapport de Rapprochement : {selectedHistoryReport.monthLabel}
+                    <span className={cn(
+                      "text-xs font-bold px-2.5 py-0.5 rounded-full",
+                      selectedHistoryReport.reconciliationType === "VIE"
+                        ? "bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400"
+                        : "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
+                    )}>
+                      {selectedHistoryReport.reconciliationType === "VIE" ? "VIE" : "NS"}
+                    </span>
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Sauvegardé le {new Date(selectedHistoryReport.savedAt).toLocaleDateString("fr-FR")} à {new Date(selectedHistoryReport.savedAt).toLocaleTimeString("fr-FR")} • Fichier NS : {selectedHistoryReport.fileNameNS}
+                    Sauvegardé le {new Date(selectedHistoryReport.savedAt).toLocaleDateString("fr-FR")} à {new Date(selectedHistoryReport.savedAt).toLocaleTimeString("fr-FR")} • Fichier {selectedHistoryReport.reconciliationType === "VIE" ? "VIE" : "NS"} : {selectedHistoryReport.fileNameNS}
                   </p>
                 </div>
               </div>
@@ -3785,7 +4116,7 @@ export default function RegtoolsDiffPage() {
                             {renderHistorySortableHeader("Code Agence", "agence")}
                             {renderHistorySortableHeader("Nom Agence", "nom")}
                             {renderHistorySortableHeader("Type", "type")}
-                            {renderHistorySortableHeader("Total NS", "total", "center")}
+                            {renderHistorySortableHeader(`Total ${historyReconciliationType}`, "total", "center")}
                             {renderHistorySortableHeader("Présentes (Conformes)", "existing", "center")}
                             {renderHistorySortableHeader("Absentes (Écarts)", "missing", "center")}
                             {renderHistorySortableHeader("Taux Présence KYC", "pctExisting", "center")}
