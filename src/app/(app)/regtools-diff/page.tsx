@@ -522,37 +522,49 @@ export default function RegtoolsDiffPage() {
   const [historyReconciliationType, setHistoryReconciliationType] = useState<"NS" | "VIE">("NS");
 
   // File state
-  const [files, setFiles] = useState<{ regtools: File | null; ns: File | null }>({
+  const [files, setFiles] = useState<{ regtools: File | null; ns: File | null; vie: File | null }>({
     regtools: null,
-    ns: null
+    ns: null,
+    vie: null
   });
-  const [data, setData] = useState<{ regtools: any[] | null; ns: any[] | null }>({
+  const [data, setData] = useState<{ regtools: any[] | null; ns: any[] | null; vie: any[] | null }>({
     regtools: null,
-    ns: null
+    ns: null,
+    vie: null
   });
-  const [columns, setColumns] = useState<{ regtools: string[]; ns: string[] }>({
+  const [columns, setColumns] = useState<{ regtools: string[]; ns: string[]; vie: string[] }>({
     regtools: [],
-    ns: []
+    ns: [],
+    vie: []
   });
   
   // Mapping state
   const [mapping, setMapping] = useState({
     regtoolsId: "",
     nsId: "",
-    nsAgence: ""
+    nsAgence: "",
+    vieId: "",
+    vieAgence: ""
   });
 
   // UI state
-  const [isParsing, setIsParsing] = useState<{ regtools: boolean; ns: boolean }>({
+  const [isParsing, setIsParsing] = useState<{ regtools: boolean; ns: boolean; vie: boolean }>({
     regtools: false,
-    ns: false
+    ns: false,
+    vie: false
   });
+
+  // Portfolio dropdown filters
+  const [portfolioFilter, setPortfolioFilter] = useState<"ALL" | "NS" | "VIE">("ALL");
+  const [historyPortfolioFilter, setHistoryPortfolioFilter] = useState<"ALL" | "NS" | "VIE">("ALL");
+
   const [isComparing, setIsComparing] = useState(false);
   const [comparisonDone, setComparisonDone] = useState(false);
-  const [dragOverRole, setDragOverRole] = useState<"regtools" | "ns" | null>(null);
+  const [dragOverRole, setDragOverRole] = useState<"regtools" | "ns" | "vie" | null>(null);
 
   // Results state
   const [missingRows, setMissingRows] = useState<any[]>([]);
+  const [similarRows, setSimilarRows] = useState<any[]>([]);
   const [agenciesList, setAgenciesList] = useState<string[]>([]);
   const [selectedAgency, setSelectedAgency] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -881,43 +893,44 @@ export default function RegtoolsDiffPage() {
   };
 
   // Handle file select
-  const handleFileChange = async (role: "regtools" | "ns", file: File) => {
+  const handleFileChange = async (role: "regtools" | "ns" | "vie", file: File) => {
     setIsParsing(prev => ({ ...prev, [role]: true }));
     try {
       const result = await parseFile(file);
       
       setFiles(prev => ({ ...prev, [role]: file }));
 
-      if (role === "ns" && reconciliationType === "VIE") {
+      if (role === "vie") {
         const processed = processVieData(result.data, result.columns);
-        setData(prev => ({ ...prev, ns: processed.filteredData }));
-        setColumns(prev => ({ ...prev, ns: result.columns }));
+        setData(prev => ({ ...prev, vie: processed.filteredData }));
+        setColumns(prev => ({ ...prev, vie: result.columns }));
         setDetectedMonthKey(processed.detectedMonthKey);
         setDetectedMonthLabel(processed.detectedMonthLabel);
 
         // Auto mappings for VIE
         setMapping(prev => ({
           ...prev,
-          nsId: processed.detectedMappings.idCol,
-          nsAgence: processed.detectedMappings.agenceCol
+          vieId: processed.detectedMappings.idCol,
+          vieAgence: processed.detectedMappings.agenceCol
         }));
         setVisibleColumns(result.columns.slice(0, 6));
-      } else {
-        setData(prev => ({ ...prev, [role]: result.data }));
-        setColumns(prev => ({ ...prev, [role]: result.columns }));
+      } else if (role === "ns") {
+        setData(prev => ({ ...prev, ns: result.data }));
+        setColumns(prev => ({ ...prev, ns: result.columns }));
 
-        // Auto-detect mappings
-        if (role === "regtools") {
-          const detected = autoDetectCol(result.columns, ['identifiant', 'id', 'identifier', 'code', 'numéro', 'num', 'ref', 'reference', 'matricule']);
-          setMapping(prev => ({ ...prev, regtoolsId: detected }));
-        } else {
-          const detectedId = autoDetectCol(result.columns, ['identifiant', 'id', 'identifier', 'code', 'numéro', 'num', 'ref', 'reference', 'matricule']);
-          const detectedAgence = autoDetectCol(result.columns, ['agence', 'agency', 'code agence', 'code_agence', 'structure', 'bureau', 'succursale', 'agenc']);
-          setMapping(prev => ({ ...prev, nsId: detectedId, nsAgence: detectedAgence }));
-          setVisibleColumns(result.columns.slice(0, 6));
-          setDetectedMonthKey("");
-          setDetectedMonthLabel("");
-        }
+        // Auto-detect mappings for NS
+        const detectedId = autoDetectCol(result.columns, ['identifiant', 'id', 'identifier', 'code', 'numéro', 'num', 'ref', 'reference', 'matricule']);
+        const detectedAgence = autoDetectCol(result.columns, ['agence', 'agency', 'code agence', 'code_agence', 'structure', 'bureau', 'succursale', 'agenc']);
+        setMapping(prev => ({ ...prev, nsId: detectedId, nsAgence: detectedAgence }));
+        setVisibleColumns(result.columns.slice(0, 6));
+      } else {
+        // regtools
+        setData(prev => ({ ...prev, regtools: result.data }));
+        setColumns(prev => ({ ...prev, regtools: result.columns }));
+
+        // Auto-detect mappings for RegTools
+        const detected = autoDetectCol(result.columns, ['identifiant', 'id', 'identifier', 'code', 'numéro', 'num', 'ref', 'reference', 'matricule']);
+        setMapping(prev => ({ ...prev, regtoolsId: detected }));
       }
       
       setComparisonDone(false);
@@ -929,7 +942,7 @@ export default function RegtoolsDiffPage() {
   };
 
   // Drag and drop handlers
-  const handleDragOver = (e: React.DragEvent, role: "regtools" | "ns") => {
+  const handleDragOver = (e: React.DragEvent, role: "regtools" | "ns" | "vie") => {
     e.preventDefault();
     setDragOverRole(role);
   };
@@ -938,7 +951,7 @@ export default function RegtoolsDiffPage() {
     setDragOverRole(null);
   };
 
-  const handleDrop = (e: React.DragEvent, role: "regtools" | "ns") => {
+  const handleDrop = (e: React.DragEvent, role: "regtools" | "ns" | "vie") => {
     e.preventDefault();
     setDragOverRole(null);
     const file = e.dataTransfer.files[0];
@@ -949,15 +962,21 @@ export default function RegtoolsDiffPage() {
 
   // Run Comparison
   const handleCompare = () => {
-    if (!data.regtools || !data.ns) return;
+    if (!data.regtools || (!data.ns && !data.vie)) return;
 
     setIsComparing(true);
     
     setTimeout(() => {
       try {
-        const { regtoolsId, nsId, nsAgence } = mapping;
-        if (!regtoolsId || !nsId || !nsAgence) {
-          throw new Error("Veuillez configurer toutes les colonnes de rapprochement.");
+        const { regtoolsId, nsId, nsAgence, vieId, vieAgence } = mapping;
+        if (!regtoolsId) {
+          throw new Error("Veuillez configurer la colonne d'identifiant pour RegTools.");
+        }
+        if (data.ns && (!nsId || !nsAgence)) {
+          throw new Error("Veuillez configurer les colonnes pour le fichier Non-Vie (NS).");
+        }
+        if (data.vie && (!vieId || !vieAgence)) {
+          throw new Error("Veuillez configurer les colonnes pour le fichier Assurance VIE.");
         }
 
         // 1. Index RegTools
@@ -970,27 +989,53 @@ export default function RegtoolsDiffPage() {
           }
         }
 
-        // 2. Scan NS / VIE
+        // 2. Scan and Compare
         const missing: any[] = [];
+        const similarities: any[] = [];
         const agenciesSet = new Set<string>();
-        const isVie = reconciliationType === "VIE";
 
-        for (let i = 0; i < data.ns.length; i++) {
-          const row = data.ns[i];
-          const key = normalizeKey(row[nsId]);
-          
-          // Agence collection
-          const agenceCode = getRowAgencyCode(row, nsAgence, isVie);
-          if (agenceCode !== "") {
-            agenciesSet.add(agenceCode);
+        // Scan NS
+        if (data.ns && nsId && nsAgence) {
+          for (let i = 0; i < data.ns.length; i++) {
+            const row = { ...data.ns[i] };
+            row.__sourcePortfolio = "NS";
+            const key = normalizeKey(row[nsId]);
+            
+            const agenceCode = getRowAgencyCode(row, nsAgence, false);
+            if (agenceCode !== "") {
+              agenciesSet.add(agenceCode);
+            }
+
+            if (key === "" || !regToolsSet.has(key)) {
+              missing.push(row);
+            } else {
+              similarities.push(row);
+            }
           }
+        }
 
-          if (key === "" || !regToolsSet.has(key)) {
-            missing.push(row);
+        // Scan VIE
+        if (data.vie && vieId && vieAgence) {
+          for (let i = 0; i < data.vie.length; i++) {
+            const row = { ...data.vie[i] };
+            row.__sourcePortfolio = "VIE";
+            const key = normalizeKey(row[vieId]);
+            
+            const agenceCode = getRowAgencyCode(row, vieAgence, true);
+            if (agenceCode !== "") {
+              agenciesSet.add(agenceCode);
+            }
+
+            if (key === "" || !regToolsSet.has(key)) {
+              missing.push(row);
+            } else {
+              similarities.push(row);
+            }
           }
         }
 
         setMissingRows(missing);
+        setSimilarRows(similarities);
         setAgenciesList(Array.from(agenciesSet).sort((a, b) => a.localeCompare(b)));
         setComparisonDone(true);
         setCurrentPage(1);
@@ -1006,13 +1051,19 @@ export default function RegtoolsDiffPage() {
   // Apply filters on the missing rows
   const filteredRows = useMemo(() => {
     if (!comparisonDone) return [];
-    const isVie = reconciliationType === "VIE";
     
     return missingRows.filter(row => {
+      // Portfolio Filter
+      if (portfolioFilter !== "ALL" && row.__sourcePortfolio !== portfolioFilter) {
+        return false;
+      }
+
       // Agency Filter
       let matchAgency = true;
       if (selectedAgency !== "ALL") {
-        const agencyCode = getRowAgencyCode(row, mapping.nsAgence, isVie);
+        const isVieRow = row.__sourcePortfolio === "VIE";
+        const agencyCol = isVieRow ? mapping.vieAgence : mapping.nsAgence;
+        const agencyCode = getRowAgencyCode(row, agencyCol, isVieRow);
         matchAgency = agencyCode === selectedAgency;
       }
 
@@ -1027,7 +1078,7 @@ export default function RegtoolsDiffPage() {
 
       return matchAgency && matchSearch;
     });
-  }, [missingRows, comparisonDone, selectedAgency, searchQuery, mapping.nsAgence, reconciliationType]);
+  }, [missingRows, comparisonDone, selectedAgency, searchQuery, mapping.nsAgence, mapping.vieAgence, portfolioFilter]);
 
   // Sort the filtered rows
   const sortedRows = useMemo(() => {
@@ -1536,51 +1587,32 @@ export default function RegtoolsDiffPage() {
   };
 
   // Calculation parameters
+  // Calculation parameters
   const matchRate = useMemo(() => {
-    if (!data.ns || !comparisonDone) return 0;
-    const foundCount = data.ns.length - missingRows.length;
-    return parseFloat(((foundCount / data.ns.length) * 100).toFixed(2));
-  }, [data.ns, missingRows, comparisonDone]);
-
-  // Extract similar rows (existing in both NS and RegTools)
-  const similarRows = useMemo(() => {
-    if (!comparisonDone || !data.ns || !mapping.nsId || !data.regtools || !mapping.regtoolsId) return [];
-
-    const regtoolsId = mapping.regtoolsId;
-    const nsId = mapping.nsId;
-
-    // Index RegTools
-    const regToolsSet = new Set<string>();
-    for (let i = 0; i < data.regtools.length; i++) {
-      const row = data.regtools[i];
-      const key = normalizeKey(row[regtoolsId]);
-      if (key !== "") {
-        regToolsSet.add(key);
-      }
-    }
-
-    const similarities: any[] = [];
-    for (let i = 0; i < data.ns.length; i++) {
-      const row = data.ns[i];
-      const key = normalizeKey(row[nsId]);
-      if (key !== "" && regToolsSet.has(key)) {
-        similarities.push(row);
-      }
-    }
-
-    return similarities;
-  }, [data.ns, data.regtools, comparisonDone, mapping.nsId, mapping.regtoolsId]);
+    let totalLen = 0;
+    if (data.ns) totalLen += data.ns.length;
+    if (data.vie) totalLen += data.vie.length;
+    if (totalLen === 0 || !comparisonDone) return 0;
+    const foundCount = totalLen - missingRows.length;
+    return parseFloat(((foundCount / totalLen) * 100).toFixed(2));
+  }, [data.ns, data.vie, missingRows, comparisonDone]);
 
   // Apply filters on the similar rows
   const filteredSimilarRows = useMemo(() => {
     if (!comparisonDone) return [];
-    const isVie = reconciliationType === "VIE";
     
     return similarRows.filter(row => {
+      // Portfolio Filter
+      if (portfolioFilter !== "ALL" && row.__sourcePortfolio !== portfolioFilter) {
+        return false;
+      }
+
       // Agency Filter
       let matchAgency = true;
       if (similarSelectedAgency !== "ALL") {
-        const agencyCode = getRowAgencyCode(row, mapping.nsAgence, isVie);
+        const isVieRow = row.__sourcePortfolio === "VIE";
+        const agencyCol = isVieRow ? mapping.vieAgence : mapping.nsAgence;
+        const agencyCode = getRowAgencyCode(row, agencyCol, isVieRow);
         matchAgency = agencyCode === similarSelectedAgency;
       }
 
@@ -1595,7 +1627,7 @@ export default function RegtoolsDiffPage() {
 
       return matchAgency && matchSearch;
     });
-  }, [similarRows, comparisonDone, similarSelectedAgency, similarSearchQuery, mapping.nsAgence, reconciliationType]);
+  }, [similarRows, comparisonDone, similarSelectedAgency, similarSearchQuery, mapping.nsAgence, mapping.vieAgence, portfolioFilter]);
 
   // Sort the filtered similar rows
   const sortedSimilarRows = useMemo(() => {
@@ -1656,14 +1688,32 @@ export default function RegtoolsDiffPage() {
 
   // Agency statistics calculations
   const agencyStats = useMemo(() => {
-    if (!comparisonDone || !data.ns || !mapping.nsAgence) return [];
+    if (!comparisonDone) return [];
 
     const statsMap = new Map<string, { total: number; missing: number }>();
-    const isVie = reconciliationType === "VIE";
 
-    // Count total rows per agency in NS
-    data.ns.forEach(row => {
-      const agenceVal = row[mapping.nsAgence];
+    // Determine which raw rows to include based on portfolioFilter
+    const rawRows: any[] = [];
+    if (portfolioFilter === "ALL" || portfolioFilter === "NS") {
+      if (data.ns) {
+        data.ns.forEach(row => {
+          rawRows.push({ ...row, __sourcePortfolio: "NS" });
+        });
+      }
+    }
+    if (portfolioFilter === "ALL" || portfolioFilter === "VIE") {
+      if (data.vie) {
+        data.vie.forEach(row => {
+          rawRows.push({ ...row, __sourcePortfolio: "VIE" });
+        });
+      }
+    }
+
+    // Count total rows per agency
+    rawRows.forEach(row => {
+      const isVie = row.__sourcePortfolio === "VIE";
+      const agencyCol = isVie ? mapping.vieAgence : mapping.nsAgence;
+      const agenceVal = row[agencyCol];
       let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
       if (isVie && agenceStr !== "Non spécifié") {
         agenceStr = resolveAgencyFromText(agenceStr).code;
@@ -1676,7 +1726,12 @@ export default function RegtoolsDiffPage() {
 
     // Count missing rows per agency
     missingRows.forEach(row => {
-      const agenceVal = row[mapping.nsAgence];
+      if (portfolioFilter !== "ALL" && row.__sourcePortfolio !== portfolioFilter) {
+        return;
+      }
+      const isVie = row.__sourcePortfolio === "VIE";
+      const agencyCol = isVie ? mapping.vieAgence : mapping.nsAgence;
+      const agenceVal = row[agenceCol];
       let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
       if (isVie && agenceStr !== "Non spécifié") {
         agenceStr = resolveAgencyFromText(agenceStr).code;
@@ -1706,7 +1761,7 @@ export default function RegtoolsDiffPage() {
           pctExisting
         };
       });
-  }, [data.ns, missingRows, comparisonDone, mapping.nsAgence, reconciliationType]);
+  }, [data.ns, data.vie, missingRows, comparisonDone, mapping.nsAgence, mapping.vieAgence, portfolioFilter]);
 
   const sortedAgencyStats = useMemo(() => {
     const items = [...agencyStats];
@@ -1813,116 +1868,235 @@ export default function RegtoolsDiffPage() {
     setIsLoadingHistory(false);
   }, []);
 
+  // Helper to fetch details for a single report key
+  const fetchSingleFullReportData = async (reportMeta: any): Promise<any> => {
+    let loadedReport = null;
+
+    // 1. If it's already a full report (fetched from Firestore)
+    if (reportMeta.missingRows && reportMeta.agencyStats) {
+      loadedReport = { ...reportMeta };
+    }
+
+    // 2. If it's a Firestore report, try to fetch full data (in case it wasn't preloaded)
+    if (!loadedReport && isFirebaseConfigured && db) {
+      try {
+        const { doc, getDoc, collection, getDocs } = await import("firebase/firestore");
+        const docSnap = await getDoc(doc(db, "regtoolsHistory", reportMeta.monthKey));
+        if (docSnap.exists()) {
+          const mainData = docSnap.data();
+          
+          let minifiedMissingRows: any[][] = mainData.minifiedMissingRows || [];
+          let minifiedSimilarRows: any[][] = mainData.minifiedSimilarRows || [];
+
+          if (mainData.hasSubCollectionDetails) {
+            const querySnapshot = await getDocs(collection(db, "regtoolsHistory", reportMeta.monthKey, "details"));
+            
+            const missingChunksList: { index: number; rows: any[][] }[] = [];
+            const similarChunksList: { index: number; rows: any[][] }[] = [];
+            
+            querySnapshot.forEach((chunkDoc) => {
+              const chunkData = chunkDoc.data();
+              let chunkRows: any[][] = [];
+              if (typeof chunkData.rows === "string") {
+                try {
+                  chunkRows = JSON.parse(chunkData.rows);
+                } catch (e) {
+                  console.error("Erreur de parsing JSON pour chunk rows:", e);
+                }
+              } else if (Array.isArray(chunkData.rows)) {
+                chunkRows = chunkData.rows;
+              }
+
+              if (chunkData.type === "missing") {
+                missingChunksList.push({ index: chunkData.index, rows: chunkRows || [] });
+              } else if (chunkData.type === "similar") {
+                similarChunksList.push({ index: chunkData.index, rows: chunkRows || [] });
+              }
+            });
+            
+            // Sort chunks by index
+            missingChunksList.sort((a, b) => a.index - b.index);
+            similarChunksList.sort((a, b) => a.index - b.index);
+            
+            minifiedMissingRows = [];
+            minifiedSimilarRows = [];
+            
+            missingChunksList.forEach(chunk => minifiedMissingRows.push(...chunk.rows));
+            similarChunksList.forEach(chunk => minifiedSimilarRows.push(...chunk.rows));
+          }
+
+          loadedReport = {
+            id: docSnap.id,
+            ...mainData,
+            minifiedMissingRows,
+            minifiedSimilarRows
+          };
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement complet Firestore :", err);
+      }
+    }
+
+    // 3. Fallback to localStorage (or merge rows if Firestore report metadata exists but details are missing)
+    const localReportJSON = localStorage.getItem(`regtools_report_${reportMeta.monthKey}`);
+    if (localReportJSON) {
+      try {
+        const localReport = JSON.parse(localReportJSON);
+        if (loadedReport) {
+          // Restore details from local storage if Firestore has empty details
+          if ((!loadedReport.missingRows || loadedReport.missingRows.length === 0) && localReport.missingRows && localReport.missingRows.length > 0) {
+            loadedReport.missingRows = localReport.missingRows;
+          }
+          if ((!loadedReport.similarRows || loadedReport.similarRows.length === 0) && localReport.similarRows && localReport.similarRows.length > 0) {
+            loadedReport.similarRows = localReport.similarRows;
+          }
+          if ((!loadedReport.minifiedMissingRows || loadedReport.minifiedMissingRows.length === 0) && localReport.minifiedMissingRows && localReport.minifiedMissingRows.length > 0) {
+            loadedReport.minifiedMissingRows = localReport.minifiedMissingRows;
+          }
+          if ((!loadedReport.minifiedSimilarRows || loadedReport.minifiedSimilarRows.length === 0) && localReport.minifiedSimilarRows && localReport.minifiedSimilarRows.length > 0) {
+            loadedReport.minifiedSimilarRows = localReport.minifiedSimilarRows;
+          }
+        } else {
+          loadedReport = localReport;
+        }
+      } catch (e) {
+        console.error("Erreur lors de la fusion du rapport local :", e);
+      }
+    }
+
+    if (loadedReport) {
+      // Restore minified rows if present
+      const columnsNS = loadedReport.columnsNS || [];
+      if (loadedReport.minifiedMissingRows && (!loadedReport.missingRows || loadedReport.missingRows.length === 0)) {
+        loadedReport.missingRows = unminifyRows(loadedReport.minifiedMissingRows, columnsNS);
+      }
+      if (loadedReport.minifiedSimilarRows && (!loadedReport.similarRows || loadedReport.similarRows.length === 0)) {
+        loadedReport.similarRows = unminifyRows(loadedReport.minifiedSimilarRows, columnsNS);
+      }
+      return loadedReport;
+    }
+    return null;
+  };
+
   // Fetch full report from local storage if loading a local-only one
   const handleLoadReport = async (report: any) => {
     setIsLoadingHistory(true);
     try {
-      let loadedReport = null;
-      // 1. If it's already a full report (fetched from Firestore)
-      if (report.missingRows && report.agencyStats) {
-        loadedReport = report;
-      }
+      const baseKey = report.monthKey.substring(0, 6);
+      const nsMeta = savedReports.find(r => r.monthKey === `${baseKey}_NS` || (r.monthKey === baseKey && (r.reconciliationType || "NS") === "NS"));
+      const vieMeta = savedReports.find(r => r.monthKey === `${baseKey}_VIE`);
 
-      // 2. If it's a Firestore report, try to fetch full data (in case it wasn't preloaded)
-      if (!loadedReport && isFirebaseConfigured && db) {
-        try {
-          const { doc, getDoc, collection, getDocs } = await import("firebase/firestore");
-          const docSnap = await getDoc(doc(db, "regtoolsHistory", report.monthKey));
-          if (docSnap.exists()) {
-            const mainData = docSnap.data();
-            
-            let minifiedMissingRows: any[][] = mainData.minifiedMissingRows || [];
-            let minifiedSimilarRows: any[][] = mainData.minifiedSimilarRows || [];
+      let loadedReport: any = null;
 
-            if (mainData.hasSubCollectionDetails) {
-              const querySnapshot = await getDocs(collection(db, "regtoolsHistory", report.monthKey, "details"));
-              
-              const missingChunksList: { index: number; rows: any[][] }[] = [];
-              const similarChunksList: { index: number; rows: any[][] }[] = [];
-              
-              querySnapshot.forEach((chunkDoc) => {
-                const chunkData = chunkDoc.data();
-                let chunkRows: any[][] = [];
-                if (typeof chunkData.rows === "string") {
-                  try {
-                    chunkRows = JSON.parse(chunkData.rows);
-                  } catch (e) {
-                    console.error("Erreur de parsing JSON pour chunk rows:", e);
-                  }
-                } else if (Array.isArray(chunkData.rows)) {
-                  chunkRows = chunkData.rows;
-                }
+      if (nsMeta && vieMeta) {
+        // Load both reports and merge them
+        const [nsReport, vieReport] = await Promise.all([
+          fetchSingleFullReportData(nsMeta),
+          fetchSingleFullReportData(vieMeta)
+        ]);
 
-                if (chunkData.type === "missing") {
-                  missingChunksList.push({ index: chunkData.index, rows: chunkRows || [] });
-                } else if (chunkData.type === "similar") {
-                  similarChunksList.push({ index: chunkData.index, rows: chunkRows || [] });
-                }
-              });
-              
-              // Sort chunks by index
-              missingChunksList.sort((a, b) => a.index - b.index);
-              similarChunksList.sort((a, b) => a.index - b.index);
-              
-              minifiedMissingRows = [];
-              minifiedSimilarRows = [];
-              
-              missingChunksList.forEach(chunk => minifiedMissingRows.push(...chunk.rows));
-              similarChunksList.forEach(chunk => minifiedSimilarRows.push(...chunk.rows));
-            }
+        if (nsReport || vieReport) {
+          const mergedReport: any = {
+            monthKey: baseKey,
+            monthLabel: nsReport?.monthLabel || vieReport?.monthLabel || report.monthLabel,
+            savedAt: nsReport?.savedAt || vieReport?.savedAt || report.savedAt,
+            fileNameNS: nsReport?.fileNameNS || "",
+            fileNameVIE: vieReport?.fileNameNS || "",
+            fileNameRegtools: nsReport?.fileNameRegtools || vieReport?.fileNameRegtools || "",
+            reconciliationType: "BOTH",
+            mapping: {
+              nsId: nsReport?.mapping?.nsId || "",
+              nsAgence: nsReport?.mapping?.nsAgence || "",
+              vieId: vieReport?.mapping?.vieId || "",
+              vieAgence: vieReport?.mapping?.vieAgence || "",
+              regtoolsId: nsReport?.mapping?.regtoolsId || vieReport?.mapping?.regtoolsId || ""
+            },
+            columnsNS: nsReport?.columnsNS || [],
+            columnsVIE: vieReport?.columnsNS || [],
+            missingRows: [],
+            similarRows: [],
+            nsGlobalStats: nsReport?.globalStats || null,
+            vieGlobalStats: vieReport?.globalStats || null,
+            nsAgencyStats: nsReport?.agencyStats || [],
+            vieAgencyStats: vieReport?.agencyStats || []
+          };
 
-            loadedReport = {
-              id: docSnap.id,
-              ...mainData,
-              minifiedMissingRows,
-              minifiedSimilarRows
+          if (nsReport) {
+            const rows = (nsReport.missingRows || []).map((r: any) => ({ ...r, __sourcePortfolio: "NS" }));
+            mergedReport.missingRows.push(...rows);
+            const simRows = (nsReport.similarRows || []).map((r: any) => ({ ...r, __sourcePortfolio: "NS" }));
+            mergedReport.similarRows.push(...simRows);
+          }
+          if (vieReport) {
+            const rows = (vieReport.missingRows || []).map((r: any) => ({ ...r, __sourcePortfolio: "VIE" }));
+            mergedReport.missingRows.push(...rows);
+            const simRows = (vieReport.similarRows || []).map((r: any) => ({ ...r, __sourcePortfolio: "VIE" }));
+            mergedReport.similarRows.push(...simRows);
+          }
+
+          // Merge Agency Stats
+          const statsMap = new Map<string, { total: number; missing: number; existing: number }>();
+          const addStats = (stats: any[]) => {
+            if (!stats) return;
+            stats.forEach(stat => {
+              if (!statsMap.has(stat.agence)) {
+                statsMap.set(stat.agence, { total: 0, missing: 0, existing: 0 });
+              }
+              const entry = statsMap.get(stat.agence)!;
+              entry.total += stat.total || 0;
+              entry.missing += stat.missing || 0;
+              entry.existing += stat.existing || 0;
+            });
+          };
+          if (nsReport?.agencyStats) addStats(nsReport.agencyStats);
+          if (vieReport?.agencyStats) addStats(vieReport.agencyStats);
+
+          mergedReport.agencyStats = Array.from(statsMap.entries()).map(([agence, counts]) => {
+            const pctMissing = counts.total > 0 ? parseFloat(((counts.missing / counts.total) * 100).toFixed(2)) : 0;
+            const pctExisting = counts.total > 0 ? parseFloat(((counts.existing / counts.total) * 100).toFixed(2)) : 0;
+            const agencyInfo = resolveAgencyInfo(agence);
+            return {
+              agence,
+              nom: agencyInfo.name,
+              type: agencyInfo.type,
+              total: counts.total,
+              missing: counts.missing,
+              existing: counts.existing,
+              pctMissing,
+              pctExisting
             };
-          }
-        } catch (err) {
-          console.error("Erreur lors du chargement complet Firestore :", err);
-        }
-      }
+          });
 
-      // 3. Fallback to localStorage (or merge rows if Firestore report metadata exists but details are missing)
-      const localReportJSON = localStorage.getItem(`regtools_report_${report.monthKey}`);
-      if (localReportJSON) {
-        try {
-          const localReport = JSON.parse(localReportJSON);
-          if (loadedReport) {
-            // Restore details from local storage if Firestore has empty details
-            if ((!loadedReport.missingRows || loadedReport.missingRows.length === 0) && localReport.missingRows && localReport.missingRows.length > 0) {
-              loadedReport.missingRows = localReport.missingRows;
-            }
-            if ((!loadedReport.similarRows || loadedReport.similarRows.length === 0) && localReport.similarRows && localReport.similarRows.length > 0) {
-              loadedReport.similarRows = localReport.similarRows;
-            }
-            if ((!loadedReport.minifiedMissingRows || loadedReport.minifiedMissingRows.length === 0) && localReport.minifiedMissingRows && localReport.minifiedMissingRows.length > 0) {
-              loadedReport.minifiedMissingRows = localReport.minifiedMissingRows;
-            }
-            if ((!loadedReport.minifiedSimilarRows || loadedReport.minifiedSimilarRows.length === 0) && localReport.minifiedSimilarRows && localReport.minifiedSimilarRows.length > 0) {
-              loadedReport.minifiedSimilarRows = localReport.minifiedSimilarRows;
-            }
-          } else {
-            loadedReport = localReport;
-          }
-        } catch (e) {
-          console.error("Erreur lors de la fusion du rapport local :", e);
+          // Calculate overall stats
+          const total = (nsReport?.globalStats?.total || 0) + (vieReport?.globalStats?.total || 0);
+          const missing = mergedReport.missingRows.length;
+          const existing = total - missing;
+          mergedReport.globalStats = {
+            total,
+            missing,
+            existing,
+            pctExisting: total > 0 ? parseFloat(((existing / total) * 100).toFixed(2)) : 0,
+            pctMissing: total > 0 ? parseFloat(((missing / total) * 100).toFixed(2)) : 0
+          };
+
+          loadedReport = mergedReport;
         }
+      } else {
+        loadedReport = await fetchSingleFullReportData(report);
       }
 
       if (loadedReport) {
-        // Restore minified rows if present
-        const columnsNS = loadedReport.columnsNS || [];
-        if (loadedReport.minifiedMissingRows && (!loadedReport.missingRows || loadedReport.missingRows.length === 0)) {
-          loadedReport.missingRows = unminifyRows(loadedReport.minifiedMissingRows, columnsNS);
-        }
-        if (loadedReport.minifiedSimilarRows && (!loadedReport.similarRows || loadedReport.similarRows.length === 0)) {
-          loadedReport.similarRows = unminifyRows(loadedReport.minifiedSimilarRows, columnsNS);
-        }
         setHistoryReconciliationType(loadedReport.reconciliationType || "NS");
         setSelectedHistoryReport(loadedReport);
-        setHistoryVisibleColumns(columnsNS.slice(0, 6));
-        
+
+        let cols = loadedReport.columnsNS || [];
+        if (loadedReport.reconciliationType === "BOTH") {
+          const union = new Set([...(loadedReport.columnsNS || []), ...(loadedReport.columnsVIE || [])]);
+          cols = Array.from(union);
+        }
+        setHistoryVisibleColumns(cols.slice(0, 6));
+        setHistoryPortfolioFilter(loadedReport.reconciliationType === "BOTH" ? "ALL" : (loadedReport.reconciliationType || "NS"));
+
         // Log consultation for non-admin users
         const email = user?.email || "";
         if (email && !isAdmin(email)) {
@@ -1931,7 +2105,7 @@ export default function RegtoolsDiffPage() {
             userName: user?.name || "Utilisateur",
             action: "OTHER",
             label: "Consultation de rapport de rapprochement",
-            detail: `Rapport mensuel : ${report.monthLabel}`,
+            detail: `Rapport mensuel : ${loadedReport.monthLabel}`,
             module: "Rapprochement RegTools"
           });
         }
@@ -1951,33 +2125,29 @@ export default function RegtoolsDiffPage() {
   }, [loadHistory]);
 
   const handleSaveReport = async () => {
-    if (!comparisonDone || !files.ns || !data.ns) return;
+    if (!comparisonDone || (!data.ns && !data.vie)) return;
 
-    let month = "";
-    let year = "";
-    let monthKey = "";
+    let baseMonthKey = "";
     let monthLabel = "";
 
-    if (reconciliationType === "VIE" && detectedMonthKey && detectedMonthLabel) {
-      monthKey = `${detectedMonthKey}_VIE`;
+    // 1. Detect Month & Year
+    if (detectedMonthKey && detectedMonthLabel) {
+      baseMonthKey = detectedMonthKey;
       monthLabel = detectedMonthLabel;
     } else {
-      const fileName = files.ns.name;
+      const fileForName = files.ns || files.vie;
+      if (!fileForName) return;
+      const fileName = fileForName.name;
 
-      // 1. Try to find 6 digits at the beginning
+      let month = "";
+      let year = "";
       let match = fileName.trim().match(/^(\d{2})(\d{4})/);
-
-      // 2. Try to find 6 digits separated anywhere in the filename
       if (!match) {
         match = fileName.trim().match(/(?:^|[^0-9])(\d{2})(\d{4})(?:[^0-9]|$)/);
       }
-
-      // 3. Try with hyphen/underscore separators anywhere in the filename
       if (!match) {
         const sepMatch = fileName.trim().match(/(?:^|[^0-9])(\d{2})[_-](\d{4})(?:[^0-9]|$)/);
-        if (sepMatch) {
-          match = sepMatch;
-        }
+        if (sepMatch) match = sepMatch;
       }
 
       if (match) {
@@ -2012,58 +2182,115 @@ export default function RegtoolsDiffPage() {
         return;
       }
 
-      monthKey = `${month}${year}_NS`;
+      baseMonthKey = `${month}${year}`;
       monthLabel = `${months[monthIdx]} ${year}`;
     }
 
     setIsSavingReport(true);
+    let firestoreError = "";
+    let savedInFirestore = false;
 
-    const minifiedMissing = minifyRows(missingRows, columns.ns);
-    const minifiedSimilar = minifyRows(similarRows, columns.ns);
+    // Helper function to calculate agency stats per portfolio during save
+    const calculateStatsForPortfolio = (type: "NS" | "VIE", rawRows: any[], missingRowsList: any[], mappingVal: any) => {
+      const statsMap = new Map<string, { total: number; missing: number }>();
+      const isVie = type === "VIE";
+      const agencyCol = isVie ? mappingVal.vieAgence : mappingVal.nsAgence;
 
-    const reportPayload = {
-      monthKey,
-      monthLabel,
-      fileNameNS: files.ns.name,
-      fileNameRegtools: files.regtools ? files.regtools.name : "",
-      savedAt: new Date().toISOString(),
-      globalStats: {
-        total: globalStats ? globalStats.total : data.ns.length,
-        missing: globalStats ? globalStats.missing : missingRows.length,
-        existing: globalStats ? globalStats.existing : data.ns.length - missingRows.length,
-        pctExisting: globalStats ? globalStats.pctExisting : matchRate,
-        pctMissing: globalStats ? globalStats.pctMissing : parseFloat((100 - matchRate).toFixed(2))
-      },
-      agencyStats: agencyStats,
-      minifiedMissingRows: minifiedMissing,
-      minifiedSimilarRows: minifiedSimilar,
-      columnsNS: columns.ns,
-      mapping: mapping,
-      reconciliationType: reconciliationType
+      rawRows.forEach(row => {
+        const agenceVal = row[agencyCol];
+        let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
+        if (isVie && agenceStr !== "Non spécifié") {
+          agenceStr = resolveAgencyFromText(agenceStr).code;
+        }
+        if (!statsMap.has(agenceStr)) {
+          statsMap.set(agenceStr, { total: 0, missing: 0 });
+        }
+        statsMap.get(agenceStr)!.total += 1;
+      });
+
+      missingRowsList.forEach(row => {
+        const agenceVal = row[agencyCol];
+        let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
+        if (isVie && agenceStr !== "Non spécifié") {
+          agenceStr = resolveAgencyFromText(agenceStr).code;
+        }
+        if (statsMap.has(agenceStr)) {
+          statsMap.get(agenceStr)!.missing += 1;
+        } else {
+          statsMap.set(agenceStr, { total: 0, missing: 1 });
+        }
+      });
+
+      return Array.from(statsMap.entries()).map(([agence, counts]) => {
+        const existing = counts.total - counts.missing;
+        const pctMissing = counts.total > 0 ? parseFloat(((counts.missing / counts.total) * 100).toFixed(2)) : 0;
+        const pctExisting = counts.total > 0 ? parseFloat(((existing / counts.total) * 100).toFixed(2)) : 0;
+        const agencyInfo = resolveAgencyInfo(agence);
+        return {
+          agence: agencyInfo.code,
+          nom: agencyInfo.name,
+          type: agencyInfo.type,
+          total: counts.total,
+          missing: counts.missing,
+          existing,
+          pctMissing,
+          pctExisting
+        };
+      });
     };
 
-    let savedInFirestore = false;
-    let firestoreError = "";
+    const saveReportForType = async (type: "NS" | "VIE", fileObj: File, rawDataList: any[], rowsMissing: any[], rowsSimilar: any[]) => {
+      const targetMonthKey = `${baseMonthKey}_${type}`;
+      const minifiedMissing = minifyRows(rowsMissing, columns[type.toLowerCase() as "ns" | "vie"]);
+      const minifiedSimilar = minifyRows(rowsSimilar, columns[type.toLowerCase() as "ns" | "vie"]);
 
-    if (isFirebaseConfigured && db) {
-      try {
+      const total = rawDataList.length;
+      const missing = rowsMissing.length;
+      const existing = total - missing;
+      const pctExisting = total > 0 ? parseFloat(((existing / total) * 100).toFixed(2)) : 0;
+      const pctMissing = total > 0 ? parseFloat(((missing / total) * 100).toFixed(2)) : 0;
+
+      const pStats = calculateStatsForPortfolio(type, rawDataList, rowsMissing, mapping);
+
+      const reportPayload = {
+        monthKey: targetMonthKey,
+        monthLabel,
+        fileNameNS: fileObj.name,
+        fileNameRegtools: files.regtools ? files.regtools.name : "",
+        savedAt: new Date().toISOString(),
+        globalStats: {
+          total,
+          missing,
+          existing,
+          pctExisting,
+          pctMissing
+        },
+        agencyStats: pStats,
+        minifiedMissingRows: minifiedMissing,
+        minifiedSimilarRows: minifiedSimilar,
+        columnsNS: columns[type.toLowerCase() as "ns" | "vie"],
+        mapping: mapping,
+        reconciliationType: type
+      };
+
+      // 1. Save to Firestore
+      if (isFirebaseConfigured && db) {
         const { doc, setDoc, collection, getDocs, deleteDoc } = await import("firebase/firestore");
         
-        // 1. Clean up existing chunks in sub-collection if this month report is overwritten
-        const oldDetailsDocs = await getDocs(collection(db, "regtoolsHistory", monthKey, "details"));
+        // Clean up old chunks
+        const oldDetailsDocs = await getDocs(collection(db, "regtoolsHistory", targetMonthKey, "details"));
         const deletePromises: Promise<any>[] = [];
         oldDetailsDocs.forEach(docSnap => {
           deletePromises.push(deleteDoc(docSnap.ref));
         });
         await Promise.all(deletePromises);
 
-        // 2. Prepare chunk arrays of 1000 items each
+        // Save chunks
         const missingChunks = chunkArray(minifiedMissing, 1000);
         const similarChunks = chunkArray(minifiedSimilar, 1000);
 
-        // 3. Save chunk documents to the subcollection FIRST
         for (let i = 0; i < missingChunks.length; i++) {
-          await setDoc(doc(db, "regtoolsHistory", monthKey, "details", `missing_${i}`), {
+          await setDoc(doc(db, "regtoolsHistory", targetMonthKey, "details", `missing_${i}`), {
             type: "missing",
             index: i,
             rows: JSON.stringify(missingChunks[i])
@@ -2071,61 +2298,72 @@ export default function RegtoolsDiffPage() {
         }
 
         for (let i = 0; i < similarChunks.length; i++) {
-          await setDoc(doc(db, "regtoolsHistory", monthKey, "details", `similar_${i}`), {
+          await setDoc(doc(db, "regtoolsHistory", targetMonthKey, "details", `similar_${i}`), {
             type: "similar",
             index: i,
             rows: JSON.stringify(similarChunks[i])
           });
         }
 
-        // 4. Save main document with metadata LAST (only if chunks succeeded)
+        // Save main doc
         const firestoreMainPayload = {
-          monthKey,
+          monthKey: targetMonthKey,
           monthLabel,
-          fileNameNS: files.ns.name,
+          fileNameNS: fileObj.name,
           fileNameRegtools: files.regtools ? files.regtools.name : "",
           savedAt: reportPayload.savedAt,
           globalStats: reportPayload.globalStats,
           agencyStats: reportPayload.agencyStats,
-          columnsNS: columns.ns,
-          mapping: mapping,
+          columnsNS: reportPayload.columnsNS,
+          mapping: reportPayload.mapping,
           hasSubCollectionDetails: true,
-          reconciliationType: reconciliationType
+          reconciliationType: type
         };
-        await setDoc(doc(db, "regtoolsHistory", monthKey), firestoreMainPayload);
-
+        await setDoc(doc(db, "regtoolsHistory", targetMonthKey), firestoreMainPayload);
         savedInFirestore = true;
-      } catch (err: any) {
-        console.error("Erreur de sauvegarde Firestore :", err);
-        firestoreError = err.message || "Erreur inconnue";
       }
-    }
 
-    try {
-      localStorage.setItem(`regtools_report_${monthKey}`, JSON.stringify(reportPayload));
+      // 2. Save to LocalStorage
+      localStorage.setItem(`regtools_report_${targetMonthKey}`, JSON.stringify(reportPayload));
 
       const localHistoryJSON = localStorage.getItem("regtools_history_list");
       let localList = localHistoryJSON ? JSON.parse(localHistoryJSON) : [];
-      localList = localList.filter((r: any) => r.monthKey !== monthKey);
+      localList = localList.filter((r: any) => r.monthKey !== targetMonthKey);
       
       const metadata = {
-        monthKey,
+        monthKey: targetMonthKey,
         monthLabel,
-        fileNameNS: files.ns.name,
+        fileNameNS: fileObj.name,
         fileNameRegtools: files.regtools ? files.regtools.name : "",
         savedAt: reportPayload.savedAt,
         globalStats: reportPayload.globalStats,
-        reconciliationType: reconciliationType
+        reconciliationType: type
       };
       localList.push(metadata);
       localStorage.setItem("regtools_history_list", JSON.stringify(localList));
+    };
+
+    try {
+      // Filter rows
+      const nsMissing = missingRows.filter(r => r.__sourcePortfolio === "NS");
+      const vieMissing = missingRows.filter(r => r.__sourcePortfolio === "VIE");
+      const nsSimilar = similarRows.filter(r => r.__sourcePortfolio === "NS");
+      const vieSimilar = similarRows.filter(r => r.__sourcePortfolio === "VIE");
+
+      if (data.ns && files.ns) {
+        await saveReportForType("NS", files.ns, data.ns, nsMissing, nsSimilar);
+      }
+      if (data.vie && files.vie) {
+        await saveReportForType("VIE", files.vie, data.vie, vieMissing, vieSimilar);
+      }
     } catch (err: any) {
-      console.error("Erreur de sauvegarde locale :", err);
+      console.error("Erreur de sauvegarde :", err);
+      firestoreError = err.message || "Erreur inconnue";
     }
 
     setIsSavingReport(false);
     if (firestoreError) {
-      alert(`Rapport pour ${monthLabel} sauvegardé avec succès en LOCAL, mais la synchronisation CLOUD a échoué :\n${firestoreError}\n\nLes détails ne seront disponibles que sur cet appareil.`);
+      alert(`Erreur de sauvegarde : ${firestoreError}`);
     } else {
       alert(`Rapport pour ${monthLabel} sauvegardé avec succès ! ${savedInFirestore ? "(Base de données Cloud et locale)" : "(Stockage local uniquement)"}`);
     }
@@ -2133,36 +2371,67 @@ export default function RegtoolsDiffPage() {
   };
 
   const handleDeleteReport = async (report: any) => {
-    if (!confirm(`Voulez-vous vraiment supprimer le rapport pour ${report.monthLabel} ?`)) return;
+    const baseKey = report.monthKey.substring(0, 6);
+    if (!confirm(`Voulez-vous vraiment supprimer le rapprochement pour le mois de ${report.monthLabel} ?`)) return;
 
-    if (isFirebaseConfigured && db) {
-      try {
-        const { doc, deleteDoc } = await import("firebase/firestore");
-        await deleteDoc(doc(db, "regtoolsHistory", report.monthKey));
-      } catch (err) {
-        console.error("Erreur de suppression Firestore :", err);
-      }
-    }
-
+    setIsLoadingHistory(true);
     try {
-      localStorage.removeItem(`regtools_report_${report.monthKey}`);
-      const localHistoryJSON = localStorage.getItem("regtools_history_list");
-      if (localHistoryJSON) {
-        let localList = JSON.parse(localHistoryJSON);
-        localList = localList.filter((r: any) => r.monthKey !== report.monthKey);
-        localStorage.setItem("regtools_history_list", JSON.stringify(localList));
-      }
-    } catch (err) {
-      console.error("Erreur de suppression locale :", err);
-    }
+      const keysToDelete = [`${baseKey}_NS`, `${baseKey}_VIE`, baseKey];
 
-    if (selectedHistoryReport?.monthKey === report.monthKey) {
-      setSelectedHistoryReport(null);
-      setHistoryVisibleColumns([]);
-      setShowHistoryColumnDropdown(false);
+      for (const key of keysToDelete) {
+        if (!savedReports.some(r => r.monthKey === key)) continue;
+
+        if (isFirebaseConfigured && db) {
+          try {
+            const { doc, deleteDoc, collection, getDocs } = await import("firebase/firestore");
+            
+            // First delete details subcollection chunks
+            const detailsDocs = await getDocs(collection(db, "regtoolsHistory", key, "details"));
+            const deleteDetailsPromises = detailsDocs.docs.map(d => deleteDoc(d.ref));
+            await Promise.all(deleteDetailsPromises);
+
+            // Then delete main doc
+            await deleteDoc(doc(db, "regtoolsHistory", key));
+          } catch (err) {
+            console.error(`Erreur de suppression Firestore pour la clé ${key} :`, err);
+          }
+        }
+
+        try {
+          localStorage.removeItem(`regtools_report_${key}`);
+        } catch (err) {
+          console.error(`Erreur de suppression locale pour la clé ${key} :`, err);
+        }
+      }
+
+      // Update local history list
+      try {
+        const localHistoryJSON = localStorage.getItem("regtools_history_list");
+        if (localHistoryJSON) {
+          let localList = JSON.parse(localHistoryJSON);
+          localList = localList.filter((r: any) => {
+            const rBase = r.monthKey.substring(0, 6);
+            return rBase !== baseKey;
+          });
+          localStorage.setItem("regtools_history_list", JSON.stringify(localList));
+        }
+      } catch (err) {
+        console.error("Erreur de mise à jour de la liste locale :", err);
+      }
+
+      if (selectedHistoryReport?.monthKey.substring(0, 6) === baseKey) {
+        setSelectedHistoryReport(null);
+        setHistoryVisibleColumns([]);
+        setShowHistoryColumnDropdown(false);
+      }
+      
+      alert("Rapprochement supprimé avec succès.");
+      await loadHistory();
+    } catch (err) {
+      console.error("Erreur lors de la suppression :", err);
+    } finally {
+      setIsLoadingHistory(false);
     }
-    loadHistory();
-    alert("Rapport supprimé avec succès.");
   };
 
   // Group history reports by base month key (first 6 characters, e.g. "052026")
@@ -2204,9 +2473,24 @@ export default function RegtoolsDiffPage() {
 
   // Memos for selected history report
   // Pre-resolve agency info for selected history report to ensure name/type are always present
+  // Pre-resolve agency info for selected history report to ensure name/type are always present
   const resolvedHistoryAgencyStats = useMemo(() => {
-    if (!selectedHistoryReport || !selectedHistoryReport.agencyStats) return [];
-    return selectedHistoryReport.agencyStats.map((stat: any) => {
+    if (!selectedHistoryReport) return [];
+    
+    let rawStats: any[] = [];
+    if (selectedHistoryReport.reconciliationType === "BOTH") {
+      if (historyPortfolioFilter === "NS") {
+        rawStats = selectedHistoryReport.nsAgencyStats || [];
+      } else if (historyPortfolioFilter === "VIE") {
+        rawStats = selectedHistoryReport.vieAgencyStats || [];
+      } else {
+        rawStats = selectedHistoryReport.agencyStats || [];
+      }
+    } else {
+      rawStats = selectedHistoryReport.agencyStats || [];
+    }
+
+    return rawStats.map((stat: any) => {
       if (stat.nom && stat.type) return stat;
       const info = resolveAgencyInfo(stat.agence);
       return {
@@ -2215,7 +2499,7 @@ export default function RegtoolsDiffPage() {
         type: info.type
       };
     });
-  }, [selectedHistoryReport]);
+  }, [selectedHistoryReport, historyPortfolioFilter]);
 
   const sortedHistoryAgencyStats = useMemo(() => {
     const items = [...resolvedHistoryAgencyStats];
@@ -2265,14 +2549,18 @@ export default function RegtoolsDiffPage() {
 
   const historyAgenciesList = useMemo(() => {
     if (!selectedHistoryReport || !selectedHistoryReport.missingRows) return [];
-    const agencyCol = selectedHistoryReport.mapping?.nsAgence;
-    if (!agencyCol) return [];
-    const isVie = selectedHistoryReport.reconciliationType === "VIE";
+    const mappingVal = selectedHistoryReport.mapping;
     const agenciesSet = new Set<string>();
+    
     selectedHistoryReport.missingRows.forEach((row: any) => {
-      const agenceCode = getRowAgencyCode(row, agencyCol, isVie);
-      if (agenceCode !== "") {
-        agenciesSet.add(agenceCode);
+      const rowPortfolio = row.__sourcePortfolio || selectedHistoryReport.reconciliationType || "NS";
+      const isVie = rowPortfolio === "VIE";
+      const agencyCol = isVie ? mappingVal?.vieAgence : mappingVal?.nsAgence;
+      if (agencyCol) {
+        const agenceCode = getRowAgencyCode(row, agencyCol, isVie);
+        if (agenceCode !== "") {
+          agenciesSet.add(agenceCode);
+        }
       }
     });
     return Array.from(agenciesSet).sort((a, b) => a.localeCompare(b));
@@ -2281,15 +2569,24 @@ export default function RegtoolsDiffPage() {
   const filteredHistoryRows = useMemo(() => {
     if (!selectedHistoryReport) return [];
     const rows = selectedHistoryReport.missingRows || [];
-    const agencyCol = selectedHistoryReport.mapping?.nsAgence;
-    const isVie = selectedHistoryReport.reconciliationType === "VIE";
+    const mappingVal = selectedHistoryReport.mapping;
 
     return rows.filter((row: any) => {
+      const rowPortfolio = row.__sourcePortfolio || selectedHistoryReport.reconciliationType || "NS";
+      // Portfolio Filter
+      if (historyPortfolioFilter !== "ALL" && rowPortfolio !== historyPortfolioFilter) {
+        return false;
+      }
+
       // Agency Filter
       let matchAgency = true;
-      if (historySelectedAgency !== "ALL" && agencyCol) {
-        const agencyCode = getRowAgencyCode(row, agencyCol, isVie);
-        matchAgency = agencyCode === historySelectedAgency;
+      if (historySelectedAgency !== "ALL") {
+        const isVieRow = rowPortfolio === "VIE";
+        const agencyCol = isVieRow ? mappingVal?.vieAgence : mappingVal?.nsAgence;
+        if (agencyCol) {
+          const agencyCode = getRowAgencyCode(row, agencyCol, isVieRow);
+          matchAgency = agencyCode === historySelectedAgency;
+        }
       }
 
       // Search Filter
@@ -2303,7 +2600,7 @@ export default function RegtoolsDiffPage() {
 
       return matchAgency && matchSearch;
     });
-  }, [selectedHistoryReport, historySearchQuery, historySelectedAgency]);
+  }, [selectedHistoryReport, historySearchQuery, historySelectedAgency, historyPortfolioFilter]);
 
   // Sort history rows
   const sortedHistoryRows = useMemo(() => {
@@ -2362,14 +2659,17 @@ export default function RegtoolsDiffPage() {
 
   const historySimilarAgenciesList = useMemo(() => {
     if (!selectedHistoryReport || !selectedHistoryReport.similarRows) return [];
-    const agencyCol = selectedHistoryReport.mapping?.nsAgence;
-    if (!agencyCol) return [];
-    const isVie = selectedHistoryReport.reconciliationType === "VIE";
+    const mappingVal = selectedHistoryReport.mapping;
     const agenciesSet = new Set<string>();
     selectedHistoryReport.similarRows.forEach((row: any) => {
-      const agenceCode = getRowAgencyCode(row, agencyCol, isVie);
-      if (agenceCode !== "") {
-        agenciesSet.add(agenceCode);
+      const rowPortfolio = row.__sourcePortfolio || selectedHistoryReport.reconciliationType || "NS";
+      const isVie = rowPortfolio === "VIE";
+      const agencyCol = isVie ? mappingVal?.vieAgence : mappingVal?.nsAgence;
+      if (agencyCol) {
+        const agenceCode = getRowAgencyCode(row, agencyCol, isVie);
+        if (agenceCode !== "") {
+          agenciesSet.add(agenceCode);
+        }
       }
     });
     return Array.from(agenciesSet).sort((a, b) => a.localeCompare(b));
@@ -2378,15 +2678,24 @@ export default function RegtoolsDiffPage() {
   const filteredHistorySimilarRows = useMemo(() => {
     if (!selectedHistoryReport) return [];
     const rows = selectedHistoryReport.similarRows || [];
-    const agencyCol = selectedHistoryReport.mapping?.nsAgence;
-    const isVie = selectedHistoryReport.reconciliationType === "VIE";
+    const mappingVal = selectedHistoryReport.mapping;
 
     return rows.filter((row: any) => {
+      const rowPortfolio = row.__sourcePortfolio || selectedHistoryReport.reconciliationType || "NS";
+      // Portfolio Filter
+      if (historyPortfolioFilter !== "ALL" && rowPortfolio !== historyPortfolioFilter) {
+        return false;
+      }
+
       // Agency Filter
       let matchAgency = true;
-      if (historySimilarSelectedAgency !== "ALL" && agencyCol) {
-        const agencyCode = getRowAgencyCode(row, agencyCol, isVie);
-        matchAgency = agencyCode === historySimilarSelectedAgency;
+      if (historySimilarSelectedAgency !== "ALL") {
+        const isVieRow = rowPortfolio === "VIE";
+        const agencyCol = isVieRow ? mappingVal?.vieAgence : mappingVal?.nsAgence;
+        if (agencyCol) {
+          const agencyCode = getRowAgencyCode(row, agencyCol, isVieRow);
+          matchAgency = agencyCode === historySimilarSelectedAgency;
+        }
       }
 
       // Search Filter
@@ -2400,7 +2709,7 @@ export default function RegtoolsDiffPage() {
 
       return matchAgency && matchSearch;
     });
-  }, [selectedHistoryReport, historySimilarSearchQuery, historySimilarSelectedAgency]);
+  }, [selectedHistoryReport, historySimilarSearchQuery, historySimilarSelectedAgency, historyPortfolioFilter]);
 
   // Sort history similar rows
   const sortedHistorySimilarRows = useMemo(() => {
@@ -2456,6 +2765,56 @@ export default function RegtoolsDiffPage() {
     pages.push(totalHistorySimilarPages);
     return pages;
   }, [historySimilarCurrentPage, totalHistorySimilarPages]);
+
+  // Dynamic columns memos for active comparison
+  const availableColumns = useMemo(() => {
+    if (portfolioFilter === "NS") return columns.ns;
+    if (portfolioFilter === "VIE") return columns.vie;
+    const union = new Set([...columns.ns, ...columns.vie]);
+    return Array.from(union);
+  }, [columns.ns, columns.vie, portfolioFilter]);
+
+  const displayedColumns = useMemo(() => {
+    const baseCols = availableColumns;
+    if (visibleColumns.length > 0) {
+      const filtered = visibleColumns.filter(c => baseCols.includes(c));
+      if (filtered.length > 0) return filtered;
+    }
+    return baseCols.slice(0, 8);
+  }, [availableColumns, visibleColumns]);
+
+  // Dynamic columns memos for history comparison
+  const historyAvailableColumns = useMemo(() => {
+    if (!selectedHistoryReport) return [];
+    if (selectedHistoryReport.reconciliationType === "BOTH") {
+      if (historyPortfolioFilter === "NS") return selectedHistoryReport.columnsNS || [];
+      if (historyPortfolioFilter === "VIE") return selectedHistoryReport.columnsVIE || [];
+      const union = new Set([...(selectedHistoryReport.columnsNS || []), ...(selectedHistoryReport.columnsVIE || [])]);
+      return Array.from(union);
+    }
+    return selectedHistoryReport.columnsNS || [];
+  }, [selectedHistoryReport, historyPortfolioFilter]);
+
+  const historyDisplayedColumns = useMemo(() => {
+    const available = historyAvailableColumns;
+    if (historyVisibleColumns.length > 0) {
+      const filtered = historyVisibleColumns.filter(c => available.includes(c));
+      if (filtered.length > 0) return filtered;
+    }
+    return available.slice(0, 8);
+  }, [historyAvailableColumns, historyVisibleColumns]);
+
+  const displayedHistoryGlobalStats = useMemo(() => {
+    if (!selectedHistoryReport) return null;
+    if (selectedHistoryReport.reconciliationType === "BOTH") {
+      if (historyPortfolioFilter === "NS") {
+        return selectedHistoryReport.nsGlobalStats || null;
+      } else if (historyPortfolioFilter === "VIE") {
+        return selectedHistoryReport.vieGlobalStats || null;
+      }
+    }
+    return selectedHistoryReport.globalStats || null;
+  }, [selectedHistoryReport, historyPortfolioFilter]);
 
   const exportHistorySimilarExcel = () => {
     if (!selectedHistoryReport) return;
@@ -2842,51 +3201,19 @@ export default function RegtoolsDiffPage() {
 
       {pageTab === "new" ? (
         <>
-          {/* Portfolio Type Selector Toggle */}
-          <div className="bg-white dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-            <div className="flex flex-col gap-0.5">
-              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Type de Portefeuille</h3>
-              <p className="text-xs text-slate-400">Sélectionnez le portefeuille de clients à importer et contrôler.</p>
-            </div>
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/50 dark:border-slate-700/50 self-start sm:self-center">
-              <button
-                onClick={() => {
-                  if (files.ns || files.regtools) {
-                    if (!confirm("Changer de type de portefeuille réinitialisera les fichiers chargés. Continuer ?")) return;
-                  }
-                  setReconciliationType("NS");
-                  handleReset();
-                }}
-                className={cn(
-                  "px-4 py-2 text-xs font-semibold rounded-lg transition-all",
-                  reconciliationType === "NS"
-                    ? "bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                )}
-              >
-                Non-Vie (NS)
-              </button>
-              <button
-                onClick={() => {
-                  if (files.ns || files.regtools) {
-                    if (!confirm("Changer de type de portefeuille réinitialisera les fichiers chargés. Continuer ?")) return;
-                  }
-                  setReconciliationType("VIE");
-                  handleReset();
-                }}
-                className={cn(
-                  "px-4 py-2 text-xs font-semibold rounded-lg transition-all",
-                  reconciliationType === "VIE"
-                    ? "bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                )}
-              >
-                Assurance VIE
-              </button>
-            </div>
+          {/* Info Card */}
+          <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-500/5 dark:via-purple-500/5 dark:to-pink-500/5 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-1.5 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              Rapprochement Multi-Portefeuilles
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Importez simultanément votre base de référence RegTools et vos portefeuilles Non-Vie (NS) et/ou Assurance VIE pour lancer une comparaison globale. Filtrez ensuite les résultats par portefeuille et par agence.
+            </p>
           </div>
+
           {/* Dashboard Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* RegTools Stat Card */}
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-4">
               <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl">
@@ -2909,14 +3236,28 @@ export default function RegtoolsDiffPage() {
                 <FileText className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  {reconciliationType === "VIE" ? "Fichier VIE (Filtré)" : "Fichier NS"}
-                </p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Portefeuille NS</p>
                 <p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">
                   {data.ns ? data.ns.length.toLocaleString("fr-FR") : "-"}
                 </p>
                 <p className="text-xs text-slate-400 truncate max-w-[200px] mt-0.5">
                   {files.ns ? files.ns.name : "Aucun fichier chargé"}
+                </p>
+              </div>
+            </div>
+
+            {/* VIE Stat Card */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-4">
+              <div className="p-3 bg-pink-500/10 text-pink-600 dark:text-pink-455 rounded-xl">
+                <FileText className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Portefeuille VIE (Filtré)</p>
+                <p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">
+                  {data.vie ? data.vie.length.toLocaleString("fr-FR") : "-"}
+                </p>
+                <p className="text-xs text-slate-400 truncate max-w-[200px] mt-0.5">
+                  {files.vie ? files.vie.name : "Aucun fichier chargé"}
                 </p>
               </div>
             </div>
@@ -2947,7 +3288,7 @@ export default function RegtoolsDiffPage() {
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {comparisonDone 
-                    ? `${matchRate}% trouvé (${(data.ns!.length - missingRows.length).toLocaleString("fr-FR")} lignes)`
+                    ? `${matchRate}% trouvé (${((data.ns ? data.ns.length : 0) + (data.vie ? data.vie.length : 0) - missingRows.length).toLocaleString("fr-FR")} lignes)`
                     : "Prêt pour comparaison"
                   }
                 </p>
@@ -2956,11 +3297,11 @@ export default function RegtoolsDiffPage() {
           </div>
 
           {/* Upload & Mapping Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Upload RegTools */}
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col gap-4">
               <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-slate-800 dark:text-white">1. Base Référence (Tab RegTools)</h3>
+                <h3 className="font-semibold text-slate-800 dark:text-white">1. Base Référence (RegTools)</h3>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
                   Attendu : ~350K lignes
                 </span>
@@ -3040,10 +3381,10 @@ export default function RegtoolsDiffPage() {
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col gap-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-semibold text-slate-800 dark:text-white">
-                  2. Fichier à Contrôler ({reconciliationType})
+                  2. Portefeuille Non-Vie (NS)
                 </h3>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                  {reconciliationType === "VIE" ? "Nettoyage & Période auto" : "Attendu : ~12K lignes"}
+                  Attendu : ~12K lignes
                 </span>
               </div>
 
@@ -3135,10 +3476,110 @@ export default function RegtoolsDiffPage() {
                 </div>
               )}
             </div>
+
+            {/* Upload VIE */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <h3 className="font-semibold text-slate-800 dark:text-white">
+                  3. Portefeuille Assurance VIE
+                </h3>
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  Nettoyage & Période auto
+                </span>
+              </div>
+
+              <div
+                onDragOver={(e) => handleDragOver(e, "vie")}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, "vie")}
+                className={cn(
+                  "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-height-[150px]",
+                  dragOverRole === "vie"
+                    ? "border-purple-500 bg-purple-500/5"
+                    : files.vie
+                      ? "border-emerald-500/30 bg-emerald-500/5"
+                      : "border-slate-200 dark:border-slate-800 hover:border-purple-500/50"
+                )}
+                onClick={() => document.getElementById("input-vie")?.click()}
+              >
+                <input
+                  type="file"
+                  id="input-vie"
+                  className="hidden"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={(e) => e.target.files?.[0] && handleFileChange("vie", e.target.files[0])}
+                />
+                {isParsing.vie ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <RefreshCw className="h-8 w-8 text-purple-500 animate-spin" />
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Analyse en cours...</p>
+                  </div>
+                ) : files.vie ? (
+                  <div className="flex flex-col items-center gap-1.5">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Chargé avec succès</p>
+                    <p className="text-xs text-slate-400 truncate max-w-[280px]">{files.vie.name}</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="h-8 w-8 text-slate-400" />
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      Déposez le fichier ici ou <span className="text-purple-500 underline">parcourez</span>
+                    </p>
+                    <p className="text-xs text-slate-400">Formats acceptés : CSV, XLSX, XLS</p>
+                  </div>
+                )}
+              </div>
+
+              {files.vie && data.vie && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/50 rounded-lg flex flex-col gap-2">
+                  <div className="flex justify-between text-xs text-slate-400 font-medium">
+                    <span>{files.vie.name}</span>
+                    <span>{formatFileSize(files.vie.size)}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-1">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        Identifiant :
+                      </label>
+                      <select
+                        value={mapping.vieId}
+                        onChange={(e) => {
+                          setMapping(prev => ({ ...prev, vieId: e.target.value }));
+                          setComparisonDone(false);
+                        }}
+                        className="w-full text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1.5 outline-none focus:border-purple-500"
+                      >
+                        {columns.vie.map(col => (
+                          <option key={`vie-col-id-${col}`} value={col}>{col}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        Agence :
+                      </label>
+                      <select
+                        value={mapping.vieAgence}
+                        onChange={(e) => {
+                          setMapping(prev => ({ ...prev, vieAgence: e.target.value }));
+                          setComparisonDone(false);
+                        }}
+                        className="w-full text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-1.5 outline-none focus:border-purple-500"
+                      >
+                        {columns.vie.map(col => (
+                          <option key={`vie-col-agence-${col}`} value={col}>{col}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Compare Control Bar */}
-          {data.regtools && data.ns && (
+          {data.regtools && (data.ns || data.vie) && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 p-4 rounded-2xl flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
@@ -3920,7 +4361,7 @@ export default function RegtoolsDiffPage() {
                     className="border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-5 bg-slate-50/30 dark:bg-slate-900/10 flex flex-col justify-between"
                   >
                     <div>
-                      <div className="flex justify-between items-start gap-2 mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
+                      <div className="flex justify-between items-start gap-2 mb-3 border-b border-slate-100 dark:border-slate-800 pb-3">
                         <div>
                           <h4 className="font-bold text-slate-900 dark:text-white text-base">
                             {group.monthLabel}
@@ -3933,6 +4374,17 @@ export default function RegtoolsDiffPage() {
                           {group.baseMonthKey}
                         </span>
                       </div>
+
+                      {/* Combined "Consulter les deux" button when both NS and VIE exist */}
+                      {group.nsReport && group.vieReport && (
+                        <button
+                          onClick={() => handleLoadReport(group.nsReport)}
+                          className="w-full mb-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                        >
+                          <FileSpreadsheet className="h-3.5 w-3.5" />
+                          Consulter NS + VIE (Les deux)
+                        </button>
+                      )}
 
                       <div className="space-y-4">
                         {/* NS Report Section */}
@@ -3961,18 +4413,21 @@ export default function RegtoolsDiffPage() {
                               </div>
                             </div>
                             <div className="flex gap-1.5 mt-1 border-t border-slate-100 dark:border-slate-800 pt-2">
-                              <button
-                                onClick={() => handleLoadReport(group.nsReport)}
-                                className="flex-1 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-1 shadow-sm"
-                              >
-                                Consulter
-                              </button>
+                              {!group.vieReport && (
+                                <button
+                                  onClick={() => handleLoadReport(group.nsReport)}
+                                  className="flex-1 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-1 shadow-sm"
+                                >
+                                  Consulter NS
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleDeleteReport(group.nsReport)}
-                                className="px-2 py-1.5 text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-600 dark:bg-rose-950/20 dark:hover:bg-rose-600 rounded-md transition-colors flex items-center justify-center border border-rose-200/50 dark:border-rose-900/50"
-                                title="Supprimer ce rapprochement"
+                                className="flex-1 py-1.5 text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-600 dark:bg-rose-950/20 dark:hover:bg-rose-600 rounded-md transition-colors flex items-center justify-center border border-rose-200/50 dark:border-rose-900/50"
+                                title="Supprimer ce rapprochement NS"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
+                                <span>Supprimer NS</span>
                               </button>
                             </div>
                           </div>
@@ -4008,18 +4463,21 @@ export default function RegtoolsDiffPage() {
                               </div>
                             </div>
                             <div className="flex gap-1.5 mt-1 border-t border-slate-100 dark:border-slate-800 pt-2">
-                              <button
-                                onClick={() => handleLoadReport(group.vieReport)}
-                                className="flex-1 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-1 shadow-sm"
-                              >
-                                Consulter
-                              </button>
+                              {!group.nsReport && (
+                                <button
+                                  onClick={() => handleLoadReport(group.vieReport)}
+                                  className="flex-1 py-1.5 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors flex items-center justify-center gap-1 shadow-sm"
+                                >
+                                  Consulter VIE
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleDeleteReport(group.vieReport)}
-                                className="px-2 py-1.5 text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-600 dark:bg-rose-950/20 dark:hover:bg-rose-600 rounded-md transition-colors flex items-center justify-center border border-rose-200/50 dark:border-rose-900/50"
-                                title="Supprimer ce rapprochement"
+                                className="flex-1 py-1.5 text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-600 dark:bg-rose-950/20 dark:hover:bg-rose-600 rounded-md transition-colors flex items-center justify-center border border-rose-200/50 dark:border-rose-900/50"
+                                title="Supprimer ce rapprochement VIE"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
+                                <span>Supprimer VIE</span>
                               </button>
                             </div>
                           </div>
@@ -4057,15 +4515,23 @@ export default function RegtoolsDiffPage() {
                     Rapport de Rapprochement : {selectedHistoryReport.monthLabel}
                     <span className={cn(
                       "text-xs font-bold px-2.5 py-0.5 rounded-full",
-                      selectedHistoryReport.reconciliationType === "VIE"
+                      selectedHistoryReport.reconciliationType === "BOTH"
+                        ? "bg-gradient-to-r from-blue-500/10 to-purple-500/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                        : selectedHistoryReport.reconciliationType === "VIE"
                         ? "bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400"
                         : "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
                     )}>
-                      {selectedHistoryReport.reconciliationType === "VIE" ? "VIE" : "NS"}
+                      {selectedHistoryReport.reconciliationType === "BOTH" ? "NS + VIE" : selectedHistoryReport.reconciliationType === "VIE" ? "VIE" : "NS"}
                     </span>
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Sauvegardé le {new Date(selectedHistoryReport.savedAt).toLocaleDateString("fr-FR")} à {new Date(selectedHistoryReport.savedAt).toLocaleTimeString("fr-FR")} • Fichier {selectedHistoryReport.reconciliationType === "VIE" ? "VIE" : "NS"} : {selectedHistoryReport.fileNameNS}
+                    Sauvegardé le {new Date(selectedHistoryReport.savedAt).toLocaleDateString("fr-FR")}
+                    {selectedHistoryReport.reconciliationType === "BOTH" && (
+                      <> • NS : {selectedHistoryReport.fileNameNS} | VIE : {selectedHistoryReport.fileNameVIE}</>
+                    )}
+                    {selectedHistoryReport.reconciliationType !== "BOTH" && (
+                      <> • Fichier {selectedHistoryReport.reconciliationType === "VIE" ? "VIE" : "NS"} : {selectedHistoryReport.fileNameNS}</>
+                    )}
                   </p>
                 </div>
               </div>
@@ -4130,6 +4596,48 @@ export default function RegtoolsDiffPage() {
                     Détails des Similitudes {selectedHistoryReport.similarRows ? `(${filteredHistorySimilarRows.length.toLocaleString("fr-FR")} lignes)` : "(Non dispo.)"}
                   </button>
                 </div>
+
+                {/* Portfolio filter — shown only for BOTH (NS + VIE) reports */}
+                {selectedHistoryReport.reconciliationType === "BOTH" && (
+                  <div className="flex items-center gap-2 pb-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Portefeuille :</label>
+                    <div className="flex rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 text-xs font-semibold">
+                      <button
+                        onClick={() => { setHistoryPortfolioFilter("ALL"); setHistoryCurrentPage(1); setHistorySimilarCurrentPage(1); }}
+                        className={cn(
+                          "px-3 py-1.5 transition-colors",
+                          historyPortfolioFilter === "ALL"
+                            ? "bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900"
+                            : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        )}
+                      >
+                        Les deux
+                      </button>
+                      <button
+                        onClick={() => { setHistoryPortfolioFilter("NS"); setHistoryCurrentPage(1); setHistorySimilarCurrentPage(1); }}
+                        className={cn(
+                          "px-3 py-1.5 border-l border-slate-200 dark:border-slate-800 transition-colors",
+                          historyPortfolioFilter === "NS"
+                            ? "bg-blue-600 text-white"
+                            : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        )}
+                      >
+                        Non-Vie (NS)
+                      </button>
+                      <button
+                        onClick={() => { setHistoryPortfolioFilter("VIE"); setHistoryCurrentPage(1); setHistorySimilarCurrentPage(1); }}
+                        className={cn(
+                          "px-3 py-1.5 border-l border-slate-200 dark:border-slate-800 transition-colors",
+                          historyPortfolioFilter === "VIE"
+                            ? "bg-purple-600 text-white"
+                            : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        )}
+                      >
+                        Assurance VIE
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {historyTab === "stats" ? (
@@ -4391,29 +4899,29 @@ export default function RegtoolsDiffPage() {
                               onClick={() => setShowHistoryColumnDropdown(!showHistoryColumnDropdown)}
                               className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 rounded-xl transition-all flex items-center gap-1.5"
                             >
-                              Colonnes ({historyVisibleColumns.length > 0 ? historyVisibleColumns.length : (selectedHistoryReport.columnsNS || []).length})
+                              Colonnes ({historyDisplayedColumns.length})
                             </button>
                             {showHistoryColumnDropdown && (
                               <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-50 p-2 max-h-60 overflow-y-auto">
                                 <div className="flex justify-between items-center pb-2 mb-2 border-b border-slate-100 dark:border-slate-800/60">
                                   <button 
-                                    onClick={() => setHistoryVisibleColumns(selectedHistoryReport.columnsNS || [])}
+                                    onClick={() => setHistoryVisibleColumns(historyAvailableColumns)}
                                     className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline"
                                   >
                                     Toutes
                                   </button>
                                   <button 
-                                    onClick={() => setHistoryVisibleColumns((selectedHistoryReport.columnsNS || []).slice(0, 6))}
+                                    onClick={() => setHistoryVisibleColumns(historyAvailableColumns.slice(0, 6))}
                                     className="text-[10px] text-slate-500 hover:underline"
                                   >
                                     Défaut
                                   </button>
                                 </div>
-                                {(selectedHistoryReport.columnsNS || []).map(col => (
+                                {historyAvailableColumns.map((col: string) => (
                                   <label key={`col-toggle-history-similar-${col}`} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer text-xs text-slate-700 dark:text-slate-300">
                                     <input
                                       type="checkbox"
-                                      checked={historyVisibleColumns.includes(col)}
+                                      checked={historyDisplayedColumns.includes(col)}
                                       onChange={() => {
                                         if (historyVisibleColumns.includes(col)) {
                                           setHistoryVisibleColumns(historyVisibleColumns.filter(c => c !== col));
@@ -4453,7 +4961,10 @@ export default function RegtoolsDiffPage() {
                             <table className="w-full text-left border-collapse text-xs">
                               <thead>
                                 <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                                  {(historyVisibleColumns.length > 0 ? historyVisibleColumns : selectedHistoryReport.columnsNS || []).map((col: string) => {
+                                  {selectedHistoryReport.reconciliationType === "BOTH" && (
+                                    <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-16">Type</th>
+                                  )}
+                                  {historyDisplayedColumns.map((col: string) => {
                                     const isSortedCol = historySimilarSortField === col;
                                     return (
                                       <th 
@@ -4482,7 +4993,19 @@ export default function RegtoolsDiffPage() {
                               <tbody>
                                 {paginatedHistorySimilarRows.map((row: any, rIdx: number) => (
                                   <tr key={`history-similar-tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                                    {(historyVisibleColumns.length > 0 ? historyVisibleColumns : selectedHistoryReport.columnsNS || []).map((col: string) => (
+                                    {selectedHistoryReport.reconciliationType === "BOTH" && (
+                                      <td className="p-3 border-b border-slate-100 dark:border-slate-800/60">
+                                        <span className={cn(
+                                          "text-[9px] font-bold px-1.5 py-0.5 rounded-full",
+                                          row.__sourcePortfolio === "VIE"
+                                            ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+                                            : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                                        )}>
+                                          {row.__sourcePortfolio || "NS"}
+                                        </span>
+                                      </td>
+                                    )}
+                                    {historyDisplayedColumns.map((col: string) => (
                                       <td 
                                         key={`history-similar-td-${rIdx}-${col}`} 
                                         className={cn(
@@ -4623,29 +5146,29 @@ export default function RegtoolsDiffPage() {
                           onClick={() => setShowHistoryColumnDropdown(!showHistoryColumnDropdown)}
                           className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 rounded-xl transition-all flex items-center gap-1.5"
                         >
-                          Colonnes ({historyVisibleColumns.length > 0 ? historyVisibleColumns.length : (selectedHistoryReport.columnsNS || []).length})
+                          Colonnes ({historyDisplayedColumns.length})
                         </button>
                         {showHistoryColumnDropdown && (
                           <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-50 p-2 max-h-60 overflow-y-auto">
                             <div className="flex justify-between items-center pb-2 mb-2 border-b border-slate-100 dark:border-slate-800/60">
                               <button 
-                                onClick={() => setHistoryVisibleColumns(selectedHistoryReport.columnsNS || [])}
+                                onClick={() => setHistoryVisibleColumns(historyAvailableColumns)}
                                 className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline"
                               >
                                 Toutes
                               </button>
                               <button 
-                                onClick={() => setHistoryVisibleColumns((selectedHistoryReport.columnsNS || []).slice(0, 6))}
+                                onClick={() => setHistoryVisibleColumns(historyAvailableColumns.slice(0, 6))}
                                 className="text-[10px] text-slate-500 hover:underline"
                               >
                                 Défaut
                               </button>
                             </div>
-                            {(selectedHistoryReport.columnsNS || []).map(col => (
+                            {historyAvailableColumns.map((col: string) => (
                               <label key={`col-toggle-history-list-${col}`} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer text-xs text-slate-700 dark:text-slate-300">
                                 <input
                                   type="checkbox"
-                                  checked={historyVisibleColumns.includes(col)}
+                                  checked={historyDisplayedColumns.includes(col)}
                                   onChange={() => {
                                     if (historyVisibleColumns.includes(col)) {
                                       setHistoryVisibleColumns(historyVisibleColumns.filter(c => c !== col));
@@ -4685,7 +5208,10 @@ export default function RegtoolsDiffPage() {
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                              {(historyVisibleColumns.length > 0 ? historyVisibleColumns : selectedHistoryReport.columnsNS || []).map((col: string) => {
+                              {selectedHistoryReport.reconciliationType === "BOTH" && (
+                                <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-16">Type</th>
+                              )}
+                              {historyDisplayedColumns.map((col: string) => {
                                 const isSortedCol = historyDetailsSortField === col;
                                 return (
                                   <th 
@@ -4714,7 +5240,19 @@ export default function RegtoolsDiffPage() {
                           <tbody>
                             {paginatedHistoryRows.map((row: any, rIdx: number) => (
                               <tr key={`history-tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                                {(historyVisibleColumns.length > 0 ? historyVisibleColumns : selectedHistoryReport.columnsNS || []).map((col: string) => (
+                                {selectedHistoryReport.reconciliationType === "BOTH" && (
+                                  <td className="p-3 border-b border-slate-100 dark:border-slate-800/60">
+                                    <span className={cn(
+                                      "text-[9px] font-bold px-1.5 py-0.5 rounded-full",
+                                      row.__sourcePortfolio === "VIE"
+                                        ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+                                        : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                                    )}>
+                                      {row.__sourcePortfolio || "NS"}
+                                    </span>
+                                  </td>
+                                )}
+                                {historyDisplayedColumns.map((col: string) => (
                                   <td 
                                     key={`history-td-${rIdx}-${col}`} 
                                     className={cn(
