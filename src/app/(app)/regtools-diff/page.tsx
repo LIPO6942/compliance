@@ -1554,11 +1554,12 @@ export default function RegtoolsDiffPage() {
 
   // Reset function
   const handleReset = () => {
-    setFiles({ regtools: null, ns: null });
-    setData({ regtools: null, ns: null });
-    setColumns({ regtools: [], ns: [] });
-    setMapping({ regtoolsId: "", nsId: "", nsAgence: "" });
+    setFiles({ regtools: null, ns: null, vie: null });
+    setData({ regtools: null, ns: null, vie: null });
+    setColumns({ regtools: [], ns: [], vie: [] });
+    setMapping({ regtoolsId: "", nsId: "", nsAgence: "", vieId: "", vieAgence: "" });
     setMissingRows([]);
+    setSimilarRows([]);
     setAgenciesList([]);
     setComparisonDone(false);
     setSelectedAgency("ALL");
@@ -1567,6 +1568,9 @@ export default function RegtoolsDiffPage() {
     setStatsSearchQuery("");
     setStatsSortField("agence");
     setStatsSortDirection("asc");
+    setPortfolioFilter("ALL");
+    setDetectedMonthKey("");
+    setDetectedMonthLabel("");
     
     // Reset filters and sort
     setStatsTypeFilter("ALL");
@@ -1580,10 +1584,6 @@ export default function RegtoolsDiffPage() {
     setSimilarPageSize(15);
     setSimilarSortField("");
     setSimilarSortDirection("asc");
-
-    // Reset auto-detected dates
-    setDetectedMonthKey("");
-    setDetectedMonthLabel("");
   };
 
   // Calculation parameters
@@ -1731,7 +1731,7 @@ export default function RegtoolsDiffPage() {
       }
       const isVie = row.__sourcePortfolio === "VIE";
       const agencyCol = isVie ? mapping.vieAgence : mapping.nsAgence;
-      const agenceVal = row[agenceCol];
+      const agenceVal = row[agencyCol];
       let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
       if (isVie && agenceStr !== "Non spécifié") {
         agenceStr = resolveAgencyFromText(agenceStr).code;
@@ -1812,8 +1812,10 @@ export default function RegtoolsDiffPage() {
   }, [sortedAgencyStats, statsSearchQuery, statsTypeFilter]);
 
   const globalStats = useMemo(() => {
-    if (!comparisonDone || !data.ns) return null;
-    const total = data.ns.length;
+    if (!comparisonDone || (!data.ns && !data.vie)) return null;
+    const nsTotal = data.ns ? data.ns.length : 0;
+    const vieTotal = data.vie ? data.vie.length : 0;
+    const total = nsTotal + vieTotal;
     const missing = missingRows.length;
     const existing = total - missing;
     const pctExisting = total > 0 ? parseFloat(((existing / total) * 100).toFixed(2)) : 0;
@@ -1825,7 +1827,7 @@ export default function RegtoolsDiffPage() {
       pctExisting,
       pctMissing
     };
-  }, [data.ns, missingRows, comparisonDone]);
+  }, [data.ns, data.vie, missingRows, comparisonDone]);
 
   // Load History from Firestore & LocalStorage
   const loadHistory = useCallback(async () => {
