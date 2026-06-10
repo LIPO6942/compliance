@@ -3153,15 +3153,15 @@ export default function RegtoolsDiffPage() {
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             {pageTab === "new" 
-              ? `Rapprochement Clients RegTools vs ${reconciliationType}`
+              ? `Rapprochement Clients RegTools vs ${data.ns && data.vie ? "NS + VIE" : data.vie ? "Assurance VIE" : "Non-Vie (NS)"}`
               : selectedHistoryReport
-                ? `Rapport Historique : RegTools vs ${selectedHistoryReport.reconciliationType || "NS"}`
+                ? `Rapport Historique : RegTools vs ${selectedHistoryReport.reconciliationType === "BOTH" ? "NS + VIE" : selectedHistoryReport.reconciliationType === "VIE" ? "Assurance VIE" : "Non-Vie (NS)"}`
                 : "Rapprochement Clients RegTools - Historique"
             }
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {pageTab === "new"
-              ? `Comparez les identifiants de votre base globale avec la liste ${reconciliationType} pour identifier et extraire les écarts par agence.`
+              ? `Comparez les identifiants de votre base globale avec les fichiers ${data.ns && data.vie ? "NS + VIE" : data.vie ? "Assurance VIE" : "Non-Vie (NS)"} pour identifier et extraire les écarts par agence.`
               : "Consultez et gérez l'historique des rapports de rapprochement mensuels sauvegardés."
             }
           </p>
@@ -4197,7 +4197,7 @@ export default function RegtoolsDiffPage() {
                             {renderSortableHeader("Code Agence", "agence")}
                             {renderSortableHeader("Nom Agence", "nom")}
                             {renderSortableHeader("Type", "type")}
-                            {renderSortableHeader(`Total ${reconciliationType}`, "total", "center")}
+                            {renderSortableHeader(`Total ${data.ns && data.vie ? "NS + VIE" : data.vie ? "VIE" : "NS"}`, "total", "center")}
                             {renderSortableHeader("Présentes (Conformes)", "existing", "center")}
                             {renderSortableHeader("Absentes (Écarts)", "missing", "center")}
                             {renderSortableHeader("Taux Présence KYC", "pctExisting", "center")}
@@ -4706,7 +4706,7 @@ export default function RegtoolsDiffPage() {
                             {renderHistorySortableHeader("Code Agence", "agence")}
                             {renderHistorySortableHeader("Nom Agence", "nom")}
                             {renderHistorySortableHeader("Type", "type")}
-                            {renderHistorySortableHeader(`Total ${historyReconciliationType}`, "total", "center")}
+                            {renderHistorySortableHeader(`Total ${historyReconciliationType === "BOTH" ? "NS + VIE" : historyReconciliationType === "VIE" ? "VIE" : "NS"}`, "total", "center")}
                             {renderHistorySortableHeader("Présentes (Conformes)", "existing", "center")}
                             {renderHistorySortableHeader("Absentes (Écarts)", "missing", "center")}
                             {renderHistorySortableHeader("Taux Présence KYC", "pctExisting", "center")}
