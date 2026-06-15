@@ -6737,9 +6737,9 @@ export default function RegtoolsDiffPage() {
             </div>
 
             {/* Content */}
-            <div className="p-6 flex-1 overflow-hidden flex flex-col md:flex-row gap-6">
+            <div className="p-6 flex-1 min-h-0 overflow-hidden flex flex-col md:flex-row gap-6">
               {/* Left column: List of delegations and their agencies */}
-              <div className="w-full md:w-2/3 flex flex-col gap-4 overflow-hidden h-full">
+              <div className="w-full md:w-2/3 flex flex-col gap-4 overflow-hidden h-full min-h-0">
                 <div className="flex justify-between items-center">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Vue par Délégation</h4>
                   <div className="flex gap-2">
@@ -6775,30 +6775,30 @@ export default function RegtoolsDiffPage() {
                           <div className="flex items-center gap-1.5 mt-1">
                             <span className="text-[9px] text-slate-400 font-semibold uppercase">Délégation:</span>
                             <select
-                              value={ag.currentDelegation}
-                              onChange={(e) => {
-                                const newDelegation = e.target.value;
-                                const updated = { ...geographyOverrides };
-                                updated[ag.code] = { delegation: newDelegation, gouvernorat: ag.currentGouvernorat };
-                                saveGeographyOverrides(updated);
-                              }}
-                              className="text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md p-1 outline-none text-blue-600 dark:text-blue-400 font-bold cursor-pointer"
-                            >
-                              {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"].map(d => (
-                                <option key={`opt-move-del-${d}`} value={d}>{d}</option>
-                              ))}
-                            </select>
+                                value={ag.currentDelegation}
+                                onChange={(e) => {
+                                  const newDelegation = e.target.value;
+                                  const updated = { ...geographyOverrides };
+                                  updated[ag.code] = { delegation: newDelegation, gouvernorat: ag.currentGouvernorat };
+                                  saveGeographyOverrides(updated);
+                                }}
+                                className="text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md p-1 outline-none text-blue-600 dark:text-blue-400 font-bold cursor-pointer"
+                              >
+                                {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"].map(d => (
+                                  <option key={`opt-move-del-${d}`} value={d}>{d}</option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
-                        </div>
-                      ));
-                    })()}
+                        ));
+                      })()}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Right column: Search and direct move */}
-              <div className="w-full md:w-1/3 flex flex-col gap-4 overflow-hidden h-full">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Recherche & Actions Rapides</h4>
+                {/* Right column: Search and direct move */}
+                <div className="w-full md:w-1/3 flex flex-col gap-4 overflow-hidden h-full min-h-0">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Recherche & Actions Rapides</h4>
                 
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
