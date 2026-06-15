@@ -20,6 +20,17 @@ import { cn } from "@/lib/utils";
 import { db, isFirebaseConfigured } from "@/lib/firebase";
 import { useUser } from "@/contexts/UserContext";
 import { useActivityLog } from "@/contexts/ActivityLogContext";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  Cell
+} from "recharts";
+import { getAgencyGeography } from "@/data/agencyGeography";
 
 // Normalization helper
 const normalizeKey = (val: any): string => {
@@ -511,6 +522,178 @@ const chunkArray = <T,>(arr: T[], size: number): T[][] => {
 };
 
 
+interface TunisiaHeatmapProps {
+  delegationStats: any[];
+  selectedDelegation: string | null;
+  onSelectDelegation: (delegation: string | null) => void;
+}
+
+const TunisiaHeatmap = ({ delegationStats, selectedDelegation, onSelectDelegation }: TunisiaHeatmapProps) => {
+  const getDelegationColor = (name: string) => {
+    const stat = delegationStats.find(d => d.name === name);
+    const pct = stat ? stat.pctExisting : 100;
+    if (pct > 98) return {
+      fill: "rgba(16, 185, 129, 0.12)",
+      stroke: "rgb(16, 185, 129)",
+      bg: "bg-emerald-500",
+      text: "text-emerald-600 dark:text-emerald-400"
+    };
+    if (pct >= 95) return {
+      fill: "rgba(249, 115, 22, 0.12)",
+      stroke: "rgb(249, 115, 22)",
+      bg: "bg-orange-500",
+      text: "text-orange-600 dark:text-orange-400"
+    };
+    return {
+      fill: "rgba(239, 68, 68, 0.12)",
+      stroke: "rgb(239, 68, 68)",
+      bg: "bg-rose-500",
+      text: "text-rose-600 dark:text-rose-400"
+    };
+  };
+
+  const labelCenters: Record<string, { x: number; y: number }> = {
+    "Tunis Nord": { x: 125, y: 38 },
+    "Tunis Centre": { x: 140, y: 68 },
+    "Tunis Sud": { x: 122, y: 92 },
+    "Cap Bon": { x: 175, y: 75 },
+    "Sahel": { x: 155, y: 175 },
+    "Sfax": { x: 140, y: 265 },
+    "Nord ouest": { x: 80, y: 130 },
+    "Sud": { x: 105, y: 410 }
+  };
+
+  const delegations = [
+    {
+      name: "Nord ouest",
+      path: "M 130 20 L 60 45 L 60 210 L 110 240 L 115 150 L 120 65 Z"
+    },
+    {
+      name: "Tunis Nord",
+      path: "M 130 20 L 138 45 L 135 65 L 120 65 Z"
+    },
+    {
+      name: "Tunis Centre",
+      path: "M 135 65 L 138 45 L 145 65 L 138 80 Z"
+    },
+    {
+      name: "Tunis Sud",
+      path: "M 138 80 L 145 65 L 145 100 L 130 100 Z"
+    },
+    {
+      name: "Cap Bon",
+      path: "M 138 45 L 200 45 L 180 50 L 165 110 L 145 100 L 145 65 Z"
+    },
+    {
+      name: "Sahel",
+      path: "M 120 65 L 130 100 L 145 100 L 165 110 L 180 150 L 190 165 L 185 200 L 155 240 L 110 240 L 115 150 Z"
+    },
+    {
+      name: "Sfax",
+      path: "M 110 240 L 155 240 L 185 200 L 170 280 L 155 340 L 90 290 Z"
+    },
+    {
+      name: "Sud",
+      path: "M 90 290 L 155 340 L 180 400 L 170 480 L 145 570 L 60 410 L 50 350 Z"
+    }
+  ];
+
+  return (
+    <div className="relative w-full max-w-[320px] mx-auto bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-4 shadow-inner">
+      <svg
+        viewBox="0 0 240 580"
+        className="w-full h-auto filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.06)]"
+      >
+        <g strokeWidth="2" strokeLinejoin="round">
+          {delegations.map(del => {
+            const colors = getDelegationColor(del.name);
+            const isSelected = selectedDelegation === del.name;
+            
+            return (
+              <path
+                key={`del-path-${del.name}`}
+                d={del.path}
+                fill={colors.fill}
+                stroke={colors.stroke}
+                onClick={() => onSelectDelegation(isSelected ? null : del.name)}
+                className={cn(
+                  "cursor-pointer transition-all duration-300 outline-none",
+                  isSelected 
+                    ? "fill-current opacity-90 stroke-[3.5px]"
+                    : "hover:opacity-85 hover:stroke-[2.5px]"
+                )}
+                style={{
+                  color: colors.stroke
+                }}
+              />
+            );
+          })}
+        </g>
+        
+        {delegations.map(del => {
+          const center = labelCenters[del.name];
+          if (!center) return null;
+          
+          const stat = delegationStats.find(d => d.name === del.name);
+          const pct = stat ? stat.pctExisting : 100;
+          const colors = getDelegationColor(del.name);
+          const isSelected = selectedDelegation === del.name;
+          
+          return (
+            <g
+              key={`label-g-${del.name}`}
+              className="cursor-pointer select-none"
+              onClick={() => onSelectDelegation(isSelected ? null : del.name)}
+            >
+              {/* Badge Background Circle */}
+              <circle
+                cx={center.x}
+                cy={center.y}
+                r="16"
+                className={cn(
+                  "fill-white dark:fill-slate-950 stroke-2 filter drop-shadow-sm transition-all duration-300",
+                  isSelected ? "stroke-slate-900 dark:stroke-white scale-110" : "stroke-slate-200 dark:stroke-slate-800"
+                )}
+              />
+              {/* Colored status dot inside circle */}
+              <circle
+                cx={center.x}
+                cy={center.y - 8}
+                r="3"
+                className={colors.bg}
+              />
+              {/* Percentage Text */}
+              <text
+                x={center.x}
+                y={center.y + 4}
+                textAnchor="middle"
+                fontSize="9"
+                fontWeight="bold"
+                className="fill-slate-800 dark:fill-slate-200 font-sans"
+              >
+                {pct}%
+              </text>
+              
+              {/* Delegation name label */}
+              <text
+                x={center.x}
+                y={center.y + 24}
+                textAnchor="middle"
+                fontSize="8"
+                fontWeight="700"
+                className="fill-slate-700 dark:fill-slate-300 font-sans"
+              >
+                {del.name}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+};
+
+
 export default function RegtoolsDiffPage() {
   const { user } = useUser();
   const { logAction, isAdmin } = useActivityLog();
@@ -572,7 +755,7 @@ export default function RegtoolsDiffPage() {
   const [pageSize, setPageSize] = useState(15);
 
   // Agency stats and tabs state
-  const [activeTab, setActiveTab] = useState<"list" | "stats" | "similar">("list");
+  const [activeTab, setActiveTab] = useState<"list" | "stats" | "similar" | "report">("list");
   const [statsSearchQuery, setStatsSearchQuery] = useState("");
   const [statsSortField, setStatsSortField] = useState<"agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
   const [statsSortDirection, setStatsSortDirection] = useState<"asc" | "desc">("asc");
@@ -585,7 +768,7 @@ export default function RegtoolsDiffPage() {
   const [selectedHistoryReport, setSelectedHistoryReport] = useState<any | null>(null);
 
   // History detail view states
-  const [historyTab, setHistoryTab] = useState<"stats" | "list" | "similar">("stats");
+  const [historyTab, setHistoryTab] = useState<"stats" | "list" | "similar" | "report">("stats");
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [historyStatsSearchQuery, setHistoryStatsSearchQuery] = useState("");
   const [historySortField, setHistorySortField] = useState<"agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
@@ -601,6 +784,9 @@ export default function RegtoolsDiffPage() {
   const [detailsSortDirection, setDetailsSortDirection] = useState<"asc" | "desc">("asc");
   const [historyDetailsSortField, setHistoryDetailsSortField] = useState<string>("");
   const [historyDetailsSortDirection, setHistoryDetailsSortDirection] = useState<"asc" | "desc">("asc");
+  
+  const [selectedDelegation, setSelectedDelegation] = useState<string | null>(null);
+  const [historySelectedDelegation, setHistorySelectedDelegation] = useState<string | null>(null);
 
   // Similarities states (Active reconciliation)
   const [similarSelectedAgency, setSimilarSelectedAgency] = useState<string>("ALL");
@@ -1811,6 +1997,65 @@ export default function RegtoolsDiffPage() {
     });
   }, [sortedAgencyStats, statsSearchQuery, statsTypeFilter]);
 
+  // Active side delegation and top 10 KYC absence stats
+  const delegationStats = useMemo(() => {
+    if (!comparisonDone || agencyStats.length === 0) return [];
+    
+    const map = new Map<string, { total: number; missing: number; agencyCount: number; agencies: any[] }>();
+    const mainDelegations = ["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"];
+    mainDelegations.forEach(del => {
+      map.set(del, { total: 0, missing: 0, agencyCount: 0, agencies: [] });
+    });
+
+    agencyStats.forEach(stat => {
+      const geo = getAgencyGeography(stat.agence, stat.nom);
+      const delegation = geo.delegation;
+      if (delegation && map.has(delegation)) {
+        const item = map.get(delegation)!;
+        item.total += stat.total;
+        item.missing += stat.missing;
+        item.agencyCount += 1;
+        item.agencies.push(stat);
+      }
+    });
+
+    return Array.from(map.entries()).map(([name, data]) => {
+      const existing = data.total - data.missing;
+      const pctExisting = data.total > 0 ? parseFloat(((existing / data.total) * 100).toFixed(2)) : 100;
+      const pctMissing = data.total > 0 ? parseFloat(((data.missing / data.total) * 100).toFixed(2)) : 0;
+      return {
+        name,
+        total: data.total,
+        missing: data.missing,
+        existing,
+        pctExisting,
+        pctMissing,
+        agencyCount: data.agencyCount,
+        agencies: data.agencies
+      };
+    });
+  }, [agencyStats, comparisonDone]);
+
+  const top10AbsentKYC = useMemo(() => {
+    if (!comparisonDone || agencyStats.length === 0) return [];
+    
+    return [...agencyStats]
+      .filter(stat => {
+        const typeLower = (stat.type || "").toLowerCase();
+        return !typeLower.includes("courtier") && !typeLower.includes("siege") && !typeLower.includes("siège");
+      })
+      .sort((a, b) => b.pctMissing - a.pctMissing)
+      .slice(0, 10);
+  }, [agencyStats, comparisonDone]);
+
+  const agenciesBySelectedDelegation = useMemo(() => {
+    if (!selectedDelegation || agencyStats.length === 0) return [];
+    return agencyStats.filter(stat => {
+      const geo = getAgencyGeography(stat.agence, stat.nom);
+      return geo.delegation === selectedDelegation;
+    });
+  }, [agencyStats, selectedDelegation]);
+
   const globalStats = useMemo(() => {
     if (!comparisonDone || (!data.ns && !data.vie)) return null;
     const nsTotal = data.ns ? data.ns.length : 0;
@@ -2549,6 +2794,65 @@ export default function RegtoolsDiffPage() {
     });
   }, [sortedHistoryAgencyStats, historyStatsSearchQuery, historyStatsTypeFilter]);
 
+  // History side delegation and top 10 KYC absence stats
+  const historyDelegationStats = useMemo(() => {
+    if (!selectedHistoryReport || resolvedHistoryAgencyStats.length === 0) return [];
+
+    const map = new Map<string, { total: number; missing: number; agencyCount: number; agencies: any[] }>();
+    const mainDelegations = ["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"];
+    mainDelegations.forEach(del => {
+      map.set(del, { total: 0, missing: 0, agencyCount: 0, agencies: [] });
+    });
+
+    resolvedHistoryAgencyStats.forEach((stat: any) => {
+      const geo = getAgencyGeography(stat.agence, stat.nom);
+      const delegation = geo.delegation;
+      if (delegation && map.has(delegation)) {
+        const item = map.get(delegation)!;
+        item.total += stat.total;
+        item.missing += stat.missing;
+        item.agencyCount += 1;
+        item.agencies.push(stat);
+      }
+    });
+
+    return Array.from(map.entries()).map(([name, data]) => {
+      const existing = data.total - data.missing;
+      const pctExisting = data.total > 0 ? parseFloat(((existing / data.total) * 100).toFixed(2)) : 100;
+      const pctMissing = data.total > 0 ? parseFloat(((data.missing / data.total) * 100).toFixed(2)) : 0;
+      return {
+        name,
+        total: data.total,
+        missing: data.missing,
+        existing,
+        pctExisting,
+        pctMissing,
+        agencyCount: data.agencyCount,
+        agencies: data.agencies
+      };
+    });
+  }, [resolvedHistoryAgencyStats, selectedHistoryReport]);
+
+  const historyTop10AbsentKYC = useMemo(() => {
+    if (!selectedHistoryReport || resolvedHistoryAgencyStats.length === 0) return [];
+
+    return [...resolvedHistoryAgencyStats]
+      .filter((stat: any) => {
+        const typeLower = (stat.type || "").toLowerCase();
+        return !typeLower.includes("courtier") && !typeLower.includes("siege") && !typeLower.includes("siège");
+      })
+      .sort((a, b) => b.pctMissing - a.pctMissing)
+      .slice(0, 10);
+  }, [resolvedHistoryAgencyStats, selectedHistoryReport]);
+
+  const agenciesBySelectedHistoryDelegation = useMemo(() => {
+    if (!historySelectedDelegation || resolvedHistoryAgencyStats.length === 0) return [];
+    return resolvedHistoryAgencyStats.filter((stat: any) => {
+      const geo = getAgencyGeography(stat.agence, stat.nom);
+      return geo.delegation === historySelectedDelegation;
+    });
+  }, [resolvedHistoryAgencyStats, historySelectedDelegation]);
+
   const historyAgenciesList = useMemo(() => {
     if (!selectedHistoryReport || !selectedHistoryReport.missingRows) return [];
     const mappingVal = selectedHistoryReport.mapping;
@@ -3146,6 +3450,318 @@ export default function RegtoolsDiffPage() {
 
 
 
+  const renderComplianceReportTab = (
+    delStats: any[],
+    top10Stats: any[],
+    selDel: string | null,
+    setSelDel: (del: string | null) => void,
+    agenciesForDel: any[]
+  ) => {
+    const totalCount = delStats.reduce((sum, d) => sum + d.total, 0);
+    const missingCount = delStats.reduce((sum, d) => sum + d.missing, 0);
+    const existingCount = totalCount - missingCount;
+    const complianceRate = totalCount > 0 ? parseFloat(((existingCount / totalCount) * 100).toFixed(2)) : 100;
+
+    let statusColorClass = "text-rose-600 dark:text-rose-400";
+    let statusBgClass = "bg-rose-500/10 border-rose-500/20";
+    if (complianceRate > 98) {
+      statusColorClass = "text-emerald-600 dark:text-emerald-400";
+      statusBgClass = "bg-emerald-500/10 border-emerald-500/20";
+    } else if (complianceRate >= 95) {
+      statusColorClass = "text-orange-600 dark:text-orange-400";
+      statusBgClass = "bg-orange-500/10 border-orange-500/20";
+    }
+
+    return (
+      <div className="flex flex-col gap-6 animate-fadeIn">
+        {/* KPI Panel */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={cn("p-5 rounded-2xl border flex flex-col gap-1.5 shadow-sm transition-all", statusBgClass)}>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Taux de Conformité</span>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className={cn("text-3xl font-extrabold tracking-tight", statusColorClass)}>{complianceRate}%</span>
+              <span className="text-xs text-slate-400 font-medium">d'objectif (98%)</span>
+            </div>
+            <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+              <div 
+                className={cn("h-full rounded-full transition-all duration-1000", 
+                  complianceRate > 98 ? "bg-emerald-500" : complianceRate >= 95 ? "bg-orange-500" : "bg-rose-500"
+                )}
+                style={{ width: `${complianceRate}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col gap-1.5 shadow-sm">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Dossiers Totaux</span>
+            <span className="text-3xl font-extrabold tracking-tight text-slate-800 dark:text-white mt-1">
+              {totalCount.toLocaleString("fr-FR")}
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium">Base de portefeuilles rapprochée</span>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col gap-1.5 shadow-sm">
+            <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">KYC Présents</span>
+            <span className="text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 mt-1">
+              {existingCount.toLocaleString("fr-FR")}
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium">Conformes aux règles AML</span>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex flex-col gap-1.5 shadow-sm">
+            <span className="text-xs font-bold text-rose-500 uppercase tracking-widest">Dossiers Absents</span>
+            <span className="text-3xl font-extrabold tracking-tight text-rose-600 dark:text-rose-400 mt-1">
+              {missingCount.toLocaleString("fr-FR")}
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium">Écarts de fiches KYC à régulariser</span>
+          </div>
+        </div>
+
+        {/* Map & Top 10 Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Map Column */}
+          <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-5 flex flex-col gap-4 shadow-sm min-h-[550px]">
+            <div>
+              <h3 className="font-bold text-slate-800 dark:text-white text-base">Heatmap Géographique par Délégation</h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Sélectionnez une délégation sur la carte de la Tunisie pour afficher ses agences correspondantes.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+              <TunisiaHeatmap 
+                delegationStats={delStats}
+                selectedDelegation={selDel}
+                onSelectDelegation={setSelDel}
+              />
+
+              <div className="flex flex-col gap-3 h-full justify-start border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800/60 md:pl-6 pt-4 md:pt-0">
+                {selDel ? (
+                  <div className="flex flex-col gap-3 h-full">
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800/60">
+                      <div>
+                        <h4 className="font-bold text-slate-800 dark:text-white text-sm">{selDel}</h4>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                          Délégation Régionale
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => setSelDel(null)}
+                        className="text-[10px] text-blue-500 hover:underline font-semibold"
+                      >
+                        Effacer
+                      </button>
+                    </div>
+
+                    <div className="overflow-y-auto max-h-[360px] pr-1 flex flex-col gap-2">
+                      {agenciesForDel.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic py-4 text-center">Aucune agence dans cette délégation</p>
+                      ) : (
+                        agenciesForDel
+                          .sort((a, b) => b.pctMissing - a.pctMissing)
+                          .map((stat, sIdx) => {
+                            let itemBg = "bg-rose-500";
+                            if (stat.pctExisting > 98) itemBg = "bg-emerald-500";
+                            else if (stat.pctExisting >= 95) itemBg = "bg-orange-500";
+
+                            return (
+                              <div key={`sel-del-ag-${sIdx}`} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:bg-slate-800/50 flex flex-col gap-1.5 hover:border-slate-200 dark:hover:border-slate-700/80 transition-all">
+                                <div className="flex justify-between items-start">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{stat.nom}</p>
+                                    <span className="text-[9px] text-slate-400 font-medium">Code: {stat.agence} • {stat.type}</span>
+                                  </div>
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                    {stat.pctExisting}% conf.
+                                  </span>
+                                </div>
+                                <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                  <div 
+                                    className={cn("h-full rounded-full", itemBg)} 
+                                    style={{ width: `${stat.pctExisting}%` }} 
+                                  />
+                                </div>
+                                <div className="flex justify-between text-[9px] text-slate-400 font-medium">
+                                  <span>{stat.existing.toLocaleString("fr-FR")} KYC OK</span>
+                                  <span className="text-rose-500">{stat.missing.toLocaleString("fr-FR")} absents</span>
+                                </div>
+                              </div>
+                            );
+                          })
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center p-6 text-slate-400 gap-3">
+                    <div className="p-3 bg-slate-100 dark:bg-slate-800/50 rounded-2xl">
+                      <FileSpreadsheet className="h-8 w-8 text-slate-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-700 dark:text-slate-300 text-xs">Aucune sélection</h4>
+                      <p className="text-[11px] max-w-[180px] mx-auto mt-1 leading-relaxed">
+                        Veuillez cliquer sur une zone de la carte pour inspecter les agences associées.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Top 10 Column */}
+          <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-5 flex flex-col gap-4 shadow-sm min-h-[550px]">
+            <div>
+              <h3 className="font-bold text-slate-800 dark:text-white text-base">Top 10 des Écarts (Absences KYC)</h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Agences et succursales internes affichant le taux d'absence KYC le plus critique (hors courtiers).
+              </p>
+            </div>
+
+            {top10Stats.length === 0 ? (
+              <div className="flex flex-col items-center justify-center flex-1 text-slate-400 py-12 gap-2">
+                <CheckCircle2 className="h-10 w-10 text-emerald-500" />
+                <h4 className="font-semibold text-slate-700 dark:text-slate-300 text-xs">Conformité parfaite</h4>
+                <p className="text-[10px] text-center max-w-[200px] leading-relaxed">
+                  Toutes les agences enregistrent un taux de fiches KYC complet.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 flex-1">
+                <div className="h-[180px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={top10Stats}
+                      layout="vertical"
+                      margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                      <XAxis type="number" fontSize={9} stroke="#94a3b8" unit="%" />
+                      <YAxis dataKey="nom" type="category" width={90} fontSize={8} stroke="#94a3b8" tickFormatter={(t) => t ? t.substring(0, 15) : ""} />
+                      <RechartsTooltip
+                        formatter={(value) => [`${value}% d'absence`, 'Taux absence']}
+                        contentStyle={{ fontSize: 10, borderRadius: 8 }}
+                      />
+                      <Bar dataKey="pctMissing" radius={[0, 4, 4, 0]}>
+                        {top10Stats.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.pctMissing > 15 ? "#ef4444" : "#f97316"} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="flex flex-col gap-2 overflow-y-auto max-h-[300px] pr-1">
+                  {top10Stats.map((stat, idx) => (
+                    <div 
+                      key={`top-absent-row-${idx}`}
+                      className="p-3 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 rounded-xl flex items-center justify-between gap-3 transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex items-center justify-center h-6 w-6 font-bold text-xs bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-lg shrink-0">
+                          {idx + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{stat.nom}</p>
+                          <p className="text-[9px] text-slate-400 font-medium">Code {stat.agence} • {stat.type}</p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-extrabold text-rose-600 dark:text-rose-400">{stat.pctMissing}%</p>
+                        <p className="text-[9px] text-slate-400 font-medium">{stat.missing.toLocaleString("fr-FR")} absents</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Global Summary Table */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-5 shadow-sm">
+          <h3 className="font-bold text-slate-800 dark:text-white text-base mb-4">Tableau Récapitulatif par Délégation</h3>
+          <div className="overflow-x-auto border border-slate-100 dark:border-slate-800/60 rounded-xl">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                  <th className="p-3 border-b border-slate-100 dark:border-slate-800/60">Délégation</th>
+                  <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Nombre d'Agences</th>
+                  <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Clients Totaux</th>
+                  <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">KYC Présents (Conformes)</th>
+                  <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">KYC Absents (Écarts)</th>
+                  <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center">Taux Conformité (Objectif 98%)</th>
+                  <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 w-[180px]">Proportion Visuelle</th>
+                </tr>
+              </thead>
+              <tbody>
+                {delStats.map((stat, idx) => {
+                  let badgeBg = "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20";
+                  let barColor = "bg-rose-500";
+                  if (stat.pctExisting > 98) {
+                    badgeBg = "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+                    barColor = "bg-emerald-500";
+                  } else if (stat.pctExisting >= 95) {
+                    badgeBg = "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20";
+                    barColor = "bg-orange-500";
+                  }
+
+                  return (
+                    <tr 
+                      key={`del-table-row-${idx}`} 
+                      className={cn(
+                        "hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors cursor-pointer",
+                        selDel === stat.name && "bg-blue-500/5 dark:bg-blue-500/5"
+                      )}
+                      onClick={() => setSelDel(selDel === stat.name ? null : stat.name)}
+                    >
+                      <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <span className={cn("h-2 w-2 rounded-full", barColor)}></span>
+                        {stat.name}
+                      </td>
+                      <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-slate-600 dark:text-slate-400 font-medium">
+                        {stat.agencyCount}
+                      </td>
+                      <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-semibold text-slate-700 dark:text-slate-300">
+                        {stat.total.toLocaleString("fr-FR")}
+                      </td>
+                      <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-emerald-600 dark:text-emerald-400 font-medium">
+                        {stat.existing.toLocaleString("fr-FR")}
+                      </td>
+                      <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-rose-600 dark:text-rose-400 font-medium">
+                        {stat.missing.toLocaleString("fr-FR")}
+                      </td>
+                      <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-bold">
+                        <span className={cn("px-2 py-0.5 border rounded-full text-[10px] font-extrabold", badgeBg)}>
+                          {stat.pctExisting}%
+                        </span>
+                      </td>
+                      <td className="p-3 border-b border-slate-100 dark:border-slate-800/60">
+                        <div className="flex flex-col gap-1 w-full">
+                          <div className="flex h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                            <div 
+                              style={{ width: `${stat.pctExisting}%` }} 
+                              className={cn(barColor, "transition-all duration-500")} 
+                              title={`Présentes: ${stat.pctExisting}%`}
+                            />
+                            <div 
+                              style={{ width: `${stat.pctMissing}%` }} 
+                              className="bg-slate-200 dark:bg-slate-800 transition-all duration-500" 
+                              title={`Absentes: ${stat.pctMissing}%`}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6 w-full">
       {/* Page Header */}
@@ -3651,6 +4267,18 @@ export default function RegtoolsDiffPage() {
                     <AlertTriangle className="h-4 w-4" />
                     Statistiques par Agence ({filteredAgencyStats.length} agences)
                   </button>
+                  <button
+                    onClick={() => setActiveTab("report")}
+                    className={cn(
+                      "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
+                      activeTab === "report"
+                        ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
+                        : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    )}
+                  >
+                    <ClipboardList className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    Rapport Conformité (Comité)
+                  </button>
                 </div>
                 
                 <button
@@ -4131,7 +4759,7 @@ export default function RegtoolsDiffPage() {
                     </div>
                   )}
                 </div>
-              ) : (
+              ) : activeTab === "stats" ? (
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
                     <div className="flex items-center gap-2">
@@ -4323,6 +4951,14 @@ export default function RegtoolsDiffPage() {
                     </div>
                   )}
                 </div>
+              ) : (
+                renderComplianceReportTab(
+                  delegationStats,
+                  top10AbsentKYC,
+                  selectedDelegation,
+                  setSelectedDelegation,
+                  agenciesBySelectedDelegation
+                )
               )}
             </div>
           )}
@@ -4596,6 +5232,21 @@ export default function RegtoolsDiffPage() {
                   >
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     Détails des Similitudes {selectedHistoryReport.similarRows ? `(${filteredHistorySimilarRows.length.toLocaleString("fr-FR")} lignes)` : "(Non dispo.)"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setHistoryTab("report");
+                      setShowHistoryColumnDropdown(false);
+                    }}
+                    className={cn(
+                      "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 -mb-[2px]",
+                      historyTab === "report"
+                        ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
+                        : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    )}
+                  >
+                    <ClipboardList className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    Rapport Conformité (Comité)
                   </button>
                 </div>
 
@@ -5098,7 +5749,7 @@ export default function RegtoolsDiffPage() {
                     </div>
                   )}
                 </div>
-              ) : (
+              ) : historyTab === "list" ? (
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between gap-4 flex-wrap border-b border-slate-100 dark:border-slate-800/60 pb-4">
                     <div className="flex items-center gap-2">
@@ -5343,6 +5994,14 @@ export default function RegtoolsDiffPage() {
                     </div>
                   )}
                 </div>
+              ) : (
+                renderComplianceReportTab(
+                  historyDelegationStats,
+                  historyTop10AbsentKYC,
+                  historySelectedDelegation,
+                  setHistorySelectedDelegation,
+                  agenciesBySelectedHistoryDelegation
+                )
               )}
             </div>
           </div>
