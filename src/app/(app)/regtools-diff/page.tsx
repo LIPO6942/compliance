@@ -6710,6 +6710,7 @@ export default function RegtoolsDiffPage() {
               )}
             </div>
           </div>
+        );
       })()}
 
       {/* Geography Settings Modal (Admin Only) */}
