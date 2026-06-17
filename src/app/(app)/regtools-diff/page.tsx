@@ -171,24 +171,24 @@ const AGENCY_MAPPING: Record<string, { name: string; type: string }> = {
   "141": { name: "Soukra", type: "Succursale" },
   "142": { name: "Béja II", type: "Succursale" },
   "143": { name: "Nabeul II", type: "Succursale" },
-  "144": { name: "AG Sousse (Tafala)", type: "Agence" },
+  "144": { name: "AG Sousse (Teboulba)", type: "Agence" },
   "146": { name: "AG Gabès", type: "Agence" },
   "147": { name: "AG Raoued", type: "Agence" },
   "149": { name: "AG El Mourouj 3", type: "Agence" },
   "150": { name: "AG Ezzouhour", type: "Agence" },
   "151": { name: "AG Sousse Erriadh", type: "Agence" },
-  "152": { name: "AG Sahloul sousse1", type: "Agence" },
-  "154": { name: "AG Ennasr II", type: "Agence" },
-  "155": { name: "AG Sidi hassine", type: "Agence" },
+  "152": { name: "AG Sahloul sousse2", type: "Agence" },
+  "154": { name: "AG Ennaser II", type: "Agence" },
+  "155": { name: "AG Sidi hessine", type: "Agence" },
   "156": { name: "AG El Ouardia", type: "Agence" },
-  "157": { name: "AG Mannouba", type: "Agence" },
+  "157": { name: "AG Manouba", type: "Agence" },
   "160": { name: "AG chebba", type: "Agence" },
-  "161": { name: "AG Boumerdès", type: "Agence" },
+  "161": { name: "AG Boumerdés", type: "Agence" },
   "162": { name: "AG kef", type: "Agence" },
   "165": { name: "AG Enfidha", type: "Agence" },
   "167": { name: "AG Menzel Bourguiba", type: "Agence" },
   "168": { name: "AG Grombalia", type: "Agence" },
-  "169": { name: "Testour", type: "Succursale" },
+  "169": { name: "Tastour", type: "Succursale" },
   "170": { name: "AG TRIGUI", type: "Agence" },
   "171": { name: "AG Ettadhamen", type: "Agence" },
   "172": { name: "AG Mjez El Bab", type: "Agence" },
@@ -208,62 +208,67 @@ const AGENCY_MAPPING: Record<string, { name: string; type: string }> = {
   "193": { name: "AG Feriana", type: "Agence" },
   "194": { name: "AG Kasserine", type: "Agence" },
   "195": { name: "AG Tozeur", type: "Agence" },
-  "196": { name: "AG El Hamma", type: "Agence" },
-  "199": { name: "AG Fouchana", type: "Agence" },
-  "271": { name: "Lamine Taieb", type: "courtier" },
-  "272": { name: "IMN'ASS", type: "courtier" },
+  "196": { name: "AG El-Hamma", type: "Agence" },
+  "198": { name: "AG Fouchana", type: "Agence" },
+  "271": { name: "Laaribi Taieb", type: "courtier" },
+  "272": { name: "INRISE", type: "courtier" },
   "273": { name: "Arab African Ins", type: "courtier" },
-  "274": { name: "Kais Karaoun", type: "courtier" },
+  "274": { name: "Kare Kamoun", type: "courtier" },
   "275": { name: "El Amana Selcar", type: "courtier" },
-  "276": { name: "Timar", type: "courtier" },
+  "276": { name: "Ticar", type: "courtier" },
   "277": { name: "ST Tunisie cortage", type: "courtier" },
-  "278": { name: "ST Macecar", type: "courtier" },
-  "279": { name: "Pre-Assur", type: "courtier" },
-  "800": { name: "AG Sousse (Kalaa Kebira)", type: "Agence" },
-  "801": { name: "Radès", type: "Succursale" },
-  "804": { name: "AG Ben Gerdane", type: "Agence" },
+  "278": { name: "ST Msoscar", type: "courtier" },
+  "279": { name: "Pro-Assur", type: "courtier" },
+  "280": { name: "ars", type: "courtier" },
+  "281": { name: "ascor", type: "courtier" },
+  "282": { name: "arco", type: "courtier" },
+  "800": { name: "AG Sousse (Kâala Kbira)", type: "Agence" },
+  "801": { name: "Radés", type: "Succursale" },
+  "804": { name: "AG Ben Gerdaine", type: "Agence" },
   "805": { name: "El Mechtel", type: "Succursale" },
   "807": { name: "Monastir II", type: "Succursale" },
   "808": { name: "AG Hammamet", type: "Agence" },
   "809": { name: "soliman", type: "Succursale" },
   "810": { name: "Zarzis II", type: "Succursale" },
-  "811": { name: "El-Jem", type: "Succursale" },
-  "812": { name: "Ettoufik", type: "Succursale" },
-  "813": { name: "Ghardimaou", type: "Agence" },
-  "814": { name: "La Goulette", type: "Succursale" },
+  "811": { name: "El-Jam", type: "Succursale" },
+  "813": { name: "AG Ghadimaou", type: "Agence" },
+  "816": { name: "La Goulette", type: "Succursale" },
   "817": { name: "Sfax V", type: "Succursale" },
   "818": { name: "Lac II", type: "Succursale" },
-  "820": { name: "Med Chaouki Ben Amor", type: "Agence Stagiaire" },
-  "821": { name: "Kaouther Selmi", type: "Agence" },
-  "822": { name: "Med Ali Larjimi", type: "Agence" },
-  "823": { name: "Skander Ben Aissa", type: "Agence" },
-  "824": { name: "Affef Mrafeq", type: "Agence" },
-  "825": { name: "Aziz Tenjel", type: "Agence Stagiaire" },
-  "827": { name: "Gabès II", type: "Succursale" },
-  "830": { name: "Emna Ayari", type: "Agence Stagiaire" },
-  "831": { name: "Nourhene Alouini", type: "Agence Stagiaire" },
-  "850": { name: "ghassen Ramdhani", type: "Bureau direct" },
+  "819": { name: "Med Chawki Ben Amor", type: "Agent Stagiaire" },
+  "821": { name: "AG yasminet", type: "Agence" },
+  "822": { name: "AG sousse", type: "Agence" },
+  "823": { name: "AG bardo", type: "Agence" },
+  "824": { name: "AG el kadra", type: "Agence" },
+  "827": { name: "Gabes II", type: "Succursale" },
+  "830": { name: "AG ain zaghouan", type: "Agence" },
+  "831": { name: "Nourhene Akermi", type: "Agent Stagiaire" },
   "832": { name: "La Marsa", type: "Succursale" },
-  "833": { name: "Sodab", type: "courtier" },
-  "834": { name: "Ines derbel", type: "Agence Stagiaire" },
-  "835": { name: "Sonia Mathlouthi", type: "Agence" },
-  "837": { name: "Rehab dridi", type: "Agence Stagiaire" },
-  "838": { name: "Souha emnaa", type: "Agence Stagiaire" },
-  "839": { name: "Bekri Fatma", type: "Agence Stagiaire" },
-  "840": { name: "Nouha ayadi", type: "Agence Stagiaire" },
-  "841": { name: "Imen trabelsi", type: "Agence Stagiaire" },
-  "842": { name: "Asma Mathlouthi", type: "Agence Stagiaire" },
+  "833": { name: "STDAB", type: "courtier" },
+  "834": { name: "Ines Derbel", type: "Agent Stagiaire" },
+  "835": { name: "AG mutuelle ville", type: "Agence" },
+  "837": { name: "Rihab driss", type: "Agent Stagiaire" },
+  "838": { name: "Souha ammous", type: "Agent Stagiaire" },
+  "839": { name: "Bekri fatma", type: "Agent Stagiaire" },
+  "840": { name: "Nouha ayadi", type: "Agent Stagiaire" },
+  "841": { name: "Imen trabelsi", type: "Agent Stagiaire" },
+  "842": { name: "Asma mattoussi", type: "Agent Stagiaire" },
   "843": { name: "OLEA", type: "courtier" },
-  "851": { name: "Nadia Ferjallah", type: "Bureau direct" },
-  "846": { name: "Bousselem", type: "Succursale" },
-  "847": { name: "Jemmel", type: "Succursale" },
-  "852": { name: "Mourouj 6", type: "Succursale" },
-  "281": { name: "asse assurances", type: "courtier" },
-  "844": { name: "hanen gridi", type: "Agence" },
-  "848": { name: "Rym aouayni", type: "Agence Stagiaire" },
-  "845": { name: "cyrine kedri", type: "Agence Stagiaire" },
-  "854": { name: "yassine chanaoueh", type: "Agence Stagiaire" },
-  "857": { name: "olfa eschi", type: "Agence Stagiaire" }
+  "844": { name: "AG sbitla", type: "Agence" },
+  "845": { name: "cyrine kedadi", type: "Agent Stagiaire" },
+  "846": { name: "boussalem", type: "Succursale" },
+  "847": { name: "jammel", type: "Succursale" },
+  "849": { name: "Rym aouaysi", type: "Agent Stagiaire" },
+  "850": { name: "Siége", type: "siege" },
+  "851": { name: "Borj Ghorbel", type: "succursale" },
+  "853": { name: "Mourouj 6", type: "Succursale" },
+  "854": { name: "yassine chaouch", type: "Agent Stagiaire" },
+  "855": { name: "Agence Digital", type: "siege" },
+  "857": { name: "olfa euchi", type: "Agent Stagiaire" },
+  "858": { name: "Best Lease Gabes", type: "Succursale" },
+  "859": { name: "Gafsa II", type: "Succursale" },
+  "860": { name: "AG jardin d'el menzeh", type: "Agence" },
+  "862": { name: "AG menzeh 1", type: "Agence" }
 };
 
 const resolveAgencyInfo = (code: any) => {
@@ -791,20 +796,79 @@ export default function RegtoolsDiffPage() {
 
   // Geography Overrides States (Admin settings)
   const [geographyOverrides, setGeographyOverrides] = useState<Record<string, { delegation: string; gouvernorat: string }>>({});
+  const [agencyOverrides, setAgencyOverrides] = useState<Record<string, { name: string; type: string }>>({});
   const [isGeoSettingsOpen, setIsGeoSettingsOpen] = useState(false);
   const [activeSettingsDelegation, setActiveSettingsDelegation] = useState("Tunis Centre");
   const [settingsSearchQuery, setSettingsSearchQuery] = useState("");
   const [settingsNewCode, setSettingsNewCode] = useState("");
+  const [settingsNewName, setSettingsNewName] = useState("");
+  const [settingsNewType, setSettingsNewType] = useState("Agence");
   const [settingsNewGouv, setSettingsNewGouv] = useState("");
   const [settingsNewDel, setSettingsNewDel] = useState("Tunis Centre");
 
+  const resolveAgencyInfo = useCallback((code: any) => {
+    if (code === undefined || code === null) {
+      return { code: "", name: "Non spécifié", type: "-" };
+    }
+    const normalizedCode = String(code).trim().replace(/^0+(?!$)/, '');
+    
+    // Check state overrides first
+    if (agencyOverrides[normalizedCode]) {
+      return {
+        code: normalizedCode,
+        name: agencyOverrides[normalizedCode].name,
+        type: agencyOverrides[normalizedCode].type
+      };
+    }
+    
+    // Fallback to static mapping
+    const info = AGENCY_MAPPING[normalizedCode];
+    if (info) {
+      return {
+        code: normalizedCode,
+        name: info.name,
+        type: info.type
+      };
+    }
+
+    // Try name match on state overrides
+    const normalizedStr = normalizedCode.toLowerCase();
+    for (const [c, inf] of Object.entries(agencyOverrides)) {
+      if (inf.name.toLowerCase() === normalizedStr) {
+        return { code: c, name: inf.name, type: inf.type };
+      }
+    }
+
+    // Try name match on static mapping
+    for (const [c, inf] of Object.entries(AGENCY_MAPPING)) {
+      if (inf.name.toLowerCase() === normalizedStr) {
+        return { code: c, name: inf.name, type: inf.type };
+      }
+    }
+
+    return {
+      code: normalizedCode,
+      name: `Agence ${normalizedCode}`,
+      type: "Inconnu"
+    };
+  }, [agencyOverrides]);
+
   const resolveAgencyGeography = useCallback((code: any, name?: string) => {
     const normCode = String(code || "").trim().replace(/^0+(?!$)/, "");
+    
+    const info = resolveAgencyInfo(normCode);
+    if (info && info.type.toLowerCase() === "courtier") {
+      return { delegation: "Courtiers", gouvernorat: "" };
+    }
+    if (info && (info.type.toLowerCase() === "siege" || info.type.toLowerCase() === "siège")) {
+      return { delegation: "Siège", gouvernorat: "" };
+    }
+
     if (geographyOverrides[normCode]) {
       return geographyOverrides[normCode];
     }
     return getAgencyGeography(code, name);
-  }, [geographyOverrides]);
+  }, [geographyOverrides, resolveAgencyInfo]);
 
   const [delegationSearch, setDelegationSearch] = useState("");
   const [delegationSortField, setDelegationSortField] = useState<"name" | "agencyCount" | "total" | "existing" | "missing" | "pctExisting">("pctExisting");
@@ -1973,7 +2037,7 @@ export default function RegtoolsDiffPage() {
           pctExisting
         };
       });
-  }, [data.ns, data.vie, missingRows, comparisonDone, mapping.nsAgence, mapping.vieAgence, portfolioFilter]);
+  }, [data.ns, data.vie, missingRows, comparisonDone, mapping.nsAgence, mapping.vieAgence, portfolioFilter, resolveAgencyInfo]);
 
   const sortedAgencyStats = useMemo(() => {
     const items = [...agencyStats];
@@ -2028,7 +2092,7 @@ export default function RegtoolsDiffPage() {
     if (!comparisonDone || agencyStats.length === 0) return [];
     
     const map = new Map<string, { total: number; missing: number; agencyCount: number; agencies: any[] }>();
-    const mainDelegations = ["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"];
+    const mainDelegations = ["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Courtiers", "Siège"];
     mainDelegations.forEach(del => {
       map.set(del, { total: 0, missing: 0, agencyCount: 0, agencies: [] });
     });
@@ -2060,7 +2124,7 @@ export default function RegtoolsDiffPage() {
         agencies: data.agencies
       };
     });
-  }, [agencyStats, comparisonDone]);
+  }, [agencyStats, comparisonDone, resolveAgencyGeography]);
 
   const top10AbsentKYC = useMemo(() => {
     if (!comparisonDone || agencyStats.length === 0) return [];
@@ -2406,6 +2470,15 @@ export default function RegtoolsDiffPage() {
       }
     }
 
+    const savedNameType = localStorage.getItem("regtools_agency_name_type_overrides");
+    if (savedNameType) {
+      try {
+        setAgencyOverrides(JSON.parse(savedNameType));
+      } catch (e) {
+        console.error("Erreur lors de la lecture des surcharges de noms/types locales :", e);
+      }
+    }
+
     // Load Firestore overrides if configured
     if (isFirebaseConfigured && db) {
       const loadFirestoreOverrides = async () => {
@@ -2425,6 +2498,24 @@ export default function RegtoolsDiffPage() {
         }
       };
       loadFirestoreOverrides();
+
+      const loadNameTypeOverrides = async () => {
+        try {
+          const { doc, getDoc } = await import("firebase/firestore");
+          const docRef = doc(db, "regtoolsSettings", "agencyNameTypeOverrides");
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data && data.overrides) {
+              setAgencyOverrides(data.overrides);
+              localStorage.setItem("regtools_agency_name_type_overrides", JSON.stringify(data.overrides));
+            }
+          }
+        } catch (err) {
+          console.error("Erreur lors de la lecture des surcharges de noms/types Firestore :", err);
+        }
+      };
+      loadNameTypeOverrides();
     }
   }, [loadHistory]);
 
@@ -2795,7 +2886,15 @@ export default function RegtoolsDiffPage() {
     }
 
     return rawStats.map((stat: any) => {
-      if (stat.nom && stat.type) return stat;
+      if (stat.nom && stat.type) {
+        // Still re-resolve name and type in case the admin modified them
+        const info = resolveAgencyInfo(stat.agence);
+        return {
+          ...stat,
+          nom: info.name,
+          type: info.type
+        };
+      }
       const info = resolveAgencyInfo(stat.agence);
       return {
         ...stat,
@@ -2803,7 +2902,7 @@ export default function RegtoolsDiffPage() {
         type: info.type
       };
     });
-  }, [selectedHistoryReport, historyPortfolioFilter]);
+  }, [selectedHistoryReport, historyPortfolioFilter, resolveAgencyInfo]);
 
   const sortedHistoryAgencyStats = useMemo(() => {
     const items = [...resolvedHistoryAgencyStats];
@@ -2856,7 +2955,7 @@ export default function RegtoolsDiffPage() {
     if (!selectedHistoryReport || resolvedHistoryAgencyStats.length === 0) return [];
 
     const map = new Map<string, { total: number; missing: number; agencyCount: number; agencies: any[] }>();
-    const mainDelegations = ["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"];
+    const mainDelegations = ["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Courtiers", "Siège"];
     mainDelegations.forEach(del => {
       map.set(del, { total: 0, missing: 0, agencyCount: 0, agencies: [] });
     });
@@ -2888,7 +2987,7 @@ export default function RegtoolsDiffPage() {
         agencies: data.agencies
       };
     });
-  }, [resolvedHistoryAgencyStats, selectedHistoryReport]);
+  }, [resolvedHistoryAgencyStats, selectedHistoryReport, resolveAgencyGeography]);
 
   const historyTop10AbsentKYC = useMemo(() => {
     if (!selectedHistoryReport || resolvedHistoryAgencyStats.length === 0) return [];
@@ -2908,7 +3007,7 @@ export default function RegtoolsDiffPage() {
       const geo = resolveAgencyGeography(stat.agence, stat.nom);
       return geo.delegation === historySelectedDelegation;
     });
-  }, [resolvedHistoryAgencyStats, historySelectedDelegation]);
+  }, [resolvedHistoryAgencyStats, historySelectedDelegation, resolveAgencyGeography]);
 
   // Save geography overrides to local & Firestore
   const saveGeographyOverrides = async (newOverrides: Record<string, { delegation: string; gouvernorat: string }>) => {
@@ -2927,19 +3026,35 @@ export default function RegtoolsDiffPage() {
     }
   };
 
+  // Save name/type overrides to local & Firestore
+  const saveAgencyOverrides = async (newOverrides: Record<string, { name: string; type: string }>) => {
+    setAgencyOverrides(newOverrides);
+    localStorage.setItem("regtools_agency_name_type_overrides", JSON.stringify(newOverrides));
+    
+    if (isFirebaseConfigured && db) {
+      try {
+        const { doc, setDoc } = await import("firebase/firestore");
+        const docRef = doc(db, "regtoolsSettings", "agencyNameTypeOverrides");
+        await setDoc(docRef, { overrides: newOverrides, updatedAt: new Date().toISOString() });
+        logAction("update_agency_name_type_overrides", { count: Object.keys(newOverrides).length });
+      } catch (err) {
+        console.error("Erreur lors de la sauvegarde des noms/types sur Firestore :", err);
+      }
+    }
+  };
+
   // Compile all known agencies from static and loaded sources
   const allKnownAgencies = useMemo(() => {
-    const list: { code: string; name: string; currentDelegation: string; currentGouvernorat: string }[] = [];
+    const list: { code: string; name: string; currentType: string; currentDelegation: string; currentGouvernorat: string }[] = [];
     
     // 1. Static agencies
     Object.entries(AGENCY_GEOGRAPHY).forEach(([code, geo]) => {
-      const activeAgency = agencyStats.find(a => normalizeKey(a.agence) === code);
-      const histAgency = resolvedHistoryAgencyStats.find(a => normalizeKey(a.agence) === code);
-      const name = activeAgency?.nom || histAgency?.nom || `Agence ${code}`;
-      const resolvedGeo = resolveAgencyGeography(code, name);
+      const info = resolveAgencyInfo(code);
+      const resolvedGeo = resolveAgencyGeography(code, info.name);
       list.push({
         code,
-        name,
+        name: info.name,
+        currentType: info.type,
         currentDelegation: resolvedGeo.delegation,
         currentGouvernorat: resolvedGeo.gouvernorat
       });
@@ -2952,10 +3067,16 @@ export default function RegtoolsDiffPage() {
         const code = normalizeKey(stat.agence);
         if (code && !processedCodes.has(code)) {
           processedCodes.add(code);
-          const resolvedGeo = resolveAgencyGeography(code, stat.nom);
+          const info = resolveAgencyInfo(code);
+          let finalName = info.name;
+          if (info.name === `Agence ${code}` && stat.nom) {
+            finalName = stat.nom;
+          }
+          const resolvedGeo = resolveAgencyGeography(code, finalName);
           list.push({
             code,
-            name: stat.nom || `Agence ${code}`,
+            name: finalName,
+            currentType: info.type,
             currentDelegation: resolvedGeo.delegation,
             currentGouvernorat: resolvedGeo.gouvernorat
           });
@@ -2967,7 +3088,7 @@ export default function RegtoolsDiffPage() {
     addFromStats(resolvedHistoryAgencyStats);
     
     return list.sort((a, b) => a.code.localeCompare(b.code));
-  }, [agencyStats, resolvedHistoryAgencyStats, resolveAgencyGeography]);
+  }, [agencyStats, resolvedHistoryAgencyStats, resolveAgencyGeography, resolveAgencyInfo]);
 
   const historyAgenciesList = useMemo(() => {
     if (!selectedHistoryReport || !selectedHistoryReport.missingRows) return [];
@@ -6748,7 +6869,7 @@ export default function RegtoolsDiffPage() {
                       onChange={(e) => setActiveSettingsDelegation(e.target.value)}
                       className="text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2 outline-none cursor-pointer"
                     >
-                      {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"].map(d => (
+                      {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Courtiers", "Siège"].map(d => (
                         <option key={`opt-sel-del-${d}`} value={d}>{d}</option>
                       ))}
                     </select>
@@ -6762,43 +6883,117 @@ export default function RegtoolsDiffPage() {
                       if (filtered.length === 0) {
                         return <p className="text-xs text-slate-400 italic col-span-2 text-center py-8">Aucune agence affectée à cette délégation</p>;
                       }
-                      return filtered.map(ag => (
-                        <div 
-                          key={`settings-ag-card-${ag.code}`}
-                          className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl flex flex-col gap-2 shadow-sm"
-                        >
-                          <div>
-                            <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{ag.name}</p>
-                            <p className="text-[10px] text-slate-400 font-medium">Code: {ag.code} • {ag.currentGouvernorat}</p>
-                          </div>
-                          
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <span className="text-[9px] text-slate-400 font-semibold uppercase">Délégation:</span>
-                            <select
-                                value={ag.currentDelegation}
+                      return filtered.map(ag => {
+                        const isBrokerOrSiege = ag.currentType.toLowerCase() === "courtier" || 
+                                                ag.currentType.toLowerCase() === "siege" || 
+                                                ag.currentType.toLowerCase() === "siège";
+                        return (
+                          <div 
+                            key={`settings-ag-card-${ag.code}`}
+                            className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl flex flex-col gap-2.5 shadow-sm hover:shadow transition-shadow"
+                          >
+                            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-1.5">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-slate-150 dark:bg-slate-800 text-slate-700 dark:text-slate-350 rounded-md">
+                                Code: {ag.code}
+                              </span>
+                              <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+                                {ag.currentType}
+                              </span>
+                            </div>
+                            
+                            {/* Nom Input */}
+                            <div className="flex flex-col gap-0.5">
+                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Nom</label>
+                              <input
+                                type="text"
+                                value={ag.name}
                                 onChange={(e) => {
-                                  const newDelegation = e.target.value;
-                                  const updated = { ...geographyOverrides };
-                                  updated[ag.code] = { delegation: newDelegation, gouvernorat: ag.currentGouvernorat };
-                                  saveGeographyOverrides(updated);
+                                  const updated = { ...agencyOverrides };
+                                  updated[ag.code] = { name: e.target.value, type: ag.currentType };
+                                  saveAgencyOverrides(updated);
                                 }}
-                                className="text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md p-1 outline-none text-blue-600 dark:text-blue-400 font-bold cursor-pointer"
-                              >
-                                {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"].map(d => (
-                                  <option key={`opt-move-del-${d}`} value={d}>{d}</option>
-                                ))}
-                              </select>
+                                className="w-full text-xs px-2 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none focus:border-blue-500/50 text-slate-800 dark:text-slate-100"
+                              />
+                            </div>
+
+                            {/* Type & Gouvernorat */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="flex flex-col gap-0.5">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Type</label>
+                                <select
+                                  value={ag.currentType}
+                                  onChange={(e) => {
+                                    const newType = e.target.value;
+                                    const updated = { ...agencyOverrides };
+                                    updated[ag.code] = { name: ag.name, type: newType };
+                                    saveAgencyOverrides(updated);
+                                  }}
+                                  className="w-full text-[11px] p-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none cursor-pointer text-slate-800 dark:text-slate-100 font-medium"
+                                >
+                                  {["Succursale", "Agence", "Courtier", "Bureau direct", "Agent Stagiaire", "siege"].map(t => (
+                                    <option key={`opt-type-${t}`} value={t}>{t === "siege" ? "Siège" : t}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="flex flex-col gap-0.5">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Gouvernorat</label>
+                                <input
+                                  type="text"
+                                  value={ag.currentGouvernorat}
+                                  disabled={isBrokerOrSiege}
+                                  onChange={(e) => {
+                                    const updatedGeo = { ...geographyOverrides };
+                                    updatedGeo[ag.code] = { 
+                                      delegation: ag.currentDelegation, 
+                                      gouvernorat: e.target.value 
+                                    };
+                                    saveGeographyOverrides(updatedGeo);
+                                  }}
+                                  className="w-full text-xs px-2 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none focus:border-blue-500/50 text-slate-800 dark:text-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  placeholder={isBrokerOrSiege ? "-" : "Gouvernorat"}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Délégation Select */}
+                            <div className="flex flex-col gap-0.5">
+                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Délégation</label>
+                              {isBrokerOrSiege ? (
+                                <div className="px-2 py-1 text-[11px] bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold border border-blue-100/50 dark:border-blue-900/30">
+                                  {ag.currentDelegation} (Auto)
+                                </div>
+                              ) : (
+                                <select
+                                  value={ag.currentDelegation}
+                                  onChange={(e) => {
+                                    const newDelegation = e.target.value;
+                                    const updatedGeo = { ...geographyOverrides };
+                                    updatedGeo[ag.code] = { 
+                                      delegation: newDelegation, 
+                                      gouvernorat: ag.currentGouvernorat 
+                                    };
+                                    saveGeographyOverrides(updatedGeo);
+                                  }}
+                                  className="w-full text-[11px] p-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none cursor-pointer text-blue-600 dark:text-blue-400 font-bold"
+                                >
+                                  {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"].map(d => (
+                                    <option key={`opt-move-del-${d}`} value={d}>{d}</option>
+                                  ))}
+                                </select>
+                              )}
                             </div>
                           </div>
-                        ));
-                      })()}
-                    </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
+              </div>
 
-                {/* Right column: Search and direct move */}
-                <div className="w-full md:w-1/3 flex flex-col gap-4 overflow-hidden h-full min-h-0">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Recherche & Actions Rapides</h4>
+              {/* Right column: Search and actions */}
+              <div className="w-full md:w-1/3 flex flex-col gap-4 overflow-hidden h-full min-h-0">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Recherche & Actions Rapides</h4>
                 
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -6823,27 +7018,42 @@ export default function RegtoolsDiffPage() {
                     return filtered.slice(0, 30).map(ag => (
                       <div 
                         key={`settings-search-item-${ag.code}`}
-                        className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-3 shadow-sm"
+                        className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-3 shadow-sm hover:border-blue-500/30 transition-colors"
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{ag.name}</p>
-                          <p className="text-[9px] text-slate-400 font-medium">Code: {ag.code} • {ag.currentDelegation}</p>
+                        <div 
+                          className="min-w-0 flex-1 cursor-pointer"
+                          onClick={() => {
+                            if (["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Courtiers", "Siège"].includes(ag.currentDelegation)) {
+                              setActiveSettingsDelegation(ag.currentDelegation);
+                            }
+                          }}
+                        >
+                          <p className="text-xs font-bold text-slate-800 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400">{ag.name}</p>
+                          <p className="text-[9px] text-slate-400 font-medium">
+                            Code: {ag.code} • {ag.currentType} • <span className="underline">{ag.currentDelegation}</span>
+                          </p>
                         </div>
                         
-                        <select
-                          value={ag.currentDelegation}
-                          onChange={(e) => {
-                            const newDelegation = e.target.value;
-                            const updated = { ...geographyOverrides };
-                            updated[ag.code] = { delegation: newDelegation, gouvernorat: ag.currentGouvernorat };
-                            saveGeographyOverrides(updated);
-                          }}
-                          className="text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md p-1 outline-none text-slate-600 dark:text-slate-300 font-medium shrink-0 cursor-pointer"
-                        >
-                          {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"].map(d => (
-                            <option key={`opt-move-search-del-${d}`} value={d}>{d}</option>
-                          ))}
-                        </select>
+                        {ag.currentType.toLowerCase() === "courtier" || ag.currentType.toLowerCase() === "siege" || ag.currentType.toLowerCase() === "siège" ? (
+                          <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase shrink-0">
+                            {ag.currentDelegation}
+                          </span>
+                        ) : (
+                          <select
+                            value={ag.currentDelegation}
+                            onChange={(e) => {
+                              const newDelegation = e.target.value;
+                              const updated = { ...geographyOverrides };
+                              updated[ag.code] = { delegation: newDelegation, gouvernorat: ag.currentGouvernorat };
+                              saveGeographyOverrides(updated);
+                            }}
+                            className="text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md p-1 outline-none text-slate-600 dark:text-slate-300 font-medium shrink-0 cursor-pointer"
+                          >
+                            {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"].map(d => (
+                              <option key={`opt-move-search-del-${d}`} value={d}>{d}</option>
+                            ))}
+                          </select>
+                        )}
                       </div>
                     ));
                   })()}
@@ -6858,27 +7068,47 @@ export default function RegtoolsDiffPage() {
                 {/* Quick Add Custom Agency Assignment */}
                 <div className="p-3 bg-slate-50 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800 rounded-xl flex flex-col gap-2">
                   <h5 className="text-[10px] font-bold uppercase text-slate-400">Ajouter une affectation spécifique</h5>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-1.5">
                     <input
                       type="text"
                       placeholder="Code"
                       value={settingsNewCode}
                       onChange={(e) => setSettingsNewCode(e.target.value)}
-                      className="w-20 p-1.5 text-[10px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none text-slate-800 dark:text-slate-100"
+                      className="w-full p-1.5 text-[10px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none text-slate-800 dark:text-slate-100"
                     />
                     <input
                       type="text"
-                      placeholder="Gouvernorat"
-                      value={settingsNewGouv}
-                      onChange={(e) => setSettingsNewGouv(e.target.value)}
-                      className="flex-1 p-1.5 text-[10px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none text-slate-800 dark:text-slate-100"
+                      placeholder="Nom de l'agence"
+                      value={settingsNewName}
+                      onChange={(e) => setSettingsNewName(e.target.value)}
+                      className="w-full p-1.5 text-[10px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none text-slate-800 dark:text-slate-100"
                     />
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={settingsNewType}
+                        onChange={(e) => setSettingsNewType(e.target.value)}
+                        className="w-full p-1.5 text-[10px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none cursor-pointer text-slate-700 dark:text-slate-350"
+                      >
+                        {["Succursale", "Agence", "Courtier", "Bureau direct", "Agent Stagiaire", "siege"].map(t => (
+                          <option key={`opt-new-type-${t}`} value={t}>{t === "siege" ? "Siège" : t}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Gouvernorat"
+                        disabled={settingsNewType.toLowerCase() === "courtier" || settingsNewType.toLowerCase() === "siege" || settingsNewType.toLowerCase() === "siège"}
+                        value={settingsNewGouv}
+                        onChange={(e) => setSettingsNewGouv(e.target.value)}
+                        className="w-full p-1.5 text-[10px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none text-slate-800 dark:text-slate-100 disabled:opacity-50"
+                      />
+                    </div>
                   </div>
                   <div className="flex gap-2 items-center">
                     <select
                       value={settingsNewDel}
+                      disabled={settingsNewType.toLowerCase() === "courtier" || settingsNewType.toLowerCase() === "siege" || settingsNewType.toLowerCase() === "siège"}
                       onChange={(e) => setSettingsNewDel(e.target.value)}
-                      className="flex-1 p-1.5 text-[10px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none cursor-pointer text-slate-700 dark:text-slate-350"
+                      className="flex-1 p-1.5 text-[10px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none cursor-pointer text-slate-700 dark:text-slate-350 disabled:opacity-50"
                     >
                       {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"].map(d => (
                         <option key={`opt-new-del-${d}`} value={d}>{d}</option>
@@ -6891,16 +7121,34 @@ export default function RegtoolsDiffPage() {
                           alert("Veuillez saisir un code d'agence.");
                           return;
                         }
-                        const updated = { ...geographyOverrides };
-                        updated[normCode] = { 
-                          delegation: settingsNewDel, 
-                          gouvernorat: settingsNewGouv.trim() || "Tunis" 
+                        
+                        const nameToSave = settingsNewName.trim() || `Agence ${normCode}`;
+                        const typeToSave = settingsNewType;
+                        const updatedOverrides = { ...agencyOverrides };
+                        updatedOverrides[normCode] = { name: nameToSave, type: typeToSave };
+                        saveAgencyOverrides(updatedOverrides);
+
+                        const isBrokerOrSiege = typeToSave.toLowerCase() === "courtier" || 
+                                                typeToSave.toLowerCase() === "siege" || 
+                                                typeToSave.toLowerCase() === "siège";
+                        const finalDel = isBrokerOrSiege 
+                          ? (typeToSave.toLowerCase() === "courtier" ? "Courtiers" : "Siège")
+                          : settingsNewDel;
+                        const finalGouv = isBrokerOrSiege ? "" : (settingsNewGouv.trim() || "Tunis");
+
+                        const updatedGeo = { ...geographyOverrides };
+                        updatedGeo[normCode] = { 
+                          delegation: finalDel, 
+                          gouvernorat: finalGouv 
                         };
-                        saveGeographyOverrides(updated);
+                        saveGeographyOverrides(updatedGeo);
+
                         setSettingsNewCode("");
+                        setSettingsNewName("");
+                        setSettingsNewType("Agence");
                         setSettingsNewGouv("");
                       }}
-                      className="px-3 py-1.5 text-[10px] font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors cursor-pointer shadow-sm"
+                      className="px-3 py-1.5 text-[10px] font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors cursor-pointer shadow-sm shrink-0"
                     >
                       Ajouter
                     </button>
@@ -6911,16 +7159,28 @@ export default function RegtoolsDiffPage() {
 
             {/* Footer */}
             <div className="p-6 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/20 flex items-center justify-between">
-              <button
-                onClick={() => {
-                  if (confirm("Voulez-vous vraiment réinitialiser toutes les surcharges d'affectation ? Cela rétablira les affectations par défaut du code source.")) {
-                    saveGeographyOverrides({});
-                  }
-                }}
-                className="text-xs text-rose-500 hover:underline font-semibold cursor-pointer"
-              >
-                Réinitialiser toutes les affectations
-              </button>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    if (confirm("Voulez-vous vraiment réinitialiser toutes les surcharges de noms et types d'agences ?")) {
+                      saveAgencyOverrides({});
+                    }
+                  }}
+                  className="text-xs text-rose-500 hover:underline font-semibold cursor-pointer"
+                >
+                  Réinitialiser noms/types
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm("Voulez-vous vraiment réinitialiser toutes les surcharges d'affectation géographique ? Cela rétablira les affectations par défaut.")) {
+                      saveGeographyOverrides({});
+                    }
+                  }}
+                  className="text-xs text-rose-500 hover:underline font-semibold cursor-pointer"
+                >
+                  Réinitialiser affectations géographiques
+                </button>
+              </div>
               <button
                 onClick={() => setIsGeoSettingsOpen(false)}
                 className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-sm hover:shadow transition-all cursor-pointer"
