@@ -301,6 +301,37 @@ const resolveAgencyInfo = (code: any) => {
   };
 };
 
+// Helper to clean common UTF-8 mojibake encoding issues (e.g., BÃ©ja -> Béja)
+const cleanMojibake = (str: string): string => {
+  if (!str) return "";
+  let res = String(str);
+  res = res.replace(/Ã©/g, "é");
+  res = res.replace(/Ã‰/g, "É");
+  res = res.replace(/Ã¨/g, "è");
+  res = res.replace(/Ã /g, "à");
+  res = res.replace(/Ã§/g, "ç");
+  res = res.replace(/Ã¹/g, "ù");
+  res = res.replace(/Ã¢/g, "â");
+  res = res.replace(/Ãª/g, "ê");
+  res = res.replace(/Ã®/g, "î");
+  res = res.replace(/Ã´/g, "ô");
+  res = res.replace(/Ã»/g, "û");
+  res = res.replace(/Ã«/g, "ë");
+  res = res.replace(/Ã¯/g, "ï");
+  res = res.replace(/Ã\u00A0/g, "à");
+  res = res.replace(/Ã‰/g, "É");
+  res = res.replace(/Ãˆ/g, "È");
+  res = res.replace(/Ã€/g, "À");
+  res = res.replace(/Ã‡/g, "Ç");
+  res = res.replace(/Ã‚/g, "Â");
+  res = res.replace(/ÃŠ/g, "Ê");
+  res = res.replace(/ÃŽ/g, "Î");
+  res = res.replace(/Ã”/g, "Ô");
+  res = res.replace(/Ã›/g, "Û");
+  res = res.replace(/\u00A0/g, " ");
+  return res;
+};
+
 // Excel Date formatting helper
 const formatExcelValue = (colName: string, val: any): string => {
   if (val === undefined || val === null || val === "") return "";
@@ -326,7 +357,8 @@ const resolveAgencyFromText = (text: any) => {
   if (text === undefined || text === null || text === "") {
     return { code: "", name: "Non spécifié", type: "-" };
   }
-  const str = String(text).trim().toLowerCase();
+  const cleaned = cleanMojibake(String(text).trim());
+  const str = cleaned.toLowerCase();
   
   // Check if it's already a numeric code
   const codeMatch = str.match(/\b\d+\b/);
@@ -340,7 +372,7 @@ const resolveAgencyFromText = (text: any) => {
   // Try to match the name
   const entries = Object.entries(AGENCY_MAPPING).sort((a, b) => b[1].name.length - a[1].name.length);
   for (const [code, info] of entries) {
-    const normName = info.name.toLowerCase();
+    const normName = cleanMojibake(info.name).toLowerCase();
     if (str.includes(normName)) {
       return { code, ...info };
     }
@@ -348,15 +380,16 @@ const resolveAgencyFromText = (text: any) => {
 
   // Try flexible words match
   for (const [code, info] of entries) {
-    const nameWords = info.name.toLowerCase().replace(/[()]/g, "").split(/\s+/).filter(w => w.length > 2 && w !== "agent" && w !== "agence");
+    const normNameCleaned = cleanMojibake(info.name);
+    const nameWords = normNameCleaned.toLowerCase().replace(/[()]/g, "").split(/\s+/).filter(w => w.length > 2 && w !== "agent" && w !== "agence");
     if (nameWords.length > 0 && nameWords.every(word => str.includes(word))) {
       return { code, ...info };
     }
   }
 
   return {
-    code: text,
-    name: text,
+    code: cleaned,
+    name: cleaned,
     type: "Inconnu"
   };
 };
@@ -810,7 +843,8 @@ export default function RegtoolsDiffPage() {
     if (code === undefined || code === null) {
       return { code: "", name: "Non spécifié", type: "-" };
     }
-    const normalizedCode = String(code).trim().replace(/^0+(?!$)/, '');
+    const cleanedCode = cleanMojibake(String(code).trim());
+    const normalizedCode = cleanedCode.replace(/^0+(?!$)/, '');
     
     // Check state overrides first
     if (agencyOverrides[normalizedCode]) {
@@ -852,6 +886,26 @@ export default function RegtoolsDiffPage() {
       type: "Inconnu"
     };
   }, [agencyOverrides]);
+
+  const renderTableCellContent = useCallback((col: string, val: any, isHistory: boolean = false) => {
+    if (val === undefined || val === null || val === "") return "";
+    
+    // Check if it is the agency column
+    const agCol = isHistory
+      ? (selectedHistoryReport?.mapping?.nsAgence || selectedHistoryReport?.mapping?.vieAgence || "")
+      : (mapping.nsAgence || mapping.vieAgence || "");
+      
+    if (col === agCol) {
+      const info = resolveAgencyInfo(val);
+      if (info.code) {
+        if (info.name && info.name !== `Agence ${info.code}`) {
+          return `${info.name} (${info.code})`;
+        }
+        return info.code;
+      }
+    }
+    return formatExcelValue(col, val);
+  }, [mapping.nsAgence, mapping.vieAgence, selectedHistoryReport, resolveAgencyInfo]);
 
   const resolveAgencyGeography = useCallback((code: any, name?: string) => {
     const normCode = String(code || "").trim().replace(/^0+(?!$)/, "");
@@ -1991,7 +2045,7 @@ export default function RegtoolsDiffPage() {
       const agencyCol = isVie ? mapping.vieAgence : mapping.nsAgence;
       const agenceVal = row[agencyCol];
       let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
-      if (isVie && agenceStr !== "Non spécifié") {
+      if (agenceStr !== "Non spécifié") {
         agenceStr = resolveAgencyFromText(agenceStr).code;
       }
       if (!statsMap.has(agenceStr)) {
@@ -2009,7 +2063,7 @@ export default function RegtoolsDiffPage() {
       const agencyCol = isVie ? mapping.vieAgence : mapping.nsAgence;
       const agenceVal = row[agencyCol];
       let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
-      if (isVie && agenceStr !== "Non spécifié") {
+      if (agenceStr !== "Non spécifié") {
         agenceStr = resolveAgencyFromText(agenceStr).code;
       }
       if (statsMap.has(agenceStr)) {
@@ -2144,7 +2198,7 @@ export default function RegtoolsDiffPage() {
       const geo = resolveAgencyGeography(stat.agence, stat.nom);
       return geo.delegation === selectedDelegation;
     });
-  }, [agencyStats, selectedDelegation]);
+  }, [agencyStats, selectedDelegation, resolveAgencyGeography]);
 
   const globalStats = useMemo(() => {
     if (!comparisonDone || (!data.ns && !data.vie)) return null;
@@ -2594,7 +2648,7 @@ export default function RegtoolsDiffPage() {
       rawRows.forEach(row => {
         const agenceVal = row[agencyCol];
         let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
-        if (isVie && agenceStr !== "Non spécifié") {
+        if (agenceStr !== "Non spécifié") {
           agenceStr = resolveAgencyFromText(agenceStr).code;
         }
         if (!statsMap.has(agenceStr)) {
@@ -2606,7 +2660,7 @@ export default function RegtoolsDiffPage() {
       missingRowsList.forEach(row => {
         const agenceVal = row[agencyCol];
         let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
-        if (isVie && agenceStr !== "Non spécifié") {
+        if (agenceStr !== "Non spécifié") {
           agenceStr = resolveAgencyFromText(agenceStr).code;
         }
         if (statsMap.has(agenceStr)) {
@@ -2885,23 +2939,31 @@ export default function RegtoolsDiffPage() {
       rawStats = selectedHistoryReport.agencyStats || [];
     }
 
-    return rawStats.map((stat: any) => {
-      if (stat.nom && stat.type) {
-        // Still re-resolve name and type in case the admin modified them
-        const info = resolveAgencyInfo(stat.agence);
-        return {
-          ...stat,
-          nom: info.name,
-          type: info.type
-        };
-      }
+    // Merge duplicate stats that resolve to the same code (e.g. 108 and BÃ©ja)
+    const mergedMap = new Map<string, any>();
+    rawStats.forEach((stat: any) => {
       const info = resolveAgencyInfo(stat.agence);
-      return {
-        ...stat,
-        nom: info.name,
-        type: info.type
-      };
+      const code = info.code || stat.agence;
+      if (!mergedMap.has(code)) {
+        mergedMap.set(code, {
+          ...stat,
+          agence: code,
+          nom: info.name,
+          type: info.type,
+          total: 0,
+          existing: 0,
+          missing: 0
+        });
+      }
+      const existing = mergedMap.get(code)!;
+      existing.total += (stat.total || 0);
+      existing.missing += (stat.missing || 0);
+      existing.existing = existing.total - existing.missing;
+      existing.pctMissing = existing.total > 0 ? parseFloat(((existing.missing / existing.total) * 100).toFixed(2)) : 0;
+      existing.pctExisting = existing.total > 0 ? parseFloat(((existing.existing / existing.total) * 100).toFixed(2)) : 0;
     });
+
+    return Array.from(mergedMap.values());
   }, [selectedHistoryReport, historyPortfolioFilter, resolveAgencyInfo]);
 
   const sortedHistoryAgencyStats = useMemo(() => {
@@ -4835,9 +4897,13 @@ export default function RegtoolsDiffPage() {
                           className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[150px]"
                         >
                           <option value="ALL">Toutes les agences</option>
-                          {agenciesList.map(agence => (
-                            <option key={`filter-agence-${agence}`} value={agence}>{agence}</option>
-                          ))}
+                          {agenciesList.map(agence => {
+                            const info = resolveAgencyInfo(agence);
+                            const displayName = info.name !== `Agence ${agence}` ? `${info.name} (${agence})` : agence;
+                            return (
+                              <option key={`filter-agence-${agence}`} value={agence}>{displayName}</option>
+                            );
+                          })}
                         </select>
                       </div>
 
@@ -4963,9 +5029,9 @@ export default function RegtoolsDiffPage() {
                                       col === mapping.nsId && "font-bold text-purple-600 dark:text-purple-400",
                                       col === mapping.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
                                     )}
-                                    title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                    title={row[col] !== undefined && row[col] !== null ? renderTableCellContent(col, row[col]) : ""}
                                   >
-                                    {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                    {row[col] !== undefined && row[col] !== null ? renderTableCellContent(col, row[col]) : ""}
                                   </td>
                                 ))}
                               </tr>
@@ -5068,9 +5134,13 @@ export default function RegtoolsDiffPage() {
                           className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[150px]"
                         >
                           <option value="ALL">Toutes les agences</option>
-                          {agenciesList.map(agence => (
-                            <option key={`filter-similar-agence-${agence}`} value={agence}>{agence}</option>
-                          ))}
+                          {agenciesList.map(agence => {
+                            const info = resolveAgencyInfo(agence);
+                            const displayName = info.name !== `Agence ${agence}` ? `${info.name} (${agence})` : agence;
+                            return (
+                              <option key={`filter-similar-agence-${agence}`} value={agence}>{displayName}</option>
+                            );
+                          })}
                         </select>
                       </div>
 
@@ -5196,9 +5266,9 @@ export default function RegtoolsDiffPage() {
                                       col === mapping.nsId && "font-bold text-purple-600 dark:text-purple-400",
                                       col === mapping.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
                                     )}
-                                    title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                    title={row[col] !== undefined && row[col] !== null ? renderTableCellContent(col, row[col]) : ""}
                                   >
-                                    {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                    {row[col] !== undefined && row[col] !== null ? renderTableCellContent(col, row[col]) : ""}
                                   </td>
                                 ))}
                               </tr>
@@ -6045,9 +6115,13 @@ export default function RegtoolsDiffPage() {
                               className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[150px]"
                             >
                               <option value="ALL">Toutes les agences</option>
-                              {historySimilarAgenciesList.map(agence => (
-                                <option key={`history-similar-filter-agence-${agence}`} value={agence}>{agence}</option>
-                              ))}
+                              {historySimilarAgenciesList.map(agence => {
+                                const info = resolveAgencyInfo(agence);
+                                const displayName = info.name !== `Agence ${agence}` ? `${info.name} (${agence})` : agence;
+                                return (
+                                  <option key={`history-similar-filter-agence-${agence}`} value={agence}>{displayName}</option>
+                                );
+                              })}
                             </select>
                           </div>
 
@@ -6186,9 +6260,9 @@ export default function RegtoolsDiffPage() {
                                           col === selectedHistoryReport.mapping?.nsId && "font-bold text-purple-600 dark:text-purple-400",
                                           col === selectedHistoryReport.mapping?.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
                                         )}
-                                        title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                        title={row[col] !== undefined && row[col] !== null ? renderTableCellContent(col, row[col], true) : ""}
                                       >
-                                        {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                        {row[col] !== undefined && row[col] !== null ? renderTableCellContent(col, row[col], true) : ""}
                                       </td>
                                     ))}
                                   </tr>
@@ -6292,9 +6366,13 @@ export default function RegtoolsDiffPage() {
                           className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[150px]"
                         >
                           <option value="ALL">Toutes les agences</option>
-                          {historyAgenciesList.map(agence => (
-                            <option key={`history-filter-agence-${agence}`} value={agence}>{agence}</option>
-                          ))}
+                          {historyAgenciesList.map(agence => {
+                            const info = resolveAgencyInfo(agence);
+                            const displayName = info.name !== `Agence ${agence}` ? `${info.name} (${agence})` : agence;
+                            return (
+                              <option key={`history-filter-agence-${agence}`} value={agence}>{displayName}</option>
+                            );
+                          })}
                         </select>
                       </div>
 
@@ -6433,9 +6511,9 @@ export default function RegtoolsDiffPage() {
                                       col === selectedHistoryReport.mapping?.nsId && "font-bold text-purple-600 dark:text-purple-400",
                                       col === selectedHistoryReport.mapping?.nsAgence && "font-bold text-blue-600 dark:text-blue-400"
                                     )}
-                                    title={row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                    title={row[col] !== undefined && row[col] !== null ? renderTableCellContent(col, row[col], true) : ""}
                                   >
-                                    {row[col] !== undefined && row[col] !== null ? formatExcelValue(col, row[col]) : ""}
+                                    {row[col] !== undefined && row[col] !== null ? renderTableCellContent(col, row[col], true) : ""}
                                   </td>
                                 ))}
                               </tr>
