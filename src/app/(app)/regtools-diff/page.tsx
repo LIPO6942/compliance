@@ -286,10 +286,10 @@ const resolveAgencyInfo = (code: any) => {
   }
 
   // Try to find by name matching
-  const normalizedStr = normalizedCode.toLowerCase();
+  const normalizedStr = normalizeForMatching(normalizedCode);
   const entries = Object.entries(AGENCY_MAPPING);
   for (const [c, inf] of entries) {
-    if (inf.name.toLowerCase() === normalizedStr) {
+    if (normalizeForMatching(inf.name) === normalizedStr) {
       return { code: c, name: inf.name, type: inf.type };
     }
   }
@@ -332,6 +332,27 @@ const cleanMojibake = (str: string): string => {
   return res;
 };
 
+// Helper to normalize strings for robust comparison (handles accents, spaces, and punctuation)
+const normalizeForMatching = (str: string): string => {
+  if (!str) return "";
+  let res = cleanMojibake(str).toLowerCase();
+  res = res.replace(/jaurès/g, "jaure")
+           .replace(/jaures/g, "jaure")
+           .replace(/jaurÃ¨'s/g, "jaure")
+           .replace(/jaurÃ¨s/g, "jaure")
+           .replace(/jaurè's/g, "jaure")
+           .replace(/jaurè/g, "jaure");
+  res = res.replace(/[éèêë]/g, "e")
+           .replace(/[àâä]/g, "a")
+           .replace(/[ôö]/g, "o")
+           .replace(/[ùûü]/g, "u")
+           .replace(/[ç]/g, "c")
+           .replace(/[îï]/g, "i");
+  res = res.replace(/['’`\-_]/g, " ");
+  res = res.replace(/\s+/g, " ").trim();
+  return res;
+};
+
 // Excel Date formatting helper
 const formatExcelValue = (colName: string, val: any): string => {
   if (val === undefined || val === null || val === "") return "";
@@ -358,10 +379,10 @@ const resolveAgencyFromText = (text: any) => {
     return { code: "", name: "Non spécifié", type: "-" };
   }
   const cleaned = cleanMojibake(String(text).trim());
-  const str = cleaned.toLowerCase();
+  const strNormalized = normalizeForMatching(cleaned);
   
   // Check if it's already a numeric code
-  const codeMatch = str.match(/\b\d+\b/);
+  const codeMatch = strNormalized.match(/\b\d+\b/);
   if (codeMatch) {
     const code = codeMatch[0].replace(/^0+(?!$)/, '');
     if (AGENCY_MAPPING[code]) {
@@ -372,17 +393,17 @@ const resolveAgencyFromText = (text: any) => {
   // Try to match the name
   const entries = Object.entries(AGENCY_MAPPING).sort((a, b) => b[1].name.length - a[1].name.length);
   for (const [code, info] of entries) {
-    const normName = cleanMojibake(info.name).toLowerCase();
-    if (str.includes(normName)) {
+    const normName = normalizeForMatching(info.name);
+    if (strNormalized.includes(normName)) {
       return { code, ...info };
     }
   }
 
   // Try flexible words match
   for (const [code, info] of entries) {
-    const normNameCleaned = cleanMojibake(info.name);
-    const nameWords = normNameCleaned.toLowerCase().replace(/[()]/g, "").split(/\s+/).filter(w => w.length > 2 && w !== "agent" && w !== "agence");
-    if (nameWords.length > 0 && nameWords.every(word => str.includes(word))) {
+    const normName = normalizeForMatching(info.name);
+    const nameWords = normName.replace(/[()]/g, "").split(/\s+/).filter(w => w.length > 2 && w !== "agent" && w !== "agence");
+    if (nameWords.length > 0 && nameWords.every(word => strNormalized.includes(word))) {
       return { code, ...info };
     }
   }
@@ -866,16 +887,16 @@ export default function RegtoolsDiffPage() {
     }
 
     // Try name match on state overrides
-    const normalizedStr = normalizedCode.toLowerCase();
+    const normalizedStr = normalizeForMatching(normalizedCode);
     for (const [c, inf] of Object.entries(agencyOverrides)) {
-      if (inf.name.toLowerCase() === normalizedStr) {
+      if (normalizeForMatching(inf.name) === normalizedStr) {
         return { code: c, name: inf.name, type: inf.type };
       }
     }
 
     // Try name match on static mapping
     for (const [c, inf] of Object.entries(AGENCY_MAPPING)) {
-      if (inf.name.toLowerCase() === normalizedStr) {
+      if (normalizeForMatching(inf.name) === normalizedStr) {
         return { code: c, name: inf.name, type: inf.type };
       }
     }
