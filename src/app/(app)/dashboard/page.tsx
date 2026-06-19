@@ -4,8 +4,10 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle, X, Zap } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle, X, Zap, ChevronDown, Award } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
+import { db, isFirebaseConfigured } from "@/lib/firebase";
+import { getAgencyGeography } from "@/data/agencyGeography";
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
@@ -78,9 +80,242 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [isClient, setIsClient] = React.useState(false);
 
+  const [regtoolsHistory, setRegtoolsHistory] = React.useState<any[]>([]);
+  const [loadingRegtools, setLoadingRegtools] = React.useState(true);
+
   React.useEffect(() => {
     setIsClient(true);
   }, []);
+
+  React.useEffect(() => {
+    const fetchRegtoolsHistory = async () => {
+      let reportsList: any[] = [];
+      // 1. Fetch from Firestore if configured
+      if (isFirebaseConfigured && db) {
+        try {
+          const { collection, getDocs, orderBy, query } = await import("firebase/firestore");
+          const q = query(collection(db, "regtoolsHistory"), orderBy("savedAt", "desc"));
+          const querySnapshot = await getDocs(q);
+          querySnapshot.forEach((docSnap) => {
+            reportsList.push({ id: docSnap.id, ...docSnap.data() });
+          });
+        } catch (err) {
+          console.error("Erreur lors de la lecture de l'historique Firestore :", err);
+        }
+      }
+
+      // 2. Load from localStorage as fallback or merge
+      try {
+        const localHistoryJSON = localStorage.getItem("regtools_history_list");
+        if (localHistoryJSON) {
+          const localList = JSON.parse(localHistoryJSON);
+          localList.forEach((localReport: any) => {
+            if (!reportsList.some(r => r.monthKey === localReport.monthKey)) {
+              reportsList.push(localReport);
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Erreur lors de la lecture de l'historique local :", err);
+      }
+
+      // Fetch full details if needed (especially agencyStats)
+      for (let i = 0; i < reportsList.length; i++) {
+        const r = reportsList[i];
+        if (!r.agencyStats) {
+          try {
+            const fullLocalReportJSON = localStorage.getItem(`regtools_report_${r.monthKey}`);
+            if (fullLocalReportJSON) {
+              const fullLocal = JSON.parse(fullLocalReportJSON);
+              reportsList[i] = { ...reportsList[i], ...fullLocal };
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      }
+
+      // Sort by monthKey descending
+      reportsList.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+      setRegtoolsHistory(reportsList);
+      setLoadingRegtools(false);
+    };
+
+    fetchRegtoolsHistory();
+  }, []);
+
+  // Group reports by month (e.g. "Juin 2026")
+  const reportsByMonth = React.useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    regtoolsHistory.forEach(r => {
+      const label = r.monthLabel || "Inconnu";
+      if (!groups[label]) groups[label] = [];
+      groups[label].push(r);
+    });
+    return groups;
+  }, [regtoolsHistory]);
+
+  const latestMonthLabel = React.useMemo(() => {
+    if (regtoolsHistory.length === 0) return null;
+    const sorted = [...regtoolsHistory].sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+    return sorted[0].monthLabel;
+  }, [regtoolsHistory]);
+
+  const latestReports = React.useMemo(() => {
+    if (!latestMonthLabel) return [];
+    return regtoolsHistory.filter(r => r.monthLabel === latestMonthLabel);
+  }, [regtoolsHistory, latestMonthLabel]);
+
+  const latestGlobalStats = React.useMemo(() => {
+    let total = 0;
+    let missing = 0;
+    latestReports.forEach(r => {
+      if (r.globalStats) {
+        total += r.globalStats.total || 0;
+        missing += r.globalStats.missing || 0;
+      }
+    });
+    const existing = total - missing;
+    const pctMissing = total > 0 ? parseFloat(((missing / total) * 100).toFixed(2)) : 0;
+    const pctExisting = total > 0 ? parseFloat(((existing / total) * 100).toFixed(2)) : 0;
+    return { total, missing, existing, pctMissing, pctExisting };
+  }, [latestReports]);
+
+  // Regional breakdown by delegation for the latest month
+  const delegationStats = React.useMemo(() => {
+    const delMap: Record<string, { name: string; total: number; missing: number }> = {};
+    
+    latestReports.forEach(r => {
+      const stats = r.agencyStats || [];
+      stats.forEach((stat: any) => {
+        const geo = getAgencyGeography(stat.agence, stat.nom);
+        const delName = geo.delegation || "Autre";
+        if (!delMap[delName]) {
+          delMap[delName] = { name: delName, total: 0, missing: 0 };
+        }
+        delMap[delName].total += stat.total || 0;
+        delMap[delName].missing += stat.missing || 0;
+      });
+    });
+
+    return Object.values(delMap).map(del => {
+      const existing = del.total - del.missing;
+      const pctMissing = del.total > 0 ? parseFloat(((del.missing / del.total) * 100).toFixed(2)) : 0;
+      const pctExisting = del.total > 0 ? parseFloat(((existing / del.total) * 100).toFixed(2)) : 0;
+      return {
+        ...del,
+        existing,
+        pctMissing,
+        pctExisting
+      };
+    }).sort((a, b) => b.pctMissing - a.pctMissing);
+  }, [latestReports]);
+
+  // Top 5 critical agencies (highest missing rates)
+  const criticalAgencies = React.useMemo(() => {
+    const agencyMap: Record<string, { code: string; nom: string; type: string; total: number; missing: number }> = {};
+    
+    latestReports.forEach(r => {
+      const stats = r.agencyStats || [];
+      stats.forEach((stat: any) => {
+        const code = stat.agence;
+        if (!agencyMap[code]) {
+          agencyMap[code] = {
+            code,
+            nom: stat.nom,
+            type: stat.type,
+            total: 0,
+            missing: 0
+          };
+        }
+        agencyMap[code].total += stat.total || 0;
+        agencyMap[code].missing += stat.missing || 0;
+      });
+    });
+
+    return Object.values(agencyMap)
+      .map(a => {
+        const existing = a.total - a.missing;
+        const pctMissing = a.total > 0 ? parseFloat(((a.missing / a.total) * 100).toFixed(2)) : 0;
+        const pctExisting = a.total > 0 ? parseFloat(((existing / a.total) * 100).toFixed(2)) : 0;
+        return {
+          ...a,
+          existing,
+          pctMissing,
+          pctExisting
+        };
+      })
+      .filter(a => a.total >= 5) // Exclude very small sample size
+      .sort((a, b) => b.pctMissing - a.pctMissing)
+      .slice(0, 5);
+  }, [latestReports]);
+
+  // Monthly trends for line chart
+  const monthlyTrendStats = React.useMemo(() => {
+    const trend: any[] = [];
+    Object.entries(reportsByMonth).forEach(([label, reports]) => {
+      let total = 0;
+      let missing = 0;
+      reports.forEach(r => {
+        if (r.globalStats) {
+          total += r.globalStats.total || 0;
+          missing += r.globalStats.missing || 0;
+        }
+      });
+      const pctMissing = total > 0 ? parseFloat(((missing / total) * 100).toFixed(2)) : 0;
+      const pctExisting = total > 0 ? parseFloat((((total - missing) / total) * 100).toFixed(2)) : 0;
+      
+      const minSavedAt = reports.reduce((min, r) => r.savedAt < min ? r.savedAt : min, reports[0].savedAt);
+      
+      trend.push({
+        month: label,
+        savedAt: minSavedAt,
+        total,
+        missing,
+        pctMissing,
+        pctExisting
+      });
+    });
+
+    return trend.sort((a, b) => new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime());
+  }, [reportsByMonth]);
+
+  // NS vs VIE Portfolio Comparison for the latest month
+  const portfolioComparison = React.useMemo(() => {
+    let nsTotal = 0;
+    let nsMissing = 0;
+    let vieTotal = 0;
+    let vieMissing = 0;
+
+    latestReports.forEach(r => {
+      if (r.reconciliationType === "NS") {
+        nsTotal += r.globalStats?.total || 0;
+        nsMissing += r.globalStats?.missing || 0;
+      } else if (r.reconciliationType === "VIE") {
+        vieTotal += r.globalStats?.total || 0;
+        vieMissing += r.globalStats?.missing || 0;
+      }
+    });
+
+    const nsPctMissing = nsTotal > 0 ? parseFloat(((nsMissing / nsTotal) * 100).toFixed(2)) : 0;
+    const viePctMissing = vieTotal > 0 ? parseFloat(((vieMissing / vieTotal) * 100).toFixed(2)) : 0;
+
+    return [
+      { name: "Non-Vie (NS)", total: nsTotal, missing: nsMissing, pctMissing: nsPctMissing, fill: "#2563eb" },
+      { name: "Assurance VIE", total: vieTotal, missing: vieMissing, pctMissing: viePctMissing, fill: "#c084fc" }
+    ].filter(p => p.total > 0);
+  }, [latestReports]);
+
+  const monthlyKycTrendIndicator = React.useMemo(() => {
+    if (monthlyTrendStats.length < 2) return null;
+    const current = monthlyTrendStats[monthlyTrendStats.length - 1];
+    const previous = monthlyTrendStats[monthlyTrendStats.length - 2];
+    const diff = parseFloat((current.pctMissing - previous.pctMissing).toFixed(2));
+    return {
+      diff,
+      improved: diff < 0
+    };
+  }, [monthlyTrendStats]);
 
   React.useEffect(() => {
     if (planData && documents && identifiedRegulations && risks) {
@@ -935,6 +1170,225 @@ export default function DashboardPage() {
           </div>
 
         </div>
+
+        {/* Analyse KYC & Rapprochement RegTools Section */}
+        {loadingRegtools ? (
+          <Card className="border-none shadow-xl p-6 bg-white dark:bg-slate-900">
+            <div className="flex items-center justify-center py-10 gap-2">
+              <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+              <span className="text-sm font-semibold text-slate-500">Chargement de l'analyse RegTools...</span>
+            </div>
+          </Card>
+        ) : regtoolsHistory.length === 0 ? (
+          <Card className="border-2 border-dashed rounded-3xl p-8 text-center bg-slate-50/50 dark:bg-slate-900/10 hover:bg-slate-50 transition-all cursor-pointer" onClick={() => router.push('/regtools-diff')}>
+            <ShieldAlert className="h-10 w-10 text-amber-500 mx-auto mb-3 opacity-60" />
+            <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">Analyse de Conformité KYC (RegTools)</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto leading-relaxed">
+              Aucun rapport mensuel n'a été enregistré. Accédez à l'outil de rapprochement RegTools pour importer vos portefeuilles et sauvegarder vos rapports.
+            </p>
+            <Button size="sm" className="mt-4 bg-primary rounded-xl">
+              Lancer un Rapprochement
+            </Button>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center gap-4 flex-wrap">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white uppercase italic">
+                  Analyse de Conformité KYC <span className="text-primary font-black">RegTools</span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
+                  Rapport mensuel basé sur la période de <span className="font-bold text-slate-700 dark:text-slate-300">{latestMonthLabel}</span>
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => router.push('/regtools-diff')} className="shadow-sm border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-xl text-xs font-bold uppercase tracking-wider">
+                Accéder à l'Outil de Rapprochement <ArrowRight className="h-3 w-3 ml-1.5" />
+              </Button>
+            </div>
+
+            {/* KPI Cards Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="shadow-lg border-none bg-white dark:bg-slate-900 p-5 rounded-2xl relative overflow-hidden flex items-center gap-4">
+                <div className="p-3.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl shrink-0">
+                  <ShieldAlert className="h-6 w-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Taux d'Absence KYC</span>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className="text-2xl font-black text-rose-600 dark:text-rose-400">{latestGlobalStats.pctMissing}%</span>
+                    {monthlyKycTrendIndicator && (
+                      <span className={cn(
+                        "text-[9px] font-bold px-1 py-0.5 rounded-md flex items-center",
+                        monthlyKycTrendIndicator.improved 
+                          ? "bg-emerald-500/10 text-emerald-600" 
+                          : "bg-rose-500/10 text-rose-600"
+                      )}>
+                        {monthlyKycTrendIndicator.diff > 0 ? "+" : ""}{monthlyKycTrendIndicator.diff}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="shadow-lg border-none bg-white dark:bg-slate-900 p-5 rounded-2xl relative overflow-hidden flex items-center gap-4">
+                <div className="p-3.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl shrink-0">
+                  <Users className="h-6 w-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Dossiers Rapprochés</span>
+                  <p className="text-2xl font-black text-slate-800 dark:text-white mt-0.5">
+                    {latestGlobalStats.total.toLocaleString("fr-FR")}
+                  </p>
+                </div>
+              </Card>
+
+              <Card className="shadow-lg border-none bg-white dark:bg-slate-900 p-5 rounded-2xl relative overflow-hidden flex items-center gap-4">
+                <div className="p-3.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-xl shrink-0">
+                  <Target className="h-6 w-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Écarts (KYC Absents)</span>
+                  <p className="text-2xl font-black text-rose-500 mt-0.5">
+                    {latestGlobalStats.missing.toLocaleString("fr-FR")}
+                  </p>
+                </div>
+              </Card>
+
+              <Card className="shadow-lg border-none bg-white dark:bg-slate-900 p-5 rounded-2xl relative overflow-hidden flex items-center gap-4">
+                <div className="p-3.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl shrink-0">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Taux de KYC Présents</span>
+                  <p className="text-2xl font-black text-emerald-600 mt-0.5">
+                    {latestGlobalStats.pctExisting}%
+                  </p>
+                </div>
+              </Card>
+            </div>
+
+            {/* Graphs Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Delegation Bar Chart */}
+              <Card className="lg:col-span-7 bg-white dark:bg-slate-900 border-none shadow-xl p-5 flex flex-col gap-4">
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-white text-sm">Taux de Manquement KYC par Délégation</h3>
+                  <p className="text-[10px] text-slate-400 font-medium">Pourcentage de clients sans fiche KYC réglementaire</p>
+                </div>
+                <div className="h-[260px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={delegationStats}
+                      layout="vertical"
+                      margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                      <XAxis type="number" fontSize={9} stroke="#94a3b8" unit="%" />
+                      <YAxis dataKey="name" type="category" width={80} fontSize={9} stroke="#94a3b8" />
+                      <RechartsTooltip
+                        formatter={(value) => [`${value}% d'absence`, 'Absence KYC']}
+                        contentStyle={{ fontSize: 10, borderRadius: 12, border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                      />
+                      <Bar dataKey="pctMissing" radius={[0, 4, 4, 0]} barSize={12}>
+                        {delegationStats.map((entry, index) => (
+                          <Cell key={`del-cell-${index}`} fill={entry.pctMissing > 15 ? "#ef4444" : entry.pctMissing > 5 ? "#f97316" : "#10b981"} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+
+              {/* Monthly Trend Line Chart */}
+              <Card className="lg:col-span-5 bg-white dark:bg-slate-900 border-none shadow-xl p-5 flex flex-col justify-between gap-4">
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-white text-sm">Tendance Mensuelle de Conformité</h3>
+                  <p className="text-[10px] text-slate-400 font-medium">Évolution du taux d'absence et de conformité KYC</p>
+                </div>
+                <div className="h-[220px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={monthlyTrendStats} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="month" fontSize={9} stroke="#94a3b8" />
+                      <YAxis fontSize={9} stroke="#94a3b8" unit="%" domain={[0, 100]} />
+                      <RechartsTooltip contentStyle={{ fontSize: 10, borderRadius: 12, border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                      <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: 9, fontWeight: 900 }} />
+                      <Line type="monotone" name="KYC Présent (%)" dataKey="pctExisting" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                      <Line type="monotone" name="KYC Absent (%)" dataKey="pctMissing" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            </div>
+
+            {/* Critical Agencies & Portfolio comparison */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Top 5 Critical Agencies */}
+              <Card className="bg-white dark:bg-slate-900 border-none shadow-xl p-5 flex flex-col gap-4">
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-white text-sm">Top 5 des Agences les plus Critiques</h3>
+                  <p className="text-[10px] text-slate-400 font-medium">Taux d'absence de KYC le plus élevé (min. 5 clients)</p>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {criticalAgencies.map((agency, idx) => (
+                    <div 
+                      key={`critical-ag-${idx}`}
+                      className="p-3 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 rounded-xl flex items-center justify-between gap-3 transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex items-center justify-center h-6 w-6 font-bold text-xs bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-lg shrink-0">
+                          {idx + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{agency.nom}</p>
+                          <p className="text-[9px] text-slate-400 font-medium">Code {agency.code} • {agency.type}</p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-extrabold text-rose-600 dark:text-rose-400">{agency.pctMissing}%</p>
+                        <p className="text-[9px] text-slate-400 font-medium">{agency.missing} absents / {agency.total}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              {/* Portfolio Comparison */}
+              <Card className="bg-white dark:bg-slate-900 border-none shadow-xl p-5 flex flex-col justify-between gap-4">
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-white text-sm">Taux d'Absence par Portefeuille</h3>
+                  <p className="text-[10px] text-slate-400 font-medium">Comparaison des manquements KYC entre Non-Vie et Assurance VIE</p>
+                </div>
+                <div className="flex flex-col gap-6 justify-center flex-1">
+                  {portfolioComparison.map((port, idx) => (
+                    <div key={`port-comp-${idx}`} className="space-y-2">
+                      <div className="flex justify-between items-center text-xs font-bold">
+                        <span className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: port.fill }} />
+                          {port.name}
+                        </span>
+                        <span className="text-rose-600 font-black">{port.pctMissing}% d'absence</span>
+                      </div>
+                      <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full rounded-full transition-all duration-1000"
+                          style={{ width: `${port.pctMissing}%`, backgroundColor: port.fill }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[9px] text-slate-400 font-medium">
+                        <span>{(port.total - port.missing).toLocaleString("fr-FR")} dossiers conformes</span>
+                        <span>{port.missing.toLocaleString("fr-FR")} écarts</span>
+                      </div>
+                    </div>
+                  ))}
+                  {portfolioComparison.length === 0 && (
+                    <p className="text-xs text-slate-400 italic text-center py-6">Pas de données comparatives disponibles.</p>
+                  )}
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
 
         {/* Action shortcuts */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
