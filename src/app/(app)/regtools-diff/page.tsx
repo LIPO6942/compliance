@@ -1495,20 +1495,34 @@ export default function RegtoolsDiffPage() {
     try {
       const agenceStr = selectedAgency === "ALL" ? "Toutes les agences" : selectedAgency;
       const currentDate = new Date().toLocaleDateString("fr-FR");
-      const isVie = reconciliationType === "VIE";
-      const fileLabel = isVie ? "VIE" : "NS";
+      
+      const fileLabel = portfolioFilter === "ALL" ? "NS_VIE" : portfolioFilter;
 
-      const exportHeaders = [...columns.ns];
+      let exportHeaders: string[] = [];
+      if (portfolioFilter === "NS") {
+        exportHeaders = [...columns.ns];
+      } else if (portfolioFilter === "VIE") {
+        exportHeaders = [...columns.vie];
+      } else {
+        const union = new Set([...columns.ns, ...columns.vie]);
+        exportHeaders = ["Portefeuille", ...Array.from(union)];
+      }
+
       const exportData = filteredRows.map(row => {
         const newRow: any = {};
-        columns.ns.forEach(h => {
-          newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+        const isRowVie = row.__sourcePortfolio === "VIE";
+        exportHeaders.forEach(h => {
+          if (h === "Portefeuille") {
+            newRow[h] = row.__sourcePortfolio || (isRowVie ? "VIE" : "NS");
+          } else {
+            newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+          }
         });
         return newRow;
       });
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS DE REGTOOLS (${fileLabel})`],
+        [`RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS DE REGTOOLS (${fileLabel === "NS_VIE" ? "NS + VIE" : fileLabel})`],
         ["CONSIGNE : Veuillez créer des fiches KYC pour ces clients"],
         [`Filtre Agence : ${agenceStr} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
@@ -1563,20 +1577,34 @@ export default function RegtoolsDiffPage() {
     try {
       const agenceStr = similarSelectedAgency === "ALL" ? "Toutes les agences" : similarSelectedAgency;
       const currentDate = new Date().toLocaleDateString("fr-FR");
-      const isVie = reconciliationType === "VIE";
-      const fileLabel = isVie ? "VIE" : "NS";
+      
+      const fileLabel = portfolioFilter === "ALL" ? "NS_VIE" : portfolioFilter;
 
-      const exportHeaders = [...columns.ns];
+      let exportHeaders: string[] = [];
+      if (portfolioFilter === "NS") {
+        exportHeaders = [...columns.ns];
+      } else if (portfolioFilter === "VIE") {
+        exportHeaders = [...columns.vie];
+      } else {
+        const union = new Set([...columns.ns, ...columns.vie]);
+        exportHeaders = ["Portefeuille", ...Array.from(union)];
+      }
+
       const exportData = filteredSimilarRows.map(row => {
         const newRow: any = {};
-        columns.ns.forEach(h => {
-          newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+        const isRowVie = row.__sourcePortfolio === "VIE";
+        exportHeaders.forEach(h => {
+          if (h === "Portefeuille") {
+            newRow[h] = row.__sourcePortfolio || (isRowVie ? "VIE" : "NS");
+          } else {
+            newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+          }
         });
         return newRow;
       });
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT - CLIENTS SIMILAIRES (CONFORMES REGTOOLS) (${fileLabel})`],
+        [`RAPPORT DE RAPPROCHEMENT - CLIENTS SIMILAIRES (CONFORMES REGTOOLS) (${fileLabel === "NS_VIE" ? "NS + VIE" : fileLabel})`],
         ["INFORMATION : Ces clients existent de part et d'autre (KYC conformes)"],
         [`Filtre Agence : ${agenceStr} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
@@ -1627,57 +1655,86 @@ export default function RegtoolsDiffPage() {
     try {
       const agencyInfo = resolveAgencyInfo(agencyCode);
       const currentDate = new Date().toLocaleDateString("fr-FR");
-      const isVie = isHistory ? (selectedHistoryReport?.reconciliationType === "VIE") : (reconciliationType === "VIE");
-      const fileLabel = isVie ? "VIE" : "NS";
       
-      let rowsToExport: any[] = [];
-      let nsCols: string[] = [];
-      let nsFileName = "";
+      const currentPortfolioFilter = isHistory ? historyPortfolioFilter : portfolioFilter;
+      const fileLabel = currentPortfolioFilter === "ALL" ? "NS_VIE" : currentPortfolioFilter;
       
-      if (!isHistory) {
-        if (!comparisonDone || !mapping.nsAgence) return;
-        rowsToExport = missingRows.filter(row => {
-          const code = getRowAgencyCode(row, mapping.nsAgence, isVie);
-          return code.replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
-        });
-        nsCols = columns.ns;
-        nsFileName = files.ns ? files.ns.name : "";
-      } else {
-        if (!selectedHistoryReport) return;
-        const agencyCol = selectedHistoryReport.mapping?.nsAgence;
-        if (!agencyCol) return;
-        rowsToExport = (selectedHistoryReport.missingRows || []).filter((row: any) => {
-          const code = getRowAgencyCode(row, agencyCol, isVie);
-          return code.replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
-        });
-        nsCols = selectedHistoryReport.columnsNS || [];
-        nsFileName = selectedHistoryReport.fileNameNS || "";
-      }
+      const sourceRows = isHistory 
+        ? (selectedHistoryReport?.missingRows || []) 
+        : missingRows;
+
+      const mappingVal = isHistory 
+        ? selectedHistoryReport?.mapping 
+        : mapping;
+
+      const nsCols = isHistory ? (selectedHistoryReport?.columnsNS || []) : (columns.ns || []);
+      const vieCols = isHistory ? (selectedHistoryReport?.columnsVIE || []) : (columns.vie || []);
+
+      const rowsToExport = sourceRows.filter((row: any) => {
+        const rowPortfolio = row.__sourcePortfolio || (isHistory ? (selectedHistoryReport?.reconciliationType === "VIE" ? "VIE" : "NS") : (reconciliationType === "VIE" ? "VIE" : "NS"));
+        
+        // Filter by portfolio selection
+        if (currentPortfolioFilter !== "ALL" && rowPortfolio !== currentPortfolioFilter) {
+          return false;
+        }
+
+        const isVieRow = rowPortfolio === "VIE";
+        const agencyCol = isVieRow ? mappingVal?.vieAgence : mappingVal?.nsAgence;
+        
+        if (!agencyCol) return false;
+        const code = getRowAgencyCode(row, agencyCol, isVieRow);
+        return code.replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
+      });
 
       if (rowsToExport.length === 0) {
         alert(`Aucun écart trouvé pour l'agence ${agencyCode} (${agencyInfo.name}).`);
         return;
       }
 
-      const exportHeaders = [...nsCols];
-      const exportData = rowsToExport.map(row => {
+      let exportHeaders: string[] = [];
+      if (currentPortfolioFilter === "NS") {
+        exportHeaders = [...nsCols];
+      } else if (currentPortfolioFilter === "VIE") {
+        exportHeaders = [...vieCols];
+      } else {
+        const union = new Set([...nsCols, ...vieCols]);
+        exportHeaders = ["Portefeuille", ...Array.from(union)];
+      }
+
+      const exportData = rowsToExport.map((row: any) => {
         const newRow: any = {};
-        nsCols.forEach(h => {
-          newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+        exportHeaders.forEach(h => {
+          if (h === "Portefeuille") {
+            newRow[h] = row.__sourcePortfolio || (row.__sourcePortfolio === "VIE" || (row.__sourcePortfolio === undefined && (isHistory ? selectedHistoryReport?.reconciliationType === "VIE" : reconciliationType === "VIE")) ? "VIE" : "NS");
+          } else {
+            newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+          }
         });
         return newRow;
       });
 
+      const nsFileName = isHistory ? (selectedHistoryReport?.fileNameNS || "") : (files.ns ? files.ns.name : "");
+      const vieFileName = isHistory ? (selectedHistoryReport?.fileNameVIE || "") : (files.vie ? files.vie.name : "");
+      
+      let sourceFileStr = "";
+      if (currentPortfolioFilter === "NS") {
+        sourceFileStr = `Fichier NS d'origine : ${nsFileName}`;
+      } else if (currentPortfolioFilter === "VIE") {
+        sourceFileStr = `Fichier VIE d'origine : ${vieFileName}`;
+      } else {
+        sourceFileStr = `Fichiers d'origine : NS (${nsFileName || "non chargé"}) | VIE (${vieFileName || "non chargé"})`;
+      }
+
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS - AGENCE ${agencyCode} (${fileLabel})`],
+        [`RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS - AGENCE ${agencyCode} (${fileLabel === "NS_VIE" ? "NS + VIE" : fileLabel})`],
         [`Nom Agence : ${agencyInfo.name} | Type : ${agencyInfo.type}`],
         ["CONSIGNE : Veuillez créer des fiches KYC pour ces clients"],
-        [`Fichier ${fileLabel} d'origine : ${nsFileName} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [`${sourceFileStr} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
         exportHeaders
       ];
 
-      exportData.forEach(row => {
+      exportData.forEach((row: any) => {
         sheetAOA.push(exportHeaders.map(h => row[h]));
       });
 
@@ -1722,57 +1779,86 @@ export default function RegtoolsDiffPage() {
     try {
       const agencyInfo = resolveAgencyInfo(agencyCode);
       const currentDate = new Date().toLocaleDateString("fr-FR");
-      const isVie = isHistory ? (selectedHistoryReport?.reconciliationType === "VIE") : (reconciliationType === "VIE");
-      const fileLabel = isVie ? "VIE" : "NS";
       
-      let rowsToExport: any[] = [];
-      let nsCols: string[] = [];
-      let nsFileName = "";
+      const currentPortfolioFilter = isHistory ? historyPortfolioFilter : portfolioFilter;
+      const fileLabel = currentPortfolioFilter === "ALL" ? "NS_VIE" : currentPortfolioFilter;
       
-      if (!isHistory) {
-        if (!comparisonDone || !mapping.nsAgence) return;
-        rowsToExport = similarRows.filter(row => {
-          const code = getRowAgencyCode(row, mapping.nsAgence, isVie);
-          return code.replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
-        });
-        nsCols = columns.ns;
-        nsFileName = files.ns ? files.ns.name : "";
-      } else {
-        if (!selectedHistoryReport) return;
-        const agencyCol = selectedHistoryReport.mapping?.nsAgence;
-        if (!agencyCol) return;
-        rowsToExport = (selectedHistoryReport.similarRows || []).filter((row: any) => {
-          const code = getRowAgencyCode(row, agencyCol, isVie);
-          return code.replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
-        });
-        nsCols = selectedHistoryReport.columnsNS || [];
-        nsFileName = selectedHistoryReport.fileNameNS || "";
-      }
+      const sourceRows = isHistory 
+        ? (selectedHistoryReport?.similarRows || []) 
+        : similarRows;
+
+      const mappingVal = isHistory 
+        ? selectedHistoryReport?.mapping 
+        : mapping;
+
+      const nsCols = isHistory ? (selectedHistoryReport?.columnsNS || []) : (columns.ns || []);
+      const vieCols = isHistory ? (selectedHistoryReport?.columnsVIE || []) : (columns.vie || []);
+
+      const rowsToExport = sourceRows.filter((row: any) => {
+        const rowPortfolio = row.__sourcePortfolio || (isHistory ? (selectedHistoryReport?.reconciliationType === "VIE" ? "VIE" : "NS") : (reconciliationType === "VIE" ? "VIE" : "NS"));
+        
+        // Filter by portfolio selection
+        if (currentPortfolioFilter !== "ALL" && rowPortfolio !== currentPortfolioFilter) {
+          return false;
+        }
+
+        const isVieRow = rowPortfolio === "VIE";
+        const agencyCol = isVieRow ? mappingVal?.vieAgence : mappingVal?.nsAgence;
+        
+        if (!agencyCol) return false;
+        const code = getRowAgencyCode(row, agencyCol, isVieRow);
+        return code.replace(/^0+(?!$)/, '') === agencyCode.replace(/^0+(?!$)/, '');
+      });
 
       if (rowsToExport.length === 0) {
         alert(`Aucune similitude trouvée pour l'agence ${agencyCode} (${agencyInfo.name}).`);
         return;
       }
 
-      const exportHeaders = [...nsCols];
-      const exportData = rowsToExport.map(row => {
+      let exportHeaders: string[] = [];
+      if (currentPortfolioFilter === "NS") {
+        exportHeaders = [...nsCols];
+      } else if (currentPortfolioFilter === "VIE") {
+        exportHeaders = [...vieCols];
+      } else {
+        const union = new Set([...nsCols, ...vieCols]);
+        exportHeaders = ["Portefeuille", ...Array.from(union)];
+      }
+
+      const exportData = rowsToExport.map((row: any) => {
         const newRow: any = {};
-        nsCols.forEach(h => {
-          newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+        exportHeaders.forEach(h => {
+          if (h === "Portefeuille") {
+            newRow[h] = row.__sourcePortfolio || (row.__sourcePortfolio === "VIE" || (row.__sourcePortfolio === undefined && (isHistory ? selectedHistoryReport?.reconciliationType === "VIE" : reconciliationType === "VIE")) ? "VIE" : "NS");
+          } else {
+            newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+          }
         });
         return newRow;
       });
 
+      const nsFileName = isHistory ? (selectedHistoryReport?.fileNameNS || "") : (files.ns ? files.ns.name : "");
+      const vieFileName = isHistory ? (selectedHistoryReport?.fileNameVIE || "") : (files.vie ? files.vie.name : "");
+      
+      let sourceFileStr = "";
+      if (currentPortfolioFilter === "NS") {
+        sourceFileStr = `Fichier NS d'origine : ${nsFileName}`;
+      } else if (currentPortfolioFilter === "VIE") {
+        sourceFileStr = `Fichier VIE d'origine : ${vieFileName}`;
+      } else {
+        sourceFileStr = `Fichiers d'origine : NS (${nsFileName || "non chargé"}) | VIE (${vieFileName || "non chargé"})`;
+      }
+
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT - CLIENTS SIMILAIRES - AGENCE ${agencyCode} (${fileLabel})`],
+        [`RAPPORT DE RAPPROCHEMENT - CLIENTS SIMILAIRES - AGENCE ${agencyCode} (${fileLabel === "NS_VIE" ? "NS + VIE" : fileLabel})`],
         [`Nom Agence : ${agencyInfo.name} | Type : ${agencyInfo.type}`],
         ["INFORMATION : Ces clients existent de part et d'autre (KYC conformes)"],
-        [`Fichier ${fileLabel} d'origine : ${nsFileName} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [`${sourceFileStr} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
         exportHeaders
       ];
 
-      exportData.forEach(row => {
+      exportData.forEach((row: any) => {
         sheetAOA.push(exportHeaders.map(h => row[h]));
       });
 
@@ -3447,22 +3533,39 @@ export default function RegtoolsDiffPage() {
     if (filteredHistorySimilarRows.length === 0) return;
     try {
       const report = selectedHistoryReport;
-      const isVie = report.reconciliationType === "VIE";
-      const fileLabel = isVie ? "VIE" : "NS";
+      const fileLabel = historyPortfolioFilter === "ALL" ? "NS_VIE" : historyPortfolioFilter;
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
-      const exportHeaders = [...(report.columnsNS || [])];
+      
+      let exportHeaders: string[] = [];
+      const nsCols = report.columnsNS || [];
+      const vieCols = report.columnsVIE || [];
+      
+      if (historyPortfolioFilter === "NS") {
+        exportHeaders = [...nsCols];
+      } else if (historyPortfolioFilter === "VIE") {
+        exportHeaders = [...vieCols];
+      } else {
+        const union = new Set([...nsCols, ...vieCols]);
+        exportHeaders = ["Portefeuille", ...Array.from(union)];
+      }
+
       const exportData = filteredHistorySimilarRows.map((row: any) => {
         const newRow: any = {};
-        (report.columnsNS || []).forEach((h: string) => {
-          newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+        const isRowVie = row.__sourcePortfolio === "VIE";
+        exportHeaders.forEach((h: string) => {
+          if (h === "Portefeuille") {
+            newRow[h] = row.__sourcePortfolio || (isRowVie ? "VIE" : "NS");
+          } else {
+            newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+          }
         });
         return newRow;
       });
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - SIMILAIRES - ${report.monthLabel} (${fileLabel})`],
+        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - SIMILAIRES - ${report.monthLabel} (${fileLabel === "NS_VIE" ? "NS + VIE" : fileLabel})`],
         ["INFORMATION : Ces clients existent de part et d'autre (KYC conformes)"],
-        [`Fichier ${fileLabel} d'origine : ${report.fileNameNS} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [`Fichiers d'origine : NS (${report.fileNameNS || "non chargé"}) | VIE (${report.fileNameVIE || "non chargé"}) | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
         exportHeaders
       ];
@@ -3512,22 +3615,39 @@ export default function RegtoolsDiffPage() {
     if (filteredHistoryRows.length === 0) return;
     try {
       const report = selectedHistoryReport;
-      const isVie = report.reconciliationType === "VIE";
-      const fileLabel = isVie ? "VIE" : "NS";
+      const fileLabel = historyPortfolioFilter === "ALL" ? "NS_VIE" : historyPortfolioFilter;
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
-      const exportHeaders = [...(report.columnsNS || [])];
+      
+      let exportHeaders: string[] = [];
+      const nsCols = report.columnsNS || [];
+      const vieCols = report.columnsVIE || [];
+      
+      if (historyPortfolioFilter === "NS") {
+        exportHeaders = [...nsCols];
+      } else if (historyPortfolioFilter === "VIE") {
+        exportHeaders = [...vieCols];
+      } else {
+        const union = new Set([...nsCols, ...vieCols]);
+        exportHeaders = ["Portefeuille", ...Array.from(union)];
+      }
+
       const exportData = filteredHistoryRows.map((row: any) => {
         const newRow: any = {};
-        (report.columnsNS || []).forEach((h: string) => {
-          newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+        const isRowVie = row.__sourcePortfolio === "VIE";
+        exportHeaders.forEach((h: string) => {
+          if (h === "Portefeuille") {
+            newRow[h] = row.__sourcePortfolio || (isRowVie ? "VIE" : "NS");
+          } else {
+            newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+          }
         });
         return newRow;
       });
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - ${report.monthLabel} (${fileLabel})`],
+        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - ${report.monthLabel} (${fileLabel === "NS_VIE" ? "NS + VIE" : fileLabel})`],
         ["CONSIGNE : Veuillez créer des fiches KYC pour ces clients"],
-        [`Fichier ${fileLabel} d'origine : ${report.fileNameNS} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
+        [`Fichiers d'origine : NS (${report.fileNameNS || "non chargé"}) | VIE (${report.fileNameVIE || "non chargé"}) | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
         exportHeaders
       ];
