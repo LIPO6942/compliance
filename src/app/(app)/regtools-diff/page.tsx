@@ -349,6 +349,18 @@ const normalizeForMatching = (str: string): string => {
            .replace(/[ç]/g, "c")
            .replace(/[îï]/g, "i");
   res = res.replace(/['’`\-_]/g, " ");
+  
+  // Specific spelling variant normalizations for MAE agencies
+  res = res.replace(/\bsekiet\b/g, "sakiet")
+           .replace(/\beddayer\b/g, "edayer")
+           .replace(/\bezzit\b/g, "ezit")
+           .replace(/\bgoullette\b/g, "goulette")
+           .replace(/\bmannouba\b/g, "manouba")
+           .replace(/\bsbeitla\b/g, "sbitla")
+           .replace(/\bouerdia\b/g, "ouardia")
+           .replace(/\byassminet\b/g, "yasminet")
+           .replace(/\bagn\b/g, "ag");
+
   res = res.replace(/\s+/g, " ").trim();
   return res;
 };
