@@ -760,15 +760,14 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
 
     // 3. PEP
     const pepVal = String(row[isPepCol] || "").trim().toLowerCase();
-    const profileVal = String(row[profileTypeCol] || "").trim().toLowerCase();
-    const isPep = pepVal === "yes" || pepVal === "oui" || pepVal === "true" || profileVal.includes("pep");
+    const isPep = pepVal === "yes" || pepVal === "oui" || pepVal === "true";
     if (isPep) {
       pepCount++;
     }
 
     // 4. Sanctions
     const sanctionedVal = String(row[isSanctionedCol] || "").trim().toLowerCase();
-    const isSanctioned = sanctionedVal === "yes" || sanctionedVal === "oui" || sanctionedVal === "true" || profileVal.includes("sanction");
+    const isSanctioned = sanctionedVal === "yes" || sanctionedVal === "oui" || sanctionedVal === "true";
     if (isSanctioned) {
       sanctionedCount++;
     }
