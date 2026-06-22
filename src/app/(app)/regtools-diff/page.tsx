@@ -937,7 +937,9 @@ export default function RegtoolsDiffPage() {
 
   // New filters and sort states
   const [statsTypeFilter, setStatsTypeFilter] = useState<string>("ALL");
+  const [statsDelegationFilter, setStatsDelegationFilter] = useState<string>("ALL");
   const [historyStatsTypeFilter, setHistoryStatsTypeFilter] = useState<string>("ALL");
+  const [historyStatsDelegationFilter, setHistoryStatsDelegationFilter] = useState<string>("ALL");
   const [historySelectedAgency, setHistorySelectedAgency] = useState<string>("ALL");
   const [detailsSortField, setDetailsSortField] = useState<string>("");
   const [detailsSortDirection, setDetailsSortDirection] = useState<"asc" | "desc">("asc");
@@ -2110,6 +2112,7 @@ export default function RegtoolsDiffPage() {
     
     // Reset filters and sort
     setStatsTypeFilter("ALL");
+    setStatsDelegationFilter("ALL");
     setDetailsSortField("");
     setDetailsSortDirection("asc");
 
@@ -2333,6 +2336,13 @@ export default function RegtoolsDiffPage() {
       if (statsTypeFilter !== "ALL") {
         matchType = stat.type && stat.type.toLowerCase() === statsTypeFilter.toLowerCase();
       }
+
+      // Delegation Filter
+      let matchDelegation = true;
+      if (statsDelegationFilter !== "ALL") {
+        const geo = resolveAgencyGeography(stat.agence, stat.nom);
+        matchDelegation = geo && geo.delegation === statsDelegationFilter;
+      }
       
       // Search Filter
       let matchSearch = true;
@@ -2343,9 +2353,9 @@ export default function RegtoolsDiffPage() {
           (stat.type && stat.type.toLowerCase().includes(query));
       }
       
-      return matchType && matchSearch;
+      return matchType && matchDelegation && matchSearch;
     });
-  }, [sortedAgencyStats, statsSearchQuery, statsTypeFilter]);
+  }, [sortedAgencyStats, statsSearchQuery, statsTypeFilter, statsDelegationFilter, resolveAgencyGeography]);
 
   // Active side delegation and top 10 KYC absence stats
   const delegationStats = useMemo(() => {
@@ -3208,6 +3218,13 @@ export default function RegtoolsDiffPage() {
       if (historyStatsTypeFilter !== "ALL") {
         matchType = stat.type && stat.type.toLowerCase() === historyStatsTypeFilter.toLowerCase();
       }
+
+      // Delegation Filter
+      let matchDelegation = true;
+      if (historyStatsDelegationFilter !== "ALL") {
+        const geo = resolveAgencyGeography(stat.agence, stat.nom);
+        matchDelegation = geo && geo.delegation === historyStatsDelegationFilter;
+      }
       
       // Search Filter
       let matchSearch = true;
@@ -3218,9 +3235,9 @@ export default function RegtoolsDiffPage() {
           (stat.type && stat.type.toLowerCase().includes(query));
       }
       
-      return matchType && matchSearch;
+      return matchType && matchDelegation && matchSearch;
     });
-  }, [sortedHistoryAgencyStats, historyStatsSearchQuery, historyStatsTypeFilter]);
+  }, [sortedHistoryAgencyStats, historyStatsSearchQuery, historyStatsTypeFilter, historyStatsDelegationFilter, resolveAgencyGeography]);
 
   // History side delegation and top 10 KYC absence stats
   const historyDelegationStats = useMemo(() => {
@@ -5602,6 +5619,28 @@ export default function RegtoolsDiffPage() {
                     </div>
 
                     <div className="flex items-center gap-4 flex-wrap">
+                      {/* Delegation Filter */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Délégation :</label>
+                        <select
+                          value={statsDelegationFilter}
+                          onChange={(e) => setStatsDelegationFilter(e.target.value)}
+                          className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[140px]"
+                        >
+                          <option value="ALL">Toutes les délégations</option>
+                          <option value="Tunis Centre">Tunis Centre</option>
+                          <option value="Tunis Nord">Tunis Nord</option>
+                          <option value="Tunis Sud">Tunis Sud</option>
+                          <option value="Sahel">Sahel</option>
+                          <option value="Sfax">Sfax</option>
+                          <option value="Cap Bon">Cap Bon</option>
+                          <option value="Nord ouest">Nord ouest</option>
+                          <option value="Sud">Sud</option>
+                          <option value="Courtiers">Courtiers</option>
+                          <option value="Siège">Siège</option>
+                        </select>
+                      </div>
+
                       {/* Type Filter */}
                       <div className="flex items-center gap-2">
                         <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Type :</label>
@@ -6138,6 +6177,28 @@ export default function RegtoolsDiffPage() {
                     </div>
 
                     <div className="flex items-center gap-4 flex-wrap">
+                      {/* Delegation Filter */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Délégation :</label>
+                        <select
+                          value={historyStatsDelegationFilter}
+                          onChange={(e) => setHistoryStatsDelegationFilter(e.target.value)}
+                          className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 outline-none min-w-[140px]"
+                        >
+                          <option value="ALL">Toutes les délégations</option>
+                          <option value="Tunis Centre">Tunis Centre</option>
+                          <option value="Tunis Nord">Tunis Nord</option>
+                          <option value="Tunis Sud">Tunis Sud</option>
+                          <option value="Sahel">Sahel</option>
+                          <option value="Sfax">Sfax</option>
+                          <option value="Cap Bon">Cap Bon</option>
+                          <option value="Nord ouest">Nord ouest</option>
+                          <option value="Sud">Sud</option>
+                          <option value="Courtiers">Courtiers</option>
+                          <option value="Siège">Siège</option>
+                        </select>
+                      </div>
+
                       {/* Type Filter */}
                       <div className="flex items-center gap-2">
                         <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Type :</label>
