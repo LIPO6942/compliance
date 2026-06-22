@@ -195,45 +195,45 @@ export default function DashboardPage() {
       totalForms: 0
     };
 
+    // Take stats from the first report of the latest month that has regtoolsKPIs
+    // to avoid double-counting between NS and VIE portfolios matching the same regtools file.
     latestReports.forEach(r => {
-      if (r.regtoolsKPIs) {
+      if (r.regtoolsKPIs && !hasKPIs) {
         hasKPIs = true;
         const k = r.regtoolsKPIs;
         
-        // Accumulate risk levels
         if (k.riskLevels) {
-          aggregated.riskLevels.Faible += k.riskLevels.Faible || 0;
-          aggregated.riskLevels.Moyen += k.riskLevels.Moyen || 0;
-          aggregated.riskLevels.Eleve += k.riskLevels.Eleve || 0;
+          aggregated.riskLevels.Faible = k.riskLevels.Faible || 0;
+          aggregated.riskLevels.Moyen = k.riskLevels.Moyen || 0;
+          aggregated.riskLevels.Eleve = k.riskLevels.Eleve || 0;
         }
 
-        // Accumulate form types
         if (k.formTypes) {
           if (Array.isArray(k.formTypes)) {
             k.formTypes.forEach((ft: any) => {
-              aggregated.formTypes[ft.name] = (aggregated.formTypes[ft.name] || 0) + ft.count;
+              aggregated.formTypes[ft.name] = ft.count;
             });
           } else {
             Object.entries(k.formTypes).forEach(([name, count]: any) => {
-              aggregated.formTypes[name] = (aggregated.formTypes[name] || 0) + count;
+              aggregated.formTypes[name] = count;
             });
           }
         }
 
-        aggregated.pepCount += k.pepCount || 0;
-        aggregated.sanctionedCount += k.sanctionedCount || 0;
-        aggregated.treatedCount += k.treatedCount || 0;
+        aggregated.pepCount = k.pepCount || 0;
+        aggregated.sanctionedCount = k.sanctionedCount || 0;
+        aggregated.treatedCount = k.treatedCount || 0;
         if (k.avgRiskValue > 0) {
-          aggregated.avgRiskValueSum += k.avgRiskValue;
-          aggregated.avgRiskValueCount++;
+          aggregated.avgRiskValueSum = k.avgRiskValue;
+          aggregated.avgRiskValueCount = 1;
         }
-        aggregated.totalForms += k.totalForms || 0;
+        aggregated.totalForms = k.totalForms || 0;
       }
     });
 
     if (!hasKPIs) {
-      // Fallback/Mock data if the saved reports don't have KPIs yet
-      const total = latestGlobalStats.total || 450;
+      // Fallback/Mock data reflecting the size of the 350k entries RegTools file
+      const total = 350280;
       return {
         riskLevels: {
           Faible: Math.round(total * 0.25),
@@ -267,7 +267,7 @@ export default function DashboardPage() {
       totalForms: aggregated.totalForms,
       isFallback: false
     };
-  }, [latestReports, latestGlobalStats.total]);
+  }, [latestReports]);
 
   const riskLevelChartData = React.useMemo(() => {
     if (!latestRegtoolsKPIs) return [];
