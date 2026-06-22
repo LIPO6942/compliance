@@ -206,6 +206,13 @@ export default function DashboardPage() {
           aggregated.riskLevels.Faible = k.riskLevels.Faible || 0;
           aggregated.riskLevels.Moyen = k.riskLevels.Moyen || 0;
           aggregated.riskLevels.Eleve = k.riskLevels.Eleve || 0;
+
+          // Dynamically compute Eleve if it was parsed as 0 due to historical accent mismatch bugs
+          const totalF = k.totalForms || 0;
+          const sum = aggregated.riskLevels.Faible + aggregated.riskLevels.Moyen + aggregated.riskLevels.Eleve;
+          if (aggregated.riskLevels.Eleve === 0 && totalF > sum) {
+            aggregated.riskLevels.Eleve = totalF - (aggregated.riskLevels.Faible + aggregated.riskLevels.Moyen);
+          }
         }
 
         if (k.formTypes) {

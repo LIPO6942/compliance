@@ -720,13 +720,19 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
   let riskValueCount = 0;
 
   regtoolsData.forEach(row => {
-    // 1. Risk Level
     const rLevelVal = String(row[riskLevelCol] || "").trim().toLowerCase();
-    if (rLevelVal.includes("faible")) {
+    const normalizedLevel = rLevelVal.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (normalizedLevel.includes("faible")) {
       riskLevels.Faible++;
-    } else if (rLevelVal.includes("moyen")) {
+    } else if (normalizedLevel.includes("moyen") || normalizedLevel.includes("modere")) {
       riskLevels.Moyen++;
-    } else if (rLevelVal.includes("eleve") || rLevelVal.includes("éleve") || rLevelVal.includes("élevé")) {
+    } else if (
+      normalizedLevel.includes("eleve") ||
+      normalizedLevel.includes("high") ||
+      normalizedLevel.includes("haut") ||
+      normalizedLevel.includes("grave") ||
+      normalizedLevel.includes("critical")
+    ) {
       riskLevels.Eleve++;
     }
 
