@@ -275,7 +275,7 @@ export default function DashboardPage() {
       { name: "Faible", value: latestRegtoolsKPIs.riskLevels.Faible, fill: "#10b981" },
       { name: "Moyen", value: latestRegtoolsKPIs.riskLevels.Moyen, fill: "#f59e0b" },
       { name: "Élevé", value: latestRegtoolsKPIs.riskLevels.Eleve, fill: "#ef4444" }
-    ].filter(item => item.value > 0);
+    ];
   }, [latestRegtoolsKPIs]);
 
   const formTypesChartData = React.useMemo(() => {
@@ -1521,14 +1521,15 @@ export default function DashboardPage() {
                 {/* Custom Legend */}
                 <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t border-slate-50 dark:border-slate-800">
                   {riskLevelChartData.map((item, idx) => {
-                    const percentage = latestRegtoolsKPIs.totalForms > 0 ? Math.round((item.value / latestRegtoolsKPIs.totalForms) * 100) : 0;
+                    const pct = latestRegtoolsKPIs.totalForms > 0 ? (item.value / latestRegtoolsKPIs.totalForms) * 100 : 0;
+                    const percentageLabel = pct === 0 ? "0%" : pct < 0.01 ? "< 0.01%" : pct < 1 ? `${pct.toFixed(2)}%` : `${Math.round(pct)}%`;
                     return (
                       <div key={`risk-leg-${idx}`} className="flex flex-col items-center">
                         <div className="flex items-center gap-1.5">
                           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.fill }} />
                           <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{item.name}</span>
                         </div>
-                        <p className="text-xs font-black text-slate-800 dark:text-white mt-0.5">{item.value} ({percentage}%)</p>
+                        <p className="text-xs font-black text-slate-800 dark:text-white mt-0.5">{item.value.toLocaleString("fr-FR")} ({percentageLabel})</p>
                       </div>
                     );
                   })}
