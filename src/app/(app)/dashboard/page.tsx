@@ -82,6 +82,7 @@ export default function DashboardPage() {
 
   const [regtoolsHistory, setRegtoolsHistory] = React.useState<any[]>([]);
   const [loadingRegtools, setLoadingRegtools] = React.useState(true);
+  const [criticalTypeFilter, setCriticalTypeFilter] = React.useState<"all" | "Agence" | "Succursale">("all");
 
   React.useEffect(() => {
     setIsClient(true);
@@ -328,11 +329,17 @@ export default function DashboardPage() {
       const stats = r.agencyStats || [];
       stats.forEach((stat: any) => {
         const code = stat.agence;
+        const type = stat.type || "Inconnu";
+        
+        // Filter based on active filter tab
+        if (criticalTypeFilter === "Agence" && type !== "Agence") return;
+        if (criticalTypeFilter === "Succursale" && type !== "Succursale") return;
+        
         if (!agencyMap[code]) {
           agencyMap[code] = {
             code,
             nom: stat.nom,
-            type: stat.type,
+            type,
             total: 0,
             missing: 0
           };
@@ -357,7 +364,7 @@ export default function DashboardPage() {
       .filter(a => a.total >= 5) // Exclude very small sample size
       .sort((a, b) => b.pctMissing - a.pctMissing)
       .slice(0, 5);
-  }, [latestReports]);
+  }, [latestReports, criticalTypeFilter]);
 
   // Monthly trends for line chart
   const monthlyTrendStats = React.useMemo(() => {
@@ -1580,9 +1587,31 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Top 5 Critical Agencies */}
               <Card className="bg-white dark:bg-slate-900 border-none shadow-xl p-5 flex flex-col gap-4">
-                <div>
-                  <h3 className="font-bold text-slate-800 dark:text-white text-sm">Top 5 des Agences les plus Critiques</h3>
-                  <p className="text-[10px] text-slate-400 font-medium">Taux d'absence de KYC le plus élevé (min. 5 clients)</p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <h3 className="font-bold text-slate-800 dark:text-white text-sm">Top 5 des Entités les plus Critiques</h3>
+                    <p className="text-[10px] text-slate-400 font-medium">Taux d'absence de KYC le plus élevé (min. 5 clients)</p>
+                  </div>
+                  <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-[10px] font-bold self-start sm:self-center">
+                    <button 
+                      onClick={() => setCriticalTypeFilter("all")} 
+                      className={`px-2.5 py-1 rounded-md transition-all ${criticalTypeFilter === "all" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}
+                    >
+                      Tout
+                    </button>
+                    <button 
+                      onClick={() => setCriticalTypeFilter("Agence")} 
+                      className={`px-2.5 py-1 rounded-md transition-all ${criticalTypeFilter === "Agence" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}
+                    >
+                      Agences
+                    </button>
+                    <button 
+                      onClick={() => setCriticalTypeFilter("Succursale")} 
+                      className={`px-2.5 py-1 rounded-md transition-all ${criticalTypeFilter === "Succursale" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}
+                    >
+                      Succursales
+                    </button>
+                  </div>
                 </div>
                 <div className="flex flex-col gap-3">
                   {criticalAgencies.map((agency, idx) => (
@@ -1605,6 +1634,11 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   ))}
+                  {criticalAgencies.length === 0 && (
+                    <div className="py-8 text-center text-xs text-slate-400 italic">
+                      Aucune entité critique trouvée pour ce filtre.
+                    </div>
+                  )}
                 </div>
               </Card>
 
