@@ -381,6 +381,7 @@ const formatExcelValue = (colName: string, val: any): string => {
       const year = date.getUTCFullYear();
       return `${day}/${month}/${year}`;
     }
+  }
   return strVal;
 };
 
@@ -439,9 +440,9 @@ const getExportHeadersAndRowMapper = (
   if (portfolioFilter === "NS") {
     headers = cleanNsCols;
   } else if (portfolioFilter === "VIE") {
-    headers = ["Portefeuille", ...cleanNsCols, numeroContratVieCol];
+    headers = ["Portefeuille", numeroContratVieCol, ...cleanNsCols];
   } else {
-    headers = ["Portefeuille", ...cleanNsCols, numeroContratVieCol];
+    headers = ["Portefeuille", numeroContratVieCol, ...cleanNsCols];
   }
 
   // Row mapper function
