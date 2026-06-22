@@ -381,8 +381,109 @@ const formatExcelValue = (colName: string, val: any): string => {
       const year = date.getUTCFullYear();
       return `${day}/${month}/${year}`;
     }
-  }
   return strVal;
+};
+
+// Helper to clean column name for comparisons
+const cleanColumnNameForMapping = (col: string): string => {
+  return col.trim()
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, ""); // strip accents
+};
+
+const getExportHeadersAndRowMapper = (
+  portfolioFilter: string,
+  nsCols: string[],
+  vieCols: string[]
+) => {
+  const cleanColumnName = (col: string): string => {
+    return col.trim()
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "");
+  };
+
+  const unwantedColumnsNormalized = new Set([
+    "n_avt", "type_a", "c_gest", "date_avn", "droientree", "droitentree", "droitsentree",
+    "prime nette annuelle",
+    "montant total des primes versees",
+    "beneficiaire designe",
+    "statut du contrat",
+    "date de derniere modification ou mise a jour du contrat",
+    "profession ou activite declaree du souscripteur",
+    "canal de souscription",
+    "dernier avenant applique",
+    "capital"
+  ]);
+
+  // Find actual names of key columns in vieCols (to match correctly)
+  const nomClientVieCol = vieCols.find(h => cleanColumnName(h) === "nom et prenom du souscripteur" || cleanColumnName(h) === "nom du souscripteur" || cleanColumnName(h) === "nom_client") || "Nom et prénom du souscripteur";
+  const identifiantVieCol = vieCols.find(h => cleanColumnName(h) === "numero de carte d identite ou matricule fiscal" || cleanColumnName(h) === "numero de carte d'identite ou matricule fiscal" || cleanColumnName(h) === "identifiant") || "Numéro de carte d identité ou matricule fiscal";
+  const dateSousVieCol = vieCols.find(h => cleanColumnName(h) === "date de souscription" || cleanColumnName(h) === "date sous") || "Date de souscription";
+  const numeroContratVieCol = vieCols.find(h => cleanColumnName(h) === "numero du contrat" || cleanColumnName(h) === "numero de contrat" || cleanColumnName(h) === "contrat") || "Numéro du contrat";
+  const nClientVieCol = vieCols.find(h => cleanColumnName(h) === "numero de client" || cleanColumnName(h) === "numero client" || cleanColumnName(h) === "n_client") || "Numéro de client";
+  const dateNaissVieCol = vieCols.find(h => cleanColumnName(h) === "date de naissance" || cleanColumnName(h) === "date naissance" || cleanColumnName(h) === "date_naiss") || "Date de naissance";
+
+  // Corresponding Non Vie column names
+  const nomClientNsCol = nsCols.find(h => cleanColumnName(h) === "nom_client" || cleanColumnName(h) === "nom client") || "NOM_CLIENT";
+  const identifiantNsCol = nsCols.find(h => cleanColumnName(h) === "identifiant" || cleanColumnName(h) === "id") || "Identifiant";
+  const dateSousNsCol = nsCols.find(h => cleanColumnName(h) === "date_sous" || cleanColumnName(h) === "date sous") || "DATE_SOUS";
+  const nClientNsCol = nsCols.find(h => cleanColumnName(h) === "n_client" || cleanColumnName(h) === "n client") || "N_CLIENT";
+  const dateNaissNsCol = nsCols.find(h => cleanColumnName(h) === "date_naiss" || cleanColumnName(h) === "date naiss") || "DATE_NAISS";
+
+  let headers: string[] = [];
+
+  const cleanNsCols = nsCols.filter(h => !unwantedColumnsNormalized.has(cleanColumnName(h)));
+
+  if (portfolioFilter === "NS") {
+    headers = cleanNsCols;
+  } else if (portfolioFilter === "VIE") {
+    headers = ["Portefeuille", ...cleanNsCols, numeroContratVieCol];
+  } else {
+    headers = ["Portefeuille", ...cleanNsCols, numeroContratVieCol];
+  }
+
+  // Row mapper function
+  const mapRow = (row: any) => {
+    const newRow: any = {};
+    const isRowVie = row.__sourcePortfolio === "VIE";
+
+    headers.forEach(h => {
+      if (h === "Portefeuille") {
+        const rawPortfolio = row.__sourcePortfolio || (isRowVie ? "VIE" : "NS");
+        newRow[h] = rawPortfolio === "NS" ? "Non Vie" : (rawPortfolio === "VIE" ? "Vie" : rawPortfolio);
+      } else {
+        if (isRowVie) {
+          if (cleanColumnName(h) === cleanColumnName(nomClientNsCol)) {
+            newRow[h] = row[nomClientVieCol] !== undefined && row[nomClientVieCol] !== null ? formatExcelValue(h, row[nomClientVieCol]) : "";
+          } else if (cleanColumnName(h) === cleanColumnName(identifiantNsCol)) {
+            newRow[h] = row[identifiantVieCol] !== undefined && row[identifiantVieCol] !== null ? formatExcelValue(h, row[identifiantVieCol]) : "";
+          } else if (cleanColumnName(h) === cleanColumnName(dateSousNsCol)) {
+            newRow[h] = row[dateSousVieCol] !== undefined && row[dateSousVieCol] !== null ? formatExcelValue(h, row[dateSousVieCol]) : "";
+          } else if (cleanColumnName(h) === cleanColumnName(nClientNsCol)) {
+            newRow[h] = row[nClientVieCol] !== undefined && row[nClientVieCol] !== null ? formatExcelValue(h, row[nClientVieCol]) : "";
+          } else if (cleanColumnName(h) === cleanColumnName(dateNaissNsCol)) {
+            newRow[h] = row[dateNaissVieCol] !== undefined && row[dateNaissVieCol] !== null ? formatExcelValue(h, row[dateNaissVieCol]) : "";
+          } else if (cleanColumnName(h) === cleanColumnName(numeroContratVieCol)) {
+            newRow[h] = row[numeroContratVieCol] !== undefined && row[numeroContratVieCol] !== null ? formatExcelValue(h, row[numeroContratVieCol]) : "";
+          } else {
+            newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+          }
+        } else {
+          if (cleanColumnName(h) === cleanColumnName(numeroContratVieCol)) {
+            newRow[h] = "";
+          } else {
+            newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
+          }
+        }
+      }
+    });
+
+    return newRow;
+  };
+
+  return { headers, mapRow };
 };
 
 // Resolve agency code from text descriptions (e.g. AGENT D'AS Sousse 1)
@@ -1624,43 +1725,23 @@ export default function RegtoolsDiffPage() {
     return pages;
   }, [currentPage, totalPages]);
 
-  // Export Excel function
   const exportExcel = () => {
     if (filteredRows.length === 0) return;
 
     try {
       const agenceStr = selectedAgency === "ALL" ? "Toutes les agences" : selectedAgency;
-      const currentDate = new Date().toLocaleDateString("fr-FR");
-      
       const fileLabel = portfolioFilter === "ALL" ? "NS_VIE" : portfolioFilter;
 
-      let exportHeaders: string[] = [];
-      if (portfolioFilter === "NS") {
-        exportHeaders = [...columns.ns];
-      } else if (portfolioFilter === "VIE") {
-        exportHeaders = [...columns.vie];
-      } else {
-        const union = new Set([...columns.ns, ...columns.vie]);
-        exportHeaders = ["Portefeuille", ...Array.from(union)];
-      }
+      const { headers: exportHeaders, mapRow } = getExportHeadersAndRowMapper(
+        portfolioFilter,
+        columns.ns || [],
+        columns.vie || []
+      );
 
-      const exportData = filteredRows.map(row => {
-        const newRow: any = {};
-        const isRowVie = row.__sourcePortfolio === "VIE";
-        exportHeaders.forEach(h => {
-          if (h === "Portefeuille") {
-            newRow[h] = row.__sourcePortfolio || (isRowVie ? "VIE" : "NS");
-          } else {
-            newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
-          }
-        });
-        return newRow;
-      });
+      const exportData = filteredRows.map(row => mapRow(row));
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS DE REGTOOLS (${fileLabel === "NS_VIE" ? "NS + VIE" : fileLabel})`],
         ["CONSIGNE : Veuillez créer des fiches KYC pour ces clients"],
-        [`Filtre Agence : ${agenceStr} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
         exportHeaders
       ];
@@ -1674,23 +1755,19 @@ export default function RegtoolsDiffPage() {
 
       // Merges
       ws["!merges"] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: exportHeaders.length - 1 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: exportHeaders.length - 1 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: exportHeaders.length - 1 } }
+        { s: { r: 0, c: 0 }, e: { r: 0, c: exportHeaders.length - 1 } }
       ];
 
       // Row Heights
       ws["!rows"] = [
-        { hpt: 25 },
         { hpt: 20 },
-        { hpt: 18 },
         { hpt: 15 }
       ];
 
       // Column widths Auto-Fit
       const colWidths = exportHeaders.map((header, colIdx) => {
         let maxLen = header.length;
-        for (let rIdx = 5; rIdx < sheetAOA.length; rIdx++) {
+        for (let rIdx = 2; rIdx < sheetAOA.length; rIdx++) {
           const val = sheetAOA[rIdx][colIdx];
           if (val !== undefined && val !== null) {
             maxLen = Math.max(maxLen, String(val).length);
@@ -1790,18 +1867,12 @@ export default function RegtoolsDiffPage() {
   const exportSingleAgencyExcel = (agencyCode: string, isHistory: boolean) => {
     try {
       const agencyInfo = resolveAgencyInfo(agencyCode);
-      const currentDate = new Date().toLocaleDateString("fr-FR");
-      
       const currentPortfolioFilter = isHistory ? historyPortfolioFilter : portfolioFilter;
       const fileLabel = currentPortfolioFilter === "ALL" ? "NS_VIE" : currentPortfolioFilter;
       
       const sourceRows = isHistory 
         ? (selectedHistoryReport?.missingRows || []) 
         : missingRows;
-
-      const mappingVal = isHistory 
-        ? selectedHistoryReport?.mapping 
-        : mapping;
 
       const nsCols = isHistory ? (selectedHistoryReport?.columnsNS || []) : (columns.ns || []);
       const vieCols = isHistory ? (selectedHistoryReport?.columnsVIE || []) : (columns.vie || []);
@@ -1815,7 +1886,7 @@ export default function RegtoolsDiffPage() {
         }
 
         const isVieRow = rowPortfolio === "VIE";
-        const agencyCol = isVieRow ? mappingVal?.vieAgence : mappingVal?.nsAgence;
+        const agencyCol = isVieRow ? (isHistory ? selectedHistoryReport?.mapping?.vieAgence : mapping.vieAgence) : (isHistory ? selectedHistoryReport?.mapping?.nsAgence : mapping.nsAgence);
         
         if (!agencyCol) return false;
         const code = getRowAgencyCode(row, agencyCol, isVieRow);
@@ -1827,45 +1898,17 @@ export default function RegtoolsDiffPage() {
         return;
       }
 
-      let exportHeaders: string[] = [];
-      if (currentPortfolioFilter === "NS") {
-        exportHeaders = [...nsCols];
-      } else if (currentPortfolioFilter === "VIE") {
-        exportHeaders = [...vieCols];
-      } else {
-        const union = new Set([...nsCols, ...vieCols]);
-        exportHeaders = ["Portefeuille", ...Array.from(union)];
-      }
+      const { headers: exportHeaders, mapRow } = getExportHeadersAndRowMapper(
+        currentPortfolioFilter,
+        nsCols,
+        vieCols
+      );
 
-      const exportData = rowsToExport.map((row: any) => {
-        const newRow: any = {};
-        exportHeaders.forEach(h => {
-          if (h === "Portefeuille") {
-            newRow[h] = row.__sourcePortfolio || (row.__sourcePortfolio === "VIE" || (row.__sourcePortfolio === undefined && (isHistory ? selectedHistoryReport?.reconciliationType === "VIE" : reconciliationType === "VIE")) ? "VIE" : "NS");
-          } else {
-            newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
-          }
-        });
-        return newRow;
-      });
-
-      const nsFileName = isHistory ? (selectedHistoryReport?.fileNameNS || "") : (files.ns ? files.ns.name : "");
-      const vieFileName = isHistory ? (selectedHistoryReport?.fileNameVIE || "") : (files.vie ? files.vie.name : "");
-      
-      let sourceFileStr = "";
-      if (currentPortfolioFilter === "NS") {
-        sourceFileStr = `Fichier NS d'origine : ${nsFileName}`;
-      } else if (currentPortfolioFilter === "VIE") {
-        sourceFileStr = `Fichier VIE d'origine : ${vieFileName}`;
-      } else {
-        sourceFileStr = `Fichiers d'origine : NS (${nsFileName || "non chargé"}) | VIE (${vieFileName || "non chargé"})`;
-      }
+      const exportData = rowsToExport.map((row: any) => mapRow(row));
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT - CLIENTS ABSENTS - AGENCE ${agencyCode} (${fileLabel === "NS_VIE" ? "NS + VIE" : fileLabel})`],
         [`Nom Agence : ${agencyInfo.name} | Type : ${agencyInfo.type}`],
         ["CONSIGNE : Veuillez créer des fiches KYC pour ces clients"],
-        [`${sourceFileStr} | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
         exportHeaders
       ];
@@ -1879,22 +1922,18 @@ export default function RegtoolsDiffPage() {
 
       ws["!merges"] = [
         { s: { r: 0, c: 0 }, e: { r: 0, c: exportHeaders.length - 1 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: exportHeaders.length - 1 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: exportHeaders.length - 1 } },
-        { s: { r: 3, c: 0 }, e: { r: 3, c: exportHeaders.length - 1 } }
+        { s: { r: 1, c: 0 }, e: { r: 1, c: exportHeaders.length - 1 } }
       ];
 
       ws["!rows"] = [
-        { hpt: 25 },
         { hpt: 20 },
         { hpt: 20 },
-        { hpt: 18 },
         { hpt: 15 }
       ];
 
       const colWidths = exportHeaders.map((header, colIdx) => {
         let maxLen = header.length;
-        for (let rIdx = 5; rIdx < sheetAOA.length; rIdx++) {
+        for (let rIdx = 3; rIdx < sheetAOA.length; rIdx++) {
           const val = sheetAOA[rIdx][colIdx];
           if (val !== undefined && val !== null) {
             maxLen = Math.max(maxLen, String(val).length);
@@ -3764,45 +3803,26 @@ export default function RegtoolsDiffPage() {
     }
   };
 
-  // History export function
   const exportHistoryExcel = () => {
     if (!selectedHistoryReport) return;
     if (filteredHistoryRows.length === 0) return;
     try {
       const report = selectedHistoryReport;
       const fileLabel = historyPortfolioFilter === "ALL" ? "NS_VIE" : historyPortfolioFilter;
-      const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
       
-      let exportHeaders: string[] = [];
       const nsCols = report.columnsNS || [];
       const vieCols = report.columnsVIE || [];
       
-      if (historyPortfolioFilter === "NS") {
-        exportHeaders = [...nsCols];
-      } else if (historyPortfolioFilter === "VIE") {
-        exportHeaders = [...vieCols];
-      } else {
-        const union = new Set([...nsCols, ...vieCols]);
-        exportHeaders = ["Portefeuille", ...Array.from(union)];
-      }
+      const { headers: exportHeaders, mapRow } = getExportHeadersAndRowMapper(
+        historyPortfolioFilter,
+        nsCols,
+        vieCols
+      );
 
-      const exportData = filteredHistoryRows.map((row: any) => {
-        const newRow: any = {};
-        const isRowVie = row.__sourcePortfolio === "VIE";
-        exportHeaders.forEach((h: string) => {
-          if (h === "Portefeuille") {
-            newRow[h] = row.__sourcePortfolio || (isRowVie ? "VIE" : "NS");
-          } else {
-            newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
-          }
-        });
-        return newRow;
-      });
+      const exportData = filteredHistoryRows.map((row: any) => mapRow(row));
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - ${report.monthLabel} (${fileLabel === "NS_VIE" ? "NS + VIE" : fileLabel})`],
         ["CONSIGNE : Veuillez créer des fiches KYC pour ces clients"],
-        [`Fichiers d'origine : NS (${report.fileNameNS || "non chargé"}) | VIE (${report.fileNameVIE || "non chargé"}) | Date d'export : ${currentDate} | Lignes : ${exportData.length}`],
         [],
         exportHeaders
       ];
@@ -3815,21 +3835,17 @@ export default function RegtoolsDiffPage() {
       const wb = XLSX.utils.book_new();
 
       ws["!merges"] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: exportHeaders.length - 1 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: exportHeaders.length - 1 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: exportHeaders.length - 1 } }
+        { s: { r: 0, c: 0 }, e: { r: 0, c: exportHeaders.length - 1 } }
       ];
 
       ws["!rows"] = [
-        { hpt: 25 },
         { hpt: 20 },
-        { hpt: 18 },
         { hpt: 15 }
       ];
 
       const colWidths = exportHeaders.map((header, colIdx) => {
         let maxLen = header.length;
-        for (let rIdx = 5; rIdx < sheetAOA.length; rIdx++) {
+        for (let rIdx = 2; rIdx < sheetAOA.length; rIdx++) {
           const val = sheetAOA[rIdx][colIdx];
           if (val !== undefined && val !== null) {
             maxLen = Math.max(maxLen, String(val).length);
