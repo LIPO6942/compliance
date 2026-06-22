@@ -1043,7 +1043,30 @@ export default function RegtoolsDiffPage() {
     if (geographyOverrides[normCode]) {
       return geographyOverrides[normCode];
     }
-    return getAgencyGeography(code, name);
+
+    // Check if code is explicitly in AGENCY_GEOGRAPHY (determined link)
+    if (AGENCY_GEOGRAPHY[normCode]) {
+      return AGENCY_GEOGRAPHY[normCode];
+    }
+
+    // Check name match keywords (determined link)
+    const finalName = name || (info ? info.name : "");
+    const normName = String(finalName || "").toLowerCase().trim();
+    const hasKeyword = normName.includes("barcelone") || normName.includes("bnet") || normName.includes("jaures") || normName.includes("jaurès") || normName.includes("lafayette") || normName.includes("marsa") ||
+                       normName.includes("bizerte") || normName.includes("ariana") || normName.includes("bardo") || normName.includes("lac") || normName.includes("manar") || normName.includes("mnihla") || normName.includes("enasr") || normName.includes("menzah") || normName.includes("kram") || normName.includes("soukra") ||
+                       normName.includes("ben arous") || normName.includes("mourouj") || normName.includes("hammam lif") || normName.includes("fouchana") || normName.includes("rades") || normName.includes("radès") || normName.includes("megrine") || normName.includes("mégrine") || normName.includes("ezzahra") ||
+                       normName.includes("sousse") || normName.includes("monastir") || normName.includes("kairouan") || normName.includes("moknine") || normName.includes("jemmel") || normName.includes("msaken") || normName.includes("m'saken") ||
+                       normName.includes("sfax") || normName.includes("mahdia") || normName.includes("gabes") || normName.includes("gabès") || normName.includes("chebba") || normName.includes("boumerdes") || normName.includes("boumerdès") || normName.includes("el-jem") || normName.includes("hamma") ||
+                       normName.includes("nabeul") || normName.includes("kelibia") || normName.includes("kélibia") || normName.includes("hammamet") || normName.includes("soliman") || normName.includes("zaghouan") ||
+                       normName.includes("beja") || normName.includes("béja") || normName.includes("kef") || normName.includes("siliana") || normName.includes("jendouba") || normName.includes("testour") || normName.includes("mjez") || normName.includes("kasserine") || normName.includes("feriana") || normName.includes("ghardimaou") || normName.includes("bousselem") ||
+                       normName.includes("djerba") || normName.includes("gafsa") || normName.includes("zarzis") || normName.includes("tataouine") || normName.includes("kebili") || normName.includes("kébili") || normName.includes("tozeur") || normName.includes("medenine") || normName.includes("médenine") || normName.includes("gerdane");
+
+    if (hasKeyword) {
+      return getAgencyGeography(code, finalName);
+    }
+
+    // Default to "Non affecté" if no explicit geography or name match exists
+    return { delegation: "Non affecté", gouvernorat: "Non affecté" };
   }, [geographyOverrides, resolveAgencyInfo]);
 
   const [delegationSearch, setDelegationSearch] = useState("");
@@ -2362,7 +2385,7 @@ export default function RegtoolsDiffPage() {
     if (!comparisonDone || agencyStats.length === 0) return [];
     
     const map = new Map<string, { total: number; missing: number; agencyCount: number; agencies: any[] }>();
-    const mainDelegations = ["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Courtiers", "Siège"];
+    const mainDelegations = ["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Courtiers", "Siège", "Non affecté"];
     mainDelegations.forEach(del => {
       map.set(del, { total: 0, missing: 0, agencyCount: 0, agencies: [] });
     });
@@ -3244,7 +3267,7 @@ export default function RegtoolsDiffPage() {
     if (!selectedHistoryReport || resolvedHistoryAgencyStats.length === 0) return [];
 
     const map = new Map<string, { total: number; missing: number; agencyCount: number; agencies: any[] }>();
-    const mainDelegations = ["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Courtiers", "Siège"];
+    const mainDelegations = ["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Courtiers", "Siège", "Non affecté"];
     mainDelegations.forEach(del => {
       map.set(del, { total: 0, missing: 0, agencyCount: 0, agencies: [] });
     });
@@ -5348,7 +5371,6 @@ export default function RegtoolsDiffPage() {
                             >
                               <ChevronRight className="h-4 w-4" />
                             </button>
-
                             <div className="flex items-center gap-1.5 ml-2">
                               <span className="text-xs text-slate-400">Par page :</span>
                               <select
@@ -5638,6 +5660,7 @@ export default function RegtoolsDiffPage() {
                           <option value="Sud">Sud</option>
                           <option value="Courtiers">Courtiers</option>
                           <option value="Siège">Siège</option>
+                          <option value="Non affecté">Non affecté</option>
                         </select>
                       </div>
 
@@ -6196,6 +6219,7 @@ export default function RegtoolsDiffPage() {
                           <option value="Sud">Sud</option>
                           <option value="Courtiers">Courtiers</option>
                           <option value="Siège">Siège</option>
+                          <option value="Non affecté">Non affecté</option>
                         </select>
                       </div>
 
@@ -7252,7 +7276,7 @@ export default function RegtoolsDiffPage() {
                       onChange={(e) => setActiveSettingsDelegation(e.target.value)}
                       className="text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2 outline-none cursor-pointer"
                     >
-                      {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Courtiers", "Siège"].map(d => (
+                      {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Courtiers", "Siège", "Non affecté"].map(d => (
                         <option key={`opt-sel-del-${d}`} value={d}>{d}</option>
                       ))}
                     </select>
@@ -7360,7 +7384,7 @@ export default function RegtoolsDiffPage() {
                                   }}
                                   className="w-full text-[11px] p-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none cursor-pointer text-blue-600 dark:text-blue-400 font-bold"
                                 >
-                                  {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"].map(d => (
+                                  {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Non affecté"].map(d => (
                                     <option key={`opt-move-del-${d}`} value={d}>{d}</option>
                                   ))}
                                 </select>
@@ -7406,7 +7430,7 @@ export default function RegtoolsDiffPage() {
                         <div 
                           className="min-w-0 flex-1 cursor-pointer"
                           onClick={() => {
-                            if (["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Courtiers", "Siège"].includes(ag.currentDelegation)) {
+                            if (["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Courtiers", "Siège", "Non affecté"].includes(ag.currentDelegation)) {
                               setActiveSettingsDelegation(ag.currentDelegation);
                             }
                           }}
@@ -7432,7 +7456,7 @@ export default function RegtoolsDiffPage() {
                             }}
                             className="text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md p-1 outline-none text-slate-600 dark:text-slate-300 font-medium shrink-0 cursor-pointer"
                           >
-                            {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"].map(d => (
+                            {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Non affecté"].map(d => (
                               <option key={`opt-move-search-del-${d}`} value={d}>{d}</option>
                             ))}
                           </select>
@@ -7493,7 +7517,7 @@ export default function RegtoolsDiffPage() {
                       onChange={(e) => setSettingsNewDel(e.target.value)}
                       className="flex-1 p-1.5 text-[10px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none cursor-pointer text-slate-700 dark:text-slate-350 disabled:opacity-50"
                     >
-                      {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud"].map(d => (
+                      {["Tunis Centre", "Tunis Nord", "Tunis Sud", "Sahel", "Sfax", "Cap Bon", "Nord ouest", "Sud", "Non affecté"].map(d => (
                         <option key={`opt-new-del-${d}`} value={d}>{d}</option>
                       ))}
                     </select>
