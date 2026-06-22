@@ -581,6 +581,105 @@ const chunkArray = <T,>(arr: T[], size: number): T[][] => {
   return chunks;
 };
 
+// Extract compliance KPIs from raw RegTools rows
+const extractRegtoolsKPIs = (regtoolsData: any[]) => {
+  if (!regtoolsData || regtoolsData.length === 0) return null;
+
+  const firstRow = regtoolsData[0];
+  const keys = Object.keys(firstRow);
+
+  // Auto-detect columns based on common patterns
+  const riskLevelCol = keys.find(k => /risk.*level|niveau.*risque/i.test(k)) || "riskLevel";
+  const formNamesCol = keys.find(k => /form.*name|nom.*form|type.*risque/i.test(k)) || "formNames";
+  const isPepCol = keys.find(k => /^is.*pep$|^pep$/i.test(k)) || "isPep";
+  const isSanctionedCol = keys.find(k => /^is.*sanction|^sanction$/i.test(k)) || "isSanctioned";
+  const isAllTreatedCol = keys.find(k => /^is.*treat|trait/i.test(k)) || "isAllTreated";
+  const riskValueCol = keys.find(k => /risk.*val|valeur.*risque/i.test(k)) || "riskValue";
+  const profileTypeCol = keys.find(k => /profile.*type|type.*profil/i.test(k)) || "potentialProfileType";
+
+  const riskLevels: Record<string, number> = { Faible: 0, Moyen: 0, Eleve: 0 };
+  const formTypes: Record<string, number> = {};
+  let pepCount = 0;
+  let sanctionedCount = 0;
+  let treatedCount = 0;
+  let totalRiskValue = 0;
+  let riskValueCount = 0;
+
+  regtoolsData.forEach(row => {
+    // 1. Risk Level
+    const rLevelVal = String(row[riskLevelCol] || "").trim().toLowerCase();
+    if (rLevelVal.includes("faible")) {
+      riskLevels.Faible++;
+    } else if (rLevelVal.includes("moyen")) {
+      riskLevels.Moyen++;
+    } else if (rLevelVal.includes("eleve") || rLevelVal.includes("éleve") || rLevelVal.includes("élevé")) {
+      riskLevels.Eleve++;
+    }
+
+    // 2. Form Names / Types
+    const fNamesVal = String(row[formNamesCol] || "").trim();
+    if (fNamesVal) {
+      const parts = fNamesVal.split(",").map(p => p.trim()).filter(Boolean);
+      parts.forEach(part => {
+        let cleaned = part.replace(/^Fiche de Connaissance Client MAE\s*-\s*/i, "").trim();
+        if (/personne\s+physique/i.test(cleaned)) {
+          if (/assur[eé]\s+personne\s+physique/i.test(cleaned)) {
+            cleaned = "Assuré personne physique";
+          } else {
+            cleaned = "Personne physique";
+          }
+        } else if (/personne\s+morale?/i.test(cleaned)) {
+          cleaned = "Personne morale";
+        } else if (/repr[eé]s[eé]ntant\s+l[eé]gale?/i.test(cleaned)) {
+          cleaned = "Représentant légal";
+        }
+        
+        formTypes[cleaned] = (formTypes[cleaned] || 0) + 1;
+      });
+    }
+
+    // 3. PEP
+    const pepVal = String(row[isPepCol] || "").trim().toLowerCase();
+    const profileVal = String(row[profileTypeCol] || "").trim().toLowerCase();
+    const isPep = pepVal === "yes" || pepVal === "oui" || pepVal === "true" || profileVal.includes("pep");
+    if (isPep) {
+      pepCount++;
+    }
+
+    // 4. Sanctions
+    const sanctionedVal = String(row[isSanctionedCol] || "").trim().toLowerCase();
+    const isSanctioned = sanctionedVal === "yes" || sanctionedVal === "oui" || sanctionedVal === "true" || profileVal.includes("sanction");
+    if (isSanctioned) {
+      sanctionedCount++;
+    }
+
+    // 5. Treated
+    const treatedVal = String(row[isAllTreatedCol] || "").trim().toLowerCase();
+    if (treatedVal === "yes" || treatedVal === "oui" || treatedVal === "true") {
+      treatedCount++;
+    }
+
+    // 6. Risk Value
+    const rVal = parseFloat(row[riskValueCol]);
+    if (!isNaN(rVal)) {
+      totalRiskValue += rVal;
+      riskValueCount++;
+    }
+  });
+
+  return {
+    riskLevels,
+    formTypes: Object.entries(formTypes)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count),
+    pepCount,
+    sanctionedCount,
+    treatedCount,
+    avgRiskValue: riskValueCount > 0 ? parseFloat((totalRiskValue / riskValueCount).toFixed(2)) : 0,
+    totalForms: regtoolsData.length
+  };
+};
+
 
 interface TunisiaHeatmapProps {
   delegationStats: any[];
@@ -2807,6 +2906,7 @@ export default function RegtoolsDiffPage() {
       const pctMissing = total > 0 ? parseFloat(((missing / total) * 100).toFixed(2)) : 0;
 
       const pStats = calculateStatsForPortfolio(type, rawDataList, rowsMissing, mapping);
+      const kpis = extractRegtoolsKPIs(data.regtools || []);
 
       const reportPayload = {
         monthKey: targetMonthKey,
@@ -2826,7 +2926,8 @@ export default function RegtoolsDiffPage() {
         minifiedSimilarRows: minifiedSimilar,
         columnsNS: columns[type.toLowerCase() as "ns" | "vie"],
         mapping: mapping,
-        reconciliationType: type
+        reconciliationType: type,
+        regtoolsKPIs: kpis
       };
 
       // 1. Save to Firestore
@@ -2873,7 +2974,8 @@ export default function RegtoolsDiffPage() {
           columnsNS: reportPayload.columnsNS,
           mapping: reportPayload.mapping,
           hasSubCollectionDetails: true,
-          reconciliationType: type
+          reconciliationType: type,
+          regtoolsKPIs: reportPayload.regtoolsKPIs
         };
         await setDoc(doc(db, "regtoolsHistory", targetMonthKey), firestoreMainPayload);
         savedInFirestore = true;
@@ -2893,7 +2995,8 @@ export default function RegtoolsDiffPage() {
         fileNameRegtools: files.regtools ? files.regtools.name : "",
         savedAt: reportPayload.savedAt,
         globalStats: reportPayload.globalStats,
-        reconciliationType: type
+        reconciliationType: type,
+        regtoolsKPIs: kpis
       };
       localList.push(metadata);
       localStorage.setItem("regtools_history_list", JSON.stringify(localList));
