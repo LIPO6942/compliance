@@ -1192,7 +1192,7 @@ export default function ControleSuiviPage() {
                                 ) : (
                                   <>
                                     <ReferenceLine y={10} stroke="#f43f5e" strokeDasharray="3 3" label={{ value: "Seuil Critique (10 fiches)", fill: "#f43f5e", fontSize: 8, position: "top" }} />
-                                    <Line type="monotone" dataKey="missing" name="Fiches absentes" stroke="#4f46e5" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} activeDot={{ r: 6 }} />
+                                    <Line type="monotone" dataKey="missing" name="Fiches absentes" stroke="#4f46e5" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                                   </>
                                 )}
                               </LineChart>
@@ -1232,15 +1232,10 @@ export default function ControleSuiviPage() {
                   </>
                 )}
               </div>
-            </div>
+            </>
           )}
         </div>
       )}
-/button>
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Editing / Checklist detail Modal */}
       {editingItem && (
