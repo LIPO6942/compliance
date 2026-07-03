@@ -27,7 +27,8 @@ import {
   MapPin,
   Building2,
   HelpCircle,
-  Info
+  Info,
+  Layers
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAgencyGeography } from "@/data/agencyGeography";
@@ -107,7 +108,7 @@ export default function ControleSuiviPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Tab & Trend states
-  const [activeTab, setActiveTab] = useState<"fiches" | "tendances">("fiches");
+  const [activeTab, setActiveTab] = useState<"fiches" | "tendances">("tendances");
   const [regtoolsHistory, setRegtoolsHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [selectedTrendAgency, setSelectedTrendAgency] = useState<string>("ALL");
