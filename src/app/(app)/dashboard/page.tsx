@@ -4,7 +4,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle, X, Zap, ChevronDown, Award } from "lucide-react";
+import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle, X, Zap, ChevronDown, Award, ClipboardEdit, PenLine } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { db, isFirebaseConfigured } from "@/lib/firebase";
 import { getAgencyGeography } from "@/data/agencyGeography";
@@ -83,6 +83,86 @@ export default function DashboardPage() {
   const [regtoolsHistory, setRegtoolsHistory] = React.useState<any[]>([]);
   const [loadingRegtools, setLoadingRegtools] = React.useState(true);
   const [criticalTypeFilter, setCriticalTypeFilter] = React.useState<"all" | "Agence" | "Succursale">("all");
+
+  // ── Risk Factor Matrix Tracker ──
+  const RISK_FACTORS = [
+    { id: "pays",           label: "Pays",                        icon: "🌍", color: "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300" },
+    { id: "gouvernorats",   label: "Gouvernorats",                icon: "🗺️",  color: "bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/30 dark:border-violet-800 dark:text-violet-300" },
+    { id: "produits",       label: "Produits",                    icon: "📦", color: "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300" },
+    { id: "voie",           label: "Voie de distribution / Vente",icon: "🔗", color: "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300" },
+    { id: "activite",       label: "Activité P. Morales",         icon: "🏢", color: "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300" },
+    { id: "profession",     label: "Profession PP",               icon: "👤", color: "bg-cyan-50 border-cyan-200 text-cyan-700 dark:bg-cyan-950/30 dark:border-cyan-800 dark:text-cyan-300" },
+  ];
+  const [selectedRiskFactors, setSelectedRiskFactors] = React.useState<string[]>([]);
+  const [riskFactorLogs, setRiskFactorLogs] = React.useState<any[]>([]);
+  const [showRiskFactorModal, setShowRiskFactorModal] = React.useState(false);
+  const [riskFactorNote, setRiskFactorNote] = React.useState("");
+  const [showAllRiskLogs, setShowAllRiskLogs] = React.useState(false);
+
+  // Real-time Firestore listener for collaborative risk factor logs
+  React.useEffect(() => {
+    if (!isFirebaseConfigured || !db) {
+      // Fallback to localStorage if Firestore not configured
+      try {
+        const stored = localStorage.getItem("risk_factor_logs");
+        if (stored) setRiskFactorLogs(JSON.parse(stored));
+      } catch {}
+      return;
+    }
+    let unsubscribe: (() => void) | undefined;
+    (async () => {
+      const { collection, onSnapshot, query, orderBy } = await import("firebase/firestore");
+      const q = query(collection(db, "riskFactorLogs"), orderBy("date", "desc"));
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const logs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setRiskFactorLogs(logs);
+      });
+    })();
+    return () => { if (unsubscribe) unsubscribe(); };
+  }, []);
+
+  const handleRiskFactorToggle = (id: string) => {
+    setSelectedRiskFactors(prev =>
+      prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
+    );
+  };
+
+  const handleOpenRiskFactorModal = () => {
+    if (selectedRiskFactors.length === 0) return;
+    setRiskFactorNote("");
+    setShowRiskFactorModal(true);
+  };
+
+  const handleRiskFactorSave = async () => {
+    const selectedLabels = RISK_FACTORS.filter(f => selectedRiskFactors.includes(f.id)).map(f => f.label);
+    const entry = {
+      date: new Date().toISOString(),
+      user: user?.displayName || user?.email || "Utilisateur inconnu",
+      factors: selectedLabels,
+      note: riskFactorNote.trim(),
+    };
+    if (isFirebaseConfigured && db) {
+      try {
+        const { collection, addDoc } = await import("firebase/firestore");
+        await addDoc(collection(db, "riskFactorLogs"), entry);
+      } catch (e) {
+        console.error("Firestore write error:", e);
+        // Fallback to localStorage
+        const updated = [{ id: Date.now(), ...entry }, ...riskFactorLogs];
+        setRiskFactorLogs(updated);
+        try { localStorage.setItem("risk_factor_logs", JSON.stringify(updated)); } catch {}
+      }
+    } else {
+      const updated = [{ id: Date.now(), ...entry }, ...riskFactorLogs];
+      setRiskFactorLogs(updated);
+      try { localStorage.setItem("risk_factor_logs", JSON.stringify(updated)); } catch {}
+    }
+    setSelectedRiskFactors([]);
+    setRiskFactorNote("");
+    setShowRiskFactorModal(false);
+    toast({ title: "✅ Mise à jour enregistrée", description: `${selectedLabels.join(", ")} — journalisé avec succès.` });
+  };
+
 
   React.useEffect(() => {
     setIsClient(true);
@@ -1103,57 +1183,114 @@ export default function DashboardPage() {
             </Tooltip>
           </div>
 
-          {/* Right Column: Timeline & News */}
+          {/* Right Column: Risk Factor Tracker (replaces Derniers Signaux) */}
           <div className="lg:col-span-1 space-y-6">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card
-                  className="shadow-xl border-none border-t-4 border-t-primary cursor-pointer hover:bg-slate-50/50 transition-all"
-                  onClick={() => handleCardClick('/history')}
-                >
-                  <CardHeader className="pb-3 border-b">
-                    <CardTitle className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 text-primary">
-                      <History className="h-4 w-4" />
-                      Derniers Signaux
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <ScrollArea className="h-[280px]">
-                      <div className="p-5 space-y-7">
-                        {lastActions.map((action, i) => (
-                          <div key={i} className="flex gap-4 items-start relative pb-7 border-l-2 border-slate-100 dark:border-slate-800 ml-2 pl-5 last:border-0 last:pb-0">
-                            <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white dark:bg-slate-950 border-4 border-primary shadow-sm" />
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <action.Icon className="h-3 w-3 text-muted-foreground" />
-                                <p className="text-[10px] font-black uppercase text-muted-foreground">
-                                  {format(action.date, 'HH:mm • dd MMM', { locale: fr })}
-                                </p>
-                              </div>
-                              <p className="text-[13px] font-bold leading-tight text-slate-800 dark:text-slate-200">
-                                {action.description}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                        {lastActions.length === 0 && (
-                          <div className="text-center py-10 opacity-30 italic text-sm">Aucun signal récent</div>
+            {/* Compact Risk Factor Tracker Card */}
+            <Card className="shadow-xl border-none border-t-4 border-t-amber-500 overflow-hidden">
+              <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/20">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                    <ClipboardEdit className="h-4 w-4" />
+                    Matrice des Risques
+                  </CardTitle>
+                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-0.5">
+                    {riskFactorLogs.length} MAJ
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">Cliquez sur un facteur modifié pour le journaliser</p>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                {/* Factor tiles — compact 2x3 grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  {RISK_FACTORS.map(factor => {
+                    const isSelected = selectedRiskFactors.includes(factor.id);
+                    return (
+                      <button
+                        key={factor.id}
+                        onClick={() => handleRiskFactorToggle(factor.id)}
+                        className={cn(
+                          "relative flex items-center gap-2 p-2.5 rounded-xl border-2 text-left transition-all duration-200 cursor-pointer select-none",
+                          factor.color,
+                          isSelected
+                            ? "ring-2 ring-offset-1 ring-blue-500 scale-[1.03] shadow-md"
+                            : "hover:scale-[1.01] hover:shadow-sm opacity-80 hover:opacity-100"
                         )}
-                      </div>
-                    </ScrollArea>
-                    <div className="p-4 border-t bg-slate-50/50 dark:bg-slate-900/50 pointer-events-none">
-                      <Button variant="ghost" className="w-full text-xs font-bold gap-2 text-muted-foreground hover:text-primary">
-                        Voir l'historique complet <ArrowRight className="h-3 w-3" />
-                      </Button>
+                      >
+                        {isSelected && (
+                          <span className="absolute top-1 right-1 bg-blue-500 text-white rounded-full h-3.5 w-3.5 flex items-center justify-center text-[8px] font-black">✓</span>
+                        )}
+                        <span className="text-base leading-none shrink-0">{factor.icon}</span>
+                        <span className="text-[10px] font-bold leading-tight truncate">{factor.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Action row */}
+                <div className="flex gap-2 pt-1">
+                  {selectedRiskFactors.length > 0 && (
+                    <button
+                      onClick={() => setSelectedRiskFactors([])}
+                      className="px-2.5 py-1.5 text-[10px] font-semibold text-slate-500 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    >Effacer</button>
+                  )}
+                  <button
+                    onClick={handleOpenRiskFactorModal}
+                    disabled={selectedRiskFactors.length === 0}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-bold rounded-lg transition-all",
+                      selectedRiskFactors.length > 0
+                        ? "bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/20"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+                    )}
+                  >
+                    <PenLine className="h-3 w-3" />
+                    {selectedRiskFactors.length > 0 ? `Journaliser (${selectedRiskFactors.length})` : "Sélectionnez un facteur"}
+                  </button>
+                </div>
+
+                {/* Live log */}
+                {riskFactorLogs.length > 0 && (
+                  <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Journal en direct</span>
+                      <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Temps réel
+                      </span>
                     </div>
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent side="left">
-                <p className="font-bold mb-1">Journal d'Audit</p>
-                <p className="text-xs">Flux d'activité récent sur les documents, alertes et risques.</p>
-              </TooltipContent>
-            </Tooltip>
+                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                      {riskFactorLogs.slice(0, 8).map((log: any) => (
+                        <div key={log.id || log.date} className="bg-slate-50/80 dark:bg-slate-800/40 rounded-xl p-2.5 border border-slate-100 dark:border-slate-800/80">
+                          <div className="flex items-center justify-between gap-1 mb-1.5">
+                            <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate">{log.user}</span>
+                            <span className="text-[9px] text-slate-400 shrink-0">
+                              {new Date(log.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {log.factors.map((f: string) => (
+                              <span key={f} className="text-[9px] font-semibold px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 rounded-full border border-amber-200 dark:border-amber-800">{f}</span>
+                            ))}
+                          </div>
+                          {log.note && (
+                            <p className="text-[9px] text-slate-400 italic mt-1 line-clamp-2">&ldquo;{log.note}&rdquo;</p>
+                          )}
+                        </div>
+                      ))}
+                      {riskFactorLogs.length > 8 && (
+                        <p className="text-center text-[9px] text-slate-400 font-semibold pt-1">+ {riskFactorLogs.length - 8} entrées supplémentaires</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {riskFactorLogs.length === 0 && (
+                  <div className="text-center py-4 text-[10px] text-slate-300 dark:text-slate-600 italic">
+                    Aucune mise à jour enregistrée
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1679,6 +1816,7 @@ export default function DashboardPage() {
           </div>
         )}
 
+
         {/* Action shortcuts */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <ModernActionCard icon={ShieldCheck} title="Alertes GRC" href="/alerts" color="bg-rose-500" />
@@ -1686,6 +1824,56 @@ export default function DashboardPage() {
           <ModernActionCard icon={FileText} title="Documents" href="/documents" color="bg-indigo-500" />
           <ModernActionCard icon={Users} title="Équipe" href="/team" color="bg-emerald-500" />
         </div>
+
+        {/* Risk Factor Update Modal */}
+        {showRiskFactorModal && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl">
+              <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-amber-100 dark:bg-amber-950/40 rounded-lg">
+                    <ClipboardEdit className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">Journaliser la mise à jour</h3>
+                </div>
+                <button onClick={() => setShowRiskFactorModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg text-slate-400 transition-colors">✕</button>
+              </div>
+              <div className="p-5 space-y-4">
+                {/* Selected factors recap */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Facteurs modifiés</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {RISK_FACTORS.filter(f => selectedRiskFactors.includes(f.id)).map(f => (
+                      <span key={f.id} className={cn("text-xs font-bold px-2.5 py-1 rounded-full border", f.color)}>
+                        {f.icon} {f.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {/* Note field */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Qu&apos;est-ce qui a été modifié ? <span className="text-slate-300 normal-case font-normal">(optionnel)</span></label>
+                  <textarea
+                    value={riskFactorNote}
+                    onChange={e => setRiskFactorNote(e.target.value)}
+                    placeholder="Ex: Ajout de 3 nouveaux pays à risque élevé, mise à jour du score gouvernorat de Tunis..."
+                    rows={3}
+                    className="w-full text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none focus:border-blue-500 transition-colors resize-none text-slate-700 dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                  />
+                </div>
+                {/* Metadata */}
+                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-3 text-xs text-slate-400 flex justify-between">
+                  <span>👤 {user?.displayName || user?.email || "Inconnu"}</span>
+                  <span>📅 {new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+              </div>
+              <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                <button onClick={() => setShowRiskFactorModal(false)} className="px-4 py-2 text-xs font-semibold text-slate-600 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">Annuler</button>
+                <button onClick={handleRiskFactorSave} className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md shadow-blue-500/20 transition-all">✅ Enregistrer</button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </TooltipProvider>

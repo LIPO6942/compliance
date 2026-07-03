@@ -165,5 +165,11 @@ service cloud.firestore {
     match /controleSuivi/{document=**} {
       allow read, write: if true;
     }
+    // ============================================
+    // RISK FACTOR LOGS - Journal des mises à jour de la matrice des risques
+    // ============================================
+    match /riskFactorLogs/{logId} {
+      allow read, write: if true;  // Collaboratif — tous les utilisateurs authentifiés
+    }
   }
 }
