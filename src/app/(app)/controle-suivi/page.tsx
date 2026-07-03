@@ -1333,7 +1333,11 @@ export default function ControleSuiviPage() {
                                 );
                               })}
                             </LineChart>
-                                      </>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </>
