@@ -24,14 +24,29 @@ import { useActivityLog } from "@/contexts/ActivityLogContext";
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
-  Cell
+  Cell,
+  ReferenceLine,
+  Legend
 } from "recharts";
 import { getAgencyGeography, AGENCY_GEOGRAPHY } from "@/data/agencyGeography";
+
+// Parse month key like "052026_NS" or "062026" to a Date object
+const parseMonthKeyToDate = (key: string): Date => {
+  const cleaned = key.replace(/_(NS|VIE)$/, "");
+  if (cleaned.length === 6) {
+    const month = parseInt(cleaned.substring(0, 2)) - 1;
+    const year = parseInt(cleaned.substring(2));
+    return new Date(year, month, 1);
+  }
+  return new Date(0);
+};
 
 // Normalization helper
 const normalizeKey = (val: any): string => {
@@ -1067,6 +1082,14 @@ export default function RegtoolsDiffPage() {
   
   const [selectedDelegation, setSelectedDelegation] = useState<string | null>(null);
   const [historySelectedDelegation, setHistorySelectedDelegation] = useState<string | null>(null);
+
+  // Agency History & Critical filters
+  const [statsCriticalFilter, setStatsCriticalFilter] = useState(false);
+  const [historyStatsCriticalFilter, setHistoryStatsCriticalFilter] = useState(false);
+  const [selectedAgencyHistoryCode, setSelectedAgencyHistoryCode] = useState<string | null>(null);
+  const [selectedAgencyHistoryName, setSelectedAgencyHistoryName] = useState<string>("");
+  const [selectedAgencyHistoryLimitMonthKey, setSelectedAgencyHistoryLimitMonthKey] = useState<string>("");
+  const [agencyHistoryMetric, setAgencyHistoryMetric] = useState<"pct" | "count">("pct");
 
   // Geography Overrides States (Admin settings)
   const [geographyOverrides, setGeographyOverrides] = useState<Record<string, { delegation: string; gouvernorat: string }>>({});
@@ -2432,10 +2455,16 @@ export default function RegtoolsDiffPage() {
           (stat.nom && stat.nom.toLowerCase().includes(query)) ||
           (stat.type && stat.type.toLowerCase().includes(query));
       }
+
+      // Critical Filter (Taux absence KYC > 10% ET fiches absentes > 10)
+      let matchCritical = true;
+      if (statsCriticalFilter) {
+        matchCritical = stat.pctMissing > 10 && stat.missing > 10;
+      }
       
-      return matchType && matchDelegation && matchSearch;
+      return matchType && matchDelegation && matchSearch && matchCritical;
     });
-  }, [sortedAgencyStats, statsSearchQuery, statsTypeFilter, statsDelegationFilter, resolveAgencyGeography]);
+  }, [sortedAgencyStats, statsSearchQuery, statsTypeFilter, statsDelegationFilter, statsCriticalFilter, resolveAgencyGeography]);
 
   // Active side delegation and top 10 KYC absence stats
   const delegationStats = useMemo(() => {
@@ -2547,6 +2576,22 @@ export default function RegtoolsDiffPage() {
       }
     } catch (err) {
       console.error("Erreur lors de la lecture de l'historique local :", err);
+    }
+
+    // Fetch full details if needed (especially agencyStats)
+    for (let i = 0; i < reportsList.length; i++) {
+      const r = reportsList[i];
+      if (!r.agencyStats) {
+        try {
+          const fullLocalReportJSON = localStorage.getItem(`regtools_report_${r.monthKey}`);
+          if (fullLocalReportJSON) {
+            const fullLocal = JSON.parse(fullLocalReportJSON);
+            reportsList[i] = { ...reportsList[i], ...fullLocal };
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
     }
 
     // Sort by monthKey descending (e.g. 062026, 052026)
@@ -3314,10 +3359,134 @@ export default function RegtoolsDiffPage() {
           (stat.nom && stat.nom.toLowerCase().includes(query)) ||
           (stat.type && stat.type.toLowerCase().includes(query));
       }
+
+      // Critical Filter (Taux absence KYC > 10% ET fiches absentes > 10)
+      let matchCritical = true;
+      if (historyStatsCriticalFilter) {
+        matchCritical = stat.pctMissing > 10 && stat.missing > 10;
+      }
       
-      return matchType && matchDelegation && matchSearch;
+      return matchType && matchDelegation && matchSearch && matchCritical;
     });
-  }, [sortedHistoryAgencyStats, historyStatsSearchQuery, historyStatsTypeFilter, historyStatsDelegationFilter, resolveAgencyGeography]);
+  }, [sortedHistoryAgencyStats, historyStatsSearchQuery, historyStatsTypeFilter, historyStatsDelegationFilter, historyStatsCriticalFilter, resolveAgencyGeography]);
+
+  // Aggregate and filter historical reports list for trend charts (avoiding Vie / Non-Vie duplication)
+  const filteredSavedReportsForTrends = useMemo(() => {
+    if (savedReports.length === 0) return [];
+
+    const currentPortfolioFilter = pageTab === "history" ? historyPortfolioFilter : "ALL";
+
+    let rawList = savedReports;
+    if (currentPortfolioFilter === "NS") {
+      rawList = savedReports.filter(r => r.monthKey.endsWith("_NS"));
+    } else if (currentPortfolioFilter === "VIE") {
+      rawList = savedReports.filter(r => r.monthKey.endsWith("_VIE"));
+    }
+
+    if (currentPortfolioFilter !== "ALL") {
+      return rawList.map(r => ({
+        ...r,
+        monthLabel: r.monthLabel || r.monthKey
+      }));
+    }
+
+    const groups: Record<string, any[]> = {};
+    rawList.forEach(r => {
+      const cleanKey = r.monthKey.replace(/_(NS|VIE)$/, "");
+      if (!groups[cleanKey]) {
+        groups[cleanKey] = [];
+      }
+      groups[cleanKey].push(r);
+    });
+
+    const combinedReports: any[] = [];
+    Object.keys(groups).forEach(cleanKey => {
+      const reports = groups[cleanKey];
+      if (reports.length === 1) {
+        combinedReports.push({
+          ...reports[0],
+          monthKey: cleanKey,
+          monthLabel: reports[0].monthLabel?.replace(/\s*\((Vie|Non-Vie|I\.A\.R\.D|IARD)\)/gi, "") || cleanKey
+        });
+      } else {
+        const agencyMap = new Map<string, any>();
+        reports.forEach(r => {
+          if (r.agencyStats) {
+            r.agencyStats.forEach((stat: any) => {
+              const existing = agencyMap.get(stat.agence);
+              if (existing) {
+                existing.total += stat.total || 0;
+                existing.missing += stat.missing || 0;
+                existing.pctMissing = existing.total > 0 ? parseFloat(((existing.missing / existing.total) * 100).toFixed(2)) : 0;
+              } else {
+                agencyMap.set(stat.agence, { ...stat });
+              }
+            });
+          }
+        });
+
+        let total = 0;
+        let missing = 0;
+        reports.forEach(r => {
+          if (r.globalStats) {
+            total += r.globalStats.total || 0;
+            missing += r.globalStats.missing || 0;
+          } else if (r.agencyStats) {
+            r.agencyStats.forEach((stat: any) => {
+              total += stat.total || 0;
+              missing += stat.missing || 0;
+            });
+          }
+        });
+
+        combinedReports.push({
+          monthKey: cleanKey,
+          monthLabel: reports[0].monthLabel?.replace(/\s*\((Vie|Non-Vie|I\.A\.R\.D|IARD)\)/gi, "") || cleanKey,
+          savedAt: reports[0].savedAt,
+          agencyStats: Array.from(agencyMap.values()),
+          globalStats: {
+            total,
+            missing,
+            pctMissing: total > 0 ? parseFloat(((missing / total) * 100).toFixed(2)) : 0
+          }
+        });
+      }
+    });
+
+    combinedReports.sort((a, b) => parseMonthKeyToDate(a.monthKey).getTime() - parseMonthKeyToDate(b.monthKey).getTime());
+    return combinedReports;
+  }, [savedReports, pageTab, historyPortfolioFilter]);
+
+  // Specific agency evolution trend lines up to the selected reference month limit
+  const agencyHistoryData = useMemo(() => {
+    if (!selectedAgencyHistoryCode) return [];
+
+    const data: any[] = [];
+    
+    filteredSavedReportsForTrends.forEach(report => {
+      if (selectedAgencyHistoryLimitMonthKey) {
+        const reportDate = parseMonthKeyToDate(report.monthKey);
+        const limitDate = parseMonthKeyToDate(selectedAgencyHistoryLimitMonthKey);
+        if (reportDate > limitDate) return;
+      }
+
+      if (report.agencyStats) {
+        const stat = report.agencyStats.find((s: any) => s.agence === selectedAgencyHistoryCode);
+        if (stat) {
+          data.push({
+            monthKey: report.monthKey,
+            monthLabel: report.monthLabel || report.monthKey,
+            total: stat.total || 0,
+            missing: stat.missing || 0,
+            pctMissing: stat.pctMissing || 0,
+            pctExisting: stat.pctExisting || 0
+          });
+        }
+      }
+    });
+
+    return data;
+  }, [filteredSavedReportsForTrends, selectedAgencyHistoryCode, selectedAgencyHistoryLimitMonthKey]);
 
   // History side delegation and top 10 KYC absence stats
   const historyDelegationStats = useMemo(() => {
@@ -5675,6 +5844,21 @@ export default function RegtoolsDiffPage() {
                     </div>
 
                     <div className="flex items-center gap-4 flex-wrap">
+                      {/* Critique Filter Toggle — before Délégation */}
+                      <button
+                        onClick={() => setStatsCriticalFilter(prev => !prev)}
+                        title="Afficher uniquement les agences critiques (Taux absence KYC > 10% ET fiches absentes > 10)"
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border transition-all",
+                          statsCriticalFilter
+                            ? "bg-rose-50 border-rose-400 text-rose-700 dark:bg-rose-950/30 dark:border-rose-700 dark:text-rose-400"
+                            : "bg-white border-slate-200 text-slate-500 hover:border-rose-300 hover:text-rose-600 dark:bg-slate-900 dark:border-slate-800"
+                        )}
+                      >
+                        <AlertTriangle className={cn("h-3.5 w-3.5", statsCriticalFilter ? "text-rose-500 animate-pulse" : "text-slate-400")} />
+                        Critiques
+                      </button>
+
                       {/* Delegation Filter */}
                       <div className="flex items-center gap-2">
                         <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Délégation :</label>
@@ -5764,12 +5948,29 @@ export default function RegtoolsDiffPage() {
                         </thead>
                         <tbody>
                           {filteredAgencyStats.map((stat, idx) => (
-                            <tr key={`stat-row-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                            <tr key={`stat-row-${idx}`} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors", stat.pctMissing > 10 && stat.missing > 10 ? "bg-rose-50/30 dark:bg-rose-950/10" : "")}>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 font-semibold text-slate-900 dark:text-white">
-                                {stat.agence}
+                                <div className="flex items-center gap-1.5">
+                                  {stat.pctMissing > 10 && stat.missing > 10 && (
+                                    <span title="Agence critique : Taux absence KYC > 10% ET fiches absentes > 10" className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                                  )}
+                                  {stat.agence}
+                                </div>
                               </td>
-                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300">
-                                {stat.nom}
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60">
+                                <button
+                                  onClick={() => {
+                                    setSelectedAgencyHistoryCode(stat.agence);
+                                    setSelectedAgencyHistoryName(stat.nom);
+                                    setSelectedAgencyHistoryLimitMonthKey("");
+                                    setAgencyHistoryMetric("pct");
+                                  }}
+                                  className="text-left font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 hover:underline transition-colors flex items-center gap-1 group"
+                                  title={`Voir l'évolution de ${stat.nom} à travers le temps`}
+                                >
+                                  {stat.nom}
+                                  <span className="opacity-0 group-hover:opacity-100 text-[9px] text-blue-400 transition-opacity">↗ Tendances</span>
+                                </button>
                               </td>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-600 dark:text-slate-400">
                                 {stat.type}
@@ -6234,6 +6435,21 @@ export default function RegtoolsDiffPage() {
                     </div>
 
                     <div className="flex items-center gap-4 flex-wrap">
+                      {/* Critique Filter Toggle — before Délégation */}
+                      <button
+                        onClick={() => setHistoryStatsCriticalFilter(prev => !prev)}
+                        title="Afficher uniquement les agences critiques (Taux absence KYC > 10% ET fiches absentes > 10)"
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border transition-all",
+                          historyStatsCriticalFilter
+                            ? "bg-rose-50 border-rose-400 text-rose-700 dark:bg-rose-950/30 dark:border-rose-700 dark:text-rose-400"
+                            : "bg-white border-slate-200 text-slate-500 hover:border-rose-300 hover:text-rose-600 dark:bg-slate-900 dark:border-slate-800"
+                        )}
+                      >
+                        <AlertTriangle className={cn("h-3.5 w-3.5", historyStatsCriticalFilter ? "text-rose-500 animate-pulse" : "text-slate-400")} />
+                        Critiques
+                      </button>
+
                       {/* Delegation Filter */}
                       <div className="flex items-center gap-2">
                         <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Délégation :</label>
@@ -6321,12 +6537,29 @@ export default function RegtoolsDiffPage() {
                         </thead>
                         <tbody>
                           {filteredHistoryAgencyStats.map((stat, idx) => (
-                            <tr key={`history-stat-row-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                            <tr key={`history-stat-row-${idx}`} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors", stat.pctMissing > 10 && stat.missing > 10 ? "bg-rose-50/30 dark:bg-rose-950/10" : "")}>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 font-semibold text-slate-900 dark:text-white">
-                                {stat.agence}
+                                <div className="flex items-center gap-1.5">
+                                  {stat.pctMissing > 10 && stat.missing > 10 && (
+                                    <span title="Agence critique" className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                                  )}
+                                  {stat.agence}
+                                </div>
                               </td>
-                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300">
-                                {stat.nom}
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60">
+                                <button
+                                  onClick={() => {
+                                    setSelectedAgencyHistoryCode(stat.agence);
+                                    setSelectedAgencyHistoryName(stat.nom);
+                                    setSelectedAgencyHistoryLimitMonthKey(selectedHistoryReport?.monthKey || "");
+                                    setAgencyHistoryMetric("pct");
+                                  }}
+                                  className="text-left font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 hover:underline transition-colors flex items-center gap-1 group"
+                                  title={`Voir l'évolution de ${stat.nom} jusqu'au ${selectedHistoryReport?.monthLabel}`}
+                                >
+                                  {stat.nom}
+                                  <span className="opacity-0 group-hover:opacity-100 text-[9px] text-blue-400 transition-opacity">↗ Tendances</span>
+                                </button>
                               </td>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-600 dark:text-slate-400">
                                 {stat.type}
@@ -7628,6 +7861,99 @@ export default function RegtoolsDiffPage() {
               >
                 Fermer
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Agency History Evolution Modal ═══ */}
+      {selectedAgencyHistoryCode && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">Fiche d&apos;Évolution d&apos;Agence</span>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  {selectedAgencyHistoryCode} — {selectedAgencyHistoryName}
+                </h3>
+                {selectedAgencyHistoryLimitMonthKey && (
+                  <p className="text-xs text-slate-400">
+                    Évolution jusqu&apos;au rapport :{" "}
+                    <span className="font-semibold text-slate-600 dark:text-slate-300">
+                      {filteredSavedReportsForTrends.find(r => r.monthKey === selectedAgencyHistoryLimitMonthKey)?.monthLabel || selectedAgencyHistoryLimitMonthKey}
+                    </span>
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => { setSelectedAgencyHistoryCode(null); setSelectedAgencyHistoryName(""); setSelectedAgencyHistoryLimitMonthKey(""); }}
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg transition-colors text-lg"
+              >✕</button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              {/* Metric toggle */}
+              <div className="flex items-center justify-end">
+                <div className="flex rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden text-xs font-bold shadow-sm">
+                  <button onClick={() => setAgencyHistoryMetric("pct")} className={cn("px-3 py-1.5 transition-colors", agencyHistoryMetric === "pct" ? "bg-blue-600 text-white" : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400")}>% Absence</button>
+                  <button onClick={() => setAgencyHistoryMetric("count")} className={cn("px-3 py-1.5 transition-colors", agencyHistoryMetric === "count" ? "bg-blue-600 text-white" : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400")}>Nb Absents</button>
+                </div>
+              </div>
+
+              {agencyHistoryData.length < 2 ? (
+                <div className="border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl py-10 text-center text-xs text-slate-400 italic">
+                  {agencyHistoryData.length === 0 ? "Aucune donnée historique trouvée pour cette agence dans les rapprochements sauvegardés." : "Minimum 2 rapprochements requis pour tracer la courbe de tendance."}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                  <div className="lg:col-span-2 h-[260px] border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-4 bg-white dark:bg-slate-950/20">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={agencyHistoryData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="monthLabel" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} unit={agencyHistoryMetric === "pct" ? "%" : ""} />
+                        <RechartsTooltip contentStyle={{ backgroundColor: "rgba(30,41,59,0.95)", border: "none", borderRadius: "12px", color: "#fff" }} labelStyle={{ fontWeight: "bold", fontSize: "11px" }} itemStyle={{ fontSize: "11px", color: "#818cf8" }} />
+                        <ReferenceLine y={10} stroke="#f43f5e" strokeDasharray="3 3" label={{ value: "Seuil critique", fill: "#f43f5e", fontSize: 8, position: "top" }} />
+                        {agencyHistoryMetric === "pct"
+                          ? <Line type="monotone" dataKey="pctMissing" name="Taux d'absence" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          : <Line type="monotone" dataKey="missing" name="Fiches absentes" stroke="#4f46e5" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                        }
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-5 space-y-3 max-h-[260px] overflow-y-auto">
+                    <h5 className="text-xs font-black uppercase tracking-wider text-slate-450">Données par Mois</h5>
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {[...agencyHistoryData].reverse().map((row: any) => {
+                        const isCrit = row.pctMissing > 10 && row.missing > 10;
+                        return (
+                          <div key={row.monthKey} className="py-2.5 flex justify-between items-center first:pt-0 last:pb-0">
+                            <div>
+                              <span className="font-bold text-slate-700 dark:text-slate-350">{row.monthLabel}</span>
+                              <span className="text-[10px] text-slate-400 block">Total : {row.total}</span>
+                            </div>
+                            <div className="text-right space-y-0.5">
+                              <span className="font-black text-slate-900 dark:text-white block">{row.pctMissing}% <span className="text-slate-400 font-normal">({row.missing})</span></span>
+                              {isCrit && <span className="text-[9px] px-1.5 py-0.5 font-bold uppercase rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/10">Critique</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800/80 flex justify-end">
+              <button
+                onClick={() => { setSelectedAgencyHistoryCode(null); setSelectedAgencyHistoryName(""); setSelectedAgencyHistoryLimitMonthKey(""); }}
+                className="px-4 py-2 border border-slate-200 dark:border-slate-800 text-xs font-semibold rounded-xl text-slate-600 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+              >Fermer</button>
             </div>
           </div>
         </div>
