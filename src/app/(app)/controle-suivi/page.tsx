@@ -1534,13 +1534,6 @@ export default function ControleSuiviPage() {
           </div>
         </div>
       )}
-                  </>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      )}
 
       {/* Editing / Checklist detail Modal */}
       {editingItem && (
