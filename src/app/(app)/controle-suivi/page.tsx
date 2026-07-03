@@ -128,6 +128,7 @@ export default function ControleSuiviPage() {
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAgency, setSelectedAgency] = useState("ALL");
+  const [selectedDelegation, setSelectedDelegation] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [selectedType, setSelectedType] = useState("ALL");
   const [filterCriticalOnly, setFilterCriticalOnly] = useState(false);
@@ -266,6 +267,18 @@ export default function ControleSuiviPage() {
     return Array.from(list).sort();
   }, [items]);
 
+  // Unique delegations derived from items (via geography)
+  const delegationsList = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach((x) => {
+      if (x.agencyCode) {
+        const geo = getAgencyGeography(x.agencyCode, x.agencyName || "");
+        if (geo?.delegation) set.add(geo.delegation);
+      }
+    });
+    return Array.from(set).sort();
+  }, [items]);
+
   // Product Filter and grouping for trends
   const filteredHistoryForTrends = useMemo(() => {
     if (regtoolsHistory.length === 0) return [];
@@ -389,6 +402,12 @@ export default function ControleSuiviPage() {
         selectedAgency === "ALL" ||
         item.agencyCode === selectedAgency.split(" - ")[0];
 
+      const matchDelegation = (() => {
+        if (selectedDelegation === "ALL") return true;
+        const geo = getAgencyGeography(item.agencyCode, item.agencyName || "");
+        return geo?.delegation === selectedDelegation;
+      })();
+
       const matchStatus =
         selectedStatus === "ALL" ||
         item.status === selectedStatus;
@@ -397,13 +416,15 @@ export default function ControleSuiviPage() {
         selectedType === "ALL" ||
         item.entityType === selectedType;
 
+      // Critique filter: only show clients whose agency is currently marked critical
+      // (taux absence KYC > 10% AND fiches absentes > 10 — based on the latest active report)
       const matchCritical =
         !filterCriticalOnly ||
         criticalCodes.has(item.agencyCode);
 
-      return matchSearch && matchAgency && matchStatus && matchType && matchCritical;
+      return matchSearch && matchAgency && matchDelegation && matchStatus && matchType && matchCritical;
     });
-  }, [items, searchQuery, selectedAgency, selectedStatus, selectedType, filterCriticalOnly, criticalAgencies]);
+  }, [items, searchQuery, selectedAgency, selectedDelegation, selectedStatus, selectedType, filterCriticalOnly, criticalAgencies]);
 
   // Statistics calculation
   const stats = useMemo(() => {
@@ -793,17 +814,17 @@ export default function ControleSuiviPage() {
                 </div>
 
                 {/* Dropdowns filters */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 flex-1">
                   {/* Agency */}
                   <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1 text-sm shadow-sm">
-                    <Filter className="h-3.5 w-3.5 text-slate-450" />
+                    <Filter className="h-3.5 w-3.5 text-slate-450 shrink-0" />
                     <select
                       value={selectedAgency}
                       onChange={(e) => {
                         setSelectedAgency(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="bg-transparent py-1.5 outline-none w-full text-slate-700 dark:text-slate-350 cursor-pointer"
+                      className="bg-transparent py-1.5 outline-none w-full text-slate-700 dark:text-slate-350 cursor-pointer text-xs"
                     >
                       <option value="ALL">Toutes les Agences</option>
                       {agenciesList.map((a) => (
@@ -812,16 +833,34 @@ export default function ControleSuiviPage() {
                     </select>
                   </div>
 
+                  {/* Delegation */}
+                  <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1 text-sm shadow-sm">
+                    <MapPin className="h-3.5 w-3.5 text-slate-450 shrink-0" />
+                    <select
+                      value={selectedDelegation}
+                      onChange={(e) => {
+                        setSelectedDelegation(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="bg-transparent py-1.5 outline-none w-full text-slate-700 dark:text-slate-350 cursor-pointer text-xs"
+                    >
+                      <option value="ALL">Toutes les Délégations</option>
+                      {delegationsList.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Status */}
                   <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1 text-sm shadow-sm">
-                    <Clock className="h-3.5 w-3.5 text-slate-400" />
+                    <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <select
                       value={selectedStatus}
                       onChange={(e) => {
                         setSelectedStatus(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="bg-transparent py-1.5 outline-none w-full text-slate-700 dark:text-slate-350 cursor-pointer"
+                      className="bg-transparent py-1.5 outline-none w-full text-slate-700 dark:text-slate-350 cursor-pointer text-xs"
                     >
                       <option value="ALL">Tous les Statuts</option>
                       <option value="Non commencé">Non commencé</option>
@@ -833,14 +872,14 @@ export default function ControleSuiviPage() {
 
                   {/* Entity Type */}
                   <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1 text-sm shadow-sm">
-                    <User className="h-3.5 w-3.5 text-slate-400" />
+                    <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <select
                       value={selectedType}
                       onChange={(e) => {
                         setSelectedType(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="bg-transparent py-1.5 outline-none w-full text-slate-700 dark:text-slate-350 cursor-pointer"
+                      className="bg-transparent py-1.5 outline-none w-full text-slate-700 dark:text-slate-350 cursor-pointer text-xs"
                     >
                       <option value="ALL">Tous les Types</option>
                       <option value="Personne Physique">Personne Physique</option>
@@ -849,21 +888,23 @@ export default function ControleSuiviPage() {
                     </select>
                   </div>
 
-                  {/* Critical Filter Toggle */}
+                  {/* Critique Agency Filter — filters clients whose agency is marked critical:
+                       Rule: taux absence KYC > 10% AND nb fiches absentes > 10 */}
                   <button
                     onClick={() => {
                       setFilterCriticalOnly(prev => !prev);
                       setCurrentPage(1);
                     }}
+                    title="Afficher uniquement les clients dont l'agence est classée Critique (taux absence KYC > 10% ET + de 10 fiches absentes)"
                     className={cn(
-                      "flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-sm",
+                      "flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-sm whitespace-nowrap",
                       filterCriticalOnly
-                        ? "bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-950/20 dark:border-rose-800 dark:text-rose-450"
-                        : "bg-white border-slate-200 text-slate-655 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-405"
+                        ? "bg-rose-50 border-rose-400 text-rose-700 dark:bg-rose-950/30 dark:border-rose-700 dark:text-rose-400"
+                        : "bg-white border-slate-200 text-slate-500 hover:border-rose-300 hover:text-rose-600 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400"
                     )}
                   >
-                    <AlertTriangle className={cn("h-4 w-4", filterCriticalOnly ? "text-rose-500 animate-pulse" : "text-slate-400")} />
-                    <span>Conformité Critique</span>
+                    <AlertTriangle className={cn("h-3.5 w-3.5 shrink-0", filterCriticalOnly ? "text-rose-500 animate-pulse" : "text-slate-400")} />
+                    Agences Critiques
                   </button>
                 </div>
               </div>
