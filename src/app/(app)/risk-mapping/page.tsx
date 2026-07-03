@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck, FolderOpen, Info, Download, Save, Settings, ClipboardList, ExternalLink } from "lucide-react";
+import { Map, PlusCircle, MoreHorizontal, Edit, Trash2, Bell, BellOff, FileText, Link as LinkIcon, ChevronsUpDown, LayoutGrid, List, AlertTriangle, UserX, FileWarning, ShieldAlert, Target, Activity, Search, ShieldCheck, FolderOpen, Info, Download, Save, Settings, ClipboardList, ExternalLink, Grid } from "lucide-react";
+import { RiskMatrixTab } from "./RiskMatrixTab";
 import ExcelJS from "exceljs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -668,7 +669,7 @@ export default function RiskMappingPage() {
   const { logAction } = useActivityLog();
   const { user } = useUser();
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get('tab') as "table" | "heatmap" | "plan-actions" | "dmr" | null;
+  const tabParam = searchParams.get('tab') as "table" | "heatmap" | "plan-actions" | "dmr" | "matrix" | null;
 
   const [isClient, setIsClient] = React.useState(false);
   React.useEffect(() => { setIsClient(true) }, []);
@@ -691,7 +692,7 @@ export default function RiskMappingPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isViewerOpen, setIsViewerOpen] = React.useState(false);
   const [viewerConfig, setViewerConfig] = React.useState({ url: "", title: "", anchor: "" });
-  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "plan-actions" | "dmr" | "settings">(tabParam || "table");
+  const [viewMode, setViewMode] = React.useState<"table" | "heatmap" | "plan-actions" | "dmr" | "settings" | "matrix">(tabParam || "table");
   const [heatmapMode, setHeatmapMode] = React.useState<'brut' | 'residuel'>('brut');
   const [filterActionStatus, setFilterActionStatus] = React.useState<string>("all");
 
@@ -1144,12 +1145,21 @@ export default function RiskMappingPage() {
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full">
         {/* Navigation & Advanced Filters */}
         <div className="flex flex-col xl:flex-row items-center gap-4 mb-6">
-          <TabsList className="bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl h-12 w-full xl:w-auto border border-slate-200 dark:border-slate-800 shrink-0">
-            <TabsTrigger value="table" className="rounded-lg px-8 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <List className="h-3.5 w-3.5 mr-2" /> Inventaire
+          <TabsList className="bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl h-12 w-full xl:w-auto border border-slate-200 dark:border-slate-800 shrink-0 overflow-x-auto flex-wrap sm:flex-nowrap">
+            <TabsTrigger value="table" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+              <List className="h-3.5 w-3.5 mr-1.5" /> Inventaire
             </TabsTrigger>
-            <TabsTrigger value="heatmap" className="rounded-lg px-8 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <LayoutGrid className="h-3.5 w-3.5 mr-2" /> Heatmap
+            <TabsTrigger value="heatmap" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+              <LayoutGrid className="h-3.5 w-3.5 mr-1.5" /> Heatmap
+            </TabsTrigger>
+            <TabsTrigger value="dmr" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+              <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> DMR
+            </TabsTrigger>
+            <TabsTrigger value="plan-actions" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+              <ClipboardList className="h-3.5 w-3.5 mr-1.5" /> Plan d&apos;actions
+            </TabsTrigger>
+            <TabsTrigger value="matrix" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+              <Grid className="h-3.5 w-3.5 mr-1.5" /> Matrice de Risques
             </TabsTrigger>
           </TabsList>
 
@@ -2237,6 +2247,10 @@ export default function RiskMappingPage() {
               <p className="text-[10px] font-bold text-slate-400">Dernière mise à jour : {new Date().toLocaleDateString()}</p>
             </CardFooter>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="matrix" className="mt-0 focus-visible:ring-0">
+          <RiskMatrixTab />
         </TabsContent>
       </Tabs>
 

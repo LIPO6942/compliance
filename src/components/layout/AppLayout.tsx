@@ -41,6 +41,7 @@ import {
   ShieldCheck,
   ClipboardList,
   FileSpreadsheet,
+  Grid
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -82,6 +83,7 @@ const navItems = [
       { href: "/risk-mapping?tab=table", icon: List, label: "Risques identifiés" },
       { href: "/risk-mapping?tab=dmr", icon: ShieldCheck, label: "DMR" },
       { href: "/risk-mapping?tab=plan-actions", icon: ClipboardList, label: "Plan d'actions" },
+      { href: "/risk-mapping?tab=matrix", icon: Grid, label: "Matrice de Risques" },
     ]
   },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },
