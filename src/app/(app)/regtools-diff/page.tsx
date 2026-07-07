@@ -51,7 +51,8 @@ const parseMonthKeyToDate = (key: string): Date => {
 // Normalization helper
 const normalizeKey = (val: any): string => {
   if (val === undefined || val === null) return "";
-  let str = String(val).trim().toUpperCase();
+  // Trim, convert to uppercase and remove all spaces inside
+  let str = String(val).replace(/\s+/g, "").toUpperCase();
   
   // Remove trailing ".0" if it's an Excel float formatting of an integer
   if (str.endsWith(".0")) {
@@ -61,6 +62,94 @@ const normalizeKey = (val: any): string => {
   // Remove leading zeros
   return str.replace(/^0+(?!$)/, '');
 };
+
+// Normalization of names
+const normalizeName = (name: any): string => {
+  if (name === undefined || name === null) return "";
+  let str = String(name).toLowerCase();
+  
+  // 1. Nettoyer les caractères spéciaux et accents (é -> e)
+  str = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  str = str.replace(/[^a-z0-9]/g, " ");
+
+  // 2. Supprimer les titres et particules (ex: EP, EPOUSE, BEN, ABD, DE, EL, AL, BIN, LA, LE, DU)
+  const particles = new Set(["ep", "epouse", "ben", "abd", "de", "el", "al", "bin", "la", "le", "du"]);
+  let words = str.split(/\s+/).filter(word => word !== "" && !particles.has(word));
+  
+  // 3. Trier les mots du nom par ordre alphabétique
+  words.sort();
+  
+  return words.join(" ");
+};
+
+// Jaro-Winkler Similarity algorithm
+const getJaroWinklerSimilarity = (s1: string, s2: string): number => {
+  if (s1 === s2) return 1.0;
+  if (!s1 || !s2) return 0.0;
+
+  const len1 = s1.length;
+  const len2 = s2.length;
+  const matchWindow = Math.max(0, Math.floor(Math.max(len1, len2) / 2) - 1);
+  const matches1 = new Array(len1).fill(false);
+  const matches2 = new Array(len2).fill(false);
+
+  let matches = 0;
+  for (let i = 0; i < len1; i++) {
+    const start = Math.max(0, i - matchWindow);
+    const end = Math.min(len2, i + matchWindow + 1);
+    for (let j = start; j < end; j++) {
+      if (!matches2[j] && s1[i] === s2[j]) {
+        matches1[i] = true;
+        matches2[j] = true;
+        matches++;
+        break;
+      }
+    }
+  }
+
+  if (matches === 0) return 0.0;
+
+  let transpositions = 0;
+  let k = 0;
+  for (let i = 0; i < len1; i++) {
+    if (matches1[i]) {
+      while (!matches2[k]) k++;
+      if (s1[i] !== s2[k]) {
+        transpositions++;
+      }
+      k++;
+    }
+  }
+
+  const jaro = (matches / len1 + matches / len2 + (matches - transpositions / 2) / matches) / 3;
+
+  // Winkler prefix
+  let prefix = 0;
+  const maxPrefix = Math.min(4, Math.min(len1, len2));
+  for (let i = 0; i < maxPrefix; i++) {
+    if (s1[i] === s2[i]) {
+      prefix++;
+    } else {
+      break;
+    }
+  }
+
+  return jaro + prefix * 0.1 * (1.0 - jaro);
+};
+
+// Helper to auto-detect name column from list of headers
+const detectNameColumn = (cols: string[]): string => {
+  if (!cols) return "";
+  const nomCol = cols.find(c => {
+    const norm = c.toLowerCase();
+    return norm === "nom_client" || norm === "nom client" || norm === "nomclient" || norm === "client_name" || norm === "nom" || norm === "nom_prenom" || norm === "nom & prenom" || norm === "nom et prenom" || norm === "nom et prenom du souscripteur" || norm === "nom du souscripteur";
+  }) || cols.find(c => {
+    const norm = c.toLowerCase();
+    return /nom|name|raison/i.test(norm) && !/num|n_|n°/i.test(norm);
+  }) || "";
+  return nomCol;
+};
+
 
 // Detect client entity type based on ID structure and CAT_I code
 const detectClientType = (idRaw: any, catIRaw: any): string => {
@@ -687,7 +776,18 @@ const processVieData = (
 // Row minification helpers to bypass Firestore 1MB limit
 const minifyRows = (rows: any[], columns: string[]): any[][] => {
   if (!rows) return [];
-  return rows.map(row => columns.map(col => row[col] !== undefined ? row[col] : ""));
+  return rows.map(row => {
+    const base = columns.map(col => row[col] !== undefined ? row[col] : "");
+    // Append extra fields at the end as a JSON-stringified object
+    const extras = {
+      __sourcePortfolio: row.__sourcePortfolio,
+      __matchType: row.__matchType,
+      __associatedRegToolsId: row.__associatedRegToolsId,
+      __associatedRegToolsName: row.__associatedRegToolsName,
+      __nameMatchScore: row.__nameMatchScore
+    };
+    return [...base, JSON.stringify(extras)];
+  });
 };
 
 const unminifyRows = (minifiedRows: any[][], columns: string[]): any[] => {
@@ -697,6 +797,16 @@ const unminifyRows = (minifiedRows: any[][], columns: string[]): any[] => {
     columns.forEach((col, idx) => {
       rowObj[col] = rowArr[idx];
     });
+    // The last element of the array might be the extras string
+    const lastElement = rowArr[rowArr.length - 1];
+    if (rowArr.length === columns.length + 1 && typeof lastElement === "string" && lastElement.startsWith("{")) {
+      try {
+        const extras = JSON.parse(lastElement);
+        Object.assign(rowObj, extras);
+      } catch (e) {
+        // Ignore parsing error
+      }
+    }
     return rowObj;
   });
 };
@@ -1037,6 +1147,7 @@ export default function RegtoolsDiffPage() {
   const [isComparing, setIsComparing] = useState(false);
   const [comparisonDone, setComparisonDone] = useState(false);
   const [dragOverRole, setDragOverRole] = useState<"regtools" | "ns" | "vie" | null>(null);
+  const [resolvedByNameMatchCount, setResolvedByNameMatchCount] = useState(0);
 
   // Results state
   const [missingRows, setMissingRows] = useState<any[]>([]);
@@ -1564,10 +1675,12 @@ export default function RegtoolsDiffPage() {
     setDragOverRole(role);
   };
 
+  // Drag leave handler
   const handleDragLeave = () => {
     setDragOverRole(null);
   };
 
+  // Handle drop
   const handleDrop = (e: React.DragEvent, role: "regtools" | "ns" | "vie") => {
     e.preventDefault();
     setDragOverRole(null);
@@ -1582,6 +1695,7 @@ export default function RegtoolsDiffPage() {
     if (!data.regtools || (!data.ns && !data.vie)) return;
 
     setIsComparing(true);
+    setResolvedByNameMatchCount(0);
     
     setTimeout(() => {
       try {
@@ -1596,61 +1710,140 @@ export default function RegtoolsDiffPage() {
           throw new Error("Veuillez configurer les colonnes pour le fichier Assurance VIE.");
         }
 
-        // 1. Index RegTools
+        // 1. Detect Name Columns
+        const regtoolsNameCol = detectNameColumn(columns.regtools);
+        const nsNameCol = detectNameColumn(columns.ns);
+        const vieNameCol = detectNameColumn(columns.vie);
+
+        // 2. Index RegTools
         const regToolsSet = new Set<string>();
+        const regToolsIdMap = new Map<string, any>();
+        
+        // We will store all valid RegTools items for name lookup: { id, normalizedName, row }
+        const regToolsNameList: { id: string; normalizedName: string; row: any }[] = [];
+
         for (let i = 0; i < data.regtools.length; i++) {
           const row = data.regtools[i];
           const key = normalizeKey(row[regtoolsId]);
           if (key !== "") {
             regToolsSet.add(key);
+            regToolsIdMap.set(key, row);
+            
+            if (regtoolsNameCol) {
+              const normName = normalizeName(row[regtoolsNameCol]);
+              if (normName !== "") {
+                regToolsNameList.push({
+                  id: key,
+                  normalizedName: normName,
+                  row
+                });
+              }
+            }
           }
         }
 
-        // 2. Scan and Compare
+        // Also construct a Map for exact normalized name match lookup in O(1)
+        const regToolsByNameMap = new Map<string, { id: string; normalizedName: string; row: any }>();
+        for (const item of regToolsNameList) {
+          if (!regToolsByNameMap.has(item.normalizedName)) {
+            regToolsByNameMap.set(item.normalizedName, item);
+          }
+        }
+
+        // 3. Scan and Compare
         const missing: any[] = [];
         const similarities: any[] = [];
         const agenciesSet = new Set<string>();
+        let resolvedCount = 0;
+
+        // Process a portfolio row
+        const processRow = (rowSource: any, isVie: boolean, idCol: string, agenceCol: string, nameCol: string) => {
+          const row = { ...rowSource };
+          row.__sourcePortfolio = isVie ? "VIE" : "NS";
+          
+          const rawId = row[idCol];
+          const key = normalizeKey(rawId);
+          
+          const agenceCode = getRowAgencyCode(row, agenceCol, isVie);
+          if (agenceCode !== "") {
+            agenciesSet.add(agenceCode);
+          }
+
+          // Étape 1 : Rapprochement Strict (Identifiant)
+          if (key !== "" && regToolsSet.has(key)) {
+            row.__matchType = "Strict (Identifiant)";
+            row.__associatedRegToolsId = key;
+            const regRow = regToolsIdMap.get(key);
+            if (regRow && regtoolsNameCol) {
+              row.__associatedRegToolsName = String(regRow[regtoolsNameCol] || "").trim();
+            }
+            similarities.push(row);
+            return;
+          }
+
+          // Étape 2 : Rapprochement par Nom Standardisé (Fallback)
+          if (nameCol) {
+            const rawName = row[nameCol];
+            const portfolioNormName = normalizeName(rawName);
+            if (portfolioNormName !== "") {
+              // Option A: exact match on normalized name (O(1) optimization)
+              if (regToolsByNameMap.has(portfolioNormName)) {
+                const bestMatch = regToolsByNameMap.get(portfolioNormName)!;
+                row.__matchType = "Similitude Nom (Exact Normalisé)";
+                row.__associatedRegToolsId = bestMatch.id;
+                row.__associatedRegToolsName = String(bestMatch.row[regtoolsNameCol] || "").trim();
+                row.__nameMatchScore = 1.0;
+                similarities.push(row);
+                resolvedCount++;
+                return;
+              }
+
+              // Option B: Fuzzy match using Jaro-Winkler
+              let bestScore = 0;
+              let bestMatchItem: typeof regToolsNameList[0] | null = null;
+              
+              for (let j = 0; j < regToolsNameList.length; j++) {
+                const item = regToolsNameList[j];
+                const score = getJaroWinklerSimilarity(portfolioNormName, item.normalizedName);
+                if (score > bestScore) {
+                  bestScore = score;
+                  bestMatchItem = item;
+                  if (score === 1.0) break;
+                }
+              }
+
+              if (bestScore > 0.95 && bestMatchItem) {
+                row.__matchType = `Similitude Nom (${Math.round(bestScore * 100)}%)`;
+                row.__associatedRegToolsId = bestMatchItem.id;
+                row.__associatedRegToolsName = String(bestMatchItem.row[regtoolsNameCol] || "").trim();
+                row.__nameMatchScore = bestScore;
+                similarities.push(row);
+                resolvedCount++;
+                return;
+              }
+            }
+          }
+
+          // Si aucun rapprochement
+          row.__matchType = "Aucun";
+          missing.push(row);
+        };
 
         // Scan NS
         if (data.ns && nsId && nsAgence) {
           for (let i = 0; i < data.ns.length; i++) {
-            const row = { ...data.ns[i] };
-            row.__sourcePortfolio = "NS";
-            const key = normalizeKey(row[nsId]);
-            
-            const agenceCode = getRowAgencyCode(row, nsAgence, false);
-            if (agenceCode !== "") {
-              agenciesSet.add(agenceCode);
-            }
-
-            if (key === "" || !regToolsSet.has(key)) {
-              missing.push(row);
-            } else {
-              similarities.push(row);
-            }
+            processRow(data.ns[i], false, nsId, nsAgence, nsNameCol);
           }
         }
 
         // Scan VIE
         if (data.vie && vieId && vieAgence) {
           for (let i = 0; i < data.vie.length; i++) {
-            const row = { ...data.vie[i] };
-            row.__sourcePortfolio = "VIE";
-            const key = normalizeKey(row[vieId]);
-            
-            const agenceCode = getRowAgencyCode(row, vieAgence, true);
-            if (agenceCode !== "") {
-              agenciesSet.add(agenceCode);
-            }
-
-            if (key === "" || !regToolsSet.has(key)) {
-              missing.push(row);
-            } else {
-              similarities.push(row);
-            }
+            processRow(data.vie[i], true, vieId, vieAgence, vieNameCol);
           }
         }
 
+        setResolvedByNameMatchCount(resolvedCount);
         setMissingRows(missing);
         setSimilarRows(similarities);
         setAgenciesList(Array.from(agenciesSet).sort((a, b) => a.localeCompare(b)));
@@ -1832,12 +2025,29 @@ export default function RegtoolsDiffPage() {
         exportHeaders = ["Portefeuille", ...Array.from(union)];
       }
 
+      // Add name-matching and strict reconciliation metadata to Excel export
+      exportHeaders = [
+        ...exportHeaders,
+        "Type Match",
+        "ID RegTools Associe",
+        "Nom RegTools Associe",
+        "Score Similitude Nom"
+      ];
+
       const exportData = filteredSimilarRows.map(row => {
         const newRow: any = {};
         const isRowVie = row.__sourcePortfolio === "VIE";
         exportHeaders.forEach(h => {
           if (h === "Portefeuille") {
             newRow[h] = row.__sourcePortfolio || (isRowVie ? "VIE" : "NS");
+          } else if (h === "Type Match") {
+            newRow[h] = row.__matchType || "";
+          } else if (h === "ID RegTools Associe") {
+            newRow[h] = row.__associatedRegToolsId || "";
+          } else if (h === "Nom RegTools Associe") {
+            newRow[h] = row.__associatedRegToolsName || "";
+          } else if (h === "Score Similitude Nom") {
+            newRow[h] = row.__nameMatchScore !== undefined ? `${Math.round(row.__nameMatchScore * 100)}%` : "";
           } else {
             newRow[h] = row[h] !== undefined && row[h] !== null ? formatExcelValue(h, row[h]) : "";
           }
@@ -2199,6 +2409,7 @@ export default function RegtoolsDiffPage() {
     setData({ regtools: null, ns: null, vie: null });
     setColumns({ regtools: [], ns: [], vie: [] });
     setMapping({ regtoolsId: "", nsId: "", nsAgence: "", vieId: "", vieAgence: "" });
+    setResolvedByNameMatchCount(0);
     setMissingRows([]);
     setSimilarRows([]);
     setAgenciesList([]);
@@ -4892,12 +5103,7 @@ export default function RegtoolsDiffPage() {
               <ClipboardList className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               Rapprochement Multi-Portefeuilles
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Importez simultanément votre base de référence RegTools et vos portefeuilles Non-Vie (NS) et/ou Assurance VIE pour lancer une comparaison globale. Filtrez ensuite les résultats par portefeuille et par agence.
-            </p>
-          </div>
-
-          {/* Dashboard Section */}
+                   {/* Dashboard Section */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* RegTools Stat Card */}
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-4">
@@ -4971,12 +5177,17 @@ export default function RegtoolsDiffPage() {
                 <p className="text-2xl font-bold mt-1">
                   {comparisonDone ? missingRows.length.toLocaleString("fr-FR") : "-"}
                 </p>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <div className="text-xs text-slate-400 mt-0.5">
                   {comparisonDone 
                     ? `${matchRate}% trouvé (${((data.ns ? data.ns.length : 0) + (data.vie ? data.vie.length : 0) - missingRows.length).toLocaleString("fr-FR")} lignes)`
                     : "Prêt pour comparaison"
                   }
-                </p>
+                  {comparisonDone && resolvedByNameMatchCount > 0 && (
+                    <div className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-1 flex items-center gap-1 bg-amber-500/10 dark:bg-amber-950/40 px-2 py-0.5 rounded-md w-fit">
+                      ✓ {resolvedByNameMatchCount} écarts résolus par nom
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -5739,10 +5950,13 @@ export default function RegtoolsDiffPage() {
                                   </th>
                                 );
                               })}
+                              {comparisonDone && (
+                                <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-left">Type Match / Réf RegTools</th>
+                              )}
                             </tr>
                           </thead>
                           <tbody>
-                            {paginatedSimilarRows.map((row, rIdx) => (
+                             {paginatedSimilarRows.map((row, rIdx) => (
                               <tr key={`similar-tr-row-${rIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
                                 {(visibleColumns.length > 0 ? visibleColumns : columns.ns).map(col => (
                                   <td 
@@ -5757,6 +5971,34 @@ export default function RegtoolsDiffPage() {
                                     {row[col] !== undefined && row[col] !== null ? renderTableCellContent(col, row[col]) : ""}
                                   </td>
                                 ))}
+                                {comparisonDone && (
+                                  <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-left">
+                                    {row.__matchType ? (
+                                      <div className="flex flex-col gap-0.5 max-w-[250px]">
+                                        <span className={cn(
+                                          "px-2 py-0.5 rounded-full text-[10px] font-bold w-fit",
+                                          row.__matchType.startsWith("Strict")
+                                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                        )}>
+                                          {row.__matchType}
+                                        </span>
+                                        {row.__associatedRegToolsId && (
+                                          <span className="text-[10px] text-slate-400">
+                                            ID: <span className="font-mono text-slate-600 dark:text-slate-300">{row.__associatedRegToolsId}</span>
+                                          </span>
+                                        )}
+                                        {row.__associatedRegToolsName && (
+                                          <span className="text-[10px] text-slate-400 truncate max-w-[200px]" title={row.__associatedRegToolsName}>
+                                            Nom: {row.__associatedRegToolsName}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-400">-</span>
+                                    )}
+                                  </td>
+                                )}
                               </tr>
                             ))}
                           </tbody>
@@ -6831,6 +7073,7 @@ export default function RegtoolsDiffPage() {
                                       </th>
                                     );
                                   })}
+                                  <th className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-left">Type Match / Réf RegTools</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -6861,6 +7104,32 @@ export default function RegtoolsDiffPage() {
                                         {row[col] !== undefined && row[col] !== null ? renderTableCellContent(col, row[col], true) : ""}
                                       </td>
                                     ))}
+                                    <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-left">
+                                      {row.__matchType ? (
+                                        <div className="flex flex-col gap-0.5 max-w-[250px]">
+                                          <span className={cn(
+                                            "px-2 py-0.5 rounded-full text-[10px] font-bold w-fit",
+                                            row.__matchType.startsWith("Strict")
+                                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                          )}>
+                                            {row.__matchType}
+                                          </span>
+                                          {row.__associatedRegToolsId && (
+                                            <span className="text-[10px] text-slate-400">
+                                              ID: <span className="font-mono text-slate-600 dark:text-slate-350">{row.__associatedRegToolsId}</span>
+                                            </span>
+                                          )}
+                                          {row.__associatedRegToolsName && (
+                                            <span className="text-[10px] text-slate-400 truncate max-w-[200px]" title={row.__associatedRegToolsName}>
+                                              Nom: {row.__associatedRegToolsName}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-slate-400">-</span>
+                                      )}
+                                    </td>
                                   </tr>
                                 ))}
                               </tbody>
