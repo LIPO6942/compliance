@@ -5096,7 +5096,7 @@ export default function RegtoolsDiffPage() {
       </div>
 
       {pageTab === "new" ? (
-        <>
+        <React.Fragment>
           {/* Info Card */}
           <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-500/5 dark:via-purple-500/5 dark:to-pink-500/5 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-1.5 shadow-sm">
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
@@ -6335,7 +6335,7 @@ export default function RegtoolsDiffPage() {
               )}
             </div>
           )}
-        </>
+        </React.Fragment>
       ) : (
         /* History Section */
         selectedHistoryReport === null ? (
