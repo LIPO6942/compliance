@@ -4,10 +4,119 @@ import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, AlertTriangle, ShieldCheck, Globe, MapPin, Package, HelpCircle, Layers, Grid, Users, Landmark } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Search, Globe, MapPin, Package, Layers, Grid, Users, Landmark,
+  Download, FileText, History, CheckCircle2, Clock, Save
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import PHYS_PROFESSIONS_DATA from "./professions_data.json";
+import { useActivityLog } from "@/contexts/ActivityLogContext";
+import { useUser } from "@/contexts/UserContext";
+import { useToast } from "@/hooks/use-toast";
+import ExcelJS from "exceljs";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+// ── Types ──
+type MatrixHistoryEntry = {
+  id: string;
+  date: string;
+  user: string;
+  field: string;
+  oldValue: string;
+  newValue: string;
+};
+
+// ── KYC Factor rows (editable) ──
+const DEFAULT_KYC_FACTORS = [
+  {
+    id: "geo-pays",
+    facteur: "Zones Géographiques (Pays)",
+    kycPhys: "Nationalité, Pays de résidence, Deuxième nationalité",
+    kycMorale: "Pays",
+    kycObnl: "Pays, Adresse de résidence principale",
+    coeff: "1",
+    agregation: "Max"
+  },
+  {
+    id: "geo-gov",
+    facteur: "Zones Géographiques (Gouvernorats)",
+    kycPhys: "Pays de résidence, Gouvernorat",
+    kycMorale: "Gouvernorat",
+    kycObnl: "-",
+    coeff: "1",
+    agregation: "Max"
+  },
+  {
+    id: "activite-profession",
+    facteur: "Activité & Profession",
+    kycPhys: "Statut Professionnel, Profession",
+    kycMorale: "Nature de l'activité",
+    kycObnl: "Type d'organisation",
+    coeff: "1",
+    agregation: "Max"
+  },
+  {
+    id: "produit",
+    facteur: "Produit",
+    kycPhys: "Produit",
+    kycMorale: "Produit",
+    kycObnl: "Produit",
+    coeff: "1",
+    agregation: "-"
+  },
+  {
+    id: "canal-distribution",
+    facteur: "Canal de distribution",
+    kycPhys: "Canal de distribution",
+    kycMorale: "Canal de distribution",
+    kycObnl: "Canal de distribution",
+    coeff: "-",
+    agregation: "-"
+  },
+  {
+    id: "technique-vente",
+    facteur: "Technique de vente",
+    kycPhys: "-",
+    kycMorale: "-",
+    kycObnl: "-",
+    coeff: "1",
+    agregation: "-"
+  },
+  {
+    id: "statuts-specifiques",
+    facteur: "Statuts spécifiques",
+    kycPhys: "PPE, OBNL",
+    kycMorale: "-",
+    kycObnl: "OBNL",
+    coeff: "1",
+    agregation: "-"
+  }
+];
+
+const STORAGE_KEY_FACTORS = "matrixKycFactors";
+const STORAGE_KEY_HISTORY = "matrixKycHistory";
+
+function loadKycFactors() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_FACTORS);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return DEFAULT_KYC_FACTORS;
+}
+
+function loadKycHistory(): MatrixHistoryEntry[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_HISTORY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return [];
+}
 
 // Risk Level Thresholds
 const RISK_LEVELS = [
@@ -388,10 +497,62 @@ const MORAL_ACTIVITIES_DATA = [
 // PHYS_PROFESSIONS_DATA imported from professions_data.json
 
 export function RiskMatrixTab() {
+  const { logAction } = useActivityLog();
+  const { user } = useUser();
+  const { toast } = useToast();
+
   const [subTab, setSubTab] = React.useState<"params" | "countries" | "govs" | "products" | "dist" | "moral" | "physical">("params");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [riskFilter, setRiskFilter] = React.useState<"all" | "RE" | "RM" | "RF">("all");
   const [selectedDomain, setSelectedDomain] = React.useState<string>("all");
+
+  // ── Editable KYC factors with auto-save ──
+  const [kycFactors, setKycFactors] = React.useState<typeof DEFAULT_KYC_FACTORS>(() => loadKycFactors());
+  const [kycHistory, setKycHistory] = React.useState<MatrixHistoryEntry[]>(() => loadKycHistory());
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+
+  const updateFactor = (id: string, field: keyof typeof DEFAULT_KYC_FACTORS[0], newValue: string) => {
+    const factor = kycFactors.find(f => f.id === id);
+    if (!factor) return;
+    const oldValue = factor[field] as string;
+    if (oldValue === newValue) return;
+
+    const updated = kycFactors.map(f =>
+      f.id === id ? { ...f, [field]: newValue } : f
+    );
+    setKycFactors(updated);
+    localStorage.setItem(STORAGE_KEY_FACTORS, JSON.stringify(updated));
+
+    const entry: MatrixHistoryEntry = {
+      id: `${Date.now()}`,
+      date: new Date().toISOString(),
+      user: user?.name || user?.email || "Utilisateur",
+      field: `${factor.facteur} → ${field}`,
+      oldValue,
+      newValue
+    };
+    const newHistory = [entry, ...kycHistory].slice(0, 100);
+    setKycHistory(newHistory);
+    localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(newHistory));
+
+    toast({ title: "Modification enregistrée", description: `Facteur « ${factor.facteur} » mis à jour.` });
+    if (user) {
+      logAction({
+        userEmail: user.email,
+        userName: user.name,
+        action: "SETTINGS_UPDATE",
+        label: `Matrice KYC - Modification: ${factor.facteur} → ${field}`,
+        detail: `${oldValue} → ${newValue}`,
+        module: "Matrice des Risques"
+      });
+    }
+  };
+
+  const resetFactors = () => {
+    setKycFactors(DEFAULT_KYC_FACTORS);
+    localStorage.setItem(STORAGE_KEY_FACTORS, JSON.stringify(DEFAULT_KYC_FACTORS));
+    toast({ title: "Réinitialisation effectuée" });
+  };
 
   const uniqueDomains = React.useMemo(() => {
     const domains = new Set(PHYS_PROFESSIONS_DATA.map(p => p.domain));
@@ -452,8 +613,175 @@ export function RiskMatrixTab() {
     );
   };
 
+  // ── Export Excel (matrice des risques) ──
+  const exportMatrixExcel = async () => {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Compliance Navigator";
+
+    // Sheet 1: Facteurs KYC
+    const ws1 = wb.addWorksheet("Facteurs KYC");
+    ws1.columns = [
+      { header: "Facteur", key: "facteur", width: 35 },
+      { header: "KYC Physique", key: "kycPhys", width: 40 },
+      { header: "KYC Morale", key: "kycMorale", width: 35 },
+      { header: "KYC OBNL", key: "kycObnl", width: 35 },
+      { header: "Coeff", key: "coeff", width: 10 },
+      { header: "Agrégation", key: "agregation", width: 15 }
+    ];
+    const hdr1 = ws1.getRow(1);
+    hdr1.height = 28;
+    hdr1.eachCell((cell: any) => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+      cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+    });
+    kycFactors.forEach((f, i) => {
+      const row = ws1.addRow(f);
+      row.height = 30;
+      const bg = i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
+      row.eachCell((cell: any) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+        cell.font = { color: { argb: "FF1E293B" }, size: 9 };
+        cell.alignment = { vertical: "middle", wrapText: true };
+      });
+    });
+
+    // Sheet 2: Pays (filtered)
+    const ws2 = wb.addWorksheet("Pays");
+    ws2.columns = [
+      { header: "ISO Num", key: "numeric", width: 10 },
+      { header: "ISO Alpha3", key: "alpha3", width: 12 },
+      { header: "Pays", key: "name", width: 40 },
+      { header: "GAFI", key: "gafi", width: 10 },
+      { header: "Corruption", key: "corruption", width: 15 },
+      { header: "Paradis Fiscal", key: "oecd", width: 15 },
+      { header: "Terrorisme", key: "terrorism", width: 15 },
+      { header: "Risque", key: "risk", width: 12 }
+    ];
+    const hdr2 = ws2.getRow(1);
+    hdr2.height = 28;
+    hdr2.eachCell((cell: any) => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+    });
+    const riskBg: Record<string, string> = { RE: "FFFFE4E6", RM: "FFFEF9C3", RF: "FFD1FAE5" };
+    filteredCountries.forEach((c, i) => {
+      const row = ws2.addRow({ ...c, gafi: c.gafi ? "Oui" : "—", corruption: c.corruption ? "Oui" : "—", oecd: c.oecd ? "Oui" : "—", terrorism: c.terrorism ? "Oui" : "—" });
+      row.height = 22;
+      row.eachCell((cell: any, col: number) => {
+        const bg = col === 8 ? riskBg[c.risk] || "FFFFFFFF" : i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+        cell.font = { color: { argb: "FF1E293B" }, size: 9 };
+        cell.alignment = { vertical: "middle", horizontal: col === 8 ? "center" : "left" };
+      });
+    });
+
+    const today = new Date().toISOString().split("T")[0];
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Matrice_des_Risques_${today}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Export réussi", description: "Matrice des risques exportée en Excel." });
+  };
+
+  const exportMatrixPDF = () => {
+    window.print();
+    toast({ title: "Impression lancée", description: "La matrice des risques sera imprimée / exportée en PDF." });
+  };
+
   return (
     <div className="space-y-6">
+      {/* ── Matrice Header ── */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
+            <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-[0.2em]">KYC Risk Intelligence</span>
+          </div>
+          <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            Matrice des <span className="text-violet-600 dark:text-violet-400">Risques</span>
+          </h2>
+          <p className="text-slate-500 text-sm max-w-xl">
+            Référentiel KYC — Cotation et pondération des facteurs de risque par catégorie de client.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* History */}
+          <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 px-3 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold text-[10px] shadow-sm hover:border-violet-300 hover:text-violet-700 hover:bg-violet-50 transition-all">
+                <History className="h-3.5 w-3.5 mr-1.5 text-violet-500" />
+                Historique ({kycHistory.length})
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl rounded-2xl p-0 border-none shadow-2xl">
+              <div className="p-6 border-b border-slate-100">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2">
+                    <History className="h-5 w-5 text-violet-500" />
+                    Historique des Modifications
+                  </DialogTitle>
+                </DialogHeader>
+              </div>
+              <ScrollArea className="max-h-[60vh]">
+                <div className="p-6 space-y-3">
+                  {kycHistory.length === 0 && (
+                    <p className="text-center text-slate-400 italic text-sm py-12">Aucune modification enregistrée</p>
+                  )}
+                  {kycHistory.map(entry => (
+                    <div key={entry.id} className="flex gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <div className="h-8 w-8 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <CheckCircle2 className="h-4 w-4 text-violet-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-black text-slate-800 dark:text-white truncate">{entry.field}</span>
+                          <span className="text-[9px] text-slate-400 flex items-center gap-1 shrink-0">
+                            <Clock className="h-3 w-3" />
+                            {new Date(entry.date).toLocaleString('fr-FR')}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-0.5">Par: <strong>{entry.user}</strong></p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] line-through text-rose-400 bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded">{entry.oldValue || "(vide)"}</span>
+                          <span className="text-[9px] text-slate-400">→</span>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded">{entry.newValue || "(vide)"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </DialogContent>
+          </Dialog>
+
+          {/* Export PDF */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={exportMatrixPDF}
+            className="h-9 px-4 rounded-xl border-2 border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
+          >
+            <FileText className="mr-1.5 h-3.5 w-3.5" /> Rapport PDF
+          </Button>
+
+          {/* Export Excel */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={exportMatrixExcel}
+            className="h-9 px-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
+          >
+            <Download className="mr-1.5 h-3.5 w-3.5" /> Exporter Excel
+          </Button>
+        </div>
+      </div>
+
       {/* Risk Thresholds Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {RISK_LEVELS.map(lvl => (
@@ -541,83 +869,104 @@ export function RiskMatrixTab() {
 
       {/* ── Sub-tab contents ── */}
 
-      {/* 1. Structural parameters */}
+      {/* 1. Structural parameters — Editable table */}
       {subTab === "params" && (
         <Card className="border-none bg-white dark:bg-slate-900/60 shadow-md rounded-2xl overflow-hidden">
           <CardHeader className="pb-4 px-6 pt-5 bg-slate-50/50 dark:bg-slate-900/20 border-b">
-            <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Pondérations des facteurs KYC</CardTitle>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Pondérations des facteurs KYC</CardTitle>
+                <p className="text-[10px] text-slate-400 mt-0.5 font-medium">Cliquez sur une cellule pour modifier — enregistrement automatique</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-violet-600 border-violet-200 bg-violet-50 font-bold text-[10px]">
+                  <Save className="h-3 w-3 mr-1" /> Auto-save
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetFactors}
+                  className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg"
+                >
+                  Réinitialiser
+                </Button>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="p-0 overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50/30 dark:bg-slate-900/10 text-xs">
-                  <TableHead className="font-bold">Facteur d&apos;évaluation</TableHead>
-                  <TableHead className="font-bold">Champs KYC Physi.</TableHead>
-                  <TableHead className="font-bold">Champs KYC Morale</TableHead>
-                  <TableHead className="font-bold">Champs KYC OBNL</TableHead>
-                  <TableHead className="font-bold text-center">Coeff</TableHead>
-                  <TableHead className="font-bold text-center">Agrégation</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="text-xs">
-                <TableRow className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
-                  <TableCell className="font-bold text-slate-900 dark:text-white">Zones Géographiques (Pays)</TableCell>
-                  <TableCell>Nationalité, Pays de résidence, Deuxième nationalité</TableCell>
-                  <TableCell>Pays</TableCell>
-                  <TableCell>Pays, Adresse de résidence principale</TableCell>
-                  <TableCell className="text-center font-bold">1</TableCell>
-                  <TableCell className="text-center"><Badge>Max</Badge></TableCell>
-                </TableRow>
-                <TableRow className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
-                  <TableCell className="font-bold text-slate-900 dark:text-white">Zones Géographiques (Gouvernorats)</TableCell>
-                  <TableCell>Pays de résidence, Gouvernorat</TableCell>
-                  <TableCell>Gouvernorat</TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell className="text-center font-bold">1</TableCell>
-                  <TableCell className="text-center"><Badge>Max</Badge></TableCell>
-                </TableRow>
-                <TableRow className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
-                  <TableCell className="font-bold text-slate-900 dark:text-white">Activité & Profession</TableCell>
-                  <TableCell>Statut Professionnel, Profession</TableCell>
-                  <TableCell>Nature de l&apos;activité</TableCell>
-                  <TableCell>Type d&apos;organisation</TableCell>
-                  <TableCell className="text-center font-bold">1</TableCell>
-                  <TableCell className="text-center"><Badge>Max</Badge></TableCell>
-                </TableRow>
-                <TableRow className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
-                  <TableCell className="font-bold text-slate-900 dark:text-white">Produit</TableCell>
-                  <TableCell>Produit</TableCell>
-                  <TableCell>Produit</TableCell>
-                  <TableCell>Produit</TableCell>
-                  <TableCell className="text-center font-bold">1</TableCell>
-                  <TableCell className="text-center"><Badge>-</Badge></TableCell>
-                </TableRow>
-                <TableRow className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
-                  <TableCell className="font-bold text-slate-900 dark:text-white">Canal de distribution</TableCell>
-                  <TableCell>Canal de distribution</TableCell>
-                  <TableCell>Canal de distribution</TableCell>
-                  <TableCell>Canal de distribution</TableCell>
-                  <TableCell className="text-center font-bold">-</TableCell>
-                  <TableCell className="text-center"><Badge>-</Badge></TableCell>
-                </TableRow>
-                <TableRow className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
-                  <TableCell className="font-bold text-slate-900 dark:text-white">Technique de vente</TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell className="text-center font-bold">1</TableCell>
-                  <TableCell className="text-center"><Badge>-</Badge></TableCell>
-                </TableRow>
-                <TableRow className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
-                  <TableCell className="font-bold text-slate-900 dark:text-white">Statuts spécifiques</TableCell>
-                  <TableCell>PPE, OBNL</TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell>OBNL</TableCell>
-                  <TableCell className="text-center font-bold">1</TableCell>
-                  <TableCell className="text-center"><Badge>-</Badge></TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+          <CardContent className="p-0">
+            {/* Responsive grid layout — no horizontal scroll */}
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {/* Header */}
+              <div className="grid grid-cols-[minmax(160px,1fr)_1fr_1fr_1fr_80px_90px] gap-0 bg-slate-50 dark:bg-slate-800/40 text-[10px] font-black uppercase tracking-widest text-slate-500 px-4 py-2">
+                <div className="py-1">Facteur d&apos;évaluation</div>
+                <div className="py-1 pl-2">KYC Physique</div>
+                <div className="py-1 pl-2">KYC Morale</div>
+                <div className="py-1 pl-2">KYC OBNL</div>
+                <div className="py-1 pl-2 text-center">Coeff</div>
+                <div className="py-1 pl-2 text-center">Agrégation</div>
+              </div>
+              {/* Rows */}
+              {kycFactors.map((factor, idx) => (
+                <div
+                  key={factor.id}
+                  className={cn(
+                    "grid grid-cols-[minmax(160px,1fr)_1fr_1fr_1fr_80px_90px] gap-0 group transition-colors",
+                    idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50/40 dark:bg-slate-800/20",
+                    "hover:bg-violet-50/30 dark:hover:bg-violet-900/10"
+                  )}
+                >
+                  {/* Facteur (label — read-only) */}
+                  <div className="px-4 py-3 border-r border-slate-100 dark:border-slate-800 flex items-center">
+                    <span className="text-xs font-bold text-slate-800 dark:text-white leading-tight">{factor.facteur}</span>
+                  </div>
+                  {/* KYC Physique */}
+                  <div className="px-2 py-2 border-r border-slate-100 dark:border-slate-800">
+                    <Textarea
+                      defaultValue={factor.kycPhys}
+                      onBlur={e => updateFactor(factor.id, "kycPhys", e.target.value.trim())}
+                      className="text-[11px] font-medium text-slate-600 dark:text-slate-400 bg-transparent border-none shadow-none focus-visible:ring-1 focus-visible:ring-violet-400/40 p-1 min-h-[36px] resize-none overflow-hidden leading-tight w-full"
+                      rows={2}
+                    />
+                  </div>
+                  {/* KYC Morale */}
+                  <div className="px-2 py-2 border-r border-slate-100 dark:border-slate-800">
+                    <Textarea
+                      defaultValue={factor.kycMorale}
+                      onBlur={e => updateFactor(factor.id, "kycMorale", e.target.value.trim())}
+                      className="text-[11px] font-medium text-slate-600 dark:text-slate-400 bg-transparent border-none shadow-none focus-visible:ring-1 focus-visible:ring-violet-400/40 p-1 min-h-[36px] resize-none overflow-hidden leading-tight w-full"
+                      rows={2}
+                    />
+                  </div>
+                  {/* KYC OBNL */}
+                  <div className="px-2 py-2 border-r border-slate-100 dark:border-slate-800">
+                    <Textarea
+                      defaultValue={factor.kycObnl}
+                      onBlur={e => updateFactor(factor.id, "kycObnl", e.target.value.trim())}
+                      className="text-[11px] font-medium text-slate-600 dark:text-slate-400 bg-transparent border-none shadow-none focus-visible:ring-1 focus-visible:ring-violet-400/40 p-1 min-h-[36px] resize-none overflow-hidden leading-tight w-full"
+                      rows={2}
+                    />
+                  </div>
+                  {/* Coeff */}
+                  <div className="px-2 py-2 border-r border-slate-100 dark:border-slate-800 flex items-center justify-center">
+                    <input
+                      type="text"
+                      defaultValue={factor.coeff}
+                      onBlur={e => updateFactor(factor.id, "coeff", e.target.value.trim())}
+                      className="text-xs font-black text-center text-slate-700 dark:text-slate-200 bg-transparent border-none outline-none w-full focus:bg-slate-50 dark:focus:bg-slate-800 rounded px-1"
+                    />
+                  </div>
+                  {/* Agrégation */}
+                  <div className="px-2 py-2 flex items-center justify-center">
+                    <input
+                      type="text"
+                      defaultValue={factor.agregation}
+                      onBlur={e => updateFactor(factor.id, "agregation", e.target.value.trim())}
+                      className="text-xs font-black text-center text-slate-700 dark:text-slate-200 bg-transparent border-none outline-none w-full focus:bg-slate-50 dark:focus:bg-slate-800 rounded px-1"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

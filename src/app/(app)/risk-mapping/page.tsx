@@ -1159,10 +1159,11 @@ export default function RiskMappingPage() {
               <ClipboardList className="h-3.5 w-3.5 mr-1.5" /> Plan d&apos;actions
             </TabsTrigger>
             <TabsTrigger value="matrix" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <Grid className="h-3.5 w-3.5 mr-1.5" /> Matrice de Risques
+              <Grid className="h-3.5 w-3.5 mr-1.5" /> Matrice KYC
             </TabsTrigger>
           </TabsList>
 
+          {viewMode !== "matrix" && (
           <div className="flex-1 flex flex-nowrap items-center gap-3 w-full bg-white/50 dark:bg-slate-900/50 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800">
             <div className="relative flex-1 min-w-[350px] xl:max-w-[600px]">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -1226,6 +1227,7 @@ export default function RiskMappingPage() {
               )}
             </div>
           </div>
+          )}
         </div>
 
         <TabsContent value="plan-actions" className="mt-0 focus-visible:ring-0">
