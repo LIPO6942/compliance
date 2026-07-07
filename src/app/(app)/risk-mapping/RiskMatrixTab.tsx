@@ -22,6 +22,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 
@@ -410,9 +411,12 @@ export function RiskMatrixTab() {
   const {
     kycFactors,
     kycHistory,
+    professionOverrides,
     loading: matrixLoading,
     updateFactor: ctxUpdateFactor,
-    resetFactors: ctxResetFactors
+    resetFactors: ctxResetFactors,
+    updateProfessionFactor,
+    resetProfessionOverrides
   } = useMatrixConfig();
 
   const [subTab, setSubTab] = React.useState<"params" | "countries" | "govs" | "products" | "dist" | "moral" | "physical">("params");
@@ -485,14 +489,44 @@ export function RiskMatrixTab() {
     });
   }, [searchQuery, riskFilter]);
 
+  const resolvedPhysicalProfessions = React.useMemo(() => {
+    return PHYS_PROFESSIONS_DATA.map((p) => {
+      const override = professionOverrides[p.name] || {};
+      const merged = {
+        ...p,
+        cash: override.cash !== undefined ? override.cash : p.cash,
+        objects: override.objects !== undefined ? override.objects : p.objects,
+        volume: override.volume !== undefined ? override.volume : p.volume,
+        noInfo: override.noInfo !== undefined ? override.noInfo : p.noInfo,
+        complexEval: override.complexEval !== undefined ? override.complexEval : p.complexEval,
+        intermediary: override.intermediary !== undefined ? override.intermediary : p.intermediary,
+        corruption: override.corruption !== undefined ? override.corruption : p.corruption,
+      };
+      
+      // Calculate dynamic risk
+      const count = [
+        merged.cash,
+        merged.objects,
+        merged.volume,
+        merged.noInfo,
+        merged.complexEval,
+        merged.intermediary,
+        merged.corruption,
+      ].filter(Boolean).length;
+      
+      merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
+      return merged;
+    });
+  }, [professionOverrides]);
+
   const filteredPhysicalProfessions = React.useMemo(() => {
-    return PHYS_PROFESSIONS_DATA.filter(p => {
+    return resolvedPhysicalProfessions.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.domain.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesRisk = riskFilter === "all" || p.risk === riskFilter;
       const matchesDomain = selectedDomain === "all" || p.domain === selectedDomain;
       return matchesSearch && matchesRisk && matchesDomain;
     });
-  }, [searchQuery, riskFilter, selectedDomain]);
+  }, [resolvedPhysicalProfessions, searchQuery, riskFilter, selectedDomain]);
 
   const renderBadge = (risk: string) => {
     const style = risk === "RE" 
@@ -1140,44 +1174,95 @@ export function RiskMatrixTab() {
           <CardHeader className="pb-4 px-6 pt-5 bg-slate-50/50 dark:bg-slate-900/20 border-b flex flex-row justify-between items-center flex-wrap gap-4">
             <div>
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Risques par Profession (Personnes Physiques)</CardTitle>
-              <p className="text-[10px] text-slate-400 mt-0.5">Facteurs et indices de risques appliqués aux professions et branches d&apos;activité des clients PP</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Cliquez sur un facteur pour l&apos;activer/désactiver — calcul automatique du risque et synchronisation collaborative</p>
             </div>
-            <Badge variant="outline" className="font-bold text-slate-500 bg-white dark:bg-slate-900">{filteredPhysicalProfessions.length} professions</Badge>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  await resetProfessionOverrides(authorName);
+                  toast({ title: "Professions réinitialisées", description: "Toutes les professions ont retrouvé leurs valeurs d&apos;origine." });
+                }}
+                className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg"
+              >
+                Réinitialiser les professions
+              </Button>
+              <Badge variant="outline" className="font-bold text-slate-500 bg-white dark:bg-slate-900">{filteredPhysicalProfessions.length} professions</Badge>
+            </div>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto max-h-[500px]">
-            <Table>
-              <TableHeader className="sticky top-0 bg-white dark:bg-slate-900 z-10">
-                <TableRow className="bg-slate-50/30 dark:bg-slate-900/10 text-xs">
-                  <TableHead className="font-bold">Domaine / Secteur</TableHead>
-                  <TableHead className="font-bold">Profession</TableHead>
-                  <TableHead className="font-bold text-center">Liquide</TableHead>
-                  <TableHead className="font-bold text-center">Objets précieux</TableHead>
-                  <TableHead className="font-bold text-center">Volume</TableHead>
-                  <TableHead className="font-bold text-center">Intermédiation</TableHead>
-                  <TableHead className="font-bold text-center">Corruption</TableHead>
-                  <TableHead className="font-bold text-center w-[100px]">Risque</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="text-xs">
-                {filteredPhysicalProfessions.map((p, idx) => (
-                  <TableRow key={idx} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", p.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
-                    <TableCell className="font-semibold text-slate-400 text-[10px] uppercase tracking-wider">{p.domain}</TableCell>
-                    <TableCell className="font-bold text-slate-900 dark:text-white">{p.name}</TableCell>
-                    <TableCell className="text-center">{p.cash ? "💵 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{p.objects ? "💎 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{p.volume ? "📈 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{p.intermediary ? "👥 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{p.corruption ? "🔥 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{renderBadge(p.risk)}</TableCell>
+            <TooltipProvider>
+              <Table className="w-full table-fixed min-w-[1000px]">
+                <TableHeader className="sticky top-0 bg-white dark:bg-slate-900 z-10">
+                  <TableRow className="bg-slate-50/30 dark:bg-slate-900/10 text-xs">
+                    <TableHead className="font-bold w-[20%]">Domaine / Secteur</TableHead>
+                    <TableHead className="font-bold w-[25%]">Profession</TableHead>
+                    {[
+                      { header: "Liquide", label: "Manipulation intensive d'argent liquide", field: "cash" },
+                      { header: "Objets", label: "Manipulation d'objets de grandes valeurs", field: "objects" },
+                      { header: "Volume", label: "Importance du volume des affaires", field: "volume" },
+                      { header: "Info", label: "Manque d'information sur la nature de l'activité", field: "noInfo" },
+                      { header: "Éval.", label: "Difficulté d'évaluation des produits, services ou livrables", field: "complexEval" },
+                      { header: "Interm.", label: "Présence de l'intermédiation", field: "intermediary" },
+                      { header: "Corrup.", label: "Exposition à la corruption", field: "corruption" }
+                    ].map((col) => (
+                      <TableHead key={col.field} className="font-bold text-center w-[7%]">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="underline decoration-dotted cursor-help">{col.header}</span>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-slate-950 text-white p-2 rounded-lg border-none shadow-xl max-w-[200px]">
+                            <p className="text-[10px] font-semibold">{col.label}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TableHead>
+                    ))}
+                    <TableHead className="font-bold text-center w-[10%]">Risque</TableHead>
                   </TableRow>
-                ))}
-                {filteredPhysicalProfessions.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-10 text-slate-400 italic font-semibold">Aucune profession trouvée</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody className="text-xs">
+                  {filteredPhysicalProfessions.map((p, idx) => (
+                    <TableRow key={idx} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", p.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
+                      <TableCell className="font-semibold text-slate-400 text-[10px] uppercase tracking-wider truncate" title={p.domain}>{p.domain}</TableCell>
+                      <TableCell className="font-bold text-slate-900 dark:text-white truncate" title={p.name}>{p.name}</TableCell>
+                      {[
+                        { field: "cash", label: "Liquide" },
+                        { field: "objects", label: "Objets" },
+                        { field: "volume", label: "Volume" },
+                        { field: "noInfo", label: "Info" },
+                        { field: "complexEval", label: "Éval." },
+                        { field: "intermediary", label: "Interm." },
+                        { field: "corruption", label: "Corrup." }
+                      ].map((col) => {
+                        const val = (p as any)[col.field];
+                        return (
+                          <TableCell key={col.field} className="text-center p-1.5">
+                            <button
+                              onClick={() => updateProfessionFactor(p.name, col.field, !val, authorName)}
+                              className={cn(
+                                "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-12 text-center",
+                                val 
+                                  ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
+                                  : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
+                              )}
+                            >
+                              {val ? "Oui" : "—"}
+                            </button>
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-center">{renderBadge(p.risk)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {filteredPhysicalProfessions.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={10} className="text-center py-10 text-slate-400 italic font-semibold">Aucune profession trouvée</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TooltipProvider>
           </CardContent>
         </Card>
       )}

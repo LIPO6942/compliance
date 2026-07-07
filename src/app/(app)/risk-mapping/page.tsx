@@ -899,248 +899,250 @@ export default function RiskMappingPage() {
   const filteredRisks = React.useMemo(() => risks.filter((risk: RiskMappingItem) => {
     const matchesSearch = risk.riskDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
       risk.department.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesLevel = filterRiskLevel === "all" || calculateRiskLevel(risk.probabilite, risk.impact) === filterRiskLevel;
-    const matchesDept = filterDepartment === "all" || risk.department === filterDepartment;
-    const matchesCategory = filterCategory === "all" || risk.category === filterCategory;
-    
-    let matchesActionStatus = true;
-    if (viewMode === "plan-actions" && filterActionStatus !== "all") {
-        const avg = getRiskAvgCompletion(risk);
-        const statusLabel = avg === 0 ? 'Non initié' : avg === 100 ? 'Réalisé' : avg >= 50 ? 'En cours' : 'Initié';
-        matchesActionStatus = statusLabel === filterActionStatus;
-    }
-    
-    return matchesSearch && matchesLevel && matchesDept && matchesCategory && matchesActionStatus;
-  }), [risks, searchQuery, filterRiskLevel, filterDepartment, filterCategory, viewMode, filterActionStatus]);
-
-  const globalDocsDetails = React.useMemo(
-    () => documents.filter(d => globalDocumentIds.includes(d.id)),
-    [documents, globalDocumentIds]
-  );
-
-  if (!isClient) {
-    return <div className="flex justify-center items-center h-[60vh]"><Logo className="h-10 w-10 animate-spin" /></div>;
-  }
-
-  return (
+    const matchesLevel = filterRiskLevel === "all" || calculateRiskLevel(risk.probabilite,   return (
     <div className="space-y-8 pb-20 w-full">
-      <ReportCover />
+      {viewMode !== "matrix" && <ReportCover />}
       {/* Header */}
-      <div className="relative mb-2 print:hidden">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-              <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Risk Intelligence Center</span>
+      {viewMode !== "matrix" && (
+        <div className="relative mb-2 print:hidden">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Risk Intelligence Center</span>
+              </div>
+              <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                Cartographie des <span className="text-primary">Risques</span>
+              </h1>
+              <p className="text-slate-500 text-sm max-w-xl">
+                Pilotage stratégique de l'exposition réglementaire et opérationnelle en temps réel.
+              </p>
             </div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              Cartographie des <span className="text-primary">Risques</span>
-            </h1>
-            <p className="text-slate-500 text-sm max-w-xl">
-              Pilotage stratégique de l'exposition réglementaire et opérationnelle en temps réel.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleExportPDF}
-              className="h-9 px-4 rounded-xl border-2 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
-            >
-              <FileText className="mr-1.5 h-3.5 w-3.5 text-rose-500" /> Rapport PDF
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleExportPDF}
+                className="h-9 px-4 rounded-xl border-2 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
+              >
+                <FileText className="mr-1.5 h-3.5 w-3.5 text-rose-500" /> Rapport PDF
+              </Button>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-9 px-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
-                >
-                  <Download className="mr-1.5 h-3.5 w-3.5" /> Exporter Excel
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 rounded-xl shadow-2xl p-2 border-none">
-                <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 px-3 py-2">Choisir le format d'export</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
-                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'principal')} className="rounded-lg py-3 cursor-pointer group">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
-                      <List className="h-4 w-4" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 px-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
+                  >
+                    <Download className="mr-1.5 h-3.5 w-3.5" /> Exporter Excel
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 rounded-xl shadow-2xl p-2 border-none">
+                  <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 px-3 py-2">Choisir le format d'export</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
+                  <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'principal')} className="rounded-lg py-3 cursor-pointer group">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                        <List className="h-4 w-4" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-slate-700">Tableau Principal</span>
+                        <span className="text-[9px] text-slate-400">Inventaire et cotation brute</span>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-700">Tableau Principal</span>
-                      <span className="text-[9px] text-slate-400">Inventaire et cotation brute</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'dmr')} className="rounded-lg py-3 cursor-pointer group">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                        <ShieldCheck className="h-4 w-4" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-slate-700">Tableau DMR</span>
+                        <span className="text-[9px] text-slate-400">Efficacité et risque résiduel</span>
+                      </div>
                     </div>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'dmr')} className="rounded-lg py-3 cursor-pointer group">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                      <ShieldCheck className="h-4 w-4" />
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'plan-actions')} className="rounded-lg py-3 cursor-pointer group">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                        <Target className="h-4 w-4" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-slate-700">Plan d'Actions</span>
+                        <span className="text-[9px] text-slate-400">Actions et avancement</span>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-700">Tableau DMR</span>
-                      <span className="text-[9px] text-slate-400">Efficacité et risque résiduel</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
+                  <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'combined')} className="rounded-lg py-3 cursor-pointer group bg-slate-50 hover:bg-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                        <LayoutGrid className="h-4 w-4" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-slate-900">Tableau Complet</span>
+                        <span className="text-[9px] text-slate-500">Cartographie brute + Volet DMR</span>
+                      </div>
                     </div>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'plan-actions')} className="rounded-lg py-3 cursor-pointer group">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
-                      <Target className="h-4 w-4" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-700">Plan d'Actions</span>
-                      <span className="text-[9px] text-slate-400">Actions et avancement</span>
-                    </div>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
-                <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'combined')} className="rounded-lg py-3 cursor-pointer group bg-slate-50 hover:bg-slate-100">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <LayoutGrid className="h-4 w-4" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-900">Tableau Complet</span>
-                      <span className="text-[9px] text-slate-500">Cartographie brute + Volet DMR</span>
-                    </div>
-                  </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              size="lg"
-              onClick={() => openDialog('add')}
-              className="h-14 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-lg transition-all hover:scale-[1.02]"
-            >
-              <PlusCircle className="mr-2 h-4 w-4" /> Identifier un Risque
-            </Button>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                size="lg"
+                onClick={() => openDialog('add')}
+                className="h-14 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-lg transition-all hover:scale-[1.02]"
+              >
+                <PlusCircle className="mr-2 h-4 w-4" /> Identifier un Risque
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ─── GLOBAL DOCUMENTS SECTION ─── */}
-      <Card className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50/60 dark:bg-slate-900/40 shadow-none">
-        <CardHeader className="pb-3 pt-5 px-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
-                <FolderOpen className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400 h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle className="text-sm font-bold text-slate-800 dark:text-white">Documents liés à la Cartographie</CardTitle>
-                <CardDescription className="text-xs text-slate-500">Référentiels, politiques et procédures applicables à l'ensemble des risques</CardDescription>
-              </div>
-            </div>
-            <Popover open={globalDocsOpen} onOpenChange={setGlobalDocsOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 px-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 font-bold text-xs bg-white dark:bg-slate-900 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition-all">
-                  <PlusCircle className="h-3.5 w-3.5 mr-1.5 text-indigo-500" />
-                  Gérer les documents
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[320px] p-0 rounded-2xl border-none shadow-2xl">
-                <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Sélectionner les documents</p>
+      {viewMode !== "matrix" && (
+        <Card className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50/60 dark:bg-slate-900/40 shadow-none">
+          <CardHeader className="pb-3 pt-5 px-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
+                  <FolderOpen className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400 h-5 w-5" />
                 </div>
-                <ScrollArea className="h-64 p-3">
-                  {documents.length === 0 && (
-                    <p className="text-xs text-slate-400 text-center py-8">Aucun document disponible</p>
-                  )}
-                  {documents.map((doc) => (
-                    <div key={doc.id} className="flex items-center space-x-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors">
-                      <Checkbox
-                        checked={globalDocumentIds.includes(doc.id)}
-                        onCheckedChange={(checked: boolean) => {
-                          const cur = globalDocumentIds || [];
-                          setGlobalDocumentIds(checked ? [...cur, doc.id] : cur.filter((id) => id !== doc.id));
-                          if (user) {
-                            logAction({
-                              userEmail: user.email || "system",
-                              userName: user.displayName || "Utilisateur",
-                              action: "SETTINGS_UPDATE",
-                              label: checked ? "Liaison document global" : "Suppression liaison document global",
-                              detail: `Document: ${doc.name}`,
-                              module: "Risk Mapping"
-                            });
-                          }
-                        }}
-                      />
-                      <Label className="text-xs font-bold leading-none cursor-pointer">{doc.name}</Label>
-                    </div>
-                  ))}
-                </ScrollArea>
-              </PopoverContent>
-            </Popover>
-          </div>
-        </CardHeader>
-
-        {globalDocsDetails.length > 0 && (
-          <CardContent className="px-6 pb-5 pt-2">
-            <div className="flex flex-wrap gap-2">
-              {globalDocsDetails.map((doc) => (
-                <div key={doc.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm relative group/doc">
-                  {doc.url ? (
-                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
-                      <FileText className="h-3 w-3 text-indigo-500 flex-shrink-0" />
-                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 group-hover/doc:underline">{doc.name}</span>
-                    </a>
-                  ) : (
-                    <>
-                      <FileText className="h-3 w-3 text-indigo-500 flex-shrink-0" />
-                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{doc.name}</span>
-                    </>
-                  )}
-                  <button
-                    onClick={() => {
-                      setGlobalDocumentIds(globalDocumentIds.filter(id => id !== doc.id));
-                      if (user) {
-                        logAction({
-                          userEmail: user.email || "system",
-                          userName: user.displayName || "Utilisateur",
-                          action: "SETTINGS_UPDATE",
-                          label: "Suppression liaison document global",
-                          detail: `Document: ${doc.name}`,
-                          module: "Risk Mapping"
-                        });
-                      }
-                    }}
-                    className="ml-1 text-slate-300 hover:text-rose-500 transition-colors text-base leading-none font-bold"
-                    aria-label="Retirer"
-                  >
-                    ×
-                  </button>
+                <div>
+                  <CardTitle className="text-sm font-bold text-slate-800 dark:text-white">Documents liés à la Cartographie</CardTitle>
+                  <CardDescription className="text-xs text-slate-500">Référentiels, politiques et procédures applicables à l'ensemble des risques</CardDescription>
                 </div>
-              ))}
+              </div>
+              <Popover open={globalDocsOpen} onOpenChange={setGlobalDocsOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 px-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 font-bold text-xs bg-white dark:bg-slate-900 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition-all">
+                    <PlusCircle className="h-3.5 w-3.5 mr-1.5 text-indigo-500" />
+                    Gérer les documents
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[320px] p-0 rounded-2xl border-none shadow-2xl">
+                  <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Sélectionner les documents</p>
+                  </div>
+                  <ScrollArea className="h-64 p-3">
+                    {documents.length === 0 && (
+                      <p className="text-xs text-slate-400 text-center py-8">Aucun document disponible</p>
+                    )}
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="flex items-center space-x-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors">
+                        <Checkbox
+                          checked={globalDocumentIds.includes(doc.id)}
+                          onCheckedChange={(checked: boolean) => {
+                            const cur = globalDocumentIds || [];
+                            setGlobalDocumentIds(checked ? [...cur, doc.id] : cur.filter((id) => id !== doc.id));
+                            if (user) {
+                              logAction({
+                                userEmail: user.email || "system",
+                                userName: user.displayName || "Utilisateur",
+                                action: "SETTINGS_UPDATE",
+                                label: checked ? "Liaison document global" : "Suppression liaison document global",
+                                detail: `Document: ${doc.name}`,
+                                module: "Risk Mapping"
+                              });
+                            }
+                          }}
+                        />
+                        <Label className="text-xs font-bold leading-none cursor-pointer">{doc.name}</Label>
+                      </div>
+                    ))}
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
             </div>
-          </CardContent>
-        )}
+          </CardHeader>
 
-        {globalDocsDetails.length === 0 && (
-          <CardContent className="px-6 pb-5 pt-0">
-            <p className="text-[11px] text-slate-400 italic">Aucun document lié — cliquez sur "Gérer les documents" pour en ajouter.</p>
-          </CardContent>
-        )}
-      </Card>
+          {globalDocsDetails.length > 0 && (
+            <CardContent className="px-6 pb-5 pt-2">
+              <div className="flex flex-wrap gap-2">
+                {globalDocsDetails.map((doc) => (
+                  <div key={doc.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm relative group/doc">
+                    {doc.url ? (
+                      <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
+                        <FileText className="h-3 w-3 text-indigo-500 flex-shrink-0" />
+                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 group-hover/doc:underline">{doc.name}</span>
+                      </a>
+                    ) : (
+                      <>
+                        <FileText className="h-3 w-3 text-indigo-500 flex-shrink-0" />
+                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{doc.name}</span>
+                      </>
+                    )}
+                    <button
+                      onClick={() => {
+                        setGlobalDocumentIds(globalDocumentIds.filter(id => id !== doc.id));
+                        if (user) {
+                          logAction({
+                            userEmail: user.email || "system",
+                            userName: user.displayName || "Utilisateur",
+                            action: "SETTINGS_UPDATE",
+                            label: "Suppression liaison document global",
+                            detail: `Document: ${doc.name}`,
+                            module: "Risk Mapping"
+                          });
+                        }
+                      }}
+                      className="ml-1 text-slate-300 hover:text-rose-500 transition-colors text-base leading-none font-bold"
+                      aria-label="Retirer"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          )}
+
+          {globalDocsDetails.length === 0 && (
+            <CardContent className="px-6 pb-5 pt-0">
+              <p className="text-[11px] text-slate-400 italic">Aucun document lié — cliquez sur "Gérer les documents" pour en ajouter.</p>
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* ─── SCORE LEGEND ─── */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Barème du score :</span>
-        {[
-          { label: "Faible", range: "≤ 4", bg: "bg-emerald-100", text: "text-emerald-700", border: "border-emerald-200" },
-          { label: "Modéré", range: "5–8", bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-200" },
-          { label: "Élevé", range: "9–12", bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-200" },
-          { label: "Très élevé", range: "≥ 13", bg: "bg-rose-100", text: "text-rose-700", border: "border-rose-200" },
-        ].map(item => (
-          <div key={item.label} className={cn("flex items-center gap-1.5 px-3 py-1 rounded-lg border text-[10px] font-bold", item.bg, item.text, item.border)}>
-            <span>{item.range}</span>
-            <span className="opacity-60">→</span>
-            <span>{item.label}</span>
-          </div>
-        ))}
-      </div>
+      {viewMode !== "matrix" && (
+        <div className="flex flex-wrap gap-3 items-center">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Barème du score :</span>
+          {[
+            { label: "Faible", range: "≤ 4", bg: "bg-emerald-100", text: "text-emerald-700", border: "border-emerald-200" },
+            { label: "Modéré", range: "5–8", bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-200" },
+            { label: "Élevé", range: "9–12", bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-200" },
+            { label: "Très élevé", range: "≥ 13", bg: "bg-rose-100", text: "text-rose-700", border: "border-rose-200" },
+          ].map(item => (
+            <div key={item.label} className={cn("flex items-center gap-1.5 px-3 py-1 rounded-lg border text-[10px] font-bold", item.bg, item.text, item.border)}>
+              <span>{item.range}</span>
+              <span className="opacity-60">→</span>
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* ─── SCORE LEGEND ─── */}
+      {viewMode !== "matrix" && (
+        <div className="flex flex-wrap gap-3 items-center">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Barème du score :</span>
+          {[
+            { label: "Faible", range: "≤ 4", bg: "bg-emerald-100", text: "text-emerald-700", border: "border-emerald-200" },
+            { label: "Modéré", range: "5–8", bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-200" },
+            { label: "Élevé", range: "9–12", bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-200" },
+            { label: "Très élevé", range: "≥ 13", bg: "bg-rose-100", text: "text-rose-700", border: "border-rose-200" },
+          ].map(item => (
+            <div key={item.label} className={cn("flex items-center gap-1.5 px-3 py-1 rounded-lg border text-[10px] font-bold", item.bg, item.text, item.border)}>
+              <span>{item.range}</span>
+              <span className="opacity-60">→</span>
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full">
         {/* Navigation & Advanced Filters */}
