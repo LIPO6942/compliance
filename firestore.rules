@@ -171,5 +171,11 @@ service cloud.firestore {
     match /riskFactorLogs/{logId} {
       allow read, write: if true;  // Collaboratif — tous les utilisateurs authentifiés
     }
+    // ============================================
+    // MATRIX CONFIG - Facteurs KYC collaboratifs
+    // ============================================
+    match /matrixConfig/{document=**} {
+      allow read, write: if true;  // Collaboratif — synchronisé pour tous les utilisateurs
+    }
   }
 }

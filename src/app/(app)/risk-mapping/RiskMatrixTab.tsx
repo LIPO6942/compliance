@@ -16,107 +16,14 @@ import PHYS_PROFESSIONS_DATA from "./professions_data.json";
 import { useActivityLog } from "@/contexts/ActivityLogContext";
 import { useUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
+import { useMatrixConfig, DEFAULT_KYC_FACTORS, type KycFactor } from "@/contexts/MatrixConfigContext";
 import ExcelJS from "exceljs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-// ── Types ──
-type MatrixHistoryEntry = {
-  id: string;
-  date: string;
-  user: string;
-  field: string;
-  oldValue: string;
-  newValue: string;
-};
 
-// ── KYC Factor rows (editable) ──
-const DEFAULT_KYC_FACTORS = [
-  {
-    id: "geo-pays",
-    facteur: "Zones Géographiques (Pays)",
-    kycPhys: "Nationalité, Pays de résidence, Deuxième nationalité",
-    kycMorale: "Pays",
-    kycObnl: "Pays, Adresse de résidence principale",
-    coeff: "1",
-    agregation: "Max"
-  },
-  {
-    id: "geo-gov",
-    facteur: "Zones Géographiques (Gouvernorats)",
-    kycPhys: "Pays de résidence, Gouvernorat",
-    kycMorale: "Gouvernorat",
-    kycObnl: "-",
-    coeff: "1",
-    agregation: "Max"
-  },
-  {
-    id: "activite-profession",
-    facteur: "Activité & Profession",
-    kycPhys: "Statut Professionnel, Profession",
-    kycMorale: "Nature de l'activité",
-    kycObnl: "Type d'organisation",
-    coeff: "1",
-    agregation: "Max"
-  },
-  {
-    id: "produit",
-    facteur: "Produit",
-    kycPhys: "Produit",
-    kycMorale: "Produit",
-    kycObnl: "Produit",
-    coeff: "1",
-    agregation: "-"
-  },
-  {
-    id: "canal-distribution",
-    facteur: "Canal de distribution",
-    kycPhys: "Canal de distribution",
-    kycMorale: "Canal de distribution",
-    kycObnl: "Canal de distribution",
-    coeff: "-",
-    agregation: "-"
-  },
-  {
-    id: "technique-vente",
-    facteur: "Technique de vente",
-    kycPhys: "-",
-    kycMorale: "-",
-    kycObnl: "-",
-    coeff: "1",
-    agregation: "-"
-  },
-  {
-    id: "statuts-specifiques",
-    facteur: "Statuts spécifiques",
-    kycPhys: "PPE, OBNL",
-    kycMorale: "-",
-    kycObnl: "OBNL",
-    coeff: "1",
-    agregation: "-"
-  }
-];
-
-const STORAGE_KEY_FACTORS = "matrixKycFactors";
-const STORAGE_KEY_HISTORY = "matrixKycHistory";
-
-function loadKycFactors() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY_FACTORS);
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  return DEFAULT_KYC_FACTORS;
-}
-
-function loadKycHistory(): MatrixHistoryEntry[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY_HISTORY);
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  return [];
-}
 
 // Risk Level Thresholds
 const RISK_LEVELS = [
@@ -500,58 +407,45 @@ export function RiskMatrixTab() {
   const { logAction } = useActivityLog();
   const { user } = useUser();
   const { toast } = useToast();
+  const {
+    kycFactors,
+    kycHistory,
+    loading: matrixLoading,
+    updateFactor: ctxUpdateFactor,
+    resetFactors: ctxResetFactors
+  } = useMatrixConfig();
 
   const [subTab, setSubTab] = React.useState<"params" | "countries" | "govs" | "products" | "dist" | "moral" | "physical">("params");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [riskFilter, setRiskFilter] = React.useState<"all" | "RE" | "RM" | "RF">("all");
   const [selectedDomain, setSelectedDomain] = React.useState<string>("all");
-
-  // ── Editable KYC factors with auto-save ──
-  const [kycFactors, setKycFactors] = React.useState<typeof DEFAULT_KYC_FACTORS>(() => loadKycFactors());
-  const [kycHistory, setKycHistory] = React.useState<MatrixHistoryEntry[]>(() => loadKycHistory());
   const [historyOpen, setHistoryOpen] = React.useState(false);
 
-  const updateFactor = (id: string, field: keyof typeof DEFAULT_KYC_FACTORS[0], newValue: string) => {
+  const authorName = user?.name || user?.email || "Utilisateur";
+
+  const updateFactor = async (id: string, field: keyof Omit<KycFactor, 'id' | 'facteur'>, newValue: string) => {
     const factor = kycFactors.find(f => f.id === id);
-    if (!factor) return;
-    const oldValue = factor[field] as string;
-    if (oldValue === newValue) return;
+    if (!factor || factor[field] === newValue) return;
+    const oldValue = factor[field];
 
-    const updated = kycFactors.map(f =>
-      f.id === id ? { ...f, [field]: newValue } : f
-    );
-    setKycFactors(updated);
-    localStorage.setItem(STORAGE_KEY_FACTORS, JSON.stringify(updated));
+    await ctxUpdateFactor(id, field, newValue, authorName);
 
-    const entry: MatrixHistoryEntry = {
-      id: `${Date.now()}`,
-      date: new Date().toISOString(),
-      user: user?.name || user?.email || "Utilisateur",
-      field: `${factor.facteur} → ${field}`,
-      oldValue,
-      newValue
-    };
-    const newHistory = [entry, ...kycHistory].slice(0, 100);
-    setKycHistory(newHistory);
-    localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(newHistory));
-
-    toast({ title: "Modification enregistrée", description: `Facteur « ${factor.facteur} » mis à jour.` });
+    toast({ title: "Modification enregistrée", description: `Facteur « ${factor.facteur} » mis à jour pour tous les utilisateurs.` });
     if (user) {
       logAction({
         userEmail: user.email,
         userName: user.name,
         action: "SETTINGS_UPDATE",
-        label: `Matrice KYC - Modification: ${factor.facteur} → ${field}`,
+        label: `Matrice KYC - ${factor.facteur} → ${field}`,
         detail: `${oldValue} → ${newValue}`,
         module: "Matrice des Risques"
       });
     }
   };
 
-  const resetFactors = () => {
-    setKycFactors(DEFAULT_KYC_FACTORS);
-    localStorage.setItem(STORAGE_KEY_FACTORS, JSON.stringify(DEFAULT_KYC_FACTORS));
-    toast({ title: "Réinitialisation effectuée" });
+  const resetFactors = async () => {
+    await ctxResetFactors(authorName);
+    toast({ title: "Réinitialisation effectuée", description: "Les valeurs par défaut ont été restaurées pour tous les utilisateurs." });
   };
 
   const uniqueDomains = React.useMemo(() => {
