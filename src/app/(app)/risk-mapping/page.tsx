@@ -899,7 +899,30 @@ export default function RiskMappingPage() {
   const filteredRisks = React.useMemo(() => risks.filter((risk: RiskMappingItem) => {
     const matchesSearch = risk.riskDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
       risk.department.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesLevel = filterRiskLevel === "all" || calculateRiskLevel(risk.probabilite,   return (
+    const matchesLevel = filterRiskLevel === "all" || calculateRiskLevel(risk.probabilite, risk.impact) === filterRiskLevel;
+    const matchesDept = filterDepartment === "all" || risk.department === filterDepartment;
+    const matchesCategory = filterCategory === "all" || risk.category === filterCategory;
+    
+    let matchesActionStatus = true;
+    if (viewMode === "plan-actions" && filterActionStatus !== "all") {
+        const avg = getRiskAvgCompletion(risk);
+        const statusLabel = avg === 0 ? 'Non initié' : avg === 100 ? 'Réalisé' : avg >= 50 ? 'En cours' : 'Initié';
+        matchesActionStatus = statusLabel === filterActionStatus;
+    }
+    
+    return matchesSearch && matchesLevel && matchesDept && matchesCategory && matchesActionStatus;
+  }), [risks, searchQuery, filterRiskLevel, filterDepartment, filterCategory, viewMode, filterActionStatus]);
+
+  const globalDocsDetails = React.useMemo(
+    () => documents.filter(d => globalDocumentIds.includes(d.id)),
+    [documents, globalDocumentIds]
+  );
+
+  if (!isClient) {
+    return <div className="flex justify-center items-center h-[60vh]"><Logo className="h-10 w-10 animate-spin" /></div>;
+  }
+
+  return (
     <div className="space-y-8 pb-20 w-full">
       {viewMode !== "matrix" && <ReportCover />}
       {/* Header */}
