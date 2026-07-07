@@ -1,0 +1,34 @@
+﻿Opened C:\Users\moslem5017\Documents\Téléchargements MEGA\Matrice des risques MAJ  Février 2026.xlsx
+Sheet 1: Entité
+Sheet 2: Niveaux de risques
+Sheet 3: Pays
+Sheet 4: Gouvernorats
+Sheet 5: Produits
+Sheet 6: Voie de disctribution
+Sheet 7: Technique de vente
+Sheet 8: Activité P MORALE
+Sheet 9: Domaine Act Profession
+
+Sheet 8: Activité P MORALE - first 10 rows:
+Row 1 -> 1: '#' | 2: '  Activité' | 3: 'Manipulation intensive d'argent liquide' | 4: 'Manipulation d'objets de grandes valeurs' | 5: 'Importance du volume des d'affaires' | 6: 'Manque d'information sur la nature de l'activité' | 7: 'Difficulté d'évaluation des produits, services ou livrables' | 8: 'Présence de l'intermediation' | 9: 'Exposition à la corruption' | 10: 'Risque' | 11: 'Commentaire' | 12: 'Colonne1' | 13: 'Colonne2' | 14: 'Colonne3' | 15: 'Colonne4'
+Row 2 -> 1: '1' | 2: 'SOCIETE DE COMMERCE INTERNATIONALE' | 3: '' | 4: '' | 5: 'x' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RM' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 3 -> 1: '2' | 2: 'CONSTRUCTION' | 3: '' | 4: 'X' | 5: 'X' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RE' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 4 -> 1: '3' | 2: 'ASSOCIATIONS' | 3: '' | 4: '' | 5: '' | 6: 'x' | 7: '' | 8: 'x' | 9: '' | 10: 'RE' | 11: 'OBNL' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 5 -> 1: '4' | 2: 'PARTIS POLITIQUE' | 3: '' | 4: '' | 5: '' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RE' | 11: 'OBNL' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 6 -> 1: '5' | 2: 'ACTIVITÉS COMMERCIALES' | 3: '' | 4: '' | 5: 'x' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RM' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 7 -> 1: '6' | 2: 'ACTIVITÉS DE TRANSPORTS' | 3: '' | 4: '' | 5: 'X' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RM' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 8 -> 1: '7' | 2: 'ACTIVITÉS DE SERVICES' | 3: '' | 4: '' | 5: '' | 6: '' | 7: 'X' | 8: '' | 9: '' | 10: 'RE' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 9 -> 1: '8' | 2: 'ACTIVITÉS AGRICOLES ET ARTISANALES' | 3: 'x' | 4: '' | 5: 'X' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RE' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 10 -> 1: '9' | 2: 'ADMINISTRATION PUBLIQUE' | 3: '' | 4: '' | 5: '' | 6: '' | 7: '' | 8: 'X' | 9: 'X' | 10: 'RE' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+
+Sheet 9: Domaine Act Profession - first 10 rows:
+Row 1 -> 1: '1 .AGRICULTURE , PECHE ET ENVIRONNEMENT' | 2: '' | 3: 'Manipulation intensive d'argent liquide' | 4: 'Manipulation d'objets de grandes valeurs' | 5: 'Importance du volume des d'affaires' | 6: 'Manque d'information sur la nature de l'activité' | 7: 'Difficulté d'évaluation des produits, services ou livrables' | 8: 'Présence de l'intermediation' | 9: 'Exposition à la corruption' | 10: 'Risque' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 2 -> 1: '' | 2: 'Professions :' | 3: '' | 4: '' | 5: '' | 6: '' | 7: '' | 8: '' | 9: '' | 10: '' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 3 -> 1: '1' | 2: 'Agriculteur' | 3: 'x' | 4: '' | 5: '' | 6: '' | 7: 'x' | 8: '' | 9: '' | 10: 'RE' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 4 -> 1: '2' | 2: 'Apiculteur (élevage des abeilles)' | 3: 'x' | 4: '' | 5: '' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RM' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 5 -> 1: '3' | 2: 'Aquaculteur' | 3: 'x' | 4: '' | 5: '' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RM' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 6 -> 1: '4' | 2: 'Botaniste (Spécialiste des plantes)' | 3: 'x' | 4: '' | 5: '' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RM' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 7 -> 1: '5' | 2: 'Chasseur' | 3: '' | 4: '' | 5: '' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RF' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 8 -> 1: '6' | 2: 'Climatologue' | 3: '' | 4: '' | 5: '' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RF' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 9 -> 1: '7' | 2: 'Conseiller agricole' | 3: '' | 4: '' | 5: '' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RF' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''
+Row 10 -> 1: '8' | 2: 'Conseiller en développement durable' | 3: '' | 4: '' | 5: '' | 6: '' | 7: '' | 8: '' | 9: '' | 10: 'RF' | 11: '' | 12: '' | 13: '' | 14: '' | 15: ''

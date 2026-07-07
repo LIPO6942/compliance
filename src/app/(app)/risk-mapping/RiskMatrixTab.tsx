@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, AlertTriangle, ShieldCheck, Globe, MapPin, Package, HelpCircle, Layers, Grid, Users, Landmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import PHYS_PROFESSIONS_DATA from "./professions_data.json";
 
 // Risk Level Thresholds
 const RISK_LEVELS = [
@@ -384,58 +385,18 @@ const MORAL_ACTIVITIES_DATA = [
   { code: "39.0", name: "Autres activités inconnues", cash: false, objects: false, volume: false, noInfo: true, complexEval: true, intermediary: false, corruption: false, risk: "RE", comment: "" }
 ];
 
-// ── 6. Professions PP ──
-const PHYS_PROFESSIONS_DATA = [
-  // Agriculture
-  { domain: "Agriculture, Pêche & Environnement", name: "Agriculteur", cash: true, objects: false, volume: false, noInfo: false, complexEval: true, intermediary: false, corruption: false, risk: "RE" },
-  { domain: "Agriculture, Pêche & Environnement", name: "Apiculteur", cash: true, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RM" },
-  { domain: "Agriculture, Pêche & Environnement", name: "Aquaculteur", cash: true, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RM" },
-  { domain: "Agriculture, Pêche & Environnement", name: "Botaniste", cash: true, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RM" },
-  { domain: "Agriculture, Pêche & Environnement", name: "Chasseur", cash: false, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RF" },
-  { domain: "Agriculture, Pêche & Environnement", name: "Cultivateur palmiers-dattiers", cash: true, objects: false, volume: true, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RE" },
-  { domain: "Agriculture, Pêche & Environnement", name: "Éleveur", cash: true, objects: false, volume: true, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RE" },
-  { domain: "Agriculture, Pêche & Environnement", name: "Responsable de ferme", cash: false, objects: false, volume: false, noInfo: false, complexEval: true, intermediary: false, corruption: false, risk: "RM" },
-  { domain: "Agriculture, Pêche & Environnement", name: "Viticulteur", cash: true, objects: false, volume: true, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RE" },
-  { domain: "Agriculture, Pêche & Environnement", name: "Ingénieur / Cadre Agricole", cash: false, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RF" },
-  
-  // Industrie
-  { domain: "Industrie & Production", name: "Directeur industriel", cash: false, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RF" },
-  { domain: "Industrie & Production", name: "Responsable HSE", cash: false, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: true, risk: "RM" },
-  { domain: "Industrie & Production", name: "Responsable Qualité", cash: false, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: true, risk: "RM" },
-  { domain: "Industrie & Production", name: "Ingénieur de production", cash: false, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RF" },
-  { domain: "Industrie & Production", name: "Technicien / Ouvrier", cash: false, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RF" },
-
-  // Architecture
-  { domain: "Architecture & Construction", name: "Architecte / Design d'intérieur", cash: false, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RF" },
-  { domain: "Architecture & Construction", name: "Conducteur de travaux", cash: false, objects: true, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RM" },
-  { domain: "Architecture & Construction", name: "Diagnostiqueur immobilier", cash: false, objects: true, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RM" },
-  { domain: "Architecture & Construction", name: "Electricien Bâtiment", cash: true, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RM" },
-  { domain: "Architecture & Construction", name: "Expert en pathologie du bâtiment", cash: false, objects: true, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: true, risk: "RE" },
-  { domain: "Architecture & Construction", name: "Gérant de patrimoine immobilier", cash: false, objects: true, volume: false, noInfo: false, complexEval: false, intermediary: true, corruption: false, risk: "RE" },
-  { domain: "Architecture & Construction", name: "Ingénieur génie civil", cash: true, objects: false, volume: true, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RE" },
-  { domain: "Architecture & Construction", name: "Responsable de projet immobilier", cash: false, objects: true, volume: true, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RE" },
-  { domain: "Architecture & Construction", name: "Responsable qualité construction", cash: false, objects: true, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: true, risk: "RE" },
-  { domain: "Architecture & Construction", name: "Urbaniste", cash: false, objects: false, volume: true, noInfo: false, complexEval: false, intermediary: false, corruption: true, risk: "RE" },
-
-  // Finance
-  { domain: "Finances & Commerce", name: "Agent immobilier", cash: true, objects: false, volume: false, noInfo: false, complexEval: true, intermediary: true, corruption: false, risk: "RE" },
-  { domain: "Finances & Commerce", name: "Agent de change", cash: true, objects: false, volume: true, noInfo: false, complexEval: true, intermediary: false, corruption: false, risk: "RE" },
-  { domain: "Finances & Commerce", name: "Banquier / Assureur", cash: true, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: true, corruption: false, risk: "RE" },
-  { domain: "Finances & Commerce", name: "Commerçant équipements industriels/gros", cash: true, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RM" },
-  { domain: "Finances & Commerce", name: "Commerçant de détails / informatique", cash: true, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RM" },
-  { domain: "Finances & Commerce", name: "Comptable", cash: false, objects: false, volume: false, noInfo: false, complexEval: true, intermediary: false, corruption: false, risk: "RM" },
-  { domain: "Finances & Commerce", name: "Commercial", cash: false, objects: false, volume: false, noInfo: false, complexEval: true, intermediary: true, corruption: false, risk: "RE" },
-  { domain: "Finances & Commerce", name: "Médiateur d'entreprise", cash: false, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: true, corruption: true, risk: "RE" },
-  { domain: "Finances & Commerce", name: "Gestionnaire de portefeuille", cash: false, objects: true, volume: false, noInfo: false, complexEval: false, intermediary: true, corruption: false, risk: "RE" },
-  { domain: "Finances & Commerce", name: "Marchand de véhicules", cash: true, objects: true, volume: false, noInfo: false, complexEval: true, intermediary: false, corruption: false, risk: "RE" },
-  { domain: "Finances & Commerce", name: "Vendeur en ligne", cash: true, objects: false, volume: true, noInfo: true, complexEval: false, intermediary: false, corruption: false, risk: "RE" },
-  { domain: "Finances & Commerce", name: "Analyste financier / Actuaire", cash: false, objects: false, volume: false, noInfo: false, complexEval: false, intermediary: false, corruption: false, risk: "RF" }
-];
+// PHYS_PROFESSIONS_DATA imported from professions_data.json
 
 export function RiskMatrixTab() {
   const [subTab, setSubTab] = React.useState<"params" | "countries" | "govs" | "products" | "dist" | "moral" | "physical">("params");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [riskFilter, setRiskFilter] = React.useState<"all" | "RE" | "RM" | "RF">("all");
+  const [selectedDomain, setSelectedDomain] = React.useState<string>("all");
+
+  const uniqueDomains = React.useMemo(() => {
+    const domains = new Set(PHYS_PROFESSIONS_DATA.map(p => p.domain));
+    return Array.from(domains).sort();
+  }, []);
 
   const filteredCountries = React.useMemo(() => {
     return COUNTRIES_DATA.filter(c => {
@@ -473,9 +434,10 @@ export function RiskMatrixTab() {
     return PHYS_PROFESSIONS_DATA.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.domain.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesRisk = riskFilter === "all" || p.risk === riskFilter;
-      return matchesSearch && matchesRisk;
+      const matchesDomain = selectedDomain === "all" || p.domain === selectedDomain;
+      return matchesSearch && matchesRisk && matchesDomain;
     });
-  }, [searchQuery, riskFilter]);
+  }, [searchQuery, riskFilter, selectedDomain]);
 
   const renderBadge = (risk: string) => {
     const style = risk === "RE" 
@@ -524,7 +486,7 @@ export function RiskMatrixTab() {
             return (
               <button
                 key={tab.id}
-                onClick={() => { setSubTab(tab.id as any); setSearchQuery(""); setRiskFilter("all"); }}
+                onClick={() => { setSubTab(tab.id as any); setSearchQuery(""); setRiskFilter("all"); setSelectedDomain("all"); }}
                 className={cn(
                   "flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer",
                   active
@@ -561,6 +523,18 @@ export function RiskMatrixTab() {
               <option value="RM">Risque Moyen</option>
               <option value="RF">Risque Faible</option>
             </select>
+            {subTab === "physical" && (
+              <select
+                value={selectedDomain}
+                onChange={e => setSelectedDomain(e.target.value)}
+                className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2 outline-none h-9 font-semibold text-slate-600 dark:text-slate-350 cursor-pointer max-w-[200px]"
+              >
+                <option value="all">Tous les domaines ({uniqueDomains.length})</option>
+                {uniqueDomains.map(dom => (
+                  <option key={dom} value={dom}>{dom}</option>
+                ))}
+              </select>
+            )}
           </div>
         )}
       </div>

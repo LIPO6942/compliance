@@ -83,8 +83,13 @@ const navItems = [
       { href: "/risk-mapping?tab=table", icon: List, label: "Risques identifiés" },
       { href: "/risk-mapping?tab=dmr", icon: ShieldCheck, label: "DMR" },
       { href: "/risk-mapping?tab=plan-actions", icon: ClipboardList, label: "Plan d'actions" },
-      { href: "/risk-mapping?tab=matrix", icon: Grid, label: "Matrice de Risques" },
     ]
+  },
+  {
+    href: "/risk-mapping?tab=matrix",
+    icon: Grid,
+    label: "Matrice des Risques",
+    title: "Matrice des Risques"
   },
   { href: "/documents", icon: FileText, label: "Gestion Documentaire", title: "Gestion Documentaire" },
   { href: "/training", icon: Users, label: "Formations", title: "Formations et Sensibilisation" },
@@ -123,7 +128,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return name.substring(0, 2).toUpperCase();
   };
 
-  const currentPage = navItems.find((item) => pathname.startsWith(item.href)) || (pathname.startsWith('/alerts') ? { title: "Centre d'Alertes" } : undefined);
+  const isItemActive = React.useCallback((item: typeof navItems[0]) => {
+    const [basePath, query] = item.href.split('?');
+    if (pathname !== basePath) return false;
+    if (query && query.includes('tab=')) {
+      const tabVal = query.split('tab=')[1];
+      return currentTab === tabVal;
+    }
+    return !query || currentTab !== 'matrix';
+  }, [pathname, currentTab]);
+
+  const currentPage = navItems.find((item) => isItemActive(item)) || (pathname.startsWith('/alerts') ? { title: "Centre d'Alertes" } : undefined);
 
   const pageTitle = currentPage?.title || (pathname.startsWith('/settings') ? 'Paramètres' : 'Compliance Navigator');
 
@@ -145,25 +160,25 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <SidebarMenuItem key={item.href}>
                   <Link href={item.href}>
                     <SidebarMenuButton
-                      isActive={pathname.startsWith(item.href)}
+                      isActive={isItemActive(item)}
                       tooltip={{ children: item.label, className: "font-black uppercase tracking-widest text-[10px]" }}
                       className={cn(
                         "h-12 rounded-xl transition-all duration-300 px-4 group/btn",
-                        pathname.startsWith(item.href)
+                        isItemActive(item)
                           ? "bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-950 shadow-lg shadow-slate-900/10 dark:shadow-slate-50/10"
                           : "hover:bg-slate-100 dark:hover:bg-slate-800/50"
                       )}
                     >
                       <item.icon className={cn(
                         "h-5 w-5 transition-transform group-hover/btn:scale-110",
-                        pathname.startsWith(item.href) ? "text-primary" : "text-slate-400"
+                        isItemActive(item) ? "text-primary" : "text-slate-400"
                       )} />
                       <span className="font-extrabold text-[11px] uppercase tracking-tighter italic">
                         {item.label}
                       </span>
                     </SidebarMenuButton>
                   </Link>
-                      {item.subItems && pathname.startsWith(item.href) && (
+                      {item.subItems && isItemActive(item) && (
                     <SidebarMenuSub>
                       {item.subItems.map((subItem) => {
                         const isSubActive = pathname === subItem.href.split('?')[0] && (
