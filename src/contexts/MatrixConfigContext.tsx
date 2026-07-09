@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import {
-  doc, onSnapshot, setDoc, arrayUnion, updateDoc, getDoc
+  doc, onSnapshot, setDoc, collection, addDoc
 } from 'firebase/firestore';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -25,6 +25,8 @@ export type MatrixHistoryEntry = {
   oldValue: string;
   newValue: string;
 };
+
+export type OverrideCategory = 'profession' | 'moral' | 'country' | 'gov' | 'product' | 'dist' | 'sale';
 
 // ── Default data ────────────────────────────────────────────────────────────
 export const DEFAULT_KYC_FACTORS: KycFactor[] = [
@@ -95,27 +97,46 @@ export const DEFAULT_KYC_FACTORS: KycFactor[] = [
 
 // ── Firestore paths ─────────────────────────────────────────────────────────
 const MATRIX_DOC = 'matrixConfig/kycFactors';
-const MATRIX_PROF_DOC = 'matrixConfig/physicalProfessions';
+const MATRIX_OVERRIDES_DOC = 'matrixConfig/allOverrides';
 
 // ── Context type ────────────────────────────────────────────────────────────
 interface MatrixConfigContextType {
   kycFactors: KycFactor[];
   kycHistory: MatrixHistoryEntry[];
-  professionOverrides: Record<string, Record<string, boolean>>;
   loading: boolean;
+  
+  overrides: Record<OverrideCategory, Record<string, Record<string, boolean>>>;
+  professionOverrides: Record<string, Record<string, boolean>>; // alias
+  
   updateFactor: (
     id: string,
     field: keyof Omit<KycFactor, 'id' | 'facteur'>,
     newValue: string,
     author: string
   ) => Promise<void>;
+  
   resetFactors: (author: string) => Promise<void>;
+  
+  updateOverride: (
+    category: OverrideCategory,
+    itemId: string,
+    field: string,
+    value: boolean,
+    author: string
+  ) => Promise<void>;
+  
+  resetOverrides: (
+    category: OverrideCategory | 'all',
+    author: string
+  ) => Promise<void>;
+  
   updateProfessionFactor: (
     professionName: string,
     field: string,
     value: boolean,
     author: string
   ) => Promise<void>;
+  
   resetProfessionOverrides: (author: string) => Promise<void>;
 }
 
@@ -124,7 +145,17 @@ const MatrixConfigContext = createContext<MatrixConfigContextType | undefined>(u
 // ── LocalStorage fallback keys ──────────────────────────────────────────────
 const LS_FACTORS = 'matrixKycFactors';
 const LS_HISTORY = 'matrixKycHistory';
-const LS_PROF_OVERRIDES = 'matrixKycProfessionOverrides';
+const LS_OVERRIDES = 'matrixKycAllOverrides';
+
+const DEFAULT_OVERRIDES: Record<OverrideCategory, Record<string, Record<string, boolean>>> = {
+  profession: {},
+  moral: {},
+  country: {},
+  gov: {},
+  product: {},
+  dist: {},
+  sale: {}
+};
 
 function lsLoad<T>(key: string, fallback: T): T {
   try {
@@ -142,19 +173,18 @@ function lsSave(key: string, value: unknown) {
 export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
   const [kycFactors, setKycFactors] = useState<KycFactor[]>(() => lsLoad(LS_FACTORS, DEFAULT_KYC_FACTORS));
   const [kycHistory, setKycHistory] = useState<MatrixHistoryEntry[]>(() => lsLoad(LS_HISTORY, []));
-  const [professionOverrides, setProfessionOverrides] = useState<Record<string, Record<string, boolean>>>(() => lsLoad(LS_PROF_OVERRIDES, {}));
+  const [overrides, setOverrides] = useState<Record<OverrideCategory, Record<string, Record<string, boolean>>>>(() => lsLoad(LS_OVERRIDES, DEFAULT_OVERRIDES));
   const [loading, setLoading] = useState(true);
 
   // ── Real-time Firestore listener ─────────────────────────────────────────
   useEffect(() => {
     if (!isFirebaseConfigured || !db) {
-      // offline mode: data already loaded from localStorage
       setLoading(false);
       return;
     }
 
     const ref = doc(db, MATRIX_DOC);
-    const profRef = doc(db, MATRIX_PROF_DOC);
+    const overridesRef = doc(db, MATRIX_OVERRIDES_DOC);
 
     const unsub = onSnapshot(
       ref,
@@ -165,11 +195,9 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
           const history: MatrixHistoryEntry[] = data.history ?? [];
           setKycFactors(factors);
           setKycHistory(history);
-          // Mirror to localStorage for offline resilience
           lsSave(LS_FACTORS, factors);
           lsSave(LS_HISTORY, history);
         } else {
-          // First time: seed Firestore with defaults
           await setDoc(ref, {
             factors: DEFAULT_KYC_FACTORS,
             history: [],
@@ -178,33 +206,40 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
         }
       },
       (err) => {
-        console.error('[MatrixConfig] Firestore error, using localStorage:', err);
+        console.error('[MatrixConfig] factors Firestore error:', err);
       }
     );
 
-    const unsubProf = onSnapshot(
-      profRef,
+    const unsubOverrides = onSnapshot(
+      overridesRef,
       (snap) => {
         if (snap.exists()) {
           const data = snap.data();
-          const overrides = data.overrides ?? {};
-          setProfessionOverrides(overrides);
-          lsSave(LS_PROF_OVERRIDES, overrides);
+          const loadedOverrides = {
+            profession: data.profession ?? {},
+            moral: data.moral ?? {},
+            country: data.country ?? {},
+            gov: data.gov ?? {},
+            product: data.product ?? {},
+            dist: data.dist ?? {},
+            sale: data.sale ?? {}
+          };
+          setOverrides(loadedOverrides);
+          lsSave(LS_OVERRIDES, loadedOverrides);
         } else {
-          setProfessionOverrides({});
-          lsSave(LS_PROF_OVERRIDES, {});
+          setDoc(overridesRef, DEFAULT_OVERRIDES);
         }
         setLoading(false);
       },
       (err) => {
-        console.error('[MatrixConfig] Professions Firestore error, using localStorage:', err);
+        console.error('[MatrixConfig] overrides Firestore error:', err);
         setLoading(false);
       }
     );
 
     return () => {
       unsub();
-      unsubProf();
+      unsubOverrides();
     };
   }, []);
 
@@ -236,7 +271,6 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
 
       const updatedHistory = [entry, ...kycHistory].slice(0, 200);
 
-      // Optimistic local update
       setKycFactors(updatedFactors);
       setKycHistory(updatedHistory);
 
@@ -252,9 +286,20 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
             },
             { merge: true }
           );
+
+          // Collaborative live dashboard logging
+          try {
+            await addDoc(collection(db, "riskFactorLogs"), {
+              date: new Date().toISOString(),
+              user: author,
+              factors: ["Coefficients & Structure"],
+              note: `Modification du coefficient ou du KYC pour « ${factor.facteur} » : ${oldValue} → ${newValue}`,
+            });
+          } catch (logErr) {
+            console.error('[MatrixConfig] Failed to write live log:', logErr);
+          }
         } catch (e) {
           console.error('[MatrixConfig] Write error:', e);
-          // Persist locally as fallback
           lsSave(LS_FACTORS, updatedFactors);
           lsSave(LS_HISTORY, updatedHistory);
         }
@@ -266,7 +311,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
     [kycFactors, kycHistory]
   );
 
-  // ── Reset to defaults ────────────────────────────────────────────────────
+  // ── Reset factors to defaults ─────────────────────────────────────────────
   const resetFactors = useCallback(
     async (author: string) => {
       const entry: MatrixHistoryEntry = {
@@ -303,86 +348,185 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
     [kycHistory]
   );
 
-  // ── Update physical profession factor overrides ────────────────────────────
-  const updateProfessionFactor = useCallback(
-    async (professionName: string, field: string, value: boolean, author: string) => {
-      const currentProfessionOverrides = { ...professionOverrides };
-      if (!currentProfessionOverrides[professionName]) {
-        currentProfessionOverrides[professionName] = {};
+  // ── Generic update override ────────────────────────────────────────────────
+  const updateOverride = useCallback(
+    async (category: OverrideCategory, itemId: string, field: string, value: boolean, author: string) => {
+      const updatedOverrides = { ...overrides };
+      if (!updatedOverrides[category]) {
+        updatedOverrides[category] = {};
       }
-      
-      const oldValue = currentProfessionOverrides[professionName][field] ? 'Oui' : 'Non (—)';
+      if (!updatedOverrides[category][itemId]) {
+        updatedOverrides[category][itemId] = {};
+      }
+
+      const oldValue = updatedOverrides[category][itemId][field] ? 'Oui' : 'Non (—)';
       const newValue = value ? 'Oui' : 'Non (—)';
-      
-      currentProfessionOverrides[professionName][field] = value;
-      
+
+      updatedOverrides[category][itemId][field] = value;
+
+      const catLabel: Record<OverrideCategory, string> = {
+        profession: 'Prof. PP',
+        moral: 'Activité PM',
+        country: 'Pays',
+        gov: 'Gouvernorat',
+        product: 'Produit',
+        dist: 'Canal',
+        sale: 'Technique'
+      };
+
       const entry: MatrixHistoryEntry = {
         id: String(Date.now()),
         date: new Date().toISOString(),
         user: author,
-        field: `Profession [${professionName}] → ${field}`,
+        field: `${catLabel[category] || category} [${itemId}] → ${field}`,
         oldValue,
         newValue,
       };
-      
+
       const updatedHistory = [entry, ...kycHistory].slice(0, 200);
 
-      // Optimistic update
-      setProfessionOverrides(currentProfessionOverrides);
+      setOverrides(updatedOverrides);
       setKycHistory(updatedHistory);
-      lsSave(LS_PROF_OVERRIDES, currentProfessionOverrides);
+      lsSave(LS_OVERRIDES, updatedOverrides);
       lsSave(LS_HISTORY, updatedHistory);
 
       if (isFirebaseConfigured && db) {
         try {
-          const profRef = doc(db, MATRIX_PROF_DOC);
-          await setDoc(profRef, { overrides: currentProfessionOverrides }, { merge: true });
-          
+          const overridesRef = doc(db, MATRIX_OVERRIDES_DOC);
+          await setDoc(overridesRef, { [category]: updatedOverrides[category] }, { merge: true });
+
           const ref = doc(db, MATRIX_DOC);
           await setDoc(ref, { history: updatedHistory }, { merge: true });
+
+          // Collaborative live dashboard logging
+          try {
+            const dashboardCategoryMap: Record<OverrideCategory, string> = {
+              profession: "Profession PP",
+              moral: "Activité P. Morales",
+              country: "Pays",
+              gov: "Gouvernorats",
+              product: "Produits",
+              dist: "Voie de distribution / Vente",
+              sale: "Voie de distribution / Vente",
+            };
+            await addDoc(collection(db, "riskFactorLogs"), {
+              date: new Date().toISOString(),
+              user: author,
+              factors: [dashboardCategoryMap[category] || category],
+              note: `Modification sur « ${itemId} » : le paramètre « ${field} » a été mis à ${value ? 'Oui' : 'Non'}`,
+            });
+          } catch (logErr) {
+            console.error('[MatrixConfig] Failed to write live log:', logErr);
+          }
         } catch (e) {
-          console.error('[MatrixConfig] Profession Override Write error:', e);
+          console.error('[MatrixConfig] Override Write error:', e);
         }
       }
     },
-    [professionOverrides, kycHistory]
+    [overrides, kycHistory]
   );
 
-  // ── Reset physical profession overrides ──────────────────────────────────
-  const resetProfessionOverrides = useCallback(
-    async (author: string) => {
+  // ── Generic reset overrides ────────────────────────────────────────────────
+  const resetOverrides = useCallback(
+    async (category: OverrideCategory | 'all', author: string) => {
+      const updatedOverrides = { ...overrides };
+      
+      if (category === 'all') {
+        Object.keys(DEFAULT_OVERRIDES).forEach((cat) => {
+          updatedOverrides[cat as OverrideCategory] = {};
+        });
+      } else {
+        updatedOverrides[category] = {};
+      }
+
       const entry: MatrixHistoryEntry = {
         id: String(Date.now()),
         date: new Date().toISOString(),
         user: author,
-        field: 'Réinitialisation des professions PP',
-        oldValue: 'Personalisation',
+        field: category === 'all' ? 'Réinitialisation complète de la matrice' : `Réinitialisation [${category}]`,
+        oldValue: 'Personnalisations',
         newValue: 'Valeurs d\'origine',
       };
+
       const updatedHistory = [entry, ...kycHistory].slice(0, 200);
 
-      setProfessionOverrides({});
+      setOverrides(updatedOverrides);
       setKycHistory(updatedHistory);
-      lsSave(LS_PROF_OVERRIDES, {});
+      lsSave(LS_OVERRIDES, updatedOverrides);
       lsSave(LS_HISTORY, updatedHistory);
 
       if (isFirebaseConfigured && db) {
         try {
-          const profRef = doc(db, MATRIX_PROF_DOC);
-          await setDoc(profRef, { overrides: {} });
-          
+          const overridesRef = doc(db, MATRIX_OVERRIDES_DOC);
+          if (category === 'all') {
+            await setDoc(overridesRef, DEFAULT_OVERRIDES);
+          } else {
+            await setDoc(overridesRef, { [category]: {} }, { merge: true });
+          }
+
           const ref = doc(db, MATRIX_DOC);
           await setDoc(ref, { history: updatedHistory }, { merge: true });
+
+          // Collaborative live dashboard logging
+          try {
+            const dashboardCategoryMap: Record<OverrideCategory | 'all', string> = {
+              all: "Coefficients & Structure",
+              profession: "Profession PP",
+              moral: "Activité P. Morales",
+              country: "Pays",
+              gov: "Gouvernorats",
+              product: "Produits",
+              dist: "Voie de distribution / Vente",
+              sale: "Voie de distribution / Vente",
+            };
+            await addDoc(collection(db, "riskFactorLogs"), {
+              date: new Date().toISOString(),
+              user: author,
+              factors: [dashboardCategoryMap[category] || category],
+              note: category === 'all' 
+                ? "Réinitialisation complète de toutes les personnalisations de la matrice KYC" 
+                : `Réinitialisation de tous les paramètres personnalisés pour : ${category}`,
+            });
+          } catch (logErr) {
+            console.error('[MatrixConfig] Failed to write live log:', logErr);
+          }
         } catch (e) {
-          console.error('[MatrixConfig] Reset professions error:', e);
+          console.error('[MatrixConfig] Reset overrides error:', e);
         }
       }
     },
-    [kycHistory]
+    [overrides, kycHistory]
+  );
+
+  // ── Backward compatibility aliases ─────────────────────────────────────────
+  const updateProfessionFactor = useCallback(
+    async (professionName: string, field: string, value: boolean, author: string) => {
+      await updateOverride('profession', professionName, field, value, author);
+    },
+    [updateOverride]
+  );
+
+  const resetProfessionOverrides = useCallback(
+    async (author: string) => {
+      await resetOverrides('profession', author);
+    },
+    [resetOverrides]
   );
 
   return (
-    <MatrixConfigContext.Provider value={{ kycFactors, kycHistory, professionOverrides, loading, updateFactor, resetFactors, updateProfessionFactor, resetProfessionOverrides }}>
+    <MatrixConfigContext.Provider value={{
+      kycFactors,
+      kycHistory,
+      loading,
+      overrides,
+      professionOverrides: overrides.profession,
+      updateFactor,
+      resetFactors,
+      updateOverride,
+      resetOverrides,
+      updateProfessionFactor,
+      resetProfessionOverrides
+    }}>
       {children}
     </MatrixConfigContext.Provider>
   );

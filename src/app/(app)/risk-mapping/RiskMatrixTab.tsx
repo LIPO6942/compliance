@@ -23,6 +23,16 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 
@@ -411,12 +421,12 @@ export function RiskMatrixTab() {
   const {
     kycFactors,
     kycHistory,
-    professionOverrides,
+    overrides,
     loading: matrixLoading,
     updateFactor: ctxUpdateFactor,
     resetFactors: ctxResetFactors,
-    updateProfessionFactor,
-    resetProfessionOverrides
+    updateOverride,
+    resetOverrides
   } = useMatrixConfig();
 
   const [subTab, setSubTab] = React.useState<"params" | "countries" | "govs" | "products" | "dist" | "moral" | "physical">("params");
@@ -425,7 +435,62 @@ export function RiskMatrixTab() {
   const [selectedDomain, setSelectedDomain] = React.useState<string>("all");
   const [historyOpen, setHistoryOpen] = React.useState(false);
 
+  // Confirmation Modal state
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [pendingChange, setPendingChange] = React.useState<{
+    category: 'profession' | 'moral' | 'country' | 'gov' | 'product' | 'dist' | 'sale';
+    itemId: string;
+    field: string;
+    value: boolean;
+    itemName: string;
+  } | null>(null);
+
   const authorName = user?.name || user?.email || "Utilisateur";
+
+  const handleToggleRequest = (
+    category: 'profession' | 'moral' | 'country' | 'gov' | 'product' | 'dist' | 'sale',
+    itemId: string,
+    field: string,
+    currentValue: boolean,
+    itemName: string
+  ) => {
+    setPendingChange({
+      category,
+      itemId,
+      field,
+      value: !currentValue,
+      itemName
+    });
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmChange = async () => {
+    if (!pendingChange) return;
+    const { category, itemId, field, value, itemName } = pendingChange;
+    const oldValueStr = !value ? 'Oui' : 'Non (—)';
+    const newValueStr = value ? 'Oui' : 'Non (—)';
+
+    await updateOverride(category, itemId, field, value, authorName);
+
+    toast({
+      title: "Modification enregistrée",
+      description: `« ${itemName} » : paramètre « ${field} » mis à jour.`
+    });
+
+    if (user) {
+      logAction({
+        userEmail: user.email,
+        userName: user.name,
+        action: "SETTINGS_UPDATE",
+        label: `Matrice KYC [${category}] - ${itemName} → ${field}`,
+        detail: `${oldValueStr} → ${newValueStr}`,
+        module: "Matrice des Risques"
+      });
+    }
+
+    setConfirmOpen(false);
+    setPendingChange(null);
+  };
 
   const updateFactor = async (id: string, field: keyof Omit<KycFactor, 'id' | 'facteur'>, newValue: string) => {
     const factor = kycFactors.find(f => f.id === id);
@@ -457,41 +522,151 @@ export function RiskMatrixTab() {
     return Array.from(domains).sort();
   }, []);
 
-  const filteredCountries = React.useMemo(() => {
-    return COUNTRIES_DATA.filter(c => {
-      const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.alpha3.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesRisk = riskFilter === "all" || c.risk === riskFilter;
-      return matchesSearch && matchesRisk;
-    });
-  }, [searchQuery, riskFilter]);
+  // ── Overrides Resolution & Dynamic Risk Calculation ──
 
-  const filteredGovs = React.useMemo(() => {
-    return GOVERNORATES_DATA.filter(g => {
-      const matchesSearch = g.name.toLowerCase().includes(searchQuery.toLowerCase()) || g.nameAr.includes(searchQuery);
-      const matchesRisk = riskFilter === "all" || g.risk === riskFilter;
-      return matchesSearch && matchesRisk;
+  const resolvedCountries = React.useMemo(() => {
+    return COUNTRIES_DATA.map((c) => {
+      const override = overrides.country[c.name] || {};
+      const merged = {
+        ...c,
+        gafi: override.gafi !== undefined ? override.gafi : c.gafi,
+        corruption: override.corruption !== undefined ? override.corruption : c.corruption,
+        oecd: override.oecd !== undefined ? override.oecd : c.oecd,
+        terrorism: override.terrorism !== undefined ? override.terrorism : c.terrorism,
+      };
+      
+      const count = [
+        merged.gafi,
+        merged.corruption,
+        merged.oecd,
+        merged.terrorism
+      ].filter(Boolean).length;
+      
+      merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
+      return merged;
     });
-  }, [searchQuery, riskFilter]);
+  }, [overrides.country]);
 
-  const filteredProducts = React.useMemo(() => {
-    return PRODUCTS_DATA.filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesRisk = riskFilter === "all" || p.risk === riskFilter;
-      return matchesSearch && matchesRisk;
+  const resolvedGovs = React.useMemo(() => {
+    return GOVERNORATES_DATA.map((g) => {
+      const override = overrides.gov[String(g.id)] || {};
+      const merged = {
+        ...g,
+        border: override.border !== undefined ? override.border : g.border,
+        port: override.port !== undefined ? override.port : g.port,
+        airport: override.airport !== undefined ? override.airport : g.airport,
+        market: override.market !== undefined ? override.market : g.market,
+      };
+      
+      const count = [
+        merged.border,
+        merged.port,
+        merged.airport,
+        merged.market
+      ].filter(Boolean).length;
+      
+      merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
+      return merged;
     });
-  }, [searchQuery, riskFilter]);
+  }, [overrides.gov]);
 
-  const filteredMoralActivities = React.useMemo(() => {
-    return MORAL_ACTIVITIES_DATA.filter(a => {
-      const matchesSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesRisk = riskFilter === "all" || a.risk === riskFilter;
-      return matchesSearch && matchesRisk;
+  const resolvedProducts = React.useMemo(() => {
+    return PRODUCTS_DATA.map((p) => {
+      const override = overrides.product[String(p.code)] || {};
+      const merged = {
+        ...p,
+        liquid: override.liquid !== undefined ? override.liquid : p.liquid,
+        forex: override.forex !== undefined ? override.forex : p.forex,
+        highValue: override.highValue !== undefined ? override.highValue : p.highValue,
+        fraud: override.fraud !== undefined ? override.fraud : p.fraud,
+        cap: override.cap !== undefined ? override.cap : p.cap,
+      };
+      
+      const count = [
+        merged.liquid,
+        merged.forex,
+        merged.highValue,
+        merged.fraud,
+        merged.cap
+      ].filter(Boolean).length;
+      
+      merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
+      return merged;
     });
-  }, [searchQuery, riskFilter]);
+  }, [overrides.product]);
+
+  const resolvedDist = React.useMemo(() => {
+    return DISTRIBUTION_DATA.map((d) => {
+      const override = overrides.dist[d.code] || {};
+      const merged = {
+        ...d,
+        complex: override.complex !== undefined ? override.complex : d.complex,
+        nonCompliance: override.nonCompliance !== undefined ? override.nonCompliance : d.nonCompliance,
+        noCulture: override.noCulture !== undefined ? override.noCulture : d.noCulture,
+      };
+      
+      const count = [
+        merged.complex,
+        merged.nonCompliance,
+        merged.noCulture
+      ].filter(Boolean).length;
+      
+      merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
+      return merged;
+    });
+  }, [overrides.dist]);
+
+  const resolvedSales = React.useMemo(() => {
+    return SALES_TECHNIQUES_DATA.map((s) => {
+      const override = overrides.sale[String(s.code)] || {};
+      const merged = {
+        ...s,
+        noContact: override.noContact !== undefined ? override.noContact : s.noContact,
+        noOriginals: override.noOriginals !== undefined ? override.noOriginals : s.noOriginals,
+      };
+      
+      const count = [
+        merged.noContact,
+        merged.noOriginals
+      ].filter(Boolean).length;
+      
+      merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
+      return merged;
+    });
+  }, [overrides.sale]);
+
+  const resolvedMoralActivities = React.useMemo(() => {
+    return MORAL_ACTIVITIES_DATA.map((a) => {
+      const override = overrides.moral[a.code] || {};
+      const merged = {
+        ...a,
+        cash: override.cash !== undefined ? override.cash : a.cash,
+        objects: override.objects !== undefined ? override.objects : a.objects,
+        volume: override.volume !== undefined ? override.volume : a.volume,
+        noInfo: override.noInfo !== undefined ? override.noInfo : a.noInfo,
+        complexEval: override.complexEval !== undefined ? override.complexEval : a.complexEval,
+        intermediary: override.intermediary !== undefined ? override.intermediary : a.intermediary,
+        corruption: override.corruption !== undefined ? override.corruption : a.corruption,
+      };
+      
+      const count = [
+        merged.cash,
+        merged.objects,
+        merged.volume,
+        merged.noInfo,
+        merged.complexEval,
+        merged.intermediary,
+        merged.corruption
+      ].filter(Boolean).length;
+      
+      merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
+      return merged;
+    });
+  }, [overrides.moral]);
 
   const resolvedPhysicalProfessions = React.useMemo(() => {
     return PHYS_PROFESSIONS_DATA.map((p) => {
-      const override = professionOverrides[p.name] || {};
+      const override = overrides.profession[p.name] || {};
       const merged = {
         ...p,
         cash: override.cash !== undefined ? override.cash : p.cash,
@@ -503,7 +678,6 @@ export function RiskMatrixTab() {
         corruption: override.corruption !== undefined ? override.corruption : p.corruption,
       };
       
-      // Calculate dynamic risk
       const count = [
         merged.cash,
         merged.objects,
@@ -517,7 +691,41 @@ export function RiskMatrixTab() {
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
-  }, [professionOverrides]);
+  }, [overrides.profession]);
+
+  // ── Filtered Memos ──
+
+  const filteredCountries = React.useMemo(() => {
+    return resolvedCountries.filter(c => {
+      const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.alpha3.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesRisk = riskFilter === "all" || c.risk === riskFilter;
+      return matchesSearch && matchesRisk;
+    });
+  }, [resolvedCountries, searchQuery, riskFilter]);
+
+  const filteredGovs = React.useMemo(() => {
+    return resolvedGovs.filter(g => {
+      const matchesSearch = g.name.toLowerCase().includes(searchQuery.toLowerCase()) || g.nameAr.includes(searchQuery);
+      const matchesRisk = riskFilter === "all" || g.risk === riskFilter;
+      return matchesSearch && matchesRisk;
+    });
+  }, [resolvedGovs, searchQuery, riskFilter]);
+
+  const filteredProducts = React.useMemo(() => {
+    return resolvedProducts.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesRisk = riskFilter === "all" || p.risk === riskFilter;
+      return matchesSearch && matchesRisk;
+    });
+  }, [resolvedProducts, searchQuery, riskFilter]);
+
+  const filteredMoralActivities = React.useMemo(() => {
+    return resolvedMoralActivities.filter(a => {
+      const matchesSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesRisk = riskFilter === "all" || a.risk === riskFilter;
+      return matchesSearch && matchesRisk;
+    });
+  }, [resolvedMoralActivities, searchQuery, riskFilter]);
 
   const filteredPhysicalProfessions = React.useMemo(() => {
     return resolvedPhysicalProfessions.filter(p => {
@@ -907,7 +1115,20 @@ export function RiskMatrixTab() {
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Indice de risque par Pays</CardTitle>
               <p className="text-[10px] text-slate-400 mt-0.5">Calculé selon la liste GAFI, l&apos;indice de corruption et le terrorisme global</p>
             </div>
-            <Badge variant="outline" className="font-bold text-slate-500 bg-white dark:bg-slate-900">{filteredCountries.length} pays trouvés</Badge>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  await resetOverrides('country', authorName);
+                  toast({ title: "Paramètres pays réinitialisés", description: "Tous les pays ont retrouvé leurs valeurs d'origine." });
+                }}
+                className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg"
+              >
+                Réinitialiser
+              </Button>
+              <Badge variant="outline" className="font-bold text-slate-500 bg-white dark:bg-slate-900">{filteredCountries.length} pays trouvés</Badge>
+            </div>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto max-h-[500px]">
             <Table>
@@ -916,10 +1137,10 @@ export function RiskMatrixTab() {
                   <TableHead className="font-bold text-center w-[80px]">ISO Num</TableHead>
                   <TableHead className="font-bold text-center w-[100px]">ISO Alpha 3</TableHead>
                   <TableHead className="font-bold">Nom du Pays</TableHead>
-                  <TableHead className="font-bold text-center w-[120px]">GAFI (Dominant)</TableHead>
-                  <TableHead className="font-bold text-center w-[120px]">Corruption CPI</TableHead>
-                  <TableHead className="font-bold text-center w-[120px]">Paradis fiscal</TableHead>
-                  <TableHead className="font-bold text-center w-[120px]">Terrorisme GTI</TableHead>
+                  <TableHead className="font-bold text-center w-[130px]">GAFI (Dominant)</TableHead>
+                  <TableHead className="font-bold text-center w-[130px]">Corruption CPI</TableHead>
+                  <TableHead className="font-bold text-center w-[130px]">Paradis fiscal</TableHead>
+                  <TableHead className="font-bold text-center w-[130px]">Terrorisme GTI</TableHead>
                   <TableHead className="font-bold">Remarques</TableHead>
                   <TableHead className="font-bold text-center w-[100px]">Risque</TableHead>
                 </TableRow>
@@ -930,10 +1151,29 @@ export function RiskMatrixTab() {
                     <TableCell className="text-center text-slate-500">{c.numeric}</TableCell>
                     <TableCell className="text-center font-bold text-slate-700 dark:text-slate-350">{c.alpha3}</TableCell>
                     <TableCell className="font-bold text-slate-900 dark:text-white">{c.name}</TableCell>
-                    <TableCell className="text-center font-bold">{c.gafi ? "🔴 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center font-bold">{c.corruption ? "🔶 CPI < 30" : "—"}</TableCell>
-                    <TableCell className="text-center font-bold">{c.oecd ? "🌴 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center font-bold">{c.terrorism ? "⚠️ GTI > 6" : "—"}</TableCell>
+                    {[
+                      { field: "gafi", yesLabel: "🔴 Oui" },
+                      { field: "corruption", yesLabel: "🔶 CPI < 30" },
+                      { field: "oecd", yesLabel: "🌴 Oui" },
+                      { field: "terrorism", yesLabel: "⚠️ GTI > 6" }
+                    ].map((col) => {
+                      const val = (c as any)[col.field];
+                      return (
+                        <TableCell key={col.field} className="text-center p-1.5">
+                          <button
+                            onClick={() => handleToggleRequest('country', c.name, col.field, val, c.name)}
+                            className={cn(
+                              "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-28 text-center",
+                              val 
+                                ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
+                                : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
+                            )}
+                          >
+                            {val ? col.yesLabel : "—"}
+                          </button>
+                        </TableCell>
+                      );
+                    })}
                     <TableCell className="text-slate-500 italic max-w-[200px] truncate">{c.other || "—"}</TableCell>
                     <TableCell className="text-center">{renderBadge(c.risk)}</TableCell>
                   </TableRow>
@@ -957,7 +1197,20 @@ export function RiskMatrixTab() {
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Indice de risque par Gouvernorat (Tunisie)</CardTitle>
               <p className="text-[10px] text-slate-400 mt-0.5">Basé sur les critères frontaliers, aéroports, ports et risques terroristes</p>
             </div>
-            <Badge variant="outline" className="font-bold text-slate-500 bg-white dark:bg-slate-900">{filteredGovs.length} gouvernorats</Badge>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  await resetOverrides('gov', authorName);
+                  toast({ title: "Paramètres gouvernorats réinitialisés", description: "Tous les gouvernorats ont retrouvé leurs valeurs d'origine." });
+                }}
+                className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg"
+              >
+                Réinitialiser
+              </Button>
+              <Badge variant="outline" className="font-bold text-slate-500 bg-white dark:bg-slate-900">{filteredGovs.length} gouvernorats</Badge>
+            </div>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             <Table>
@@ -980,10 +1233,29 @@ export function RiskMatrixTab() {
                     <TableCell className="text-center text-slate-500">{g.id}</TableCell>
                     <TableCell className="font-bold text-slate-900 dark:text-white">{g.name}</TableCell>
                     <TableCell className="text-right font-medium text-slate-400">{g.nameAr}</TableCell>
-                    <TableCell className="text-center font-bold">{g.border ? "🛡️ Oui" : "—"}</TableCell>
-                    <TableCell className="text-center font-bold">{g.port ? "⚓ Oui" : "—"}</TableCell>
-                    <TableCell className="text-center font-bold">{g.airport ? "✈️ Oui" : "—"}</TableCell>
-                    <TableCell className="text-center font-bold">{g.market ? "💸 Oui" : "—"}</TableCell>
+                    {[
+                      { field: "border", yesLabel: "🛡️ Oui" },
+                      { field: "port", yesLabel: "⚓ Oui" },
+                      { field: "airport", yesLabel: "✈️ Oui" },
+                      { field: "market", yesLabel: "💸 Oui" }
+                    ].map((col) => {
+                      const val = (g as any)[col.field];
+                      return (
+                        <TableCell key={col.field} className="text-center p-1.5">
+                          <button
+                            onClick={() => handleToggleRequest('gov', String(g.id), col.field, val, g.name)}
+                            className={cn(
+                              "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-28 text-center",
+                              val 
+                                ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
+                                : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
+                            )}
+                          >
+                            {val ? col.yesLabel : "—"}
+                          </button>
+                        </TableCell>
+                      );
+                    })}
                     <TableCell className="text-slate-500 italic max-w-[200px] truncate">{g.other || "—"}</TableCell>
                     <TableCell className="text-center">{renderBadge(g.risk)}</TableCell>
                   </TableRow>
@@ -1007,7 +1279,20 @@ export function RiskMatrixTab() {
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Risque par Produit d&apos;Assurance</CardTitle>
               <p className="text-[10px] text-slate-400 mt-0.5">Score de risque par type de contrat d&apos;assurance et de produit d&apos;épargne</p>
             </div>
-            <Badge variant="outline" className="font-bold text-slate-500 bg-white dark:bg-slate-900">{filteredProducts.length} contrats</Badge>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  await resetOverrides('product', authorName);
+                  toast({ title: "Paramètres produits réinitialisés", description: "Tous les produits ont retrouvé leurs valeurs d'origine." });
+                }}
+                className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg"
+              >
+                Réinitialiser
+              </Button>
+              <Badge variant="outline" className="font-bold text-slate-500 bg-white dark:bg-slate-900">{filteredProducts.length} contrats</Badge>
+            </div>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             <Table>
@@ -1029,11 +1314,30 @@ export function RiskMatrixTab() {
                   <TableRow key={p.code} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", p.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
                     <TableCell className="text-center text-slate-500 font-bold">{p.code}</TableCell>
                     <TableCell className="font-bold text-slate-900 dark:text-white">{p.name}</TableCell>
-                    <TableCell className="text-center">{p.liquid ? "💧 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{p.forex ? "💵 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{p.highValue ? "💰 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{p.fraud ? "🚨 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{p.cap ? "📈 Épargne" : "—"}</TableCell>
+                    {[
+                      { field: "liquid", yesLabel: "💧 Oui" },
+                      { field: "forex", yesLabel: "💵 Oui" },
+                      { field: "highValue", yesLabel: "💰 Oui" },
+                      { field: "fraud", yesLabel: "🚨 Oui" },
+                      { field: "cap", yesLabel: "📈 Épargne" }
+                    ].map((col) => {
+                      const val = (p as any)[col.field];
+                      return (
+                        <TableCell key={col.field} className="text-center p-1.5">
+                          <button
+                            onClick={() => handleToggleRequest('product', String(p.code), col.field, val, p.name)}
+                            className={cn(
+                              "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-28 text-center",
+                              val 
+                                ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
+                                : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
+                            )}
+                          >
+                            {val ? col.yesLabel : "—"}
+                          </button>
+                        </TableCell>
+                      );
+                    })}
                     <TableCell className="text-slate-500 italic max-w-[200px] truncate">{p.comment || "—"}</TableCell>
                     <TableCell className="text-center">{renderBadge(p.risk)}</TableCell>
                   </TableRow>
@@ -1054,8 +1358,19 @@ export function RiskMatrixTab() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Canaux */}
           <Card className="border-none bg-white dark:bg-slate-900/60 shadow-md rounded-2xl overflow-hidden">
-            <CardHeader className="pb-4 px-6 pt-5 bg-slate-50/50 dark:bg-slate-900/20 border-b">
+            <CardHeader className="pb-4 px-6 pt-5 bg-slate-50/50 dark:bg-slate-900/20 border-b flex flex-row justify-between items-center flex-wrap gap-4">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Canaux de Distribution</CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  await resetOverrides('dist', authorName);
+                  toast({ title: "Canaux réinitialisés", description: "Les canaux de distribution ont retrouvé leurs valeurs d'origine." });
+                }}
+                className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg animate-fade-in"
+              >
+                Réinitialiser
+              </Button>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <Table>
@@ -1065,16 +1380,37 @@ export function RiskMatrixTab() {
                     <TableHead className="font-bold">Canal</TableHead>
                     <TableHead className="font-bold text-center">Difficulté Contrôle</TableHead>
                     <TableHead className="font-bold text-center">Non-soumission</TableHead>
-                    <TableHead className="font-bold text-center w-[100px]">Risque</TableHead>
+                    <TableHead className="font-bold text-center">Pas de culture LBC</TableHead>
+                    <TableHead className="font-bold text-center w-[90px]">Risque</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="text-xs">
-                  {DISTRIBUTION_DATA.map(d => (
-                    <TableRow key={d.code} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
+                  {resolvedDist.map(d => (
+                    <TableRow key={d.code} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", d.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
                       <TableCell className="text-center text-slate-500">{d.code}</TableCell>
                       <TableCell className="font-bold text-slate-900 dark:text-white">{d.name}</TableCell>
-                      <TableCell className="text-center">{d.complex ? "⚠️ Oui" : "—"}</TableCell>
-                      <TableCell className="text-center">{d.nonCompliance ? "🔴 Oui" : "—"}</TableCell>
+                      {[
+                        { field: "complex", yesLabel: "⚠️ Oui" },
+                        { field: "nonCompliance", yesLabel: "🔴 Oui" },
+                        { field: "noCulture", yesLabel: "📯 Oui" }
+                      ].map((col) => {
+                        const val = (d as any)[col.field];
+                        return (
+                          <TableCell key={col.field} className="text-center p-1.5">
+                            <button
+                              onClick={() => handleToggleRequest('dist', d.code, col.field, val, d.name)}
+                              className={cn(
+                                "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-24 text-center",
+                                val 
+                                  ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
+                                  : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
+                              )}
+                            >
+                              {val ? col.yesLabel : "—"}
+                            </button>
+                          </TableCell>
+                        );
+                      })}
                       <TableCell className="text-center">{renderBadge(d.risk)}</TableCell>
                     </TableRow>
                   ))}
@@ -1085,8 +1421,19 @@ export function RiskMatrixTab() {
 
           {/* Techniques de vente */}
           <Card className="border-none bg-white dark:bg-slate-900/60 shadow-md rounded-2xl overflow-hidden">
-            <CardHeader className="pb-4 px-6 pt-5 bg-slate-50/50 dark:bg-slate-900/20 border-b">
+            <CardHeader className="pb-4 px-6 pt-5 bg-slate-50/50 dark:bg-slate-900/20 border-b flex flex-row justify-between items-center flex-wrap gap-4">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Technique de Vente</CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  await resetOverrides('sale', authorName);
+                  toast({ title: "Techniques réinitialisées", description: "Les techniques de vente ont retrouvé leurs valeurs d'origine." });
+                }}
+                className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg"
+              >
+                Réinitialiser
+              </Button>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <Table>
@@ -1096,16 +1443,35 @@ export function RiskMatrixTab() {
                     <TableHead className="font-bold">Voie de distribution / Vente</TableHead>
                     <TableHead className="font-bold text-center">Pas de contact direct</TableHead>
                     <TableHead className="font-bold text-center">Pas d&apos;originaux</TableHead>
-                    <TableHead className="font-bold text-center w-[100px]">Risque</TableHead>
+                    <TableHead className="font-bold text-center w-[90px]">Risque</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="text-xs">
-                  {SALES_TECHNIQUES_DATA.map(s => (
-                    <TableRow key={s.code} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
+                  {resolvedSales.map(s => (
+                    <TableRow key={s.code} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", s.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
                       <TableCell className="text-center text-slate-500 font-bold">{s.code}</TableCell>
                       <TableCell className="font-bold text-slate-900 dark:text-white">{s.name}</TableCell>
-                      <TableCell className="text-center">{s.noContact ? "🌐 Oui" : "—"}</TableCell>
-                      <TableCell className="text-center">{s.noOriginals ? "📄 Oui" : "—"}</TableCell>
+                      {[
+                        { field: "noContact", yesLabel: "🌐 Oui" },
+                        { field: "noOriginals", yesLabel: "📄 Oui" }
+                      ].map((col) => {
+                        const val = (s as any)[col.field];
+                        return (
+                          <TableCell key={col.field} className="text-center p-1.5">
+                            <button
+                              onClick={() => handleToggleRequest('sale', String(s.code), col.field, val, s.name)}
+                              className={cn(
+                                "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-24 text-center",
+                                val 
+                                  ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
+                                  : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
+                              )}
+                            >
+                              {val ? col.yesLabel : "—"}
+                            </button>
+                          </TableCell>
+                        );
+                      })}
                       <TableCell className="text-center">{renderBadge(s.risk)}</TableCell>
                     </TableRow>
                   ))}
@@ -1122,48 +1488,97 @@ export function RiskMatrixTab() {
           <CardHeader className="pb-4 px-6 pt-5 bg-slate-50/50 dark:bg-slate-900/20 border-b flex flex-row justify-between items-center flex-wrap gap-4">
             <div>
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Risques par Secteur / Activité (Personnes Morales)</CardTitle>
-              <p className="text-[10px] text-slate-400 mt-0.5">Cotations réglementaires applicables aux clients personnes morales</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Cliquez sur un facteur pour l&apos;activer/désactiver — calcul automatique du risque et synchronisation collaborative</p>
             </div>
-            <Badge variant="outline" className="font-bold text-slate-500 bg-white dark:bg-slate-900">{filteredMoralActivities.length} activités</Badge>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  await resetOverrides('moral', authorName);
+                  toast({ title: "Paramètres PM réinitialisés", description: "Toutes les activités morales ont retrouvé leurs valeurs d'origine." });
+                }}
+                className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg"
+              >
+                Réinitialiser
+              </Button>
+              <Badge variant="outline" className="font-bold text-slate-500 bg-white dark:bg-slate-900">{filteredMoralActivities.length} activités</Badge>
+            </div>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto max-h-[500px]">
-            <Table>
-              <TableHeader className="sticky top-0 bg-white dark:bg-slate-900 z-10">
-                <TableRow className="bg-slate-50/30 dark:bg-slate-900/10 text-xs">
-                  <TableHead className="font-bold text-center w-[80px]">Code</TableHead>
-                  <TableHead className="font-bold">Activité</TableHead>
-                  <TableHead className="font-bold text-center">Liquide</TableHead>
-                  <TableHead className="font-bold text-center">Objets de valeur</TableHead>
-                  <TableHead className="font-bold text-center">Volume</TableHead>
-                  <TableHead className="font-bold text-center">Manque Info</TableHead>
-                  <TableHead className="font-bold text-center">Complexe</TableHead>
-                  <TableHead className="font-bold text-center">Corruption</TableHead>
-                  <TableHead className="font-bold">Remarque</TableHead>
-                  <TableHead className="font-bold text-center w-[100px]">Risque</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="text-xs">
-                {filteredMoralActivities.map(a => (
-                  <TableRow key={a.code} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", a.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
-                    <TableCell className="text-center text-slate-500">{a.code}</TableCell>
-                    <TableCell className="font-bold text-slate-900 dark:text-white max-w-[240px] truncate" title={a.name}>{a.name}</TableCell>
-                    <TableCell className="text-center">{a.cash ? "💵 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{a.objects ? "💎 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{a.volume ? "📈 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{a.noInfo ? "⚠️ Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{a.complexEval ? "🧠 Oui" : "—"}</TableCell>
-                    <TableCell className="text-center">{a.corruption ? "🔥 Oui" : "—"}</TableCell>
-                    <TableCell className="text-slate-500 italic max-w-[150px] truncate">{a.comment || "—"}</TableCell>
-                    <TableCell className="text-center">{renderBadge(a.risk)}</TableCell>
+            <TooltipProvider>
+              <Table className="w-full table-fixed min-w-[1000px]">
+                <TableHeader className="sticky top-0 bg-white dark:bg-slate-900 z-10">
+                  <TableRow className="bg-slate-50/30 dark:bg-slate-900/10 text-xs">
+                    <TableHead className="font-bold w-[12%]">Code</TableHead>
+                    <TableHead className="font-bold w-[33%]">Activité</TableHead>
+                    {[
+                      { header: "Liquide", label: "Manipulation intensive d'argent liquide", field: "cash" },
+                      { header: "Objets", label: "Manipulation d'objets de grandes valeurs", field: "objects" },
+                      { header: "Volume", label: "Importance du volume des affaires", field: "volume" },
+                      { header: "Info", label: "Manque d'information sur la nature de l'activité", field: "noInfo" },
+                      { header: "Éval.", label: "Difficulté d'évaluation des produits, services ou livrables", field: "complexEval" },
+                      { header: "Interm.", label: "Présence de l'intermédiation", field: "intermediary" },
+                      { header: "Corrup.", label: "Exposition à la corruption", field: "corruption" }
+                    ].map((col) => (
+                      <TableHead key={col.field} className="font-bold text-center w-[6%]">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="underline decoration-dotted cursor-help">{col.header}</span>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-slate-950 text-white p-2 rounded-lg border-none shadow-xl max-w-[200px]">
+                            <p className="text-[10px] font-semibold">{col.label}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TableHead>
+                    ))}
+                    <TableHead className="font-bold w-[15%]">Remarque</TableHead>
+                    <TableHead className="font-bold text-center w-[10%]">Risque</TableHead>
                   </TableRow>
-                ))}
-                {filteredMoralActivities.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={10} className="text-center py-10 text-slate-400 italic font-semibold">Aucune activité trouvée</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody className="text-xs">
+                  {filteredMoralActivities.map(a => (
+                    <TableRow key={a.code} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", a.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
+                      <TableCell className="text-slate-500 font-bold">{a.code}</TableCell>
+                      <TableCell className="font-bold text-slate-900 dark:text-white truncate" title={a.name}>{a.name}</TableCell>
+                      {[
+                        { field: "cash", label: "Liquide" },
+                        { field: "objects", label: "Objets" },
+                        { field: "volume", label: "Volume" },
+                        { field: "noInfo", label: "Info" },
+                        { field: "complexEval", label: "Éval." },
+                        { field: "intermediary", label: "Interm." },
+                        { field: "corruption", label: "Corrup." }
+                      ].map((col) => {
+                        const val = (a as any)[col.field];
+                        return (
+                          <TableCell key={col.field} className="text-center p-1.5">
+                            <button
+                              onClick={() => handleToggleRequest('moral', a.code, col.field, val, a.name)}
+                              className={cn(
+                                "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-12 text-center",
+                                val 
+                                  ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
+                                  : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
+                              )}
+                            >
+                              {val ? "Oui" : "—"}
+                            </button>
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-slate-500 italic truncate" title={a.comment}>{a.comment || "—"}</TableCell>
+                      <TableCell className="text-center">{renderBadge(a.risk)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {filteredMoralActivities.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center py-10 text-slate-400 italic font-semibold">Aucune activité trouvée</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TooltipProvider>
           </CardContent>
         </Card>
       )}
@@ -1181,8 +1596,8 @@ export function RiskMatrixTab() {
                 variant="ghost"
                 size="sm"
                 onClick={async () => {
-                  await resetProfessionOverrides(authorName);
-                  toast({ title: "Professions réinitialisées", description: "Toutes les professions ont retrouvé leurs valeurs d&apos;origine." });
+                  await resetOverrides('profession', authorName);
+                  toast({ title: "Professions réinitialisées", description: "Toutes les professions ont retrouvé leurs valeurs d'origine." });
                 }}
                 className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg"
               >
@@ -1239,7 +1654,7 @@ export function RiskMatrixTab() {
                         return (
                           <TableCell key={col.field} className="text-center p-1.5">
                             <button
-                              onClick={() => updateProfessionFactor(p.name, col.field, !val, authorName)}
+                              onClick={() => handleToggleRequest('profession', p.name, col.field, val, p.name)}
                               className={cn(
                                 "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-12 text-center",
                                 val 
@@ -1266,6 +1681,34 @@ export function RiskMatrixTab() {
           </CardContent>
         </Card>
       )}
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md p-6 shadow-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+              Confirmer la modification ?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              Voulez-vous vraiment modifier ce paramètre ? Cette modification mettra à jour la cotation de risque de manière automatique et sera synchronisée en temps réel pour tous les utilisateurs.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 flex gap-2 justify-end">
+            <AlertDialogCancel 
+              onClick={() => { setConfirmOpen(false); setPendingChange(null); }}
+              className="text-xs font-bold px-4 py-2 border rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmChange}
+              className="text-xs font-bold px-4 py-2 bg-violet-650 hover:bg-violet-700 text-white rounded-xl shadow-md shadow-violet-200 dark:shadow-none transition-all cursor-pointer"
+            >
+              Confirmer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
