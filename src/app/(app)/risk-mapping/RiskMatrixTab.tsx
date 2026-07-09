@@ -754,75 +754,356 @@ export function RiskMatrixTab() {
     const wb = new ExcelJS.Workbook();
     wb.creator = "Compliance Navigator";
 
-    // Sheet 1: Facteurs KYC
-    const ws1 = wb.addWorksheet("Facteurs KYC");
-    ws1.columns = [
-      { header: "Facteur", key: "facteur", width: 35 },
-      { header: "KYC Physique", key: "kycPhys", width: 40 },
+    // Styles global apply helper
+    const applyGlobalSheetStyles = (ws: ExcelJS.Worksheet) => {
+      // Header row style
+      const headerRow = ws.getRow(1);
+      headerRow.height = 30;
+      headerRow.eachCell((cell) => {
+        cell.font = { name: "Segoe UI", bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF6D28D9" } }; // Theme violet header
+        cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFC7D2FE" } },
+          bottom: { style: "medium", color: { argb: "FF4F46E5" } },
+          left: { style: "thin", color: { argb: "FFC7D2FE" } },
+          right: { style: "thin", color: { argb: "FFC7D2FE" } }
+        };
+      });
+
+      // Data rows style
+      const riskBg: Record<string, string> = { RE: "FFFFE4E6", RM: "FFFEF9C3", RF: "FFD1FAE5" };
+      const riskText: Record<string, string> = { RE: "FF9F1239", RM: "FF92400E", RF: "FF065F46" };
+
+      ws.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        row.height = 24;
+        const isEven = rowNumber % 2 === 0;
+        const bg = isEven ? "FFF8FAFC" : "FFFFFFFF"; // Alternating slate-50 rows
+
+        // Find risk value in this row (typically last cell)
+        const riskCell = row.getCell(ws.columns.length);
+        const riskVal = riskCell.value as string;
+
+        row.eachCell((cell, colNumber) => {
+          cell.font = { name: "Segoe UI", size: 9, color: { argb: "FF1E293B" } };
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFE2E8F0" } },
+            bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+            left: { style: "thin", color: { argb: "FFE2E8F0" } },
+            right: { style: "thin", color: { argb: "FFE2E8F0" } }
+          };
+
+          // Apply cell alignment
+          const column = ws.columns[colNumber - 1];
+          const isCenter = column.key === "code" || 
+                           column.key === "numeric" || 
+                           column.key === "alpha3" || 
+                           column.key === "coeff" || 
+                           column.key === "agregation" || 
+                           column.key === "risk" ||
+                           cell.value === "Oui" || 
+                           cell.value === "—";
+          cell.alignment = { 
+            vertical: "middle", 
+            horizontal: isCenter ? "center" : "left",
+            wrapText: true 
+          };
+
+          // Background fill & custom fonts for risk levels
+          if (column.key === "risk" && riskBg[riskVal]) {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: riskBg[riskVal] } };
+            cell.font = { name: "Segoe UI", size: 9, bold: true, color: { argb: riskText[riskVal] } };
+            cell.value = riskVal === "RE" ? "Élevé" : riskVal === "RM" ? "Moyen" : "Faible";
+          } else {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+          }
+        });
+      });
+    };
+
+    // ── Sheet 1: Légende & Méthodologie ──
+    const wsL = wb.addWorksheet("Légende & Cotation");
+    wsL.views = [{ showGridLines: true }];
+    
+    wsL.mergeCells("A2:C2");
+    const titleCell = wsL.getCell("A2");
+    titleCell.value = "Compliance Navigator — Légende de la Matrice des Risques";
+    titleCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FF4F46E5" } };
+    titleCell.alignment = { vertical: "middle", horizontal: "left" };
+    wsL.getRow(2).height = 32;
+
+    wsL.mergeCells("A3:C3");
+    const subCell = wsL.getCell("A3");
+    subCell.value = `Exporté le : ${new Date().toLocaleDateString("fr-FR")} — Document de référence des cotations KYC et paramètres de risques`;
+    subCell.font = { name: "Segoe UI", size: 10, italic: true, color: { argb: "FF64748B" } };
+    wsL.getRow(3).height = 20;
+
+    wsL.getRow(5).values = ["Niveau de Risque", "Représentation", "Critère de calcul automatique"];
+    wsL.getRow(5).height = 26;
+    wsL.getRow(5).eachCell((cell) => {
+      cell.font = { name: "Segoe UI", bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+    });
+
+    const legendData = [
+      { level: "Risque Élevé (RE)", repr: "Rouge", rule: "Au moins 2 facteurs qualifiés de 'Oui' (>= 2 Oui)" },
+      { level: "Risque Moyen (RM)", repr: "Orange", rule: "Exactement 1 facteur qualifié de 'Oui' (1 Oui)" },
+      { level: "Risque Faible (RF)", repr: "Vert", rule: "Aucun facteur qualifié de 'Oui' (0 Oui, que des tirets)" }
+    ];
+
+    legendData.forEach((row, i) => {
+      const r = wsL.addRow([row.level, row.repr, row.rule]);
+      r.height = 24;
+      const rowNum = 6 + i;
+      r.eachCell((cell, col) => {
+        cell.font = { name: "Segoe UI", size: 9, color: { argb: "FF1E293B" } };
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFE2E8F0" } },
+          bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+          left: { style: "thin", color: { argb: "FFE2E8F0" } },
+          right: { style: "thin", color: { argb: "FFE2E8F0" } }
+        };
+        cell.alignment = { vertical: "middle", horizontal: col === 3 ? "left" : "center" };
+        
+        if (rowNum === 6) {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE4E6" } };
+          if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF9F1239" } };
+        } else if (rowNum === 7) {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF9C3" } };
+          if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF92400E" } };
+        } else if (rowNum === 8) {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD1FAE5" } };
+          if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF065F46" } };
+        }
+      });
+    });
+
+    wsL.getColumn(1).width = 25;
+    wsL.getColumn(2).width = 18;
+    wsL.getColumn(3).width = 50;
+
+    // ── Sheet 2: Structure & Pondérations ──
+    const wsP = wb.addWorksheet("Pondérations & Structure");
+    wsP.views = [{ showGridLines: true }];
+    wsP.columns = [
+      { header: "Facteur d'évaluation", key: "facteur", width: 35 },
+      { header: "KYC Physique", key: "kycPhys", width: 45 },
       { header: "KYC Morale", key: "kycMorale", width: 35 },
       { header: "KYC OBNL", key: "kycObnl", width: 35 },
       { header: "Coeff", key: "coeff", width: 10 },
       { header: "Agrégation", key: "agregation", width: 15 }
     ];
-    const hdr1 = ws1.getRow(1);
-    hdr1.height = 28;
-    hdr1.eachCell((cell: any) => {
-      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
-      cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
-    });
-    kycFactors.forEach((f, i) => {
-      const row = ws1.addRow(f);
-      row.height = 30;
-      const bg = i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
-      row.eachCell((cell: any) => {
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
-        cell.font = { color: { argb: "FF1E293B" }, size: 9 };
-        cell.alignment = { vertical: "middle", wrapText: true };
-      });
-    });
+    kycFactors.forEach((f) => wsP.addRow(f));
+    applyGlobalSheetStyles(wsP);
 
-    // Sheet 2: Pays (filtered)
-    const ws2 = wb.addWorksheet("Pays");
-    ws2.columns = [
+    // ── Sheet 3: Pays ──
+    const wsC = wb.addWorksheet("1. Pays");
+    wsC.views = [{ showGridLines: true }];
+    wsC.columns = [
       { header: "ISO Num", key: "numeric", width: 10 },
-      { header: "ISO Alpha3", key: "alpha3", width: 12 },
-      { header: "Pays", key: "name", width: 40 },
-      { header: "GAFI", key: "gafi", width: 10 },
-      { header: "Corruption", key: "corruption", width: 15 },
+      { header: "ISO Alpha-3", key: "alpha3", width: 15 },
+      { header: "Pays", key: "name", width: 35 },
+      { header: "GAFI", key: "gafi", width: 12 },
+      { header: "Corruption (CPI < 30)", key: "corruption", width: 22 },
       { header: "Paradis Fiscal", key: "oecd", width: 15 },
-      { header: "Terrorisme", key: "terrorism", width: 15 },
+      { header: "Terrorisme (GTI > 6)", key: "terrorism", width: 20 },
+      { header: "Remarques / Autres", key: "other", width: 35 },
       { header: "Risque", key: "risk", width: 12 }
     ];
-    const hdr2 = ws2.getRow(1);
-    hdr2.height = 28;
-    hdr2.eachCell((cell: any) => {
-      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
-      cell.alignment = { vertical: "middle", horizontal: "center" };
-    });
-    const riskBg: Record<string, string> = { RE: "FFFFE4E6", RM: "FFFEF9C3", RF: "FFD1FAE5" };
-    filteredCountries.forEach((c, i) => {
-      const row = ws2.addRow({ ...c, gafi: c.gafi ? "Oui" : "—", corruption: c.corruption ? "Oui" : "—", oecd: c.oecd ? "Oui" : "—", terrorism: c.terrorism ? "Oui" : "—" });
-      row.height = 22;
-      row.eachCell((cell: any, col: number) => {
-        const bg = col === 8 ? riskBg[c.risk] || "FFFFFFFF" : i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
-        cell.font = { color: { argb: "FF1E293B" }, size: 9 };
-        cell.alignment = { vertical: "middle", horizontal: col === 8 ? "center" : "left" };
+    resolvedCountries.forEach((c) => {
+      wsC.addRow({
+        numeric: c.numeric,
+        alpha3: c.alpha3,
+        name: c.name,
+        gafi: c.gafi ? "Oui" : "—",
+        corruption: c.corruption ? "Oui" : "—",
+        oecd: c.oecd ? "Oui" : "—",
+        terrorism: c.terrorism ? "Oui" : "—",
+        other: c.other || "—",
+        risk: c.risk
       });
     });
+    applyGlobalSheetStyles(wsC);
 
+    // ── Sheet 4: Gouvernorats (TN) ──
+    const wsG = wb.addWorksheet("2. Gouvernorats");
+    wsG.views = [{ showGridLines: true }];
+    wsG.columns = [
+      { header: "Code", key: "id", width: 10 },
+      { header: "Gouvernorat (FR)", key: "name", width: 25 },
+      { header: "Gouvernorat (AR)", key: "nameAr", width: 20 },
+      { header: "Zone frontalière", key: "border", width: 18 },
+      { header: "Port International", key: "port", width: 18 },
+      { header: "Aéroport", key: "airport", width: 15 },
+      { header: "Contrebande", key: "market", width: 15 },
+      { header: "Autres critères", key: "other", width: 35 },
+      { header: "Risque", key: "risk", width: 12 }
+    ];
+    resolvedGovs.forEach((g) => {
+      wsG.addRow({
+        id: g.id,
+        name: g.name,
+        nameAr: g.nameAr,
+        border: g.border ? "Oui" : "—",
+        port: g.port ? "Oui" : "—",
+        airport: g.airport ? "Oui" : "—",
+        market: g.market ? "Oui" : "—",
+        other: g.other || "—",
+        risk: g.risk
+      });
+    });
+    applyGlobalSheetStyles(wsG);
+
+    // ── Sheet 5: Produits d'Assurance ──
+    const wsPr = wb.addWorksheet("3. Produits d'Assurance");
+    wsPr.views = [{ showGridLines: true }];
+    wsPr.columns = [
+      { header: "Code", key: "code", width: 10 },
+      { header: "Contrat d'Assurance", key: "name", width: 40 },
+      { header: "Liquidité", key: "liquid", width: 15 },
+      { header: "Devises / Étranger", key: "forex", width: 20 },
+      { header: "Capital Élevé", key: "highValue", width: 18 },
+      { header: "Fraude / Sinistralité", key: "fraud", width: 20 },
+      { header: "Capitalisation", key: "cap", width: 18 },
+      { header: "Commentaire réglementaire", key: "comment", width: 45 },
+      { header: "Risque", key: "risk", width: 12 }
+    ];
+    resolvedProducts.forEach((p) => {
+      wsPr.addRow({
+        code: p.code,
+        name: p.name,
+        liquid: p.liquid ? "Oui" : "—",
+        forex: p.forex ? "Oui" : "—",
+        highValue: p.highValue ? "Oui" : "—",
+        fraud: p.fraud ? "Oui" : "—",
+        cap: p.cap ? "Oui" : "—",
+        comment: p.comment || "—",
+        risk: p.risk
+      });
+    });
+    applyGlobalSheetStyles(wsPr);
+
+    // ── Sheet 6: Canaux de Distribution ──
+    const wsD = wb.addWorksheet("4. Canaux");
+    wsD.views = [{ showGridLines: true }];
+    wsD.columns = [
+      { header: "Code", key: "code", width: 10 },
+      { header: "Canal", key: "name", width: 30 },
+      { header: "Difficulté Contrôle", key: "complex", width: 20 },
+      { header: "Non-soumission", key: "nonCompliance", width: 20 },
+      { header: "Pas de culture LBC", key: "noCulture", width: 22 },
+      { header: "Risque", key: "risk", width: 12 }
+    ];
+    resolvedDist.forEach((d) => {
+      wsD.addRow({
+        code: d.code,
+        name: d.name,
+        complex: d.complex ? "Oui" : "—",
+        nonCompliance: d.nonCompliance ? "Oui" : "—",
+        noCulture: d.noCulture ? "Oui" : "—",
+        risk: d.risk
+      });
+    });
+    applyGlobalSheetStyles(wsD);
+
+    // ── Sheet 7: Techniques de Vente ──
+    const wsS = wb.addWorksheet("5. Techniques de Vente");
+    wsS.views = [{ showGridLines: true }];
+    wsS.columns = [
+      { header: "Code", key: "code", width: 10 },
+      { header: "Voie de distribution / Vente", key: "name", width: 35 },
+      { header: "Pas de contact direct", key: "noContact", width: 22 },
+      { header: "Pas d'originaux", key: "noOriginals", width: 18 },
+      { header: "Risque", key: "risk", width: 12 }
+    ];
+    resolvedSales.forEach((s) => {
+      wsS.addRow({
+        code: s.code,
+        name: s.name,
+        noContact: s.noContact ? "Oui" : "—",
+        noOriginals: s.noOriginals ? "Oui" : "—",
+        risk: s.risk
+      });
+    });
+    applyGlobalSheetStyles(wsS);
+
+    // ── Sheet 8: Activités Morales (PM) ──
+    const wsM = wb.addWorksheet("6. Activités Morales");
+    wsM.views = [{ showGridLines: true }];
+    wsM.columns = [
+      { header: "Code", key: "code", width: 10 },
+      { header: "Activité", key: "name", width: 40 },
+      { header: "Liquide", key: "cash", width: 12 },
+      { header: "Objets précieux", key: "objects", width: 18 },
+      { header: "Volume d'affaires", key: "volume", width: 18 },
+      { header: "Manque Info", key: "noInfo", width: 15 },
+      { header: "Complexe", key: "complexEval", width: 15 },
+      { header: "Intermédiation", key: "intermediary", width: 18 },
+      { header: "Corruption", key: "corruption", width: 15 },
+      { header: "Remarque", key: "comment", width: 40 },
+      { header: "Risque", key: "risk", width: 12 }
+    ];
+    resolvedMoralActivities.forEach((a) => {
+      wsM.addRow({
+        code: a.code,
+        name: a.name,
+        cash: a.cash ? "Oui" : "—",
+        objects: a.objects ? "Oui" : "—",
+        volume: a.volume ? "Oui" : "—",
+        noInfo: a.noInfo ? "Oui" : "—",
+        complexEval: a.complexEval ? "Oui" : "—",
+        intermediary: a.intermediary ? "Oui" : "—",
+        corruption: a.corruption ? "Oui" : "—",
+        comment: a.comment || "—",
+        risk: a.risk
+      });
+    });
+    applyGlobalSheetStyles(wsM);
+
+    // ── Sheet 9: Professions PP ──
+    const wsPh = wb.addWorksheet("7. Professions PP");
+    wsPh.views = [{ showGridLines: true }];
+    wsPh.columns = [
+      { header: "Domaine / Secteur", key: "domain", width: 30 },
+      { header: "Profession", key: "name", width: 35 },
+      { header: "Liquide", key: "cash", width: 12 },
+      { header: "Objets précieux", key: "objects", width: 18 },
+      { header: "Volume d'affaires", key: "volume", width: 18 },
+      { header: "Manque Info", key: "noInfo", width: 15 },
+      { header: "Complexe", key: "complexEval", width: 15 },
+      { header: "Intermédiation", key: "intermediary", width: 18 },
+      { header: "Corruption", key: "corruption", width: 15 },
+      { header: "Risque", key: "risk", width: 12 }
+    ];
+    resolvedPhysicalProfessions.forEach((p) => {
+      wsPh.addRow({
+        domain: p.domain,
+        name: p.name,
+        cash: p.cash ? "Oui" : "—",
+        objects: p.objects ? "Oui" : "—",
+        volume: p.volume ? "Oui" : "—",
+        noInfo: p.noInfo ? "Oui" : "—",
+        complexEval: p.complexEval ? "Oui" : "—",
+        intermediary: p.intermediary ? "Oui" : "—",
+        corruption: p.corruption ? "Oui" : "—",
+        risk: p.risk
+      });
+    });
+    applyGlobalSheetStyles(wsPh);
+
+    // Write file to user
     const today = new Date().toISOString().split("T")[0];
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Matrice_des_Risques_${today}.xlsx`;
+    a.download = `Matrice_des_Risques_KYC_${today}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: "Export réussi", description: "Matrice des risques exportée en Excel." });
+    toast({ title: "Export réussi", description: "La matrice des risques a été exportée au format Excel complet." });
   };
 
   const exportMatrixPDF = () => {

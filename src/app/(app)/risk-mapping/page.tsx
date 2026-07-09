@@ -1147,28 +1147,10 @@ export default function RiskMappingPage() {
           ))}
         </div>
       )}
-      
-      {/* ─── SCORE LEGEND ─── */}
-      {viewMode !== "matrix" && (
-        <div className="flex flex-wrap gap-3 items-center">
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Barème du score :</span>
-          {[
-            { label: "Faible", range: "≤ 4", bg: "bg-emerald-100", text: "text-emerald-700", border: "border-emerald-200" },
-            { label: "Modéré", range: "5–8", bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-200" },
-            { label: "Élevé", range: "9–12", bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-200" },
-            { label: "Très élevé", range: "≥ 13", bg: "bg-rose-100", text: "text-rose-700", border: "border-rose-200" },
-          ].map(item => (
-            <div key={item.label} className={cn("flex items-center gap-1.5 px-3 py-1 rounded-lg border text-[10px] font-bold", item.bg, item.text, item.border)}>
-              <span>{item.range}</span>
-              <span className="opacity-60">→</span>
-              <span>{item.label}</span>
-            </div>
-          ))}
-        </div>
-      )}
 
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full">
         {/* Navigation & Advanced Filters */}
+        {viewMode !== "matrix" && (
         <div className="flex flex-col xl:flex-row items-center gap-4 mb-6">
           <TabsList className="bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl h-12 w-full xl:w-auto border border-slate-200 dark:border-slate-800 shrink-0 overflow-x-auto flex-wrap sm:flex-nowrap">
             <TabsTrigger value="table" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
@@ -1188,7 +1170,6 @@ export default function RiskMappingPage() {
             </TabsTrigger>
           </TabsList>
 
-          {viewMode !== "matrix" && (
           <div className="flex-1 flex flex-nowrap items-center gap-3 w-full bg-white/50 dark:bg-slate-900/50 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800">
             <div className="relative flex-1 min-w-[350px] xl:max-w-[600px]">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -1252,8 +1233,8 @@ export default function RiskMappingPage() {
               )}
             </div>
           </div>
-          )}
         </div>
+        )}
 
         <TabsContent value="plan-actions" className="mt-0 focus-visible:ring-0">
           <RiskKPIs risks={filteredRisks} />
