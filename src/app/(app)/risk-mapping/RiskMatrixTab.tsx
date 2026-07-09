@@ -736,6 +736,64 @@ export function RiskMatrixTab() {
     });
   }, [resolvedPhysicalProfessions, searchQuery, riskFilter, selectedDomain]);
 
+  // Real-time statistics across all reference lists
+  const riskDistributionStats = React.useMemo(() => {
+    const allItems = [
+      ...resolvedCountries.map(c => ({ type: "Pays", risk: c.risk })),
+      ...resolvedGovs.map(g => ({ type: "Gouvernorats", risk: g.risk })),
+      ...resolvedProducts.map(p => ({ type: "Produits d'Assurance", risk: p.risk })),
+      ...resolvedDist.map(d => ({ type: "Canaux", risk: d.risk })),
+      ...resolvedSales.map(s => ({ type: "Techniques de Vente", risk: s.risk })),
+      ...resolvedMoralActivities.map(a => ({ type: "Activités Morales", risk: a.risk })),
+      ...resolvedPhysicalProfessions.map(p => ({ type: "Professions PP", risk: p.risk })),
+    ];
+
+    const total = allItems.length;
+
+    const stats = {
+      total,
+      RE: { count: 0, percentage: 0, byType: {} as Record<string, number> },
+      RM: { count: 0, percentage: 0, byType: {} as Record<string, number> },
+      RF: { count: 0, percentage: 0, byType: {} as Record<string, number> },
+    };
+
+    allItems.forEach(item => {
+      const r = item.risk as 'RE' | 'RM' | 'RF';
+      if (stats[r]) {
+        stats[r].count++;
+        stats[r].byType[item.type] = (stats[r].byType[item.type] || 0) + 1;
+      }
+    });
+
+    if (total > 0) {
+      stats.RE.percentage = Math.round((stats.RE.count / total) * 100);
+      stats.RM.percentage = Math.round((stats.RM.count / total) * 100);
+      stats.RF.percentage = Math.round((stats.RF.count / total) * 100);
+    }
+
+    return stats;
+  }, [
+    resolvedCountries,
+    resolvedGovs,
+    resolvedProducts,
+    resolvedDist,
+    resolvedSales,
+    resolvedMoralActivities,
+    resolvedPhysicalProfessions
+  ]);
+
+  const totalOverridesCount = React.useMemo(() => {
+    let count = 0;
+    Object.keys(overrides).forEach(cat => {
+      const catObj = overrides[cat as any] || {};
+      Object.keys(catObj).forEach(itemId => {
+        const itemObj = catObj[itemId] || {};
+        count += Object.keys(itemObj).length;
+      });
+    });
+    return count;
+  }, [overrides]);
+
   const renderBadge = (risk: string) => {
     const style = risk === "RE" 
       ? "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-450 dark:border-rose-900"
@@ -1128,10 +1186,16 @@ export function RiskMatrixTab() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {totalOverridesCount > 0 && (
+            <Badge variant="outline" className="h-9 px-3 rounded-xl border-2 border-violet-100 bg-violet-50 text-violet-700 font-bold text-[10px] animate-fade-in shadow-xs dark:bg-violet-950/20 dark:border-violet-900 dark:text-violet-400">
+              ✨ {totalOverridesCount} personnalisations
+            </Badge>
+          )}
+
           {/* History */}
           <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 px-3 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold text-[10px] shadow-sm hover:border-violet-300 hover:text-violet-700 hover:bg-violet-50 transition-all">
+              <Button variant="outline" size="sm" className="h-9 px-3 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-bold text-[10px] shadow-sm hover:border-violet-300 hover:text-violet-700 hover:bg-violet-50 transition-all dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200">
                 <History className="h-3.5 w-3.5 mr-1.5 text-violet-500" />
                 Historique ({kycHistory.length})
               </Button>
@@ -1182,7 +1246,7 @@ export function RiskMatrixTab() {
             size="sm"
             variant="outline"
             onClick={exportMatrixPDF}
-            className="h-9 px-4 rounded-xl border-2 border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
+            className="h-9 px-4 rounded-xl border-2 border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02] dark:bg-rose-950/20 dark:border-rose-900 dark:text-rose-400"
           >
             <FileText className="mr-1.5 h-3.5 w-3.5" /> Rapport PDF
           </Button>
@@ -1192,39 +1256,130 @@ export function RiskMatrixTab() {
             size="sm"
             variant="outline"
             onClick={exportMatrixExcel}
-            className="h-9 px-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02]"
+            className="h-9 px-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02] dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-400"
           >
             <Download className="mr-1.5 h-3.5 w-3.5" /> Exporter Excel
           </Button>
         </div>
       </div>
 
-      {/* Risk Thresholds Summary */}
+      {/* ── Live Risk Intelligence Dashboard ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {RISK_LEVELS.map(lvl => (
-          <Card key={lvl.label} className={cn("border-2 shadow-sm", lvl.color)}>
-            <CardHeader className="pb-2 p-5">
-              <CardDescription className="text-[10px] font-black uppercase tracking-wider opacity-60">Matrice KYC Threshold</CardDescription>
-              <CardTitle className="text-lg font-black">{lvl.label}</CardTitle>
-            </CardHeader>
-            <CardContent className="px-5 pb-5">
-              <span className="text-2xl font-black">{lvl.range}</span>
-            </CardContent>
-          </Card>
-        ))}
+        {[
+          {
+            key: "RE",
+            label: "Risque Élevé (RE)",
+            range: "≥ 70% ou ≥ 2 Oui",
+            color: "border-rose-100 dark:border-rose-950 bg-rose-50/40 dark:bg-rose-950/5",
+            textColor: "text-rose-700 dark:text-rose-400",
+            barColor: "bg-rose-500",
+            badgeColor: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300",
+            stats: riskDistributionStats.RE
+          },
+          {
+            key: "RM",
+            label: "Risque Moyen (RM)",
+            range: "≥ 50% ou exactly 1 Oui",
+            color: "border-amber-100 dark:border-amber-950 bg-amber-50/40 dark:bg-amber-950/5",
+            textColor: "text-amber-700 dark:text-amber-400",
+            barColor: "bg-amber-500",
+            badgeColor: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+            stats: riskDistributionStats.RM
+          },
+          {
+            key: "RF",
+            label: "Risque Faible (RF)",
+            range: "< 50% ou 0 Oui",
+            color: "border-emerald-100 dark:border-emerald-950 bg-emerald-50/40 dark:bg-emerald-950/5",
+            textColor: "text-emerald-700 dark:text-emerald-400",
+            barColor: "bg-emerald-500",
+            badgeColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+            stats: riskDistributionStats.RF
+          }
+        ].map(item => {
+          const isFilterActive = riskFilter === item.key;
+          return (
+            <Card
+              key={item.key}
+              onClick={() => setRiskFilter(riskFilter === item.key ? "all" : item.key)}
+              className={cn(
+                "border-2 transition-all duration-300 cursor-pointer relative overflow-hidden group hover:shadow-md hover:scale-[1.01] active:scale-[0.99]",
+                item.color,
+                isFilterActive 
+                  ? "ring-2 ring-violet-500 shadow-md border-violet-300 dark:border-violet-700" 
+                  : "border-slate-100 dark:border-slate-800/80"
+              )}
+            >
+              {isFilterActive && (
+                <div className="absolute top-0 right-0 bg-violet-650 text-white text-[8px] font-black uppercase px-2.5 py-1 rounded-bl-lg tracking-wider animate-pulse">
+                  Filtre Actif
+                </div>
+              )}
+              <CardHeader className="pb-1 p-5">
+                <div className="flex justify-between items-start">
+                  <span className={cn("text-xs font-black uppercase tracking-wider", item.textColor)}>
+                    {item.label}
+                  </span>
+                  <span className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-850 px-2 py-0.5 rounded-full">
+                    {item.range}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2 mt-2">
+                  <span className="text-3xl font-black text-slate-900 dark:text-white leading-none">
+                    {item.stats.count}
+                  </span>
+                  <span className="text-xs font-bold text-slate-500">entités</span>
+                </div>
+              </CardHeader>
+              <CardContent className="px-5 pb-5 pt-0 space-y-3">
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] font-bold text-slate-500">
+                    <span>Part dans le modèle</span>
+                    <span>{item.stats.percentage}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className={cn("h-full rounded-full transition-all duration-700", item.barColor)} 
+                      style={{ width: `${item.stats.percentage}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-1 flex-wrap">
+                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Répartition par type :</span>
+                  <div className="flex flex-wrap gap-1 mt-1 w-full">
+                    {Object.keys(item.stats.byType).length === 0 ? (
+                      <span className="text-[9px] text-slate-400 italic">Aucune entité</span>
+                    ) : (
+                      Object.keys(item.stats.byType).map(type => (
+                        <Badge 
+                          key={type} 
+                          variant="secondary" 
+                          className="text-[8px] font-bold py-0 px-1.5 bg-slate-100/50 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-100 transition-colors"
+                        >
+                          {type} : {item.stats.byType[type]}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Sub tabs navigation */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
         <div className="flex flex-wrap gap-1 bg-slate-100/60 dark:bg-slate-900/60 p-1 rounded-xl border">
           {[
-            { id: "params", label: "Pondérations & Structure", icon: Layers },
-            { id: "countries", label: "Pays", icon: Globe },
-            { id: "govs", label: "Gouvernorats (TN)", icon: MapPin },
-            { id: "products", label: "Produits d'Assurance", icon: Package },
-            { id: "dist", label: "Canaux & Ventes", icon: Grid },
-            { id: "moral", label: "Activités Morales", icon: Landmark },
-            { id: "physical", label: "Professions PP", icon: Users }
+            { id: "params", label: "Pondérations & Structure", icon: Layers, iconColor: "text-violet-500" },
+            { id: "countries", label: "Pays", icon: Globe, iconColor: "text-blue-500" },
+            { id: "govs", label: "Gouvernorats (TN)", icon: MapPin, iconColor: "text-rose-500" },
+            { id: "products", label: "Produits d'Assurance", icon: Package, iconColor: "text-amber-500" },
+            { id: "dist", label: "Canaux & Ventes", icon: Grid, iconColor: "text-emerald-500" },
+            { id: "moral", label: "Activités Morales", icon: Landmark, iconColor: "text-indigo-500" },
+            { id: "physical", label: "Professions PP", icon: Users, iconColor: "text-teal-500" }
           ].map(tab => {
             const Icon = tab.icon;
             const active = subTab === tab.id;
@@ -1239,10 +1394,9 @@ export function RiskMatrixTab() {
                     : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                 )}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className={cn("h-3.5 w-3.5", tab.iconColor)} />
                 {tab.label}
               </button>
-            );
           })}
         </div>
 
