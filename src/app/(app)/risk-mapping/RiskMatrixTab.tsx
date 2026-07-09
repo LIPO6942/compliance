@@ -1397,6 +1397,7 @@ export function RiskMatrixTab() {
                 <Icon className={cn("h-3.5 w-3.5", tab.iconColor)} />
                 {tab.label}
               </button>
+            );
           })}
         </div>
 
