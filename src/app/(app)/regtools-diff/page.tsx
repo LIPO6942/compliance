@@ -90,17 +90,17 @@ const getJaroWinklerSimilarity = (s1: string, s2: string): number => {
   const len1 = s1.length;
   const len2 = s2.length;
   const matchWindow = Math.max(0, Math.floor(Math.max(len1, len2) / 2) - 1);
-  const matches1 = new Array(len1).fill(false);
-  const matches2 = new Array(len2).fill(false);
+  const matches1 = new Uint8Array(len1);
+  const matches2 = new Uint8Array(len2);
 
   let matches = 0;
   for (let i = 0; i < len1; i++) {
     const start = Math.max(0, i - matchWindow);
     const end = Math.min(len2, i + matchWindow + 1);
     for (let j = start; j < end; j++) {
-      if (!matches2[j] && s1[i] === s2[j]) {
-        matches1[i] = true;
-        matches2[j] = true;
+      if (matches2[j] === 0 && s1[i] === s2[j]) {
+        matches1[i] = 1;
+        matches2[j] = 1;
         matches++;
         break;
       }
@@ -112,8 +112,8 @@ const getJaroWinklerSimilarity = (s1: string, s2: string): number => {
   let transpositions = 0;
   let k = 0;
   for (let i = 0; i < len1; i++) {
-    if (matches1[i]) {
-      while (!matches2[k]) k++;
+    if (matches1[i] === 1) {
+      while (matches2[k] === 0) k++;
       if (s1[i] !== s2[k]) {
         transpositions++;
       }
@@ -1145,6 +1145,7 @@ export default function RegtoolsDiffPage() {
   const [historyPortfolioFilter, setHistoryPortfolioFilter] = useState<"ALL" | "NS" | "VIE">("ALL");
 
   const [isComparing, setIsComparing] = useState(false);
+  const [compareProgress, setCompareProgress] = useState(0);
   const [comparisonDone, setComparisonDone] = useState(false);
   const [dragOverRole, setDragOverRole] = useState<"regtools" | "ns" | "vie" | null>(null);
   const [resolvedByNameMatchCount, setResolvedByNameMatchCount] = useState(0);
@@ -1695,6 +1696,7 @@ export default function RegtoolsDiffPage() {
     if (!data.regtools || (!data.ns && !data.vie)) return;
 
     setIsComparing(true);
+    setCompareProgress(0);
     setResolvedByNameMatchCount(0);
     
     setTimeout(() => {
@@ -1750,109 +1752,162 @@ export default function RegtoolsDiffPage() {
           }
         }
 
-        // 3. Scan and Compare
+        // Index RegTools by name length for faster Jaro-Winkler filtering
+        const regToolsByLength = new Map<number, { id: string; normalizedName: string; row: any }[]>();
+        for (const item of regToolsNameList) {
+          const len = item.normalizedName.length;
+          if (!regToolsByLength.has(len)) {
+            regToolsByLength.set(len, []);
+          }
+          regToolsByLength.get(len)!.push(item);
+        }
+
+        // 3. Collect all portfolio rows to process
+        const rowsToProcess: { row: any; isVie: boolean; idCol: string; agenceCol: string; nameCol: string | null }[] = [];
+        if (data.ns && nsId && nsAgence) {
+          for (let i = 0; i < data.ns.length; i++) {
+            rowsToProcess.push({
+              row: data.ns[i],
+              isVie: false,
+              idCol: nsId,
+              agenceCol: nsAgence,
+              nameCol: nsNameCol
+            });
+          }
+        }
+        if (data.vie && vieId && vieAgence) {
+          for (let i = 0; i < data.vie.length; i++) {
+            rowsToProcess.push({
+              row: data.vie[i],
+              isVie: true,
+              idCol: vieId,
+              agenceCol: vieAgence,
+              nameCol: vieNameCol
+            });
+          }
+        }
+
+        const totalRows = rowsToProcess.length;
         const missing: any[] = [];
         const similarities: any[] = [];
         const agenciesSet = new Set<string>();
         let resolvedCount = 0;
 
-        // Process a portfolio row
-        const processRow = (rowSource: any, isVie: boolean, idCol: string, agenceCol: string, nameCol: string) => {
-          const row = { ...rowSource };
-          row.__sourcePortfolio = isVie ? "VIE" : "NS";
-          
-          const rawId = row[idCol];
-          const key = normalizeKey(rawId);
-          
-          const agenceCode = getRowAgencyCode(row, agenceCol, isVie);
-          if (agenceCode !== "") {
-            agenciesSet.add(agenceCode);
-          }
+        let index = 0;
+        const chunkSize = 2000;
 
-          // Étape 1 : Rapprochement Strict (Identifiant)
-          if (key !== "" && regToolsSet.has(key)) {
-            row.__matchType = "Strict (Identifiant)";
-            row.__associatedRegToolsId = key;
-            const regRow = regToolsIdMap.get(key);
-            if (regRow && regtoolsNameCol) {
-              row.__associatedRegToolsName = String(regRow[regtoolsNameCol] || "").trim();
+        const processChunk = () => {
+          const chunkEnd = Math.min(index + chunkSize, totalRows);
+          for (; index < chunkEnd; index++) {
+            const item = rowsToProcess[index];
+            const row = { ...item.row };
+            row.__sourcePortfolio = item.isVie ? "VIE" : "NS";
+            
+            const rawId = row[item.idCol];
+            const key = normalizeKey(rawId);
+            
+            const agenceCode = getRowAgencyCode(row, item.agenceCol, item.isVie);
+            if (agenceCode !== "") {
+              agenciesSet.add(agenceCode);
             }
-            similarities.push(row);
-            return;
-          }
 
-          // Étape 2 : Rapprochement par Nom Standardisé (Fallback)
-          if (nameCol) {
-            const rawName = row[nameCol];
-            const portfolioNormName = normalizeName(rawName);
-            if (portfolioNormName !== "") {
-              // Option A: exact match on normalized name (O(1) optimization)
-              if (regToolsByNameMap.has(portfolioNormName)) {
-                const bestMatch = regToolsByNameMap.get(portfolioNormName)!;
-                row.__matchType = "Similitude Nom (Exact Normalisé)";
-                row.__associatedRegToolsId = bestMatch.id;
-                row.__associatedRegToolsName = String(bestMatch.row[regtoolsNameCol] || "").trim();
-                row.__nameMatchScore = 1.0;
-                similarities.push(row);
-                resolvedCount++;
-                return;
+            // Étape 1 : Rapprochement Strict (Identifiant)
+            if (key !== "" && regToolsSet.has(key)) {
+              row.__matchType = "Strict (Identifiant)";
+              row.__associatedRegToolsId = key;
+              const regRow = regToolsIdMap.get(key);
+              if (regRow && regtoolsNameCol) {
+                row.__associatedRegToolsName = String(regRow[regtoolsNameCol] || "").trim();
               }
+              similarities.push(row);
+              continue;
+            }
 
-              // Option B: Fuzzy match using Jaro-Winkler
-              let bestScore = 0;
-              let bestMatchItem: typeof regToolsNameList[0] | null = null;
-              
-              for (let j = 0; j < regToolsNameList.length; j++) {
-                const item = regToolsNameList[j];
-                const score = getJaroWinklerSimilarity(portfolioNormName, item.normalizedName);
-                if (score > bestScore) {
-                  bestScore = score;
-                  bestMatchItem = item;
-                  if (score === 1.0) break;
+            // Étape 2 : Rapprochement par Nom Standardisé (Fallback)
+            if (item.nameCol) {
+              const rawName = row[item.nameCol];
+              const portfolioNormName = normalizeName(rawName);
+              if (portfolioNormName !== "") {
+                // Option A: exact match on normalized name (O(1) optimization)
+                if (regToolsByNameMap.has(portfolioNormName)) {
+                  const bestMatch = regToolsByNameMap.get(portfolioNormName)!;
+                  row.__matchType = "Similitude Nom (Exact Normalisé)";
+                  row.__associatedRegToolsId = bestMatch.id;
+                  row.__associatedRegToolsName = String(bestMatch.row[regtoolsNameCol] || "").trim();
+                  row.__nameMatchScore = 1.0;
+                  similarities.push(row);
+                  resolvedCount++;
+                  continue;
+                }
+
+                // Option B: Fuzzy match using Jaro-Winkler
+                let bestScore = 0;
+                let bestMatchItem: { id: string; normalizedName: string; row: any } | null = null;
+                const L1 = portfolioNormName.length;
+
+                // Threshold is 0.95. If length ratio is < 0.75, JW score is mathematically < 0.95.
+                const minLen = Math.ceil(L1 * 0.75);
+                const maxLen = Math.floor(L1 / 0.75);
+
+                for (let len = minLen; len <= maxLen; len++) {
+                  const candidates = regToolsByLength.get(len);
+                  if (!candidates) continue;
+                  
+                  for (let j = 0; j < candidates.length; j++) {
+                    const candidate = candidates[j];
+                    
+                    // If first character is different, Winkler bonus is 0, so JW = Jaro score.
+                    // For JW >= 0.95, Jaro similarity must be >= 0.95, which requires length ratio >= 0.85.
+                    if (portfolioNormName[0] !== candidate.normalizedName[0]) {
+                      const ratio = len > L1 ? L1 / len : len / L1;
+                      if (ratio < 0.85) continue;
+                    }
+
+                    const score = getJaroWinklerSimilarity(portfolioNormName, candidate.normalizedName);
+                    if (score > bestScore) {
+                      bestScore = score;
+                      bestMatchItem = candidate;
+                      if (score === 1.0) break;
+                    }
+                  }
+                }
+
+                if (bestScore > 0.95 && bestMatchItem) {
+                  row.__matchType = `Similitude Nom (${Math.round(bestScore * 100)}%)`;
+                  row.__associatedRegToolsId = bestMatchItem.id;
+                  row.__associatedRegToolsName = String(bestMatchItem.row[regtoolsNameCol] || "").trim();
+                  row.__nameMatchScore = bestScore;
+                  similarities.push(row);
+                  resolvedCount++;
+                  continue;
                 }
               }
-
-              if (bestScore > 0.95 && bestMatchItem) {
-                row.__matchType = `Similitude Nom (${Math.round(bestScore * 100)}%)`;
-                row.__associatedRegToolsId = bestMatchItem.id;
-                row.__associatedRegToolsName = String(bestMatchItem.row[regtoolsNameCol] || "").trim();
-                row.__nameMatchScore = bestScore;
-                similarities.push(row);
-                resolvedCount++;
-                return;
-              }
             }
+
+            // Si aucun rapprochement
+            row.__matchType = "Aucun";
+            missing.push(row);
           }
 
-          // Si aucun rapprochement
-          row.__matchType = "Aucun";
-          missing.push(row);
+          if (index < totalRows) {
+            setCompareProgress(Math.round((index / totalRows) * 100));
+            setTimeout(processChunk, 10);
+          } else {
+            setResolvedByNameMatchCount(resolvedCount);
+            setMissingRows(missing);
+            setSimilarRows(similarities);
+            setAgenciesList(Array.from(agenciesSet).sort((a, b) => a.localeCompare(b)));
+            setComparisonDone(true);
+            setCurrentPage(1);
+            setIsComparing(false);
+            setCompareProgress(100);
+          }
         };
 
-        // Scan NS
-        if (data.ns && nsId && nsAgence) {
-          for (let i = 0; i < data.ns.length; i++) {
-            processRow(data.ns[i], false, nsId, nsAgence, nsNameCol);
-          }
-        }
-
-        // Scan VIE
-        if (data.vie && vieId && vieAgence) {
-          for (let i = 0; i < data.vie.length; i++) {
-            processRow(data.vie[i], true, vieId, vieAgence, vieNameCol);
-          }
-        }
-
-        setResolvedByNameMatchCount(resolvedCount);
-        setMissingRows(missing);
-        setSimilarRows(similarities);
-        setAgenciesList(Array.from(agenciesSet).sort((a, b) => a.localeCompare(b)));
-        setComparisonDone(true);
-        setCurrentPage(1);
+        processChunk();
 
       } catch (err: any) {
         alert("Erreur lors de la comparaison : " + err.message);
-      } finally {
         setIsComparing(false);
       }
     }, 50);
@@ -2410,6 +2465,7 @@ export default function RegtoolsDiffPage() {
     setColumns({ regtools: [], ns: [], vie: [] });
     setMapping({ regtoolsId: "", nsId: "", nsAgence: "", vieId: "", vieAgence: "" });
     setResolvedByNameMatchCount(0);
+    setCompareProgress(0);
     setMissingRows([]);
     setSimilarRows([]);
     setAgenciesList([]);
@@ -5496,10 +5552,10 @@ export default function RegtoolsDiffPage() {
                 <button
                   onClick={handleCompare}
                   disabled={isComparing}
-                  className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5"
+                  className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 min-w-[200px] justify-center"
                 >
                   <RefreshCw className={cn("h-4 w-4", isComparing && "animate-spin")} />
-                  {isComparing ? "Comparaison..." : "Lancer la Comparaison"}
+                  {isComparing ? `Comparaison... (${compareProgress}%)` : "Lancer la Comparaison"}
                 </button>
               </div>
             </div>
