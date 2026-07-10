@@ -105,7 +105,7 @@ interface MatrixConfigContextType {
   kycHistory: MatrixHistoryEntry[];
   loading: boolean;
   
-  overrides: Record<OverrideCategory, Record<string, Record<string, boolean>>>;
+  overrides: Record<OverrideCategory, Record<string, Record<string, boolean | string>>>;
   professionOverrides: Record<string, Record<string, boolean>>; // alias
   
   updateFactor: (
@@ -121,7 +121,7 @@ interface MatrixConfigContextType {
     category: OverrideCategory,
     itemId: string,
     field: string,
-    value: boolean,
+    value: boolean | string,
     author: string
   ) => Promise<void>;
   
@@ -173,7 +173,7 @@ function lsSave(key: string, value: unknown) {
 export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
   const [kycFactors, setKycFactors] = useState<KycFactor[]>(() => lsLoad(LS_FACTORS, DEFAULT_KYC_FACTORS));
   const [kycHistory, setKycHistory] = useState<MatrixHistoryEntry[]>(() => lsLoad(LS_HISTORY, []));
-  const [overrides, setOverrides] = useState<Record<OverrideCategory, Record<string, Record<string, boolean>>>>(() => lsLoad(LS_OVERRIDES, DEFAULT_OVERRIDES));
+  const [overrides, setOverrides] = useState<Record<OverrideCategory, Record<string, Record<string, boolean | string>>>>(() => lsLoad(LS_OVERRIDES, DEFAULT_OVERRIDES));
   const [loading, setLoading] = useState(true);
 
   // ── Real-time Firestore listener ─────────────────────────────────────────
@@ -350,7 +350,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
 
   // ── Generic update override ────────────────────────────────────────────────
   const updateOverride = useCallback(
-    async (category: OverrideCategory, itemId: string, field: string, value: boolean, author: string) => {
+    async (category: OverrideCategory, itemId: string, field: string, value: boolean | string, author: string) => {
       const updatedOverrides = { ...overrides };
       if (!updatedOverrides[category]) {
         updatedOverrides[category] = {};
@@ -359,8 +359,15 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
         updatedOverrides[category][itemId] = {};
       }
 
-      const oldValue = updatedOverrides[category][itemId][field] ? 'Oui' : 'Non (—)';
-      const newValue = value ? 'Oui' : 'Non (—)';
+      let oldValue = '';
+      let newValue = '';
+      if (typeof value === 'string') {
+        oldValue = String(updatedOverrides[category][itemId][field] || 'Aucune');
+        newValue = value;
+      } else {
+        oldValue = updatedOverrides[category][itemId][field] ? 'Oui' : 'Non (—)';
+        newValue = value ? 'Oui' : 'Non (—)';
+      }
 
       updatedOverrides[category][itemId][field] = value;
 
@@ -413,7 +420,9 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
               date: new Date().toISOString(),
               user: author,
               factors: [dashboardCategoryMap[category] || category],
-              note: `Modification sur « ${itemId} » : le paramètre « ${field} » a été mis à ${value ? 'Oui' : 'Non'}`,
+              note: typeof value === 'string'
+                ? `Modification de la remarque sur « ${itemId} » : ${oldValue} → ${newValue}`
+                : `Modification sur « ${itemId} » : le paramètre « ${field} » a été mis à ${value ? 'Oui' : 'Non'}`,
             });
           } catch (logErr) {
             console.error('[MatrixConfig] Failed to write live log:', logErr);

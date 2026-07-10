@@ -433,6 +433,9 @@ export function RiskMatrixTab() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [riskFilter, setRiskFilter] = React.useState<"all" | "RE" | "RM" | "RF">("all");
   const [selectedDomain, setSelectedDomain] = React.useState<string>("all");
+  const [factorFilter, setFactorFilter] = React.useState<string>("all");
+  const [editingCell, setEditingCell] = React.useState<{ category: OverrideCategory; itemId: string; field: string } | null>(null);
+  const [editingText, setEditingText] = React.useState("");
   const [historyOpen, setHistoryOpen] = React.useState(false);
 
   // Confirmation Modal state
@@ -446,6 +449,27 @@ export function RiskMatrixTab() {
   } | null>(null);
 
   const authorName = user?.name || user?.email || "Utilisateur";
+
+  const handleSaveComment = async (category: OverrideCategory, itemId: string, field: string, originalVal: string) => {
+    if (editingText.trim() === originalVal.trim()) {
+      setEditingCell(null);
+      return;
+    }
+    try {
+      await updateOverride(category, itemId, field, editingText.trim(), authorName);
+      toast({
+        title: "✅ Remarque mise à jour",
+        description: `Remarque pour « ${itemId} » mise à jour avec succès.`
+      });
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: `Impossible de sauvegarder la remarque : ${err.message}`
+      });
+    }
+    setEditingCell(null);
+  };
 
   const handleToggleRequest = (
     category: 'profession' | 'moral' | 'country' | 'gov' | 'product' | 'dist' | 'sale',
@@ -529,10 +553,11 @@ export function RiskMatrixTab() {
       const override = overrides.country[c.name] || {};
       const merged = {
         ...c,
-        gafi: override.gafi !== undefined ? override.gafi : c.gafi,
-        corruption: override.corruption !== undefined ? override.corruption : c.corruption,
-        oecd: override.oecd !== undefined ? override.oecd : c.oecd,
-        terrorism: override.terrorism !== undefined ? override.terrorism : c.terrorism,
+        gafi: override.gafi !== undefined ? override.gafi as boolean : c.gafi,
+        corruption: override.corruption !== undefined ? override.corruption as boolean : c.corruption,
+        oecd: override.oecd !== undefined ? override.oecd as boolean : c.oecd,
+        terrorism: override.terrorism !== undefined ? override.terrorism as boolean : c.terrorism,
+        other: override.other !== undefined ? String(override.other) : c.other,
       };
       
       const count = [
@@ -552,10 +577,11 @@ export function RiskMatrixTab() {
       const override = overrides.gov[String(g.id)] || {};
       const merged = {
         ...g,
-        border: override.border !== undefined ? override.border : g.border,
-        port: override.port !== undefined ? override.port : g.port,
-        airport: override.airport !== undefined ? override.airport : g.airport,
-        market: override.market !== undefined ? override.market : g.market,
+        border: override.border !== undefined ? override.border as boolean : g.border,
+        port: override.port !== undefined ? override.port as boolean : g.port,
+        airport: override.airport !== undefined ? override.airport as boolean : g.airport,
+        market: override.market !== undefined ? override.market as boolean : g.market,
+        other: override.other !== undefined ? String(override.other) : g.other,
       };
       
       const count = [
@@ -575,11 +601,12 @@ export function RiskMatrixTab() {
       const override = overrides.product[String(p.code)] || {};
       const merged = {
         ...p,
-        liquid: override.liquid !== undefined ? override.liquid : p.liquid,
-        forex: override.forex !== undefined ? override.forex : p.forex,
-        highValue: override.highValue !== undefined ? override.highValue : p.highValue,
-        fraud: override.fraud !== undefined ? override.fraud : p.fraud,
-        cap: override.cap !== undefined ? override.cap : p.cap,
+        liquid: override.liquid !== undefined ? override.liquid as boolean : p.liquid,
+        forex: override.forex !== undefined ? override.forex as boolean : p.forex,
+        highValue: override.highValue !== undefined ? override.highValue as boolean : p.highValue,
+        fraud: override.fraud !== undefined ? override.fraud as boolean : p.fraud,
+        cap: override.cap !== undefined ? override.cap as boolean : p.cap,
+        comment: override.comment !== undefined ? String(override.comment) : p.comment,
       };
       
       const count = [
@@ -600,9 +627,9 @@ export function RiskMatrixTab() {
       const override = overrides.dist[d.code] || {};
       const merged = {
         ...d,
-        complex: override.complex !== undefined ? override.complex : d.complex,
-        nonCompliance: override.nonCompliance !== undefined ? override.nonCompliance : d.nonCompliance,
-        noCulture: override.noCulture !== undefined ? override.noCulture : d.noCulture,
+        complex: override.complex !== undefined ? override.complex as boolean : d.complex,
+        nonCompliance: override.nonCompliance !== undefined ? override.nonCompliance as boolean : d.nonCompliance,
+        noCulture: override.noCulture !== undefined ? override.noCulture as boolean : d.noCulture,
       };
       
       const count = [
@@ -621,8 +648,8 @@ export function RiskMatrixTab() {
       const override = overrides.sale[String(s.code)] || {};
       const merged = {
         ...s,
-        noContact: override.noContact !== undefined ? override.noContact : s.noContact,
-        noOriginals: override.noOriginals !== undefined ? override.noOriginals : s.noOriginals,
+        noContact: override.noContact !== undefined ? override.noContact as boolean : s.noContact,
+        noOriginals: override.noOriginals !== undefined ? override.noOriginals as boolean : s.noOriginals,
       };
       
       const count = [
@@ -640,13 +667,14 @@ export function RiskMatrixTab() {
       const override = overrides.moral[a.code] || {};
       const merged = {
         ...a,
-        cash: override.cash !== undefined ? override.cash : a.cash,
-        objects: override.objects !== undefined ? override.objects : a.objects,
-        volume: override.volume !== undefined ? override.volume : a.volume,
-        noInfo: override.noInfo !== undefined ? override.noInfo : a.noInfo,
-        complexEval: override.complexEval !== undefined ? override.complexEval : a.complexEval,
-        intermediary: override.intermediary !== undefined ? override.intermediary : a.intermediary,
-        corruption: override.corruption !== undefined ? override.corruption : a.corruption,
+        cash: override.cash !== undefined ? override.cash as boolean : a.cash,
+        objects: override.objects !== undefined ? override.objects as boolean : a.objects,
+        volume: override.volume !== undefined ? override.volume as boolean : a.volume,
+        noInfo: override.noInfo !== undefined ? override.noInfo as boolean : a.noInfo,
+        complexEval: override.complexEval !== undefined ? override.complexEval as boolean : a.complexEval,
+        intermediary: override.intermediary !== undefined ? override.intermediary as boolean : a.intermediary,
+        corruption: override.corruption !== undefined ? override.corruption as boolean : a.corruption,
+        comment: override.comment !== undefined ? String(override.comment) : a.comment,
       };
       
       const count = [
@@ -699,42 +727,65 @@ export function RiskMatrixTab() {
     return resolvedCountries.filter(c => {
       const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.alpha3.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesRisk = riskFilter === "all" || c.risk === riskFilter;
-      return matchesSearch && matchesRisk;
+      const matchesFactor = factorFilter === "all" || (c as any)[factorFilter] === true;
+      return matchesSearch && matchesRisk && matchesFactor;
     });
-  }, [resolvedCountries, searchQuery, riskFilter]);
+  }, [resolvedCountries, searchQuery, riskFilter, factorFilter]);
 
   const filteredGovs = React.useMemo(() => {
     return resolvedGovs.filter(g => {
       const matchesSearch = g.name.toLowerCase().includes(searchQuery.toLowerCase()) || g.nameAr.includes(searchQuery);
       const matchesRisk = riskFilter === "all" || g.risk === riskFilter;
-      return matchesSearch && matchesRisk;
+      const matchesFactor = factorFilter === "all" || (g as any)[factorFilter] === true;
+      return matchesSearch && matchesRisk && matchesFactor;
     });
-  }, [resolvedGovs, searchQuery, riskFilter]);
+  }, [resolvedGovs, searchQuery, riskFilter, factorFilter]);
 
   const filteredProducts = React.useMemo(() => {
     return resolvedProducts.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesRisk = riskFilter === "all" || p.risk === riskFilter;
-      return matchesSearch && matchesRisk;
+      const matchesFactor = factorFilter === "all" || (p as any)[factorFilter] === true;
+      return matchesSearch && matchesRisk && matchesFactor;
     });
-  }, [resolvedProducts, searchQuery, riskFilter]);
+  }, [resolvedProducts, searchQuery, riskFilter, factorFilter]);
+
+  const filteredDist = React.useMemo(() => {
+    return resolvedDist.filter(d => {
+      const matchesSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesRisk = riskFilter === "all" || d.risk === riskFilter;
+      const matchesFactor = factorFilter === "all" || (d as any)[factorFilter] === true;
+      return matchesSearch && matchesRisk && matchesFactor;
+    });
+  }, [resolvedDist, searchQuery, riskFilter, factorFilter]);
+
+  const filteredSales = React.useMemo(() => {
+    return resolvedSales.filter(s => {
+      const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesRisk = riskFilter === "all" || s.risk === riskFilter;
+      const matchesFactor = factorFilter === "all" || (s as any)[factorFilter] === true;
+      return matchesSearch && matchesRisk && matchesFactor;
+    });
+  }, [resolvedSales, searchQuery, riskFilter, factorFilter]);
 
   const filteredMoralActivities = React.useMemo(() => {
     return resolvedMoralActivities.filter(a => {
       const matchesSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesRisk = riskFilter === "all" || a.risk === riskFilter;
-      return matchesSearch && matchesRisk;
+      const matchesFactor = factorFilter === "all" || (a as any)[factorFilter] === true;
+      return matchesSearch && matchesRisk && matchesFactor;
     });
-  }, [resolvedMoralActivities, searchQuery, riskFilter]);
+  }, [resolvedMoralActivities, searchQuery, riskFilter, factorFilter]);
 
   const filteredPhysicalProfessions = React.useMemo(() => {
     return resolvedPhysicalProfessions.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.domain.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesRisk = riskFilter === "all" || p.risk === riskFilter;
       const matchesDomain = selectedDomain === "all" || p.domain === selectedDomain;
-      return matchesSearch && matchesRisk && matchesDomain;
+      const matchesFactor = factorFilter === "all" || (p as any)[factorFilter] === true;
+      return matchesSearch && matchesRisk && matchesDomain && matchesFactor;
     });
-  }, [resolvedPhysicalProfessions, searchQuery, riskFilter, selectedDomain]);
+  }, [resolvedPhysicalProfessions, searchQuery, riskFilter, selectedDomain, factorFilter]);
 
   // Real-time statistics across all reference lists
   const riskDistributionStats = React.useMemo(() => {
@@ -1423,6 +1474,68 @@ export function RiskMatrixTab() {
               <option value="RM">Risque Moyen</option>
               <option value="RF">Risque Faible</option>
             </select>
+            {(() => {
+              const options = (() => {
+                switch (subTab) {
+                  case "countries":
+                    return [
+                      { value: "gafi", label: "GAFI (Dominant)" },
+                      { value: "corruption", label: "Corruption CPI" },
+                      { value: "oecd", label: "Paradis fiscal" },
+                      { value: "terrorism", label: "Terrorisme GTI" }
+                    ];
+                  case "govs":
+                    return [
+                      { value: "border", label: "Zone frontalière" },
+                      { value: "port", label: "Port International" },
+                      { value: "airport", label: "Aéroport" },
+                      { value: "market", label: "Contrebande" }
+                    ];
+                  case "products":
+                    return [
+                      { value: "liquid", label: "Liquidité" },
+                      { value: "forex", label: "Devises / Étranger" },
+                      { value: "highValue", label: "Capital Élevé" },
+                      { value: "fraud", label: "Fraude" },
+                      { value: "cap", label: "Capitalisation / Épargne" }
+                    ];
+                  case "dist":
+                    return [
+                      { value: "complex", label: "Difficulté Contrôle" },
+                      { value: "nonCompliance", label: "Non-soumission" },
+                      { value: "noCulture", label: "Pas de culture LBC" },
+                      { value: "noContact", label: "Pas de contact direct" },
+                      { value: "noOriginals", label: "Pas d'originaux" }
+                    ];
+                  case "moral":
+                  case "physical":
+                    return [
+                      { value: "cash", label: "Liquide" },
+                      { value: "objects", label: "Objets" },
+                      { value: "volume", label: "Volume" },
+                      { value: "noInfo", label: "Info" },
+                      { value: "complexEval", label: "Éval." },
+                      { value: "intermediary", label: "Interm." },
+                      { value: "corruption", label: "Corrup." }
+                    ];
+                  default:
+                    return [];
+                }
+              })();
+              if (options.length === 0) return null;
+              return (
+                <select
+                  value={factorFilter}
+                  onChange={e => setFactorFilter(e.target.value)}
+                  className="text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2 outline-none h-9 font-semibold text-slate-600 dark:text-slate-350 cursor-pointer max-w-[200px]"
+                >
+                  <option value="all">Tous les facteurs</option>
+                  {options.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label} : Oui</option>
+                  ))}
+                </select>
+              );
+            })()}
             {subTab === "physical" && (
               <select
                 value={selectedDomain}
@@ -1610,7 +1723,32 @@ export function RiskMatrixTab() {
                         </TableCell>
                       );
                     })}
-                    <TableCell className="text-slate-500 italic max-w-[200px] truncate">{c.other || "—"}</TableCell>
+                    <TableCell className="p-2 max-w-[200px]">
+                      {editingCell?.category === 'country' && editingCell?.itemId === c.name ? (
+                        <Input
+                          value={editingText}
+                          onChange={e => setEditingText(e.target.value)}
+                          onBlur={() => handleSaveComment('country', c.name, 'other', c.other || '')}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleSaveComment('country', c.name, 'other', c.other || '');
+                            if (e.key === 'Escape') setEditingCell(null);
+                          }}
+                          autoFocus
+                          className="h-7 text-xs bg-white dark:bg-slate-950 font-bold"
+                        />
+                      ) : (
+                        <div
+                          onClick={() => {
+                            setEditingCell({ category: 'country', itemId: c.name, field: 'other' });
+                            setEditingText(c.other || '');
+                          }}
+                          className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded min-h-[28px] italic text-slate-500 truncate font-semibold"
+                          title={c.other || "Cliquez pour ajouter une remarque"}
+                        >
+                          {c.other || <span className="text-slate-300 dark:text-slate-600 font-normal">Ajouter...</span>}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-center">{renderBadge(c.risk)}</TableCell>
                   </TableRow>
                 ))}
@@ -1692,7 +1830,32 @@ export function RiskMatrixTab() {
                         </TableCell>
                       );
                     })}
-                    <TableCell className="text-slate-500 italic max-w-[200px] truncate">{g.other || "—"}</TableCell>
+                    <TableCell className="p-2 max-w-[200px]">
+                      {editingCell?.category === 'gov' && editingCell?.itemId === String(g.id) ? (
+                        <Input
+                          value={editingText}
+                          onChange={e => setEditingText(e.target.value)}
+                          onBlur={() => handleSaveComment('gov', String(g.id), 'other', g.other || '')}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleSaveComment('gov', String(g.id), 'other', g.other || '');
+                            if (e.key === 'Escape') setEditingCell(null);
+                          }}
+                          autoFocus
+                          className="h-7 text-xs bg-white dark:bg-slate-950 font-bold"
+                        />
+                      ) : (
+                        <div
+                          onClick={() => {
+                            setEditingCell({ category: 'gov', itemId: String(g.id), field: 'other' });
+                            setEditingText(g.other || '');
+                          }}
+                          className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded min-h-[28px] italic text-slate-500 truncate font-semibold"
+                          title={g.other || "Cliquez pour ajouter une remarque"}
+                        >
+                          {g.other || <span className="text-slate-350 dark:text-slate-600 font-normal">Ajouter...</span>}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-center">{renderBadge(g.risk)}</TableCell>
                   </TableRow>
                 ))}
@@ -1774,7 +1937,32 @@ export function RiskMatrixTab() {
                         </TableCell>
                       );
                     })}
-                    <TableCell className="text-slate-500 italic max-w-[200px] truncate">{p.comment || "—"}</TableCell>
+                    <TableCell className="p-2 max-w-[200px]">
+                      {editingCell?.category === 'product' && editingCell?.itemId === String(p.code) ? (
+                        <Input
+                          value={editingText}
+                          onChange={e => setEditingText(e.target.value)}
+                          onBlur={() => handleSaveComment('product', String(p.code), 'comment', p.comment || '')}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleSaveComment('product', String(p.code), 'comment', p.comment || '');
+                            if (e.key === 'Escape') setEditingCell(null);
+                          }}
+                          autoFocus
+                          className="h-7 text-xs bg-white dark:bg-slate-950 font-bold"
+                        />
+                      ) : (
+                        <div
+                          onClick={() => {
+                            setEditingCell({ category: 'product', itemId: String(p.code), field: 'comment' });
+                            setEditingText(p.comment || '');
+                          }}
+                          className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded min-h-[28px] italic text-slate-500 truncate font-semibold"
+                          title={p.comment || "Cliquez pour ajouter un commentaire"}
+                        >
+                          {p.comment || <span className="text-slate-355 dark:text-slate-600 font-normal">Ajouter...</span>}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-center">{renderBadge(p.risk)}</TableCell>
                   </TableRow>
                 ))}
@@ -1821,7 +2009,7 @@ export function RiskMatrixTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="text-xs">
-                  {resolvedDist.map(d => (
+                  {filteredDist.map(d => (
                     <TableRow key={d.code} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", d.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
                       <TableCell className="text-center text-slate-500">{d.code}</TableCell>
                       <TableCell className="font-bold text-slate-900 dark:text-white">{d.name}</TableCell>
@@ -1850,6 +2038,11 @@ export function RiskMatrixTab() {
                       <TableCell className="text-center">{renderBadge(d.risk)}</TableCell>
                     </TableRow>
                   ))}
+                  {filteredDist.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-10 text-slate-400 italic font-semibold">Aucun canal trouvé</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -1883,7 +2076,7 @@ export function RiskMatrixTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="text-xs">
-                  {resolvedSales.map(s => (
+                  {filteredSales.map(s => (
                     <TableRow key={s.code} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", s.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
                       <TableCell className="text-center text-slate-500 font-bold">{s.code}</TableCell>
                       <TableCell className="font-bold text-slate-900 dark:text-white">{s.name}</TableCell>
@@ -1911,6 +2104,11 @@ export function RiskMatrixTab() {
                       <TableCell className="text-center">{renderBadge(s.risk)}</TableCell>
                     </TableRow>
                   ))}
+                  {filteredSales.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-10 text-slate-400 italic font-semibold">Aucune technique trouvée</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -2003,7 +2201,32 @@ export function RiskMatrixTab() {
                           </TableCell>
                         );
                       })}
-                      <TableCell className="text-slate-500 italic truncate" title={a.comment}>{a.comment || "—"}</TableCell>
+                    <TableCell className="p-2 w-[15%]">
+                      {editingCell?.category === 'moral' && editingCell?.itemId === a.code ? (
+                        <Input
+                          value={editingText}
+                          onChange={e => setEditingText(e.target.value)}
+                          onBlur={() => handleSaveComment('moral', a.code, 'comment', a.comment || '')}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleSaveComment('moral', a.code, 'comment', a.comment || '');
+                            if (e.key === 'Escape') setEditingCell(null);
+                          }}
+                          autoFocus
+                          className="h-7 text-xs bg-white dark:bg-slate-950 font-bold"
+                        />
+                      ) : (
+                        <div
+                          onClick={() => {
+                            setEditingCell({ category: 'moral', itemId: a.code, field: 'comment' });
+                            setEditingText(a.comment || '');
+                          }}
+                          className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded min-h-[28px] italic text-slate-500 truncate font-semibold"
+                          title={a.comment || "Cliquez pour ajouter une remarque"}
+                        >
+                          {a.comment || <span className="text-slate-300 dark:text-slate-600 font-normal">Ajouter...</span>}
+                        </div>
+                      )}
+                    </TableCell>
                       <TableCell className="text-center">{renderBadge(a.risk)}</TableCell>
                     </TableRow>
                   ))}
