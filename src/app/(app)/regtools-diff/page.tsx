@@ -1845,9 +1845,9 @@ export default function RegtoolsDiffPage() {
                 let bestMatchItem: { id: string; normalizedName: string; row: any } | null = null;
                 const L1 = portfolioNormName.length;
 
-                // Threshold is 0.95. If length ratio is < 0.75, JW score is mathematically < 0.95.
-                const minLen = Math.ceil(L1 * 0.75);
-                const maxLen = Math.floor(L1 / 0.75);
+                // Threshold is 0.96. If length ratio is < 0.80, JW score is mathematically < 0.96.
+                const minLen = Math.ceil(L1 * 0.80);
+                const maxLen = Math.floor(L1 / 0.80);
 
                 for (let len = minLen; len <= maxLen; len++) {
                   const candidates = regToolsByLength.get(len);
@@ -1857,10 +1857,10 @@ export default function RegtoolsDiffPage() {
                     const candidate = candidates[j];
                     
                     // If first character is different, Winkler bonus is 0, so JW = Jaro score.
-                    // For JW >= 0.95, Jaro similarity must be >= 0.95, which requires length ratio >= 0.85.
+                    // For JW >= 0.96, Jaro similarity must be >= 0.96, which requires length ratio >= 0.88.
                     if (portfolioNormName[0] !== candidate.normalizedName[0]) {
                       const ratio = len > L1 ? L1 / len : len / L1;
-                      if (ratio < 0.85) continue;
+                      if (ratio < 0.88) continue;
                     }
 
                     const score = getJaroWinklerSimilarity(portfolioNormName, candidate.normalizedName);
@@ -1872,7 +1872,7 @@ export default function RegtoolsDiffPage() {
                   }
                 }
 
-                if (bestScore > 0.95 && bestMatchItem) {
+                if (bestScore > 0.96 && bestMatchItem) {
                   row.__matchType = `Similitude Nom (${Math.round(bestScore * 100)}%)`;
                   row.__associatedRegToolsId = bestMatchItem.id;
                   row.__associatedRegToolsName = String(bestMatchItem.row[regtoolsNameCol] || "").trim();
