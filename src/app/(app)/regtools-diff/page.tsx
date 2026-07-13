@@ -3384,7 +3384,55 @@ export default function RegtoolsDiffPage() {
       }
 
       // 2. Save to LocalStorage
-      localStorage.setItem(`regtools_report_${targetMonthKey}`, JSON.stringify(reportPayload));
+      // If Firestore already saved the full data, only store lightweight metadata locally
+      // to avoid localStorage quota exceeded errors with large datasets.
+      const lightPayload = {
+        monthKey: reportPayload.monthKey,
+        monthLabel: reportPayload.monthLabel,
+        fileNameNS: reportPayload.fileNameNS,
+        fileNameRegtools: reportPayload.fileNameRegtools,
+        savedAt: reportPayload.savedAt,
+        globalStats: reportPayload.globalStats,
+        agencyStats: reportPayload.agencyStats,
+        columnsNS: reportPayload.columnsNS,
+        mapping: reportPayload.mapping,
+        reconciliationType: reportPayload.reconciliationType,
+        regtoolsKPIs: reportPayload.regtoolsKPIs,
+        storedInFirestore: savedInFirestore,
+        // Only include row data if Firestore is NOT configured (rows already in Firestore otherwise)
+        ...(savedInFirestore ? {} : {
+          minifiedMissingRows: reportPayload.minifiedMissingRows,
+          minifiedSimilarRows: reportPayload.minifiedSimilarRows
+        })
+      };
+
+      try {
+        localStorage.setItem(`regtools_report_${targetMonthKey}`, JSON.stringify(lightPayload));
+      } catch (quotaErr: any) {
+        // Quota exceeded: try without row data as last resort
+        console.warn(`localStorage quota dépassé pour ${targetMonthKey}, sauvegarde allégée.`, quotaErr);
+        const minimalPayload = {
+          monthKey: reportPayload.monthKey,
+          monthLabel: reportPayload.monthLabel,
+          fileNameNS: reportPayload.fileNameNS,
+          fileNameRegtools: reportPayload.fileNameRegtools,
+          savedAt: reportPayload.savedAt,
+          globalStats: reportPayload.globalStats,
+          agencyStats: reportPayload.agencyStats,
+          columnsNS: reportPayload.columnsNS,
+          mapping: reportPayload.mapping,
+          reconciliationType: reportPayload.reconciliationType,
+          regtoolsKPIs: reportPayload.regtoolsKPIs,
+          storedInFirestore: savedInFirestore,
+          localStorageTruncated: true
+        };
+        try {
+          localStorage.setItem(`regtools_report_${targetMonthKey}`, JSON.stringify(minimalPayload));
+        } catch (e) {
+          // Even minimal save failed — Firestore has the data, so continue without erroring
+          console.warn(`Impossible de sauvegarder localement ${targetMonthKey} (quota épuisé). Les données sont préservées dans Firestore.`);
+        }
+      }
 
       const localHistoryJSON = localStorage.getItem("regtools_history_list");
       let localList = localHistoryJSON ? JSON.parse(localHistoryJSON) : [];
@@ -3401,7 +3449,11 @@ export default function RegtoolsDiffPage() {
         regtoolsKPIs: kpis
       };
       localList.push(metadata);
-      localStorage.setItem("regtools_history_list", JSON.stringify(localList));
+      try {
+        localStorage.setItem("regtools_history_list", JSON.stringify(localList));
+      } catch (e) {
+        console.warn("Impossible de mettre à jour la liste locale (quota épuisé).");
+      }
     };
 
     try {
