@@ -2572,12 +2572,14 @@ export function RiskMatrixTab() {
       {/* ── Add Item Modal ────────────────────────────────────────────────── */}
       {addItemModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) setAddItemModalOpen(false); }}
         >
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-6 animate-slide-up">
-            {/* Header */}
-            <div className="flex items-start justify-between mb-5">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col"
+            style={{ maxHeight: '90vh' }}>
+
+            {/* Header — fixe en haut */}
+            <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
               <div>
                 <h2 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
                   {addItemCategory === 'dist' && '➕ Nouveau Canal de Distribution'}
@@ -2585,57 +2587,87 @@ export function RiskMatrixTab() {
                   {addItemCategory === 'moral' && '➕ Nouvelle Activité (Personne Morale)'}
                   {addItemCategory === 'profession' && '➕ Nouvelle Profession (Personne Physique)'}
                 </h2>
-                <p className="text-[10px] text-slate-400 mt-0.5">Les champs marqués d'un * sont obligatoires</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Les champs marqués d&apos;un * sont obligatoires</p>
               </div>
               <button
                 onClick={() => setAddItemModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex-shrink-0 ml-3"
               >
                 ✕
               </button>
             </div>
 
-            {/* Fields */}
-            <div className="space-y-4">
-              {/* Code or Domain field */}
+            {/* Body — scrollable */}
+            <div className="overflow-y-auto px-6 py-4 space-y-4 flex-1">
+
+              {/* Code ou Domaine */}
               {addItemCategory === 'profession' ? (
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Domaine / Secteur *</label>
-                  <Input
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
+                    Domaine / Secteur *
+                  </label>
+                  <select
                     value={newItemData.domain}
                     onChange={e => setNewItemData(d => ({ ...d, domain: e.target.value }))}
-                    placeholder="ex: Finance, Santé, Immobilier..."
-                    className="mt-1 h-8 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
+                    className="w-full h-9 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-400 cursor-pointer"
+                  >
+                    <option value="">-- Sélectionner un domaine --</option>
+                    <option value="ADMINISTRATION PUBLIQUE">Administration Publique</option>
+                    <option value="AGRICULTURE , PECHE ET ENVIRONNEMENT">Agriculture, Pêche et Environnement</option>
+                    <option value="ARCHITECTURE ET CONSTRUCTION">Architecture et Construction</option>
+                    <option value="ARTISANAT ET METIERS D'ARTS">Artisanat et Métiers d&apos;Arts</option>
+                    <option value="ARTS ET CULTURE">Arts et Culture</option>
+                    <option value="CONSEIL ET EXPERTISE">Conseil et Expertise</option>
+                    <option value="COSMETIQUE ET BIEN ETRE">Cosmétique et Bien-être</option>
+                    <option value="DROIT ET JUSTICE">Droit et Justice</option>
+                    <option value="EDITION ET PUBLICATION">Édition et Publication</option>
+                    <option value="ENSEIGNEMENT ET RECHERCHE">Enseignement et Recherche</option>
+                    <option value="FINANCES ET COMMERCE">Finances et Commerce</option>
+                    <option value="HOTELLERIE ET RESTAURATION">Hôtellerie et Restauration</option>
+                    <option value="INDUSTRIE ET PRODUCTION">Industrie et Production</option>
+                    <option value="MEDIAS , INFORMATIONS ET COMMUNICATION">Médias, Informations et Communication</option>
+                    <option value="PRODUCTION, DISTRIBUTION DES EAUX ET D'ENERGIE ( ELECTRICITE,GAZ ET ENERGIES RENOUVELABLES)">Production &amp; Distribution Eaux / Énergie</option>
+                    <option value="Santé et Médical">Santé et Médical</option>
+                    <option value="SERVICES ET ASSISTANCE">Services et Assistance</option>
+                    <option value="SOCIAL ET HUMANITAIRE">Social et Humanitaire</option>
+                    <option value="SPORT ET LOISIRS">Sport et Loisirs</option>
+                    <option value="TECHNOLOGIES ET INFORMATIQUE">Technologies et Informatique</option>
+                    <option value="TRANSPORT ET LOGISTISQUE">Transport et Logistique</option>
+                  </select>
                 </div>
               ) : (
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Code *</label>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">Code *</label>
                   <Input
                     value={newItemData.code}
                     onChange={e => setNewItemData(d => ({ ...d, code: e.target.value }))}
                     placeholder={addItemCategory === 'sale' ? 'ex: 6' : 'ex: C06'}
-                    className="mt-1 h-8 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl"
+                    className="h-9 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl"
                   />
                 </div>
               )}
 
-              {/* Name field */}
+              {/* Nom */}
               <div>
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  {addItemCategory === 'dist' ? 'Nom du Canal *' : addItemCategory === 'sale' ? 'Nom de la Technique *' : addItemCategory === 'moral' ? 'Nom de l\'Activité *' : 'Nom de la Profession *'}
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
+                  {addItemCategory === 'dist' ? 'Nom du Canal *'
+                    : addItemCategory === 'sale' ? 'Nom de la Technique *'
+                    : addItemCategory === 'moral' ? "Nom de l'Activité *"
+                    : 'Nom de la Profession *'}
                 </label>
                 <Input
                   value={newItemData.name}
                   onChange={e => setNewItemData(d => ({ ...d, name: e.target.value }))}
                   placeholder="Saisir le nom..."
-                  className="mt-1 h-8 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl"
+                  className="h-9 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl"
                 />
               </div>
 
-              {/* Facteurs de risque (toggle buttons) */}
+              {/* Facteurs de risque */}
               <div>
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 block">Facteurs de Risque</label>
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">
+                  Facteurs de Risque
+                </label>
                 <div className="grid grid-cols-2 gap-2">
                   {addItemCategory === 'dist' && [
                     { field: 'complex' as const, label: 'Difficulté de Contrôle' },
@@ -2661,7 +2693,7 @@ export function RiskMatrixTab() {
 
                   {addItemCategory === 'sale' && [
                     { field: 'noContact' as const, label: 'Pas de contact direct' },
-                    { field: 'noOriginals' as const, label: 'Pas d\'originaux' },
+                    { field: 'noOriginals' as const, label: "Pas d'originaux" },
                   ].map(({ field, label }) => (
                     <button
                       key={field}
@@ -2684,7 +2716,7 @@ export function RiskMatrixTab() {
                     { field: 'cash' as const, label: 'Argent liquide' },
                     { field: 'objects' as const, label: 'Objets de valeur' },
                     { field: 'volume' as const, label: 'Volume élevé' },
-                    { field: 'noInfo' as const, label: 'Manque d\'information' },
+                    { field: 'noInfo' as const, label: "Manque d'information" },
                     { field: 'complexEval' as const, label: 'Évaluation difficile' },
                     { field: 'intermediary' as const, label: 'Intermédiation' },
                     { field: 'corruption' as const, label: 'Exposition corruption' },
@@ -2708,7 +2740,7 @@ export function RiskMatrixTab() {
                 </div>
               </div>
 
-              {/* Risk preview badge */}
+              {/* Risque calculé */}
               <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Risque calculé :</span>
                 {(() => {
@@ -2723,22 +2755,25 @@ export function RiskMatrixTab() {
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+            {/* Footer — fixe en bas, toujours visible */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex-shrink-0 bg-white dark:bg-slate-900 rounded-b-2xl">
               <button
                 type="button"
                 onClick={() => setAddItemModalOpen(false)}
-                className="text-xs font-bold px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400 cursor-pointer"
+                className="text-xs font-bold px-5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400 cursor-pointer"
               >
                 Annuler
               </button>
               <button
                 type="button"
                 onClick={handleAddSubmit}
-                className="text-xs font-bold px-5 py-2 bg-violet-650 hover:bg-violet-700 text-white rounded-xl shadow-md shadow-violet-200 dark:shadow-none transition-all cursor-pointer flex items-center gap-2"
+                className="text-xs font-bold px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 text-white"
+                style={{ backgroundColor: '#7c3aed' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#6d28d9'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#7c3aed'; }}
               >
                 <Plus className="h-3.5 w-3.5" />
-                Ajouter l'élément
+                Ajouter l&apos;élément
               </button>
             </div>
           </div>
