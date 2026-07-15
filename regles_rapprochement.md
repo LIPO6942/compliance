@@ -12,10 +12,30 @@ Pour associer un client présent dans le fichier NS avec la base de données de 
 * **Suppression des espaces :** Tous les espaces en début ou fin d'identifiant sont éliminés.
 * **Suppression des décimales parasites d'Excel :** Si l'identifiant se termine par `.0` (dû au formatage flottant d'Excel), le suffixe `.0` est supprimé.
 * **Suppression des zéros initiaux :** Les zéros au début de l'identifiant sont ignorés pour aligner les formats (ex: `00012345` devient `12345`).
+* **Suppression des caractères spéciaux :** Tous les caractères non-alphanumériques (ex : tirets `-`, barres obliques `/`, etc.) sont supprimés pour assurer une comparaison de chaînes brute épurée.
 
 ---
 
-## 2. Processus de Classification et de Contrôle Manuel (Échantillonnage)
+## 2. Règle de Correspondance par Nom (Fuzzy Matching Fallback)
+
+Si aucun rapprochement par identifiant n'est trouvé, l'application procède à un rapprochement par nom en deux étapes :
+
+### A. Normalisation Strict des Noms
+Avant comparaison, chaque nom de client subit le traitement suivant :
+1. **Passage en minuscules** et conversion des caractères spéciaux ou accentués (ex: `é` devient `e`).
+2. **Suppression des titres et particules** : Les mots très fréquents comme `ep`, `epouse`, `ben`, `abd`, `de`, `el`, `al`, `bin`, `la`, `le`, `du` sont éliminés pour éviter les faux positifs.
+3. **Tri alphabétique des mots** : Les mots composant le nom sont triés par ordre alphabétique. Cela permet d'identifier deux noms identiques dont l'ordre des prénoms/noms diffère (ex: `BEN BARKA MOUNIRA` et `MOUNIRA BEN BARKA` deviennent identiques après tri).
+
+### B. Comparaison (Matching)
+1. **Étape A (Exacte) :** Si le nom normalisé du fichier NS/VIE correspond exactement à un nom normalisé de RegTools, les dossiers sont associés avec un type de rapprochement *"Similitude Nom (Exact Normalisé)"*.
+2. **Étape B (Fuzzy / Flou) :** Si aucune correspondance exacte n'est trouvée, l'algorithme utilise la mesure de similarité **Jaro-Winkler** :
+   - Un seuil très strict de **0.96** (soit 96% de similarité) est appliqué pour valider le rapprochement.
+   - Les candidats de RegTools sont filtrés par longueur et par première lettre pour optimiser les performances de calcul.
+   - Le dossier associé prend le type de rapprochement *"Similitude Nom (XX%)"* (ex: *Similitude Nom (98%)*).
+
+---
+
+## 3. Processus de Classification et de Contrôle Manuel (Échantillonnage)
 
 La qualification du type d'entité n'est plus automatisée à la volée. L'utilisateur qualifie manuellement un échantillon de dossiers depuis l'historique des rapprochements pour les insérer dans le processus de contrôle :
 

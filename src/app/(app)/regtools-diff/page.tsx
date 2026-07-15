@@ -60,7 +60,10 @@ const normalizeKey = (val: any): string => {
   }
   
   // Remove leading zeros
-  return str.replace(/^0+(?!$)/, '');
+  str = str.replace(/^0+(?!$)/, '');
+
+  // Strip all remaining non-alphanumeric characters
+  return str.replace(/[^A-Z0-9]/g, "");
 };
 
 // Normalization of names
@@ -1762,28 +1765,62 @@ export default function RegtoolsDiffPage() {
           regToolsByLength.get(len)!.push(item);
         }
 
-        // 3. Collect all portfolio rows to process
+        // 3. Collect all portfolio rows to process (with deduplication on identifier per portfolio)
         const rowsToProcess: { row: any; isVie: boolean; idCol: string; agenceCol: string; nameCol: string | null }[] = [];
+        
         if (data.ns && nsId && nsAgence) {
+          const seenNsIds = new Set<string>();
           for (let i = 0; i < data.ns.length; i++) {
-            rowsToProcess.push({
-              row: data.ns[i],
-              isVie: false,
-              idCol: nsId,
-              agenceCol: nsAgence,
-              nameCol: nsNameCol
-            });
+            const row = data.ns[i];
+            const key = normalizeKey(row[nsId]);
+            if (key !== "") {
+              if (!seenNsIds.has(key)) {
+                seenNsIds.add(key);
+                rowsToProcess.push({
+                  row,
+                  isVie: false,
+                  idCol: nsId,
+                  agenceCol: nsAgence,
+                  nameCol: nsNameCol
+                });
+              }
+            } else {
+              rowsToProcess.push({
+                row,
+                isVie: false,
+                idCol: nsId,
+                agenceCol: nsAgence,
+                nameCol: nsNameCol
+              });
+            }
           }
         }
+        
         if (data.vie && vieId && vieAgence) {
+          const seenVieIds = new Set<string>();
           for (let i = 0; i < data.vie.length; i++) {
-            rowsToProcess.push({
-              row: data.vie[i],
-              isVie: true,
-              idCol: vieId,
-              agenceCol: vieAgence,
-              nameCol: vieNameCol
-            });
+            const row = data.vie[i];
+            const key = normalizeKey(row[vieId]);
+            if (key !== "") {
+              if (!seenVieIds.has(key)) {
+                seenVieIds.add(key);
+                rowsToProcess.push({
+                  row,
+                  isVie: true,
+                  idCol: vieId,
+                  agenceCol: vieAgence,
+                  nameCol: vieNameCol
+                });
+              }
+            } else {
+              rowsToProcess.push({
+                row,
+                isVie: true,
+                idCol: vieId,
+                agenceCol: vieAgence,
+                nameCol: vieNameCol
+              });
+            }
           }
         }
 
