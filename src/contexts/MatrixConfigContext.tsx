@@ -108,6 +108,11 @@ interface MatrixConfigContextType {
   overrides: Record<OverrideCategory, Record<string, Record<string, boolean | string>>>;
   professionOverrides: Record<string, Record<string, boolean>>; // alias
   
+  customItems: Record<string, any[]>;
+  deletedItems: Record<string, string[]>;
+  addCustomItem: (category: string, item: any, author: string) => Promise<void>;
+  removeCustomItem: (category: string, itemKey: string, itemName: string, author: string) => Promise<void>;
+
   updateFactor: (
     id: string,
     field: keyof Omit<KycFactor, 'id' | 'facteur'>,
@@ -174,6 +179,18 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
   const [kycFactors, setKycFactors] = useState<KycFactor[]>(() => lsLoad(LS_FACTORS, DEFAULT_KYC_FACTORS));
   const [kycHistory, setKycHistory] = useState<MatrixHistoryEntry[]>(() => lsLoad(LS_HISTORY, []));
   const [overrides, setOverrides] = useState<Record<OverrideCategory, Record<string, Record<string, boolean | string>>>>(() => lsLoad(LS_OVERRIDES, DEFAULT_OVERRIDES));
+  const [customItems, setCustomItems] = useState<Record<string, any[]>>(() => lsLoad('matrixKycCustomItems', {
+    dist: [],
+    sale: [],
+    moral: [],
+    profession: []
+  }));
+  const [deletedItems, setDeletedItems] = useState<Record<string, string[]>>(() => lsLoad('matrixKycDeletedItems', {
+    dist: [],
+    sale: [],
+    moral: [],
+    profession: []
+  }));
   const [loading, setLoading] = useState(true);
 
   // ── Real-time Firestore listener ─────────────────────────────────────────
@@ -226,8 +243,29 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
           };
           setOverrides(loadedOverrides);
           lsSave(LS_OVERRIDES, loadedOverrides);
+
+          const loadedCustom = data.customItems ?? {
+            dist: [],
+            sale: [],
+            moral: [],
+            profession: []
+          };
+          const loadedDeleted = data.deletedItems ?? {
+            dist: [],
+            sale: [],
+            moral: [],
+            profession: []
+          };
+          setCustomItems(loadedCustom);
+          setDeletedItems(loadedDeleted);
+          lsSave('matrixKycCustomItems', loadedCustom);
+          lsSave('matrixKycDeletedItems', loadedDeleted);
         } else {
-          setDoc(overridesRef, DEFAULT_OVERRIDES);
+          setDoc(overridesRef, {
+            ...DEFAULT_OVERRIDES,
+            customItems: { dist: [], sale: [], moral: [], profession: [] },
+            deletedItems: { dist: [], sale: [], moral: [], profession: [] }
+          });
         }
         setLoading(false);
       },
@@ -435,17 +473,160 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
     [overrides, kycHistory]
   );
 
+  // ── Add a custom item ──────────────────────────────────────────────────────
+  const addCustomItem = useCallback(
+    async (category: string, item: any, author: string) => {
+      const updatedCustom = { ...customItems };
+      if (!updatedCustom[category]) {
+        updatedCustom[category] = [];
+      }
+      updatedCustom[category] = [...updatedCustom[category], item];
+
+      const catLabel: Record<string, string> = {
+        profession: 'Prof. PP',
+        moral: 'Activité PM',
+        dist: 'Canal',
+        sale: 'Technique'
+      };
+
+      const entry: MatrixHistoryEntry = {
+        id: String(Date.now()),
+        date: new Date().toISOString(),
+        user: author,
+        field: `${catLabel[category] || category} [Ajout]`,
+        oldValue: 'Inexistant',
+        newValue: item.name,
+      };
+
+      const updatedHistory = [entry, ...kycHistory].slice(0, 200);
+
+      setCustomItems(updatedCustom);
+      setKycHistory(updatedHistory);
+      lsSave('matrixKycCustomItems', updatedCustom);
+      lsSave(LS_HISTORY, updatedHistory);
+
+      if (isFirebaseConfigured && db) {
+        try {
+          const overridesRef = doc(db, MATRIX_OVERRIDES_DOC);
+          await setDoc(overridesRef, { customItems: updatedCustom }, { merge: true });
+
+          const ref = doc(db, MATRIX_DOC);
+          await setDoc(ref, { history: updatedHistory }, { merge: true });
+
+          try {
+            await addDoc(collection(db, "riskFactorLogs"), {
+              date: new Date().toISOString(),
+              user: author,
+              factors: [catLabel[category] || category],
+              note: `Ajout de l'élément « ${item.name} » dans la catégorie ${catLabel[category] || category}`,
+            });
+          } catch (logErr) {
+            console.error('[MatrixConfig] Failed to write live log:', logErr);
+          }
+        } catch (e) {
+          console.error('[MatrixConfig] addCustomItem Write error:', e);
+        }
+      }
+    },
+    [customItems, kycHistory]
+  );
+
+  // ── Remove a custom or default item ────────────────────────────────────────
+  const removeCustomItem = useCallback(
+    async (category: string, itemKey: string, itemName: string, author: string) => {
+      const updatedCustom = { ...customItems };
+      const wasCustom = updatedCustom[category]?.some(item => String(item.code || item.name) === itemKey);
+      
+      if (wasCustom) {
+        updatedCustom[category] = updatedCustom[category].filter(item => String(item.code || item.name) !== itemKey);
+      }
+
+      const updatedDeleted = { ...deletedItems };
+      if (!updatedDeleted[category]) {
+        updatedDeleted[category] = [];
+      }
+      if (!updatedDeleted[category].includes(itemKey)) {
+        updatedDeleted[category] = [...updatedDeleted[category], itemKey];
+      }
+
+      const catLabel: Record<string, string> = {
+        profession: 'Prof. PP',
+        moral: 'Activité PM',
+        dist: 'Canal',
+        sale: 'Technique'
+      };
+
+      const entry: MatrixHistoryEntry = {
+        id: String(Date.now()),
+        date: new Date().toISOString(),
+        user: author,
+        field: `${catLabel[category] || category} [Suppression]`,
+        oldValue: itemName,
+        newValue: 'Supprimé',
+      };
+
+      const updatedHistory = [entry, ...kycHistory].slice(0, 200);
+
+      setCustomItems(updatedCustom);
+      setDeletedItems(updatedDeleted);
+      setKycHistory(updatedHistory);
+      
+      lsSave('matrixKycCustomItems', updatedCustom);
+      lsSave('matrixKycDeletedItems', updatedDeleted);
+      lsSave(LS_HISTORY, updatedHistory);
+
+      if (isFirebaseConfigured && db) {
+        try {
+          const overridesRef = doc(db, MATRIX_OVERRIDES_DOC);
+          await setDoc(overridesRef, { 
+            customItems: updatedCustom,
+            deletedItems: updatedDeleted
+          }, { merge: true });
+
+          const ref = doc(db, MATRIX_DOC);
+          await setDoc(ref, { history: updatedHistory }, { merge: true });
+
+          try {
+            await addDoc(collection(db, "riskFactorLogs"), {
+              date: new Date().toISOString(),
+              user: author,
+              factors: [catLabel[category] || category],
+              note: `Suppression de l'élément « ${itemName} » dans la catégorie ${catLabel[category] || category}`,
+            });
+          } catch (logErr) {
+            console.error('[MatrixConfig] Failed to write live log:', logErr);
+          }
+        } catch (e) {
+          console.error('[MatrixConfig] removeCustomItem Write error:', e);
+        }
+      }
+    },
+    [customItems, deletedItems, kycHistory]
+  );
+
   // ── Generic reset overrides ────────────────────────────────────────────────
   const resetOverrides = useCallback(
     async (category: OverrideCategory | 'all', author: string) => {
       const updatedOverrides = { ...overrides };
+      const updatedCustom = { ...customItems };
+      const updatedDeleted = { ...deletedItems };
       
       if (category === 'all') {
         Object.keys(DEFAULT_OVERRIDES).forEach((cat) => {
           updatedOverrides[cat as OverrideCategory] = {};
         });
+        updatedCustom.dist = [];
+        updatedCustom.sale = [];
+        updatedCustom.moral = [];
+        updatedCustom.profession = [];
+        updatedDeleted.dist = [];
+        updatedDeleted.sale = [];
+        updatedDeleted.moral = [];
+        updatedDeleted.profession = [];
       } else {
         updatedOverrides[category] = {};
+        if (category in updatedCustom) updatedCustom[category] = [];
+        if (category in updatedDeleted) updatedDeleted[category] = [];
       }
 
       const entry: MatrixHistoryEntry = {
@@ -460,17 +641,30 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
       const updatedHistory = [entry, ...kycHistory].slice(0, 200);
 
       setOverrides(updatedOverrides);
+      setCustomItems(updatedCustom);
+      setDeletedItems(updatedDeleted);
       setKycHistory(updatedHistory);
+      
       lsSave(LS_OVERRIDES, updatedOverrides);
+      lsSave('matrixKycCustomItems', updatedCustom);
+      lsSave('matrixKycDeletedItems', updatedDeleted);
       lsSave(LS_HISTORY, updatedHistory);
 
       if (isFirebaseConfigured && db) {
         try {
           const overridesRef = doc(db, MATRIX_OVERRIDES_DOC);
           if (category === 'all') {
-            await setDoc(overridesRef, DEFAULT_OVERRIDES);
+            await setDoc(overridesRef, {
+              ...DEFAULT_OVERRIDES,
+              customItems: { dist: [], sale: [], moral: [], profession: [] },
+              deletedItems: { dist: [], sale: [], moral: [], profession: [] }
+            });
           } else {
-            await setDoc(overridesRef, { [category]: {} }, { merge: true });
+            await setDoc(overridesRef, { 
+              [category]: {},
+              customItems: updatedCustom,
+              deletedItems: updatedDeleted
+            }, { merge: true });
           }
 
           const ref = doc(db, MATRIX_DOC);
@@ -504,7 +698,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     },
-    [overrides, kycHistory]
+    [overrides, customItems, deletedItems, kycHistory]
   );
 
   // ── Backward compatibility aliases ─────────────────────────────────────────
@@ -529,6 +723,10 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
       loading,
       overrides,
       professionOverrides: overrides.profession,
+      customItems,
+      deletedItems,
+      addCustomItem,
+      removeCustomItem,
       updateFactor,
       resetFactors,
       updateOverride,

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Search, Globe, MapPin, Package, Layers, Grid, Users, Landmark,
-  Download, FileText, History, CheckCircle2, Clock, Save
+  Download, FileText, History, CheckCircle2, Clock, Save, Plus, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -422,6 +422,10 @@ export function RiskMatrixTab() {
     kycFactors,
     kycHistory,
     overrides,
+    customItems,
+    deletedItems,
+    addCustomItem,
+    removeCustomItem,
     loading: matrixLoading,
     updateFactor: ctxUpdateFactor,
     resetFactors: ctxResetFactors,
@@ -430,6 +434,134 @@ export function RiskMatrixTab() {
   } = useMatrixConfig();
 
   const [subTab, setSubTab] = React.useState<"params" | "countries" | "govs" | "products" | "dist" | "moral" | "physical">("params");
+  
+  // State for Add Item Modal
+  const [addItemModalOpen, setAddItemModalOpen] = React.useState(false);
+  const [addItemCategory, setAddItemCategory] = React.useState<'dist' | 'sale' | 'moral' | 'profession' | null>(null);
+  const [newItemData, setNewItemData] = React.useState({
+    code: "",
+    name: "",
+    domain: "", // only for profession
+    complex: false,
+    nonCompliance: false,
+    noCulture: false,
+    cash: false,
+    objects: false,
+    volume: false,
+    noInfo: false,
+    complexEval: false,
+    intermediary: false,
+    corruption: false,
+    noContact: false,
+    noOriginals: false
+  });
+
+  const handleOpenAddModal = (category: 'dist' | 'sale' | 'moral' | 'profession') => {
+    setAddItemCategory(category);
+    setNewItemData({
+      code: "",
+      name: "",
+      domain: "",
+      complex: false,
+      nonCompliance: false,
+      noCulture: false,
+      cash: false,
+      objects: false,
+      volume: false,
+      noInfo: false,
+      complexEval: false,
+      intermediary: false,
+      corruption: false,
+      noContact: false,
+      noOriginals: false
+    });
+    setAddItemModalOpen(true);
+  };
+
+  const handleAddSubmit = async () => {
+    if (!addItemCategory) return;
+    if (!newItemData.name.trim()) {
+      toast({ title: "Erreur", description: "Veuillez saisir un nom.", variant: "destructive" });
+      return;
+    }
+    if ((addItemCategory === 'dist' || addItemCategory === 'sale' || addItemCategory === 'moral') && !newItemData.code.trim()) {
+      toast({ title: "Erreur", description: "Veuillez saisir un code.", variant: "destructive" });
+      return;
+    }
+    if (addItemCategory === 'profession' && !newItemData.domain.trim()) {
+      toast({ title: "Erreur", description: "Veuillez saisir un domaine / secteur.", variant: "destructive" });
+      return;
+    }
+
+    let payload: any = {};
+    if (addItemCategory === 'dist') {
+      payload = {
+        code: newItemData.code.trim(),
+        name: newItemData.name.trim(),
+        complex: newItemData.complex,
+        nonCompliance: newItemData.nonCompliance,
+        noCulture: newItemData.noCulture,
+        risk: 'RF',
+        comment: ''
+      };
+    } else if (addItemCategory === 'sale') {
+      payload = {
+        code: parseInt(newItemData.code.trim()) || String(newItemData.code.trim()),
+        name: newItemData.name.trim(),
+        noContact: newItemData.noContact,
+        noOriginals: newItemData.noOriginals,
+        risk: 'RF',
+        comment: ''
+      };
+    } else if (addItemCategory === 'moral') {
+      payload = {
+        code: newItemData.code.trim(),
+        name: newItemData.name.trim(),
+        cash: newItemData.cash,
+        objects: newItemData.objects,
+        volume: newItemData.volume,
+        noInfo: newItemData.noInfo,
+        complexEval: newItemData.complexEval,
+        intermediary: newItemData.intermediary,
+        corruption: newItemData.corruption,
+        risk: 'RF',
+        comment: ''
+      };
+    } else if (addItemCategory === 'profession') {
+      payload = {
+        domain: newItemData.domain.trim(),
+        name: newItemData.name.trim(),
+        cash: newItemData.cash,
+        objects: newItemData.objects,
+        volume: newItemData.volume,
+        noInfo: newItemData.noInfo,
+        complexEval: newItemData.complexEval,
+        intermediary: newItemData.intermediary,
+        corruption: newItemData.corruption,
+        risk: 'RF'
+      };
+    }
+
+    try {
+      await addCustomItem(addItemCategory, payload, authorName);
+      toast({ title: "Succès", description: "Élément ajouté avec succès." });
+      setAddItemModalOpen(false);
+    } catch (e: any) {
+      toast({ title: "Erreur", description: "Erreur lors de l'ajout : " + e.message, variant: "destructive" });
+    }
+  };
+
+  const handleRemoveRequest = async (category: 'dist' | 'sale' | 'moral' | 'profession', key: string, label: string) => {
+    if (confirm(`Voulez-vous vraiment retirer l'élément « ${label} » ?`)) {
+      try {
+        await removeCustomItem(category, key, label, authorName);
+        toast({ title: "Succès", description: "Élément retiré avec succès." });
+      } catch (e: any) {
+        toast({ title: "Erreur", description: "Erreur lors du retrait : " + e.message, variant: "destructive" });
+      }
+    }
+  };
+
   const [searchQuery, setSearchQuery] = React.useState("");
   const [riskFilter, setRiskFilter] = React.useState<"all" | "RE" | "RM" | "RF">("all");
   const [selectedDomain, setSelectedDomain] = React.useState<string>("all");
@@ -623,7 +755,11 @@ export function RiskMatrixTab() {
   }, [overrides.product]);
 
   const resolvedDist = React.useMemo(() => {
-    return DISTRIBUTION_DATA.map((d) => {
+    const list = customItems?.dist ? [...customItems.dist] : [];
+    const base = DISTRIBUTION_DATA.filter(d => !deletedItems?.dist?.includes(d.code));
+    const all = [...base, ...list];
+    
+    return all.map((d) => {
       const override = overrides.dist[d.code] || {};
       const merged = {
         ...d,
@@ -641,10 +777,14 @@ export function RiskMatrixTab() {
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
-  }, [overrides.dist]);
+  }, [overrides.dist, customItems?.dist, deletedItems?.dist]);
 
   const resolvedSales = React.useMemo(() => {
-    return SALES_TECHNIQUES_DATA.map((s) => {
+    const list = customItems?.sale ? [...customItems.sale] : [];
+    const base = SALES_TECHNIQUES_DATA.filter(s => !deletedItems?.sale?.includes(String(s.code)));
+    const all = [...base, ...list];
+    
+    return all.map((s) => {
       const override = overrides.sale[String(s.code)] || {};
       const merged = {
         ...s,
@@ -660,10 +800,14 @@ export function RiskMatrixTab() {
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
-  }, [overrides.sale]);
+  }, [overrides.sale, customItems?.sale, deletedItems?.sale]);
 
   const resolvedMoralActivities = React.useMemo(() => {
-    return MORAL_ACTIVITIES_DATA.map((a) => {
+    const list = customItems?.moral ? [...customItems.moral] : [];
+    const base = MORAL_ACTIVITIES_DATA.filter(a => !deletedItems?.moral?.includes(a.code));
+    const all = [...base, ...list];
+    
+    return all.map((a) => {
       const override = overrides.moral[a.code] || {};
       const merged = {
         ...a,
@@ -690,10 +834,14 @@ export function RiskMatrixTab() {
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
-  }, [overrides.moral]);
+  }, [overrides.moral, customItems?.moral, deletedItems?.moral]);
 
   const resolvedPhysicalProfessions = React.useMemo(() => {
-    return PHYS_PROFESSIONS_DATA.map((p) => {
+    const list = customItems?.profession ? [...customItems.profession] : [];
+    const base = PHYS_PROFESSIONS_DATA.filter(p => !deletedItems?.profession?.includes(p.name));
+    const all = [...base, ...list];
+    
+    return all.map((p) => {
       const override = overrides.profession[p.name] || {};
       const merged = {
         ...p,
@@ -719,7 +867,7 @@ export function RiskMatrixTab() {
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
-  }, [overrides.profession]);
+  }, [overrides.profession, customItems?.profession, deletedItems?.profession]);
 
   // ── Filtered Memos ──
 
@@ -1984,17 +2132,27 @@ export function RiskMatrixTab() {
           <Card className="border-none bg-white dark:bg-slate-900/60 shadow-md rounded-2xl overflow-hidden">
             <CardHeader className="pb-4 px-6 pt-5 bg-slate-50/50 dark:bg-slate-900/20 border-b flex flex-row justify-between items-center flex-wrap gap-4">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Canaux de Distribution</CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={async () => {
-                  await resetOverrides('dist', authorName);
-                  toast({ title: "Canaux réinitialisés", description: "Les canaux de distribution ont retrouvé leurs valeurs d'origine." });
-                }}
-                className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg animate-fade-in"
-              >
-                Réinitialiser
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOpenAddModal('dist')}
+                  className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200 h-7 px-3 rounded-lg flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" /> Ajouter
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    await resetOverrides('dist', authorName);
+                    toast({ title: "Canaux réinitialisés", description: "Les canaux de distribution ont retrouvé leurs valeurs d'origine." });
+                  }}
+                  className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg animate-fade-in"
+                >
+                  Réinitialiser
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <Table>
@@ -2006,6 +2164,7 @@ export function RiskMatrixTab() {
                     <TableHead className="font-bold text-center">Non-soumission</TableHead>
                     <TableHead className="font-bold text-center">Pas de culture LBC</TableHead>
                     <TableHead className="font-bold text-center w-[90px]">Risque</TableHead>
+                    <TableHead className="font-bold text-center w-[60px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="text-xs">
@@ -2036,11 +2195,21 @@ export function RiskMatrixTab() {
                         );
                       })}
                       <TableCell className="text-center">{renderBadge(d.risk)}</TableCell>
+                      <TableCell className="text-center p-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-rose-500 hover:text-rose-750 hover:bg-rose-50 rounded-full cursor-pointer"
+                          onClick={() => handleRemoveRequest('dist', d.code, d.name)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {filteredDist.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-10 text-slate-400 italic font-semibold">Aucun canal trouvé</TableCell>
+                      <TableCell colSpan={7} className="text-center py-10 text-slate-400 italic font-semibold">Aucun canal trouvé</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -2052,17 +2221,27 @@ export function RiskMatrixTab() {
           <Card className="border-none bg-white dark:bg-slate-900/60 shadow-md rounded-2xl overflow-hidden">
             <CardHeader className="pb-4 px-6 pt-5 bg-slate-50/50 dark:bg-slate-900/20 border-b flex flex-row justify-between items-center flex-wrap gap-4">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Technique de Vente</CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={async () => {
-                  await resetOverrides('sale', authorName);
-                  toast({ title: "Techniques réinitialisées", description: "Les techniques de vente ont retrouvé leurs valeurs d'origine." });
-                }}
-                className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg"
-              >
-                Réinitialiser
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOpenAddModal('sale')}
+                  className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200 h-7 px-3 rounded-lg flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" /> Ajouter
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    await resetOverrides('sale', authorName);
+                    toast({ title: "Techniques réinitialisées", description: "Les techniques de vente ont retrouvé leurs valeurs d'origine." });
+                  }}
+                  className="text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 px-3 rounded-lg"
+                >
+                  Réinitialiser
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <Table>
@@ -2073,6 +2252,7 @@ export function RiskMatrixTab() {
                     <TableHead className="font-bold text-center">Pas de contact direct</TableHead>
                     <TableHead className="font-bold text-center">Pas d&apos;originaux</TableHead>
                     <TableHead className="font-bold text-center w-[90px]">Risque</TableHead>
+                    <TableHead className="font-bold text-center w-[60px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="text-xs">
@@ -2102,11 +2282,21 @@ export function RiskMatrixTab() {
                         );
                       })}
                       <TableCell className="text-center">{renderBadge(s.risk)}</TableCell>
+                      <TableCell className="text-center p-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-rose-500 hover:text-rose-750 hover:bg-rose-50 rounded-full cursor-pointer"
+                          onClick={() => handleRemoveRequest('sale', String(s.code), s.name)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {filteredSales.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-10 text-slate-400 italic font-semibold">Aucune technique trouvée</TableCell>
+                      <TableCell colSpan={6} className="text-center py-10 text-slate-400 italic font-semibold">Aucune technique trouvée</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -2125,6 +2315,14 @@ export function RiskMatrixTab() {
               <p className="text-[10px] text-slate-400 mt-0.5">Cliquez sur un facteur pour l&apos;activer/désactiver — calcul automatique du risque et synchronisation collaborative</p>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleOpenAddModal('moral')}
+                className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200 h-7 px-3 rounded-lg flex items-center gap-1"
+              >
+                <Plus className="h-3 w-3" /> Ajouter
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -2145,7 +2343,7 @@ export function RiskMatrixTab() {
                 <TableHeader className="sticky top-0 bg-white dark:bg-slate-900 z-10">
                   <TableRow className="bg-slate-50/30 dark:bg-slate-900/10 text-xs">
                     <TableHead className="font-bold w-[12%]">Code</TableHead>
-                    <TableHead className="font-bold w-[33%]">Activité</TableHead>
+                    <TableHead className="font-bold w-[28%]">Activité</TableHead>
                     {[
                       { header: "Liquide", label: "Manipulation intensive d'argent liquide", field: "cash" },
                       { header: "Objets", label: "Manipulation d'objets de grandes valeurs", field: "objects" },
@@ -2168,6 +2366,7 @@ export function RiskMatrixTab() {
                     ))}
                     <TableHead className="font-bold w-[15%]">Remarque</TableHead>
                     <TableHead className="font-bold text-center w-[10%]">Risque</TableHead>
+                    <TableHead className="font-bold text-center w-[60px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="text-xs">
@@ -2201,38 +2400,48 @@ export function RiskMatrixTab() {
                           </TableCell>
                         );
                       })}
-                    <TableCell className="p-2 w-[15%]">
-                      {editingCell?.category === 'moral' && editingCell?.itemId === a.code ? (
-                        <Input
-                          value={editingText}
-                          onChange={e => setEditingText(e.target.value)}
-                          onBlur={() => handleSaveComment('moral', a.code, 'comment', a.comment || '')}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') handleSaveComment('moral', a.code, 'comment', a.comment || '');
-                            if (e.key === 'Escape') setEditingCell(null);
-                          }}
-                          autoFocus
-                          className="h-7 text-xs bg-white dark:bg-slate-950 font-bold"
-                        />
-                      ) : (
-                        <div
-                          onClick={() => {
-                            setEditingCell({ category: 'moral', itemId: a.code, field: 'comment' });
-                            setEditingText(a.comment || '');
-                          }}
-                          className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded min-h-[28px] italic text-slate-500 truncate font-semibold"
-                          title={a.comment || "Cliquez pour ajouter une remarque"}
-                        >
-                          {a.comment || <span className="text-slate-300 dark:text-slate-600 font-normal">Ajouter...</span>}
-                        </div>
-                      )}
-                    </TableCell>
+                      <TableCell className="p-2 w-[15%]">
+                        {editingCell?.category === 'moral' && editingCell?.itemId === a.code ? (
+                          <Input
+                            value={editingText}
+                            onChange={e => setEditingText(e.target.value)}
+                            onBlur={() => handleSaveComment('moral', a.code, 'comment', a.comment || '')}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleSaveComment('moral', a.code, 'comment', a.comment || '');
+                              if (e.key === 'Escape') setEditingCell(null);
+                            }}
+                            autoFocus
+                            className="h-7 text-xs bg-white dark:bg-slate-950 font-bold"
+                          />
+                        ) : (
+                          <div
+                            onClick={() => {
+                              setEditingCell({ category: 'moral', itemId: a.code, field: 'comment' });
+                              setEditingText(a.comment || '');
+                            }}
+                            className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded min-h-[28px] italic text-slate-500 truncate font-semibold"
+                            title={a.comment || "Cliquez pour ajouter une remarque"}
+                          >
+                            {a.comment || <span className="text-slate-300 dark:text-slate-600 font-normal">Ajouter...</span>}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="text-center">{renderBadge(a.risk)}</TableCell>
+                      <TableCell className="text-center p-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-rose-500 hover:text-rose-750 hover:bg-rose-50 rounded-full cursor-pointer"
+                          onClick={() => handleRemoveRequest('moral', a.code, a.name)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {filteredMoralActivities.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-10 text-slate-400 italic font-semibold">Aucune activité trouvée</TableCell>
+                      <TableCell colSpan={12} className="text-center py-10 text-slate-400 italic font-semibold">Aucune activité trouvée</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -2251,6 +2460,14 @@ export function RiskMatrixTab() {
               <p className="text-[10px] text-slate-400 mt-0.5">Cliquez sur un facteur pour l&apos;activer/désactiver — calcul automatique du risque et synchronisation collaborative</p>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleOpenAddModal('profession')}
+                className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200 h-7 px-3 rounded-lg flex items-center gap-1"
+              >
+                <Plus className="h-3 w-3" /> Ajouter
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -2271,7 +2488,7 @@ export function RiskMatrixTab() {
                 <TableHeader className="sticky top-0 bg-white dark:bg-slate-900 z-10">
                   <TableRow className="bg-slate-50/30 dark:bg-slate-900/10 text-xs">
                     <TableHead className="font-bold w-[20%]">Domaine / Secteur</TableHead>
-                    <TableHead className="font-bold w-[25%]">Profession</TableHead>
+                    <TableHead className="font-bold w-[20%]">Profession</TableHead>
                     {[
                       { header: "Liquide", label: "Manipulation intensive d'argent liquide", field: "cash" },
                       { header: "Objets", label: "Manipulation d'objets de grandes valeurs", field: "objects" },
@@ -2293,6 +2510,7 @@ export function RiskMatrixTab() {
                       </TableHead>
                     ))}
                     <TableHead className="font-bold text-center w-[10%]">Risque</TableHead>
+                    <TableHead className="font-bold text-center w-[60px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="text-xs">
@@ -2327,11 +2545,21 @@ export function RiskMatrixTab() {
                         );
                       })}
                       <TableCell className="text-center">{renderBadge(p.risk)}</TableCell>
+                      <TableCell className="text-center p-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-rose-500 hover:text-rose-750 hover:bg-rose-50 rounded-full cursor-pointer"
+                          onClick={() => handleRemoveRequest('profession', p.name, p.name)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {filteredPhysicalProfessions.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-10 text-slate-400 italic font-semibold">Aucune profession trouvée</TableCell>
+                      <TableCell colSpan={11} className="text-center py-10 text-slate-400 italic font-semibold">Aucune profession trouvée</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -2339,6 +2567,182 @@ export function RiskMatrixTab() {
             </TooltipProvider>
           </CardContent>
         </Card>
+      )}
+
+      {/* ── Add Item Modal ────────────────────────────────────────────────── */}
+      {addItemModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+          onClick={(e) => { if (e.target === e.currentTarget) setAddItemModalOpen(false); }}
+        >
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-6 animate-slide-up">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                  {addItemCategory === 'dist' && '➕ Nouveau Canal de Distribution'}
+                  {addItemCategory === 'sale' && '➕ Nouvelle Technique de Vente'}
+                  {addItemCategory === 'moral' && '➕ Nouvelle Activité (Personne Morale)'}
+                  {addItemCategory === 'profession' && '➕ Nouvelle Profession (Personne Physique)'}
+                </h2>
+                <p className="text-[10px] text-slate-400 mt-0.5">Les champs marqués d'un * sont obligatoires</p>
+              </div>
+              <button
+                onClick={() => setAddItemModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Fields */}
+            <div className="space-y-4">
+              {/* Code or Domain field */}
+              {addItemCategory === 'profession' ? (
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Domaine / Secteur *</label>
+                  <Input
+                    value={newItemData.domain}
+                    onChange={e => setNewItemData(d => ({ ...d, domain: e.target.value }))}
+                    placeholder="ex: Finance, Santé, Immobilier..."
+                    className="mt-1 h-8 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Code *</label>
+                  <Input
+                    value={newItemData.code}
+                    onChange={e => setNewItemData(d => ({ ...d, code: e.target.value }))}
+                    placeholder={addItemCategory === 'sale' ? 'ex: 6' : 'ex: C06'}
+                    className="mt-1 h-8 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+              )}
+
+              {/* Name field */}
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {addItemCategory === 'dist' ? 'Nom du Canal *' : addItemCategory === 'sale' ? 'Nom de la Technique *' : addItemCategory === 'moral' ? 'Nom de l\'Activité *' : 'Nom de la Profession *'}
+                </label>
+                <Input
+                  value={newItemData.name}
+                  onChange={e => setNewItemData(d => ({ ...d, name: e.target.value }))}
+                  placeholder="Saisir le nom..."
+                  className="mt-1 h-8 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              {/* Facteurs de risque (toggle buttons) */}
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 block">Facteurs de Risque</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {addItemCategory === 'dist' && [
+                    { field: 'complex' as const, label: 'Difficulté de Contrôle' },
+                    { field: 'nonCompliance' as const, label: 'Non-soumission LBC' },
+                    { field: 'noCulture' as const, label: 'Pas de culture LBC' },
+                  ].map(({ field, label }) => (
+                    <button
+                      key={field}
+                      type="button"
+                      onClick={() => setNewItemData(d => ({ ...d, [field]: !d[field] }))}
+                      className={`text-[10px] font-bold py-2 px-3 rounded-xl border transition-all text-left flex items-center gap-2 ${
+                        newItemData[field]
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
+                          : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+                      }`}
+                    >
+                      <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center text-[8px] font-black border ${newItemData[field] ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
+                        {newItemData[field] ? '✓' : ''}
+                      </span>
+                      {label}
+                    </button>
+                  ))}
+
+                  {addItemCategory === 'sale' && [
+                    { field: 'noContact' as const, label: 'Pas de contact direct' },
+                    { field: 'noOriginals' as const, label: 'Pas d\'originaux' },
+                  ].map(({ field, label }) => (
+                    <button
+                      key={field}
+                      type="button"
+                      onClick={() => setNewItemData(d => ({ ...d, [field]: !d[field] }))}
+                      className={`text-[10px] font-bold py-2 px-3 rounded-xl border transition-all text-left flex items-center gap-2 ${
+                        newItemData[field]
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
+                          : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+                      }`}
+                    >
+                      <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center text-[8px] font-black border ${newItemData[field] ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
+                        {newItemData[field] ? '✓' : ''}
+                      </span>
+                      {label}
+                    </button>
+                  ))}
+
+                  {(addItemCategory === 'moral' || addItemCategory === 'profession') && [
+                    { field: 'cash' as const, label: 'Argent liquide' },
+                    { field: 'objects' as const, label: 'Objets de valeur' },
+                    { field: 'volume' as const, label: 'Volume élevé' },
+                    { field: 'noInfo' as const, label: 'Manque d\'information' },
+                    { field: 'complexEval' as const, label: 'Évaluation difficile' },
+                    { field: 'intermediary' as const, label: 'Intermédiation' },
+                    { field: 'corruption' as const, label: 'Exposition corruption' },
+                  ].map(({ field, label }) => (
+                    <button
+                      key={field}
+                      type="button"
+                      onClick={() => setNewItemData(d => ({ ...d, [field]: !d[field] }))}
+                      className={`text-[10px] font-bold py-2 px-3 rounded-xl border transition-all text-left flex items-center gap-2 ${
+                        newItemData[field]
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
+                          : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+                      }`}
+                    >
+                      <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center text-[8px] font-black border ${newItemData[field] ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
+                        {newItemData[field] ? '✓' : ''}
+                      </span>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Risk preview badge */}
+              <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Risque calculé :</span>
+                {(() => {
+                  let count = 0;
+                  if (addItemCategory === 'dist') count = [newItemData.complex, newItemData.nonCompliance, newItemData.noCulture].filter(Boolean).length;
+                  else if (addItemCategory === 'sale') count = [newItemData.noContact, newItemData.noOriginals].filter(Boolean).length;
+                  else count = [newItemData.cash, newItemData.objects, newItemData.volume, newItemData.noInfo, newItemData.complexEval, newItemData.intermediary, newItemData.corruption].filter(Boolean).length;
+                  const risk = count >= 2 ? 'RE' : count === 1 ? 'RM' : 'RF';
+                  return renderBadge(risk);
+                })()}
+                <span className="text-[9px] text-slate-400 ml-auto italic">Calculé automatiquement</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setAddItemModalOpen(false)}
+                className="text-xs font-bold px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400 cursor-pointer"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleAddSubmit}
+                className="text-xs font-bold px-5 py-2 bg-violet-650 hover:bg-violet-700 text-white rounded-xl shadow-md shadow-violet-200 dark:shadow-none transition-all cursor-pointer flex items-center gap-2"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Ajouter l'élément
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Confirmation Dialog */}
