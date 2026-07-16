@@ -689,17 +689,22 @@ export function RiskMatrixTab() {
         corruption: override.corruption !== undefined ? override.corruption as boolean : c.corruption,
         oecd: override.oecd !== undefined ? override.oecd as boolean : c.oecd,
         terrorism: override.terrorism !== undefined ? override.terrorism as boolean : c.terrorism,
+        otherDominant: override.otherDominant !== undefined ? override.otherDominant as boolean : false,
         other: override.other !== undefined ? String(override.other) : c.other,
       };
       
-      const count = [
-        merged.gafi,
+      const otherCount = [
         merged.corruption,
         merged.oecd,
-        merged.terrorism
+        merged.terrorism,
+        merged.otherDominant
       ].filter(Boolean).length;
       
-      merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
+      if (merged.gafi) {
+        merged.risk = "RE";
+      } else {
+        merged.risk = otherCount >= 2 ? "RE" : otherCount === 1 ? "RM" : "RF";
+      }
       return merged;
     });
   }, [overrides.country]);
@@ -1166,7 +1171,7 @@ export function RiskMatrixTab() {
       { header: "Corruption (CPI < 30)", key: "corruption", width: 22 },
       { header: "Paradis Fiscal", key: "oecd", width: 15 },
       { header: "Terrorisme (GTI > 6)", key: "terrorism", width: 20 },
-      { header: "Remarques / Autres", key: "other", width: 35 },
+      { header: "Autre facteur dominant (Remarque)", key: "other", width: 45 },
       { header: "Risque", key: "risk", width: 12 }
     ];
     resolvedCountries.forEach((c) => {
@@ -1178,7 +1183,7 @@ export function RiskMatrixTab() {
         corruption: c.corruption ? "Oui" : "—",
         oecd: c.oecd ? "Oui" : "—",
         terrorism: c.terrorism ? "Oui" : "—",
-        other: c.other || "—",
+        other: c.otherDominant ? "Oui" + (c.other ? " - " + c.other : "") : "—",
         risk: c.risk
       });
     });
@@ -1829,7 +1834,7 @@ export function RiskMatrixTab() {
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto max-h-[500px]">
             <Table>
-              <TableHeader className="sticky top-0 bg-white dark:bg-slate-900 z-10">
+              <TableHeader>
                 <TableRow className="bg-slate-50/30 dark:bg-slate-900/10 text-xs">
                   <TableHead className="font-bold text-center w-[80px]">ISO Num</TableHead>
                   <TableHead className="font-bold text-center w-[100px]">ISO Alpha 3</TableHead>
@@ -1838,7 +1843,7 @@ export function RiskMatrixTab() {
                   <TableHead className="font-bold text-center w-[130px]">Corruption CPI</TableHead>
                   <TableHead className="font-bold text-center w-[130px]">Paradis fiscal</TableHead>
                   <TableHead className="font-bold text-center w-[130px]">Terrorisme GTI</TableHead>
-                  <TableHead className="font-bold">Remarques</TableHead>
+                  <TableHead className="font-bold text-center w-[200px]">Autre facteur dominant</TableHead>
                   <TableHead className="font-bold text-center w-[100px]">Risque</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1871,31 +1876,64 @@ export function RiskMatrixTab() {
                         </TableCell>
                       );
                     })}
-                    <TableCell className="p-2 max-w-[200px]">
-                      {editingCell?.category === 'country' && editingCell?.itemId === c.name ? (
-                        <Input
-                          value={editingText}
-                          onChange={e => setEditingText(e.target.value)}
-                          onBlur={() => handleSaveComment('country', c.name, 'other', c.other || '')}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') handleSaveComment('country', c.name, 'other', c.other || '');
-                            if (e.key === 'Escape') setEditingCell(null);
+                    <TableCell className="p-1.5 text-center">
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <button
+                          onClick={async () => {
+                            const val = c.otherDominant;
+                            if (!val) {
+                              const comment = prompt("Veuillez saisir une remarque pour cet autre facteur dominant :");
+                              if (comment !== null) {
+                                await updateOverride('country', c.name, 'otherDominant', true, authorName);
+                                await updateOverride('country', c.name, 'other', comment, authorName);
+                                toast({ title: "Facteur activé", description: "L'autre facteur dominant a été activé." });
+                              }
+                            } else {
+                              if (confirm("Voulez-vous désactiver cet autre facteur dominant ? Cela effacera la remarque associée.")) {
+                                await updateOverride('country', c.name, 'otherDominant', false, authorName);
+                                await updateOverride('country', c.name, 'other', '', authorName);
+                                toast({ title: "Facteur désactivé", description: "L'autre facteur dominant a été désactivé." });
+                              }
+                            }
                           }}
-                          autoFocus
-                          className="h-7 text-xs bg-white dark:bg-slate-950 font-bold"
-                        />
-                      ) : (
-                        <div
-                          onClick={() => {
-                            setEditingCell({ category: 'country', itemId: c.name, field: 'other' });
-                            setEditingText(c.other || '');
-                          }}
-                          className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded min-h-[28px] italic text-slate-500 truncate font-semibold"
-                          title={c.other || "Cliquez pour ajouter une remarque"}
+                          className={cn(
+                            "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-28 text-center",
+                            c.otherDominant 
+                              ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
+                              : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
+                          )}
                         >
-                          {c.other || <span className="text-slate-300 dark:text-slate-600 font-normal">Ajouter...</span>}
-                        </div>
-                      )}
+                          {c.otherDominant ? "⚠️ Oui" : "—"}
+                        </button>
+                        {c.otherDominant && (
+                          <div className="w-full max-w-[200px]">
+                            {editingCell?.category === 'country' && editingCell?.itemId === c.name ? (
+                              <Input
+                                value={editingText}
+                                onChange={e => setEditingText(e.target.value)}
+                                onBlur={() => handleSaveComment('country', c.name, 'other', c.other || '')}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleSaveComment('country', c.name, 'other', c.other || '');
+                                  if (e.key === 'Escape') setEditingCell(null);
+                                }}
+                                autoFocus
+                                className="h-6 text-[10px] bg-white dark:bg-slate-950 font-semibold mt-1"
+                              />
+                            ) : (
+                              <div
+                                onClick={() => {
+                                  setEditingCell({ category: 'country', itemId: c.name, field: 'other' });
+                                  setEditingText(c.other || '');
+                                }}
+                                className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded text-[10px] text-slate-500 italic truncate font-semibold mt-1 text-center"
+                                title={c.other || "Cliquez pour modifier la remarque"}
+                              >
+                                {c.other || <span className="text-slate-300 dark:text-slate-650 font-normal">Ajouter...</span>}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-center">{renderBadge(c.risk)}</TableCell>
                   </TableRow>
