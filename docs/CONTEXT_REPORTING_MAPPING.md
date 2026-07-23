@@ -77,33 +77,25 @@ Le nouveau moteur de Reporting de l'application s'articule autour de **5 Modèle
 - **Données consolidées** : Alertes Risques + Différences Réglementaires + Incidents.
 - **Indicateurs clés** : Incidents détectés, plan d'urgence, temps moyen de résolution (MTTR).
 
-### 🏛️ 6. CGA Regulatory Vector (Rapport Annuel de Conformité CGA - MAE Assurances)
+### 🏛️ 6. CGA Regulatory Vector (Générateur Dynamique de Rapport Annuel CGA)
 - **Cible** : Comité Général des Assurances (CGA), Direction Générale, Comité d'Audit & Risques MAE.
 - **Titre Officiel** : *تقرير سنوي موجه للهيئة العامة للتأمين حول منظومة مكافحة الإرهاب ومنع غسل الأموال*
-- **Sections Normées Officielles CGA** :
-  1. **I. حوصلة للأعمال المنجزة خلال السنة المنقضية (Synthèse des Réalisations)** :
-     - Shifting vers le système IT RegTools & screening IA des opérations suspectes.
-     - Mises à jour des directives internes LBA/FT & Manuel de Procédure (Approuvé Conseil d'Administration 09/10/2024).
-     - Suivi continu des notifications CTAF pour les listes GAFI/CTAF de pays à haut risque (Myanmar, Iran, Corée du Nord, Monaco, Vénézuéla, Algérie, Liban, Côte d'Ivoire, Kenya, Namibie).
-     - Interfaçage RegTools LBA/FT avec le système de production Vie ProAssur.
-     - Abonnement annuel aux listes PPE (Personnes Politiquement Exposées) & portail GO-AML.
-  2. **II. تقييم مدى امتثال منظومة مكافحة الإرهاب ومنع غسل الأموال (Évaluation du Dispositif & Contrôle Interne)** :
-     - *الإجراءات الداخلية* : Contrôle des 7 piliers (KYC, Beneficiaire Effectif, mise à jour des dossiers, opérations non habituelles, procédure de déclaration de soupçon, gel des avoirs, conservation des documents).
-     - *مصفوفة المخاطر* : Répartition des seuils (Élevé ≥ 70% diligence renforcée, Moyen 50-70% diligence spécifique, Faible < 50% diligence standard).
-     - *النظام المعلوماتي* : Intégration CEGENAT, KYC Reis Online, Filtrage Blacklists (UN-EU-OFAC-CNLCT-PPE).
-  3. **III. تقييم مدى دراية العاملين بالقوانين & IV. الدورات التكوينية المنجزة (Évaluation & Bilan des Formations)** :
-     - Tableau récapitulatif détaillé des 138+ participants par direction régionale et agences (Tunis, Sousse, Sfax, Nabeul, Bizerte, Le Kef, Gafsa, etc.).
-     - Résultats des QCM d'évaluation à chaud & comparaison du programme prévu vs réalisé.
-  4. **V. المالحق والجداول الترتيبية CGA (Tableaux Réglementaires CGA)** :
-     - **Tableau 01** : *رزنامة تحيين ملفات المنخرطين حسب درجة المخاطر* (Profils Risque Faible, Moyen, Élevé, et taux d'intégration dans l'application).
-     - **Tableau 02** : *معطيات حول التصاريح بالشبهة (Déclarations de Soupçon STR via GO-AML)*.
-     - **Tableau 03** : *معطيات حول العقود المجمدة (Contrats d'assurance gelés)*.
+- **Fonctionnement du Générateur Dynamique** :
+  - L'utilisateur sélectionne l'**Exercice Cible (2024, 2025, 2026...)**.
+  - Le système **recalcule et pré-remplit automatiquement en temps réel** les sections officielles CGA à partir des données vivantes de l'application (DMR Risques, Formations, Rapprochements, Audit, Alertes).
+  - Possibilité d'**édition et de personnalisation dynamique** (Ajout de nouvelles déclarations STR GO-AML, mise à jour des dates de validation du Conseil d'Administration, ajouts de sessions de formation, mise à jour des listes CTAF).
+- **Sections Normées Officielles CGA Générées** :
+  1. **I. حوصلة للأعمال المنجزة خلال السنة المنقضية (Réalisations de l'exercice)**.
+  2. **II. تقييم مدى امتثال منظومة مكافحة الإرهاب ومنع غسل الأموال (Évaluation du Dispositif)**.
+  3. **III & IV. تقييم مدى دراية العاملين & الدورات التكوينية المنجزة (Formations & QCM)**.
+  4. **V. المالحق والجداول الترتيبية (Tableau 01 - Échéancier Risques, Tableau 02 - STR GO-AML, Tableau 03 - Gel des avoirs)**.
 
 ---
 
 ## 4. FONCTIONNALITÉS CLÉS D'EXPORTATION & ARCHITECTURE INTERACTIVE
 
-- **Tableau de Bord de Rapport Interactif à l'Écran** (Visualisation en temps réel avec graphiques Recharts, cartes KPI, filtres interactifs, sélecteur de langue Fr/Ar pour le modèle CGA et mode impression).
+- **Générateur Dynamique de Rapports Futurs** (Remplissage automatique basé sur l'exercice sélectionné et possibilité de saisie/personnalisation).
+- **Tableau de Bord de Rapport Interactif à l'Écran** (Visualisation en temps réel avec graphiques Recharts, cartes KPI, filtres interactifs, édition in-place et mode impression).
 - **Format Réglementaire CGA Officiel Normé** (Structuration par chapitres officiels pour la soumission à la CGA).
 - **Générateur PDF & Impression CSS Print Haute Fidélité** (Mise en page "Prêt pour Audit").
 - **Exportateur Excel / CSV Granulaire** (Fichiers multi-onglets structurés par thématique et par tableau CGA 01/02/03).

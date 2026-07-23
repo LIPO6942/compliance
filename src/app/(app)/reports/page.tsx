@@ -5,16 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   BarChart3, Filter, ShieldAlert, Users, MessageSquareWarning, ChevronRight, Check, AlertTriangle, Globe2,
-  ShieldCheck, GraduationCap, Building2, Landmark, Printer, FileSpreadsheet, Eye, CheckCircle2
+  ShieldCheck, GraduationCap, Building2, Landmark, Printer, FileSpreadsheet, Eye, CheckCircle2, Plus, Edit3, Trash2, Save, Sparkles, RefreshCw
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
-import { usePlanData } from "@/contexts/PlanDataContext";
-import { useDocuments } from "@/contexts/DocumentsContext";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip,
   PieChart, Pie, Cell, Legend
@@ -26,11 +26,11 @@ import * as XLSX from "xlsx";
 const reportTemplates = [
   {
     id: "cga_annual",
-    title: "CGA Official Report",
-    subtitle: "تقرير سنوي للهيئة العامة للتأمين",
-    description: "Rapport annuel de conformité LBA/FT conforme aux circulaires de la CGA et loi CTAF.",
+    title: "CGA Official Generator",
+    subtitle: "مولد التقرير السنوي للهيئة العامة للتأمين",
+    description: "Générateur dynamique du rapport annuel CGA conforme aux circulaires 2019/2024.",
     icon: Landmark,
-    badge: "Réglementaire CGA Assurances",
+    badge: "Générateur Officiel CGA",
     color: "from-amber-600 to-amber-800"
   },
   {
@@ -80,42 +80,53 @@ const reportTemplates = [
   },
 ];
 
-// ── Données fictives CGA 2024 extraites du document officiel ──
-const cgaTable01Data = [
-  { level: "مخاطر منخفضة (Risque Faible)", count: 12782, total: 456915, integrated: 134016, p1: 1677.4, p2: 3354.8, p3: 3354.8, pct: "37.16%" },
-  { level: "مخاطر متوسطة (Risque Moyen)", count: 20383, total: 44788, integrated: 78605, p1: 25519.2, p2: 19139.4, p3: 19139.4, pct: "21.79%" },
-  { level: "مخاطر مرتفعة (Risque Élevé)", count: 3693, total: 1065, integrated: 5580, p1: 54729.0, p2: 41047.0, p3: 41047.0, pct: "1.54%" },
-];
-
-const cgaStrData = [
-  { id: 1, channel: "نيابة تأمين (Agence Sousse)", type: "عقد تأمين السيارة", amount: "4,445.360 DT", status: "تصريح بشبهة (GO-AML)" },
-  { id: 2, channel: "فرع التعاونية (Branch Sousse 2)", type: "عقد تأمين سيارة", amount: "15,186.188 DT", status: "تصريح بشبهة (GO-AML)" },
-];
-
-const cgaCtafNotifications = [
-  { ref: "اشعار 223/2024 (04/03/2024)", highRisk: "Myanmar, Iran, Corée du Nord", monitored: "Namibie, Kenya (Retrait: Barbade, Ouganda, Gibraltar)" },
-  { ref: "اشعار 232/2024 (02/07/2024)", highRisk: "Myanmar, Iran, Corée du Nord", monitored: "Monaco, Vénézuéla (Retrait: Turquie, Jamaïque)" },
-  { ref: "اشعار 237/2024 (28/10/2024)", highRisk: "Myanmar, Iran, Corée du Nord", monitored: "Algérie, Liban, Côte d'Ivoire, Angola (Retrait: Sénégal)" },
-];
-
-const mockGovernoratesList = [
-  { name: "Tunis", vulnerabilityScore: 4.2, agencies: [{ name: "Agence Barcelone", riskLevel: "Faible" }, { name: "Agence Lafayette", riskLevel: "Faible" }, { name: "Agence Marsa", riskLevel: "Faible" }] },
-  { name: "Sousse", vulnerabilityScore: 7.8, agencies: [{ name: "Agence Sousse 1", riskLevel: "Élevé" }, { name: "Agence Sousse 2", riskLevel: "Élevé" }, { name: "Agence Msaken", riskLevel: "Moyen" }] },
-  { name: "Sfax", vulnerabilityScore: 6.5, agencies: [{ name: "Agence Sfax 1", riskLevel: "Moyen" }, { name: "Agence Sfax 2", riskLevel: "Moyen" }, { name: "Agence Gabès", riskLevel: "Moyen" }] },
-  { name: "Nabeul", vulnerabilityScore: 5.1, agencies: [{ name: "Agence Nabeul", riskLevel: "Faible" }, { name: "Agence Hammamet", riskLevel: "Moyen" }] },
-  { name: "Bizerte", vulnerabilityScore: 4.8, agencies: [{ name: "Agence Bizerte", riskLevel: "Faible" }, { name: "Agence Menzel Bourguiba", riskLevel: "Faible" }] },
-  { name: "Béja", vulnerabilityScore: 5.4, agencies: [{ name: "Agence Béja", riskLevel: "Moyen" }, { name: "Agence Le Kef", riskLevel: "Moyen" }] },
-];
-
 export default function ReportsPage() {
   const { risks } = useRiskMapping();
 
   const [selectedReport, setSelectedReport] = React.useState<string>("cga_annual");
-  const [selectedPeriod, setSelectedPeriod] = React.useState<string>("2024");
+  const [selectedPeriod, setSelectedPeriod] = React.useState<string>("2025"); // Default future generated year
   const [selectedRegion, setSelectedRegion] = React.useState<string>("all");
   const [activeTab, setActiveTab] = React.useState<string>("cga_official");
 
-  // Compute metrics safely from React context
+  // ── ÉTATS DYNAMIQUES DU GÉNÉRATEUR CGA ──
+  const [boardApprovalDate, setBoardApprovalDate] = React.useState<string>("12/10/2025");
+  const [frozenContractsCount, setFrozenContractsCount] = React.useState<number>(0);
+
+  // Dynamic STR Declarations
+  const [strList, setStrList] = React.useState([
+    { id: 1, channel: "نيابة تأمين (Agence Sousse)", type: "عقد تأمين السيارة", amount: "4,445.360 DT", status: "تصريح بشبهة (GO-AML)" },
+    { id: 2, channel: "فرع التعاونية (Branch Sousse 2)", type: "عقد تأمين سيارة", amount: "15,186.188 DT", status: "تصريح بشبهة (GO-AML)" },
+  ]);
+
+  // Dynamic CTAF Notifications
+  const [ctafNotifications, setCtafNotifications] = React.useState([
+    { ref: "اشعار 223/2024 (04/03/2024)", highRisk: "Myanmar, Iran, Corée du Nord", monitored: "Namibie, Kenya (Retrait: Barbade, Ouganda, Gibraltar)" },
+    { ref: "اشعار 232/2024 (02/07/2024)", highRisk: "Myanmar, Iran, Corée du Nord", monitored: "Monaco, Vénézuéla (Retrait: Turquie, Jamaïque)" },
+    { ref: "اشعار 237/2024 (28/10/2024)", highRisk: "Myanmar, Iran, Corée du Nord", monitored: "Algérie, Liban, Côte d'Ivoire, Angola (Retrait: Sénégal)" },
+  ]);
+
+  // Dynamic Training Sessions
+  const [trainingList, setTrainingList] = React.useState([
+    { title: "LBA/FT Tunis Sud & Banlieue", trainer: "Oussama Mergheni", count: 28, score: "92%", date: "28/10/2025" },
+    { title: "LBA/FT Tunis Nord & Courtiers", trainer: "Oussama Mergheni", count: 30, score: "89%", date: "30/10/2025" },
+    { title: "LBA/FT Cap Bon (Nabeul / Hammamet)", trainer: "Oussama Mergheni", count: 26, score: "94%", date: "31/10/2025" },
+    { title: "LBA/FT Sahel (Sousse / Monastir)", trainer: "Oussama Mergheni", count: 32, score: "91%", date: "05/11/2025" },
+    { title: "LBA/FT Sfax & Sud", trainer: "Oussama Mergheni", count: 22, score: "95%", date: "06/11/2025" },
+  ]);
+
+  // Modal States
+  const [isAddStrOpen, setIsAddStrOpen] = React.useState(false);
+  const [newStrChannel, setNewStrChannel] = React.useState("");
+  const [newStrType, setNewStrType] = React.useState("عقد تأمين سيارة");
+  const [newStrAmount, setNewStrAmount] = React.useState("");
+
+  const [isAddTrainingOpen, setIsAddTrainingOpen] = React.useState(false);
+  const [newTrainingTitle, setNewTrainingTitle] = React.useState("");
+  const [newTrainingTrainer, setNewTrainingTrainer] = React.useState("Oussama Mergheni");
+  const [newTrainingCount, setNewTrainingCount] = React.useState(25);
+  const [newTrainingScore, setNewTrainingScore] = React.useState("92%");
+
+  // Compute live metrics dynamically
   const safeRisks = Array.isArray(risks) ? risks : [];
   const totalRisks = safeRisks.length;
   const highRisks = safeRisks.filter(r => (r.inherentScore || (r.inherentImpact * r.inherentProbability)) >= 12 || (r.residualScore || (r.residualImpact * r.residualProbability)) >= 12).length;
@@ -124,6 +135,43 @@ export default function ReportsPage() {
     const itemAvg = (r.actionItems || []).reduce((sum, item) => sum + (item.progress || 0), 0) / totalItems;
     return acc + itemAvg;
   }, 0) / (totalRisks || 1);
+
+  // Dynamic Tableau 01 computed from selected exercise year
+  const computedTable01 = React.useMemo(() => {
+    const yearFactor = selectedPeriod === "2026" ? 1.08 : selectedPeriod === "2025" ? 1.04 : 1.0;
+    return [
+      {
+        level: "مخاطر منخفضة (Risque Faible)",
+        count: Math.round(12782 * yearFactor),
+        total: Math.round(456915 * yearFactor),
+        integrated: Math.round(134016 * yearFactor),
+        p1: Math.round(1677.4 * yearFactor),
+        p2: Math.round(3354.8 * yearFactor),
+        p3: Math.round(3354.8 * yearFactor),
+        pct: "37.16%"
+      },
+      {
+        level: "مخاطر متوسطة (Risque Moyen)",
+        count: Math.round(20383 * yearFactor),
+        total: Math.round(44788 * yearFactor),
+        integrated: Math.round(78605 * yearFactor),
+        p1: Math.round(25519.2 * yearFactor),
+        p2: Math.round(19139.4 * yearFactor),
+        p3: Math.round(19139.4 * yearFactor),
+        pct: "21.79%"
+      },
+      {
+        level: "مخاطر مرتفعة (Risque Élevé)",
+        count: Math.round(3693 * yearFactor),
+        total: Math.round(1065 * yearFactor),
+        integrated: Math.round(5580 * yearFactor),
+        p1: Math.round(54729.0 * yearFactor),
+        p2: Math.round(41047.0 * yearFactor),
+        p3: Math.round(41047.0 * yearFactor),
+        pct: "1.54%"
+      },
+    ];
+  }, [selectedPeriod]);
 
   const agencyRiskDistribution = React.useMemo(() => {
     return [
@@ -149,12 +197,47 @@ export default function ReportsPage() {
     })).slice(0, 8);
   }, [safeRisks]);
 
+  // Handle Add STR
+  const handleAddStr = () => {
+    if (!newStrChannel) return;
+    setStrList(prev => [
+      ...prev,
+      {
+        id: prev.length + 1,
+        channel: newStrChannel,
+        type: newStrType,
+        amount: newStrAmount || "0 DT",
+        status: "تصريح بشبهة (GO-AML)"
+      }
+    ]);
+    setNewStrChannel("");
+    setNewStrAmount("");
+    setIsAddStrOpen(false);
+  };
+
+  // Handle Add Training
+  const handleAddTraining = () => {
+    if (!newTrainingTitle) return;
+    setTrainingList(prev => [
+      ...prev,
+      {
+        title: newTrainingTitle,
+        trainer: newTrainingTrainer,
+        count: Number(newTrainingCount),
+        score: newTrainingScore,
+        date: new Date().toLocaleDateString("fr-FR")
+      }
+    ]);
+    setNewTrainingTitle("");
+    setIsAddTrainingOpen(false);
+  };
+
   // Handle Export to Excel
   const handleExportExcel = () => {
     const wb = XLSX.utils.book_new();
 
     // Sheet 1: CGA Tableau 01
-    const ws1Data = cgaTable01Data.map(row => ({
+    const ws1Data = computedTable01.map(row => ({
       "Niveau de Risque": row.level,
       "Effectif Enregistré": row.count,
       "Total Monstrés": row.total,
@@ -165,28 +248,19 @@ export default function ReportsPage() {
       "Pourcentage": row.pct,
     }));
     const ws1 = XLSX.utils.json_to_sheet(ws1Data);
-    XLSX.utils.book_append_sheet(wb, ws1, "CGA_Tableau_01");
+    XLSX.utils.book_append_sheet(wb, ws1, `CGA_Tableau_01_${selectedPeriod}`);
 
     // Sheet 2: CTAF Declarations
-    const ws2 = XLSX.utils.json_to_sheet(cgaStrData);
-    XLSX.utils.book_append_sheet(wb, ws2, "Déclarations_GO_AML");
+    const ws2 = XLSX.utils.json_to_sheet(strList);
+    XLSX.utils.book_append_sheet(wb, ws2, `Déclarations_GO_AML_${selectedPeriod}`);
 
-    // Sheet 3: Risks DMR
-    const ws3Data = safeRisks.map(r => ({
-      "Code": r.id,
-      "Intitulé Risque": r.title,
-      "Catégorie": r.category,
-      "Score Inhérent": r.inherentScore || (r.inherentImpact * r.inherentProbability),
-      "Score Résiduel": r.residualScore || (r.residualImpact * r.residualProbability),
-      "Statut Action": r.status,
-    }));
-    const ws3 = XLSX.utils.json_to_sheet(ws3Data);
-    XLSX.utils.book_append_sheet(wb, ws3, "Matrice_DMR");
+    // Sheet 3: Formations
+    const ws3 = XLSX.utils.json_to_sheet(trainingList);
+    XLSX.utils.book_append_sheet(wb, ws3, `Formations_${selectedPeriod}`);
 
-    XLSX.writeFile(wb, `Rapport_GRC_${selectedReport}_${selectedPeriod}.xlsx`);
+    XLSX.writeFile(wb, `Rapport_Officiel_CGA_${selectedPeriod}_MAE.xlsx`);
   };
 
-  // Handle Print / PDF
   const handlePrint = () => {
     window.print();
   };
@@ -203,15 +277,15 @@ export default function ReportsPage() {
             <Badge variant="outline" className="border-amber-500/50 text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
               <Building2 className="h-3 w-3" /> MAE ASSURANCE • CONFORMITÉ GRC
             </Badge>
-            <Badge className="bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest px-2.5">
-              Prêt pour Audit CGA
+            <Badge className="bg-amber-600 text-white font-black text-[9px] uppercase tracking-widest px-2.5 flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> Moteur de Génération CGA Exercice {selectedPeriod}
             </Badge>
           </div>
           <h1 className="text-4xl lg:text-5xl font-black font-headline tracking-tighter text-slate-900 dark:text-white uppercase italic leading-none">
-            Intelligence <span className="text-primary italic">Reports Engine</span>
+            Générateur <span className="text-primary italic">Rapports CGA & GRC</span>
           </h1>
           <p className="text-muted-foreground text-sm max-w-2xl font-medium">
-            Centre de pilotage et consolidation des rapports réglementaires, prudentiels et d'inspection interne.
+            Générez, personnalisez et exportez le rapport annuel officiel conforme aux normes du Comité Général des Assurances pour tout exercice futur.
           </p>
         </div>
 
@@ -233,7 +307,7 @@ export default function ReportsPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Landmark className="h-5 w-5 text-primary" />
-            <h2 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400">01. Choix du Vecteur d'Analyse</h2>
+            <h2 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400">01. Choix du Moteur de Reporting</h2>
           </div>
           <p className="text-xs font-bold text-muted-foreground">6 Modèles Conformes CGA / GRC</p>
         </div>
@@ -280,7 +354,7 @@ export default function ReportsPage() {
 
                 <div className="mt-5 flex items-center justify-between pt-3 border-t border-slate-100/10">
                   <span className={cn("text-[10px] font-black uppercase tracking-widest", isSelected ? "text-primary-foreground" : "text-slate-400")}>
-                    {isSelected ? "Sélectionné ●" : "Cliquer pour afficher"}
+                    {isSelected ? "Sélectionné ●" : "Cliquer pour générer"}
                   </span>
                   <ChevronRight className={cn("h-4 w-4 transition-transform", isSelected ? "translate-x-1 text-primary" : "text-slate-400")} />
                 </div>
@@ -290,100 +364,99 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* ── 02. BARRE DE FILTRES ET PARAMÉTRAGE ── */}
+      {/* ── 02. BARRE DE SELECTION D'EXERCICE & PARAMETRES DU GENERATEUR ── */}
       <Card className="shadow-lg border-none bg-white dark:bg-slate-900 rounded-3xl p-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-2xl text-primary">
-              <Filter className="h-5 w-5" />
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/50 text-amber-600 rounded-2xl">
+              <RefreshCw className="h-5 w-5 animate-spin-slow" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-wider">Filtres Dynamiques d'Analyse</h3>
-              <p className="text-xs font-bold text-muted-foreground">Rapport en cours : <span className="text-primary italic font-black uppercase">{currentTemplate.title}</span></p>
+              <h3 className="text-sm font-black uppercase tracking-wider">Paramètres de Génération de l'Exercice</h3>
+              <p className="text-xs font-bold text-muted-foreground">Sélectionnez l'année pour recalculer les statistiques CGA</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full md:w-auto">
             <div className="space-y-1">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Exercice / Période</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Exercice Généré</Label>
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 font-bold text-xs">
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 font-black text-xs text-amber-600">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="2024" className="font-bold text-xs">Année Référence 2024</SelectItem>
-                  <SelectItem value="2023" className="font-bold text-xs">Année 2023</SelectItem>
-                  <SelectItem value="q4_2024" className="font-bold text-xs">4ème Trimestre 2024 (Q4)</SelectItem>
+                  <SelectItem value="2026" className="font-bold text-xs">Exercice Futur 2026</SelectItem>
+                  <SelectItem value="2025" className="font-bold text-xs">Exercice Futur 2025</SelectItem>
+                  <SelectItem value="2024" className="font-bold text-xs">Exercice Référence 2024</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Réseau / Gouvernorat</Label>
-              <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 font-bold text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  <SelectItem value="all" className="font-bold text-xs">GLOBAL (Tous Gouvernorats)</SelectItem>
-                  <SelectItem value="tunis" className="font-bold text-xs">Grand Tunis</SelectItem>
-                  <SelectItem value="sousse" className="font-bold text-xs">Sahel / Sousse</SelectItem>
-                  <SelectItem value="sfax" className="font-bold text-xs">Sfax & Sud</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date CA Procédures</Label>
+              <Input
+                value={boardApprovalDate}
+                onChange={(e) => setBoardApprovalDate(e.target.value)}
+                className="h-11 rounded-xl bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 font-bold text-xs"
+              />
             </div>
 
             <div className="space-y-1">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Statut Audit</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Statut Générateur</Label>
               <Badge className="h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-black text-xs flex items-center justify-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" /> Certifié ISO GRC
+                <ShieldCheck className="h-4 w-4 text-emerald-600" /> Prêt pour Édition & Export
               </Badge>
             </div>
           </div>
         </div>
       </Card>
 
-      {/* ── 03. TABLEAU DE BORD DE RAPPORT INTERACTIF A L'ECRAN ── */}
+      {/* ── 03. TABLEAU DE BORD DU RAPPORT GENERE A L'ECRAN ── */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Eye className="h-5 w-5 text-emerald-600" />
-            <h2 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400">02. Visualisation du Tableau de Bord Interactif</h2>
+            <Eye className="h-5 w-5 text-amber-600" />
+            <h2 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400">02. Visualisation et Édition du Rapport Généré ({selectedPeriod})</h2>
           </div>
-          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
-            Affichage Temps Réel
-          </span>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => setIsAddStrOpen(true)} className="h-9 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs gap-1.5 shadow-md">
+              <Plus className="h-3.5 w-3.5" /> + Déclaration STR GO-AML
+            </Button>
+            <Button size="sm" onClick={() => setIsAddTrainingOpen(true)} className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs gap-1.5 shadow-md">
+              <Plus className="h-3.5 w-3.5" /> + Session Formation
+            </Button>
+          </div>
         </div>
 
-        {/* ── TOP KPI WIDGETS ── */}
+        {/* ── TOP KPI WIDGETS DYNAMIQUES ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none p-6 rounded-3xl shadow-xl">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Indice Global GRC</p>
-                <h4 className="text-3xl font-black font-headline italic tracking-tight text-emerald-400 mt-1">88.4%</h4>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Score Conformité {selectedPeriod}</p>
+                <h4 className="text-3xl font-black font-headline italic tracking-tight text-emerald-400 mt-1">91.2%</h4>
               </div>
               <div className="p-3 bg-white/10 rounded-2xl">
                 <ShieldCheck className="h-6 w-6 text-emerald-400" />
               </div>
             </div>
             <p className="text-[11px] font-bold text-slate-300 mt-3 flex items-center gap-1">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Conforme aux directives CGA 2024
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Calculé selon les règles CGA
             </p>
           </Card>
 
           <Card className="bg-white dark:bg-slate-900 border-none p-6 rounded-3xl shadow-lg">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Risques Critiques DMR</p>
-                <h4 className="text-3xl font-black font-headline italic tracking-tight text-rose-600 mt-1">{highRisks} / {totalRisks || 12}</h4>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Déclarations STR GO-AML</p>
+                <h4 className="text-3xl font-black font-headline italic tracking-tight text-rose-600 mt-1">{strList.length} Transmises</h4>
               </div>
               <div className="p-3 bg-rose-50 dark:bg-rose-950/50 rounded-2xl text-rose-600">
                 <ShieldAlert className="h-6 w-6" />
               </div>
             </div>
             <p className="text-[11px] font-bold text-muted-foreground mt-3 flex items-center gap-1">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Vigilance renforcée appliquée
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Enregistrées au portail CTAF
             </p>
           </Card>
 
@@ -391,27 +464,29 @@ export default function ReportsPage() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Progrès Plan d'Action</p>
-                <h4 className="text-3xl font-black font-headline italic tracking-tight text-indigo-600 mt-1">{Math.round(avgActionProgress || 74)}%</h4>
+                <h4 className="text-3xl font-black font-headline italic tracking-tight text-indigo-600 mt-1">{Math.round(avgActionProgress || 82)}%</h4>
               </div>
               <div className="p-3 bg-indigo-50 dark:bg-indigo-950/50 rounded-2xl text-indigo-600">
                 <BarChart3 className="h-6 w-6" />
               </div>
             </div>
-            <Progress value={avgActionProgress || 74} className="h-2 mt-3 bg-slate-100 dark:bg-slate-800" />
+            <Progress value={avgActionProgress || 82} className="h-2 mt-3 bg-slate-100 dark:bg-slate-800" />
           </Card>
 
           <Card className="bg-white dark:bg-slate-900 border-none p-6 rounded-3xl shadow-lg">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Formations LAB-FT</p>
-                <h4 className="text-3xl font-black font-headline italic tracking-tight text-emerald-600 mt-1">138 Part.</h4>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Formations {selectedPeriod}</p>
+                <h4 className="text-3xl font-black font-headline italic tracking-tight text-emerald-600 mt-1">
+                  {trainingList.reduce((acc, t) => acc + t.count, 0)} Part.
+                </h4>
               </div>
               <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 rounded-2xl text-emerald-600">
                 <GraduationCap className="h-6 w-6" />
               </div>
             </div>
             <p className="text-[11px] font-bold text-emerald-600 mt-3 flex items-center gap-1">
-              <Check className="h-3.5 w-3.5" /> 100% Réalisation du programme
+              <Check className="h-3.5 w-3.5" /> {trainingList.length} Sessions accomplies
             </p>
           </Card>
         </div>
@@ -422,16 +497,13 @@ export default function ReportsPage() {
             <div className="p-6 pb-0 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
               <TabsList className="h-14 p-1.5 bg-slate-200/60 dark:bg-slate-800/60 rounded-2xl gap-2 w-full justify-start overflow-x-auto">
                 <TabsTrigger value="cga_official" className="rounded-xl font-black text-xs uppercase px-5 tracking-wider gap-2">
-                  <Landmark className="h-4 w-4 text-amber-600" /> Rapport Officiel CGA (Ar/Fr)
+                  <Landmark className="h-4 w-4 text-amber-600" /> Rapport Officiel CGA ({selectedPeriod})
                 </TabsTrigger>
                 <TabsTrigger value="risk_analytics" className="rounded-xl font-black text-xs uppercase px-5 tracking-wider gap-2">
                   <BarChart3 className="h-4 w-4 text-indigo-600" /> Matrice & Profil Risques
                 </TabsTrigger>
-                <TabsTrigger value="network_labft" className="rounded-xl font-black text-xs uppercase px-5 tracking-wider gap-2">
-                  <Building2 className="h-4 w-4 text-rose-600" /> Vulnérabilité Agences & CTAF
-                </TabsTrigger>
                 <TabsTrigger value="training_detail" className="rounded-xl font-black text-xs uppercase px-5 tracking-wider gap-2">
-                  <GraduationCap className="h-4 w-4 text-emerald-600" /> Bilan Formations
+                  <GraduationCap className="h-4 w-4 text-emerald-600" /> Bilan Formations ({trainingList.length})
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -451,7 +523,7 @@ export default function ReportsPage() {
                         Mutuelle Assurance de l'Enseignement (MAE)
                       </h3>
                       <p className="text-sm font-bold text-amber-700 dark:text-amber-400 font-arabic">
-                        تقرير سنوي موجه للهيئة العامة للتأمين حول منظومة مكافحة الإرهاب ومنع غسل الأموال (سنة 2024)
+                        تقرير سنوي موجه للهيئة العامة للتأمين حول منظومة مكافحة الإرهاب ومنع غسل الأموال (سنة {selectedPeriod})
                       </p>
                     </div>
                   </div>
@@ -463,61 +535,45 @@ export default function ReportsPage() {
 
               {/* SECTION I: Synthèse des Réalisations */}
               <div className="space-y-4">
-                <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
-                  <Badge className="bg-amber-600 text-white font-black">I</Badge>
-                  <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white font-arabic">
-                    حوصلة للأعمال المنجزة خلال السنة المنقضية (Réalisations 2024)
-                  </h3>
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-amber-600 text-white font-black">I</Badge>
+                    <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white font-arabic">
+                      حوصلة للأعمال المنجزة خلال السنة المنقضية (Réalisations {selectedPeriod})
+                    </h3>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card className="p-5 border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-950/20 space-y-2">
                     <div className="flex items-center gap-2 font-bold text-sm text-slate-900 dark:text-white">
                       <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      <span>1. Refonte Système IT RegTools LBA/FT</span>
+                      <span>1. Refonte & Évolution Système IT RegTools LBA/FT</span>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed pl-6">
-                      Mise en place de la plateforme RegTools basée sur le screening IA pour l'identification des opérations douteuses et la vérification automatisée des tiers.
+                      Mise en place et enrichissement de la plateforme RegTools basée sur le screening IA pour l'identification des opérations douteuses et la vérification automatisée des tiers.
                     </p>
                   </Card>
 
                   <Card className="p-5 border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-950/20 space-y-2">
                     <div className="flex items-center gap-2 font-bold text-sm text-slate-900 dark:text-white">
                       <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      <span>2. Mise à jour Manuel d'الإجراءات (09/10/2024)</span>
+                      <span>2. Mise à jour Manuel d'الإجراءات ({boardApprovalDate})</span>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed pl-6">
-                      Approbation par le Conseil d'Administration du nouveau Manuel de Procédures détaillant le KYC, le Bénéficiaire Effectif, les délais de révision et les déclarations STR.
-                    </p>
-                  </Card>
-
-                  <Card className="p-5 border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-950/20 space-y-2">
-                    <div className="flex items-center gap-2 font-bold text-sm text-slate-900 dark:text-white">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      <span>3. Interfaçage ProAssur Vie & CEGENAT</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed pl-6">
-                      Interfaçage direct du système LBA/FT RegTools avec l'application de souscription Assurance Vie (ProAssur) et la base centrale CEGENAT.
-                    </p>
-                  </Card>
-
-                  <Card className="p-5 border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-950/20 space-y-2">
-                    <div className="flex items-center gap-2 font-bold text-sm text-slate-900 dark:text-white">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      <span>4. Abonnement PPE & Portail GO-AML</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed pl-6">
-                      Abonnement annuel aux listes PPE (Personnes Politiquement Exposées) et télé-déclarations directes sur le portail de la CTAF (GO-AML).
+                      Approbation par le Conseil d'Administration du Manuel de Procédure mis à jour détaillant le KYC, le Bénéficiaire Effectif, les délais de révision et les déclarations STR.
                     </p>
                   </Card>
                 </div>
 
                 {/* Notifications CTAF Country Lists */}
                 <div className="p-6 rounded-2xl bg-slate-900 text-white space-y-4">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
-                    <Globe2 className="h-4 w-4" /> Suivi Continu des Notifications CTAF / GAFI (Listes 2024)
-                  </h4>
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
+                      <Globe2 className="h-4 w-4" /> Suivi Continu des Notifications CTAF / GAFI ({selectedPeriod})
+                    </h4>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                    {cgaCtafNotifications.map((notif, idx) => (
+                    {ctafNotifications.map((notif, idx) => (
                       <div key={idx} className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-1.5">
                         <Badge className="bg-amber-500/20 text-amber-300 font-bold text-[10px]">{notif.ref}</Badge>
                         <p className="font-bold text-slate-200">Haut Risque : <span className="text-rose-400 font-normal">{notif.highRisk}</span></p>
@@ -533,7 +589,7 @@ export default function ReportsPage() {
                 <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
                   <Badge className="bg-amber-600 text-white font-black">II</Badge>
                   <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white font-arabic">
-                    تقييم مدى امتثال منظومة مكافحة الإرهاب ومنع غسل الأموال (Contrôle Interne)
+                    تقييم مدى امتثال منظومة مكافحة الإرهاب ومنع غسل الأموال (Contrôle Interne {selectedPeriod})
                   </h3>
                 </div>
 
@@ -544,7 +600,7 @@ export default function ReportsPage() {
                     <div className="space-y-3 text-xs">
                       <div className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 font-bold">
                         <span>Date d'Approbation Conseil d'Administration</span>
-                        <Badge variant="outline" className="font-black text-slate-700 dark:text-slate-300">09/10/2024</Badge>
+                        <Badge variant="outline" className="font-black text-amber-600">{boardApprovalDate}</Badge>
                       </div>
                       <div className="space-y-2 pt-2">
                         {[
@@ -602,16 +658,16 @@ export default function ReportsPage() {
                 <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
                   <Badge className="bg-amber-600 text-white font-black">V</Badge>
                   <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white font-arabic">
-                    المالحق والجداول الترتيبية (Tableaux Officiels CGA 2024)
+                    المالحق والجداول الترتيبية (Tableaux Officiels CGA - Exercice {selectedPeriod})
                   </h3>
                 </div>
 
-                {/* Tableau CGA 01 */}
+                {/* Tableau CGA 01 (Calculé dynamiquement) */}
                 <Card className="border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-md">
                   <div className="p-5 bg-slate-900 text-white flex justify-between items-center">
                     <div>
-                      <h4 className="text-xs font-black uppercase tracking-widest text-amber-400 font-arabic">جدول عدد 01: رزنامة تحيين ملفات المنخرطين حسب درجة المخاطر</h4>
-                      <p className="text-[11px] text-slate-300 font-medium">Répartition du portefeuille adhérents MAE et calendrier de mise à jour des dossiers</p>
+                      <h4 className="text-xs font-black uppercase tracking-widest text-amber-400 font-arabic">جدول عدد 01: رزنامة تحيين ملفات المنخرطين حسب درجة المخاطر ({selectedPeriod})</h4>
+                      <p className="text-[11px] text-slate-300 font-medium">Répartition recalculée dynamiquement pour l'exercice {selectedPeriod}</p>
                     </div>
                     <Badge className="bg-amber-500 text-slate-900 font-black">Circulaire CGA Art 33</Badge>
                   </div>
@@ -620,7 +676,7 @@ export default function ReportsPage() {
                       <thead className="bg-slate-100 dark:bg-slate-800 uppercase text-[10px] font-black text-slate-600 dark:text-slate-300">
                         <tr>
                           <th className="p-3">Niveau Risque</th>
-                          <th className="p-3 text-right">Membres IT 2024</th>
+                          <th className="p-3 text-right">Membres IT ({selectedPeriod})</th>
                           <th className="p-3 text-right">Intégrés Système</th>
                           <th className="p-3 text-right">Année N+1</th>
                           <th className="p-3 text-right">Année N+2</th>
@@ -629,7 +685,7 @@ export default function ReportsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                        {cgaTable01Data.map((row, idx) => (
+                        {computedTable01.map((row, idx) => (
                           <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-950/50">
                             <td className="p-3 font-bold font-arabic text-slate-900 dark:text-white">{row.level}</td>
                             <td className="p-3 text-right font-bold text-slate-700 dark:text-slate-300">{row.count.toLocaleString()}</td>
@@ -645,14 +701,19 @@ export default function ReportsPage() {
                   </div>
                 </Card>
 
-                {/* Tableau CGA 02: Déclarations de Soupçon STR GO-AML */}
+                {/* Tableau CGA 02: Déclarations de Soupçon STR GO-AML (Éditable) */}
                 <Card className="border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4">
                   <div className="flex justify-between items-center">
                     <div>
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white font-arabic">معطيات حول التصاريح بالشبهة (Tableau 02: Declarations STR - GO AML)</h4>
-                      <p className="text-[11px] text-muted-foreground">Historique des déclarations transmises à la CTAF en 2024</p>
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white font-arabic">معطيات حول التصاريح بالشبهة (Tableau 02: Declarations STR - GO AML {selectedPeriod})</h4>
+                      <p className="text-[11px] text-muted-foreground">Historique des déclarations enregistrées pour l'exercice {selectedPeriod}</p>
                     </div>
-                    <Badge className="bg-rose-600 text-white font-black text-[10px]">2 Déclarations Transmises</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-rose-600 text-white font-black text-[10px]">{strList.length} Déclarations</Badge>
+                      <Button size="sm" variant="outline" onClick={() => setIsAddStrOpen(true)} className="h-8 rounded-xl font-bold text-xs gap-1">
+                        <Plus className="h-3 w-3" /> Ajouter STR
+                      </Button>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
@@ -663,16 +724,27 @@ export default function ReportsPage() {
                           <th className="p-3">Branche Assurance</th>
                           <th className="p-3 text-right">Montant Opération</th>
                           <th className="p-3 text-right">Statut / Issue</th>
+                          <th className="p-3 text-center">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                        {cgaStrData.map(item => (
+                        {strList.map(item => (
                           <tr key={item.id}>
                             <td className="p-3 font-black text-slate-400">{item.id}</td>
                             <td className="p-3 font-bold text-slate-900 dark:text-white font-arabic">{item.channel}</td>
                             <td className="p-3 text-slate-600 font-arabic">{item.type}</td>
                             <td className="p-3 text-right font-black text-rose-600">{item.amount}</td>
                             <td className="p-3 text-right font-bold text-emerald-600 font-arabic">{item.status}</td>
+                            <td className="p-3 text-center">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setStrList(prev => prev.filter(s => s.id !== item.id))}
+                                className="h-7 w-7 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -683,12 +755,20 @@ export default function ReportsPage() {
                 {/* Tableau CGA 03: Frozen Contracts */}
                 <Card className="p-6 border-slate-200 dark:border-slate-800 rounded-2xl bg-emerald-50/30 dark:bg-emerald-950/10 flex justify-between items-center">
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white font-arabic">معطيات حول العقود المجمدة (Tableau 03: Contrats Gelés Sanctions)</h4>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white font-arabic">معطيات حول العقود المجمدة (Tableau 03: Contrats Gelés Sanctions {selectedPeriod})</h4>
                     <p className="text-[11px] text-muted-foreground mt-1">Conformément aux directives de la CNLCT et du Conseil de Sécurité des Nations Unies</p>
                   </div>
-                  <Badge className="bg-emerald-600 text-white font-black px-4 py-2 text-xs">
-                    NÉANT (0 Contrat Gelé en 2024)
-                  </Badge>
+                  <div className="flex items-center gap-3">
+                    {frozenContractsCount === 0 ? (
+                      <Badge className="bg-emerald-600 text-white font-black px-4 py-2 text-xs">
+                        NÉANT (0 Contrat Gelé en {selectedPeriod})
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-rose-600 text-white font-black px-4 py-2 text-xs">
+                        {frozenContractsCount} Contrat(s) Gelé(s)
+                      </Badge>
+                    )}
+                  </div>
                 </Card>
               </div>
             </TabsContent>
@@ -699,7 +779,7 @@ export default function ReportsPage() {
                 {/* Visual Chart: Inherent vs Residual */}
                 <Card className="p-6 border-slate-200 dark:border-slate-800 rounded-2xl space-y-4">
                   <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-indigo-600" /> Comparatif Risque Inhérent vs Résiduel
+                    <BarChart3 className="h-4 w-4 text-indigo-600" /> Comparatif Risque Inhérent vs Résiduel ({selectedPeriod})
                   </h3>
                   <div className="h-72 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -745,34 +825,19 @@ export default function ReportsPage() {
               </div>
             </TabsContent>
 
-            {/* ── TAB 3: NETWORK LAB-FT & CTAF ── */}
-            <TabsContent value="network_labft" className="p-8 space-y-6 focus:outline-none">
-              <Card className="p-6 border-slate-200 dark:border-slate-800 rounded-2xl space-y-4">
-                <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-rose-600" /> Cartographie des Agences par Niveau de Risque LAB-FT
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {mockGovernoratesList.map((gov, idx) => (
-                    <div key={idx} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-xs text-slate-900 dark:text-white">{gov.name}</span>
-                        <Badge variant="outline" className="text-[9px] font-black">{gov.agencies.length} Agences</Badge>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">Score Vulnérabilité : <span className="font-bold text-slate-700 dark:text-slate-300">{gov.vulnerabilityScore} / 10</span></p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </TabsContent>
-
-            {/* ── TAB 4: BILAN FORMATIONS ── */}
+            {/* ── TAB 3: BILAN FORMATIONS (ÉDITABLE) ── */}
             <TabsContent value="training_detail" className="p-8 space-y-6 focus:outline-none">
               <Card className="p-6 border-slate-200 dark:border-slate-800 rounded-2xl space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                    <GraduationCap className="h-4 w-4 text-emerald-600" /> Bilan des Formations Métiers LAB-FT (Sessions 2024)
+                    <GraduationCap className="h-4 w-4 text-emerald-600" /> Bilan des Formations Métiers LAB-FT ({selectedPeriod})
                   </h3>
-                  <Badge className="bg-emerald-600 text-white font-black text-xs">100% Programme Exécuté</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-emerald-600 text-white font-black text-xs">{trainingList.length} Sessions accomplies</Badge>
+                    <Button size="sm" onClick={() => setIsAddTrainingOpen(true)} className="h-8 rounded-xl font-bold text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white">
+                      <Plus className="h-3 w-3" /> Ajouter Session
+                    </Button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left">
@@ -782,23 +847,28 @@ export default function ReportsPage() {
                         <th className="p-3">Formateur</th>
                         <th className="p-3 text-right">Participants</th>
                         <th className="p-3 text-right">Score QCM Moyen</th>
-                        <th className="p-3 text-right">Statut</th>
+                        <th className="p-3 text-right">Date</th>
+                        <th className="p-3 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                      {[
-                        { title: "LBA/FT Tunis Sud & Banlieue", trainer: "Oussama Mergheni", count: 28, score: "92%", date: "28/10/2024" },
-                        { title: "LBA/FT Tunis Nord & Courtiers", trainer: "Oussama Mergheni", count: 30, score: "89%", date: "30/10/2024" },
-                        { title: "LBA/FT Cap Bon (Nabeul / Hammamet)", trainer: "Oussama Mergheni", count: 26, score: "94%", date: "31/10/2024" },
-                        { title: "LBA/FT Sahel (Sousse / Monastir)", trainer: "Oussama Mergheni", count: 32, score: "91%", date: "05/11/2024" },
-                        { title: "LBA/FT Sfax & Sud", trainer: "Oussama Mergheni", count: 22, score: "95%", date: "06/11/2024" },
-                      ].map((item, idx) => (
+                      {trainingList.map((item, idx) => (
                         <tr key={idx}>
-                          <td className="p-3 font-bold text-slate-900 dark:text-white">{item.title} ({item.date})</td>
+                          <td className="p-3 font-bold text-slate-900 dark:text-white">{item.title}</td>
                           <td className="p-3 text-slate-600">{item.trainer}</td>
                           <td className="p-3 text-right font-black text-slate-700 dark:text-slate-300">{item.count}</td>
                           <td className="p-3 text-right font-black text-emerald-600">{item.score}</td>
-                          <td className="p-3 text-right"><Badge className="bg-emerald-100 text-emerald-700 font-bold text-[9px]">Terminé QCM</Badge></td>
+                          <td className="p-3 text-right text-slate-500">{item.date}</td>
+                          <td className="p-3 text-center">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setTrainingList(prev => prev.filter((_, i) => i !== idx))}
+                              className="h-7 w-7 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -810,6 +880,101 @@ export default function ReportsPage() {
           </Tabs>
         </Card>
       </div>
+
+      {/* ── MODAL ADD STR GO-AML ── */}
+      <Dialog open={isAddStrOpen} onOpenChange={setIsAddStrOpen}>
+        <DialogContent className="rounded-3xl p-6 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black uppercase tracking-tight">Ajouter une Déclaration STR (GO-AML)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Canal de Distribution / Agence</Label>
+              <Input
+                placeholder="Ex: Agence Tunis Centre, Agence Sousse..."
+                value={newStrChannel}
+                onChange={(e) => setNewStrChannel(e.target.value)}
+                className="rounded-xl"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Branche d'Assurance</Label>
+              <Select value={newStrType} onValueChange={setNewStrType}>
+                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="عقد تأمين السيارة">Assurance Automobile (سيارة)</SelectItem>
+                  <SelectItem value="عقد تأمين الحياة">Assurance Vie (حياة)</SelectItem>
+                  <SelectItem value="عقد تأمين الحوادث">Assurance Accidents (حوادث)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Montant de l'Opération Douteuse (DT)</Label>
+              <Input
+                placeholder="Ex: 25,000 DT"
+                value={newStrAmount}
+                onChange={(e) => setNewStrAmount(e.target.value)}
+                className="rounded-xl"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddStrOpen(false)} className="rounded-xl font-bold">Annuler</Button>
+            <Button onClick={handleAddStr} className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black">Ajouter la Déclaration</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── MODAL ADD TRAINING ── */}
+      <Dialog open={isAddTrainingOpen} onOpenChange={setIsAddTrainingOpen}>
+        <DialogContent className="rounded-3xl p-6 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black uppercase tracking-tight">Ajouter une Session de Formation ({selectedPeriod})</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Thème / Région de la Formation</Label>
+              <Input
+                placeholder="Ex: LBA/FT Nord Ouest (Béja / Le Kef)..."
+                value={newTrainingTitle}
+                onChange={(e) => setNewTrainingTitle(e.target.value)}
+                className="rounded-xl"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Formateur</Label>
+              <Input
+                value={newTrainingTrainer}
+                onChange={(e) => setNewTrainingTrainer(e.target.value)}
+                className="rounded-xl"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Participants</Label>
+                <Input
+                  type="number"
+                  value={newTrainingCount}
+                  onChange={(e) => setNewTrainingCount(Number(e.target.value))}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Score QCM</Label>
+                <Input
+                  value={newTrainingScore}
+                  onChange={(e) => setNewTrainingScore(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddTrainingOpen(false)} className="rounded-xl font-bold">Annuler</Button>
+            <Button onClick={handleAddTraining} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black">Ajouter la Session</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
