@@ -290,32 +290,35 @@ export default function ReportsPage() {
     });
   }, [overrides?.country]);
 
-  // Pays par catégorie de risque issus de la Matrice des Risques "Pays"
-  const hautRisqueCountries = React.useMemo(() => resolvedCountries.filter((c) => c.risk === "RE"), [resolvedCountries]);
-  const surveillanceCountries = React.useMemo(() => resolvedCountries.filter((c) => c.risk === "RM"), [resolvedCountries]);
+  // Pays modifiés dans la Matrice des Risques "Pays" (Onglet Pays)
   const customModifiedCountries = React.useMemo(() => resolvedCountries.filter((c) => c.isOverridden), [resolvedCountries]);
+  
+  // Ventilation uniquement des pays modifiés/édités dans l'exercice sélectionné
+  const hautRisqueCountries = React.useMemo(() => customModifiedCountries.filter((c) => c.risk === "RE"), [customModifiedCountries]);
+  const surveillanceCountries = React.useMemo(() => customModifiedCountries.filter((c) => c.risk === "RM"), [customModifiedCountries]);
+  const retraitCountries = React.useMemo(() => customModifiedCountries.filter((c) => c.risk === "RF"), [customModifiedCountries]);
 
   // Notifications CTAF dynamiques directement reliées à l'onglet Pays de la Matrice des Risques
   const ctafNotifications = React.useMemo(() => {
     const highRiskNames = hautRisqueCountries.map((c) => c.name);
     const monitoredNames = surveillanceCountries.map((c) => c.name);
-    const removedNames = resolvedCountries.filter((c) => c.isOverridden && c.risk === "RF").map((c) => c.name);
-    const commentsList = resolvedCountries
+    const removedNames = retraitCountries.map((c) => c.name);
+    const commentsList = customModifiedCountries
       .filter((c) => c.other && c.other.trim().length > 0)
       .map((c) => `${c.name} : ${c.other}`);
 
     return [
       {
-        ref: `اشعار CTAF / GAFI — Exercice ${selectedPeriod}`,
+        ref: `إشعار CTAF / GAFI — Exercice ${selectedPeriod}`,
         date: todayFormatted,
         highRisk: highRiskNames,
         monitored: monitoredNames,
-        removed: removedNames.length > 0 ? removedNames : ["Barbade, Ouganda, Gibraltar"],
+        removed: removedNames,
         comments: commentsList,
         isStatic: false,
       },
     ];
-  }, [resolvedCountries, hautRisqueCountries, surveillanceCountries, selectedPeriod, todayFormatted]);
+  }, [customModifiedCountries, hautRisqueCountries, surveillanceCountries, retraitCountries, selectedPeriod, todayFormatted]);
 
   const safeRisks = Array.isArray(risks) ? risks : [];
 
@@ -1009,13 +1012,13 @@ export default function ReportsPage() {
 
                   <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
                     <div className="flex justify-between items-center">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Retrait / Personnalisés</p>
-                      <Badge className="bg-emerald-500/20 text-emerald-300 text-[8px] font-black">{customModifiedCountries.length} Modifiés</Badge>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Retrait Liste (RF)</p>
+                      <Badge className="bg-emerald-500/20 text-emerald-300 text-[8px] font-black">{retraitCountries.length} Pays</Badge>
                     </div>
                     <div className="max-h-24 overflow-y-auto custom-scrollbar flex flex-wrap gap-1 pr-1">
-                      {customModifiedCountries.length === 0 ? (
-                        <span className="text-[10px] text-slate-500 italic">Aucune modification manuelle</span>
-                      ) : customModifiedCountries.map((c, i) => (
+                      {retraitCountries.length === 0 ? (
+                        <span className="text-[10px] text-slate-500 italic">Aucun retrait</span>
+                      ) : retraitCountries.map((c, i) => (
                         <span key={i} className="text-[10px] text-emerald-300 font-bold bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-800/40">{c.name}</span>
                       ))}
                     </div>
@@ -1033,7 +1036,7 @@ export default function ReportsPage() {
                         <span className="text-[10px] text-slate-400 font-medium">Données arrêtées au : {notif.date}</span>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                           <span className="text-[9px] font-black text-rose-400 uppercase tracking-wider block mb-1">
                             🔴 Haut Risque ({notif.highRisk.length} pays) :
@@ -1051,9 +1054,18 @@ export default function ReportsPage() {
                             {notif.monitored.length > 0 ? notif.monitored.join(", ") : "Aucun pays"}
                           </p>
                         </div>
+
+                        <div>
+                          <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider block mb-1">
+                            🟢 Retrait Liste ({notif.removed.length} pays) :
+                          </span>
+                          <p className="text-emerald-300 font-normal leading-relaxed text-[11px] max-h-20 overflow-y-auto custom-scrollbar">
+                            {notif.removed.length > 0 ? notif.removed.join(", ") : "Aucun pays"}
+                          </p>
+                        </div>
                       </div>
 
-                      {notif.comments && notif.comments.length > 0 && (
+                      {notif.comments && notif.comments.length > 0 ? (
                         <div className="pt-2.5 border-t border-white/10 space-y-1">
                           <span className="text-[9px] font-black text-amber-300 uppercase tracking-wider block mb-1">
                             📝 Remarques & Justifications saisies dans la Matrice Pays :
@@ -1063,6 +1075,10 @@ export default function ReportsPage() {
                               {c}
                             </p>
                           ))}
+                        </div>
+                      ) : (
+                        <div className="pt-2 border-t border-white/10">
+                          <span className="text-[10px] text-slate-500 italic">Aucune remarque spécifique saisie pour les pays modifiés.</span>
                         </div>
                       )}
                     </div>
