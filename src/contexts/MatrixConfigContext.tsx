@@ -389,25 +389,29 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
   // ── Generic update override ────────────────────────────────────────────────
   const updateOverride = useCallback(
     async (category: OverrideCategory, itemId: string, field: string, value: boolean | string, author: string) => {
-      const updatedOverrides = { ...overrides };
-      if (!updatedOverrides[category]) {
-        updatedOverrides[category] = {};
-      }
-      if (!updatedOverrides[category][itemId]) {
-        updatedOverrides[category][itemId] = {};
-      }
+      const categoryObj = overrides[category] || {};
+      const itemObj = categoryObj[itemId] || {};
 
       let oldValue = '';
       let newValue = '';
       if (typeof value === 'string') {
-        oldValue = String(updatedOverrides[category][itemId][field] || 'Aucune');
+        oldValue = String(itemObj[field] || 'Aucune');
         newValue = value;
       } else {
-        oldValue = updatedOverrides[category][itemId][field] ? 'Oui' : 'Non (—)';
+        oldValue = itemObj[field] ? 'Oui' : 'Non (—)';
         newValue = value ? 'Oui' : 'Non (—)';
       }
 
-      updatedOverrides[category][itemId][field] = value;
+      const updatedOverrides: Record<OverrideCategory, Record<string, Record<string, boolean | string>>> = {
+        ...overrides,
+        [category]: {
+          ...categoryObj,
+          [itemId]: {
+            ...itemObj,
+            [field]: value,
+          },
+        },
+      };
 
       const catLabel: Record<OverrideCategory, string> = {
         profession: 'Prof. PP',
