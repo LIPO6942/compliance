@@ -77,29 +77,33 @@ Le nouveau moteur de Reporting de l'application s'articule autour de **5 Modèle
 - **Données consolidées** : Alertes Risques + Différences Réglementaires + Incidents.
 - **Indicateurs clés** : Incidents détectés, plan d'urgence, temps moyen de résolution (MTTR).
 
-### 🏛️ 6. CGA Regulatory Vector (Générateur Dynamique de Rapport Annuel CGA)
+### 🏛️ 6. CGA Regulatory Vector (Générateur Dynamique & Export Word CGA Officiel)
 - **Cible** : Comité Général des Assurances (CGA), Direction Générale, Comité d'Audit & Risques MAE.
 - **Titre Officiel** : *تقرير سنوي موجه للهيئة العامة للتأمين حول منظومة مكافحة الإرهاب ومنع غسل الأموال*
-- **Fonctionnement du Générateur Dynamique** :
-  - L'utilisateur sélectionne l'**Exercice Cible (2024, 2025, 2026...)**.
-  - Le système **recalcule et pré-remplit automatiquement en temps réel** les sections officielles CGA à partir des données vivantes de l'application (DMR Risques, Formations, Rapprochements, Audit, Alertes).
-  - Possibilité d'**édition et de personnalisation dynamique** (Ajout de nouvelles déclarations STR GO-AML, mise à jour des dates de validation du Conseil d'Administration, ajouts de sessions de formation, mise à jour des listes CTAF).
-- **Sections Normées Officielles CGA Générées** :
-  1. **I. حوصلة للأعمال المنجزة خلال السنة المنقضية (Réalisations de l'exercice)**.
-  2. **II. تقييم مدى امتثال منظومة مكافحة الإرهاب ومنع غسل الأموال (Évaluation du Dispositif)**.
-  3. **III & IV. تقييم مدى دراية العاملين & الدورات التكوينية المنجزة (Formations & QCM)**.
-  4. **V. المالحق والجداول الترتيبية (Tableau 01 - Échéancier Risques, Tableau 02 - STR GO-AML, Tableau 03 - Gel des avoirs)**.
+- **Fonctionnement du Générateur Dynamique & Export Word** :
+  - **Mention Réglementaire 2026** : Affichage automatique de la mention *"Données arrêtées à la date du jour (ex: 24/07/2026)"* pour l'exercice en cours 2026.
+  - **Logo Officiel MAE Assurance** : Incrustation du logo officiel MAE dans le composant d'affichage à l'écran et dans le document Microsoft Word généré.
+  - **Export Word Exclusif Trame CGA (.doc)** : Le bouton d'export Word génère exclusivement la trame officielle bilingue CGA (Arabe/Français) normée avec l'en-tête MAE et les Tableaux 01, 02 (GO-AML) et 03 (Gel des avoirs).
+  - **Liaison Matrice des Risques & Notifications CTAF/GAFI** : Synchronisation directe entre les facteurs de risque pays modifiés dans la *Cartographie des Risques* (`/risk-mapping`) et la rubrique CTAF du rapport.
 
 ---
 
-## 4. FONCTIONNALITÉS CLÉS D'EXPORTATION & ARCHITECTURE INTERACTIVE
+## 4. LES 6 VECTEURS DE REPORTING INTERACTIFS (NOMS EN FRANÇAIS)
 
-- **Générateur Dynamique de Rapports Futurs** (Remplissage automatique basé sur l'exercice sélectionné et possibilité de saisie/personnalisation).
-- **Tableau de Bord de Rapport Interactif à l'Écran** (Visualisation en temps réel avec graphiques Recharts, cartes KPI, filtres interactifs, édition in-place et mode impression).
-- **Format Réglementaire CGA Officiel Normé** (Structuration par chapitres officiels pour la soumission à la CGA).
-- **Générateur PDF & Impression CSS Print Haute Fidélité** (Mise en page "Prêt pour Audit").
-- **Exportateur Excel / CSV Granulaire** (Fichiers multi-onglets structurés par thématique et par tableau CGA 01/02/03).
-- **Certificat d'Audit (Checksum & Timestamp GRC-2026)** (Garantie d'intégrité du document).
+1. 🏛️ **Générateur Officiel CGA** (`cga_annual`) : Rapport annuel normé pour la CGA (Arabe/Français) avec Export Word.
+2. 📊 **Baromètre Mensuel GRC** (`compliance_summary`) : Vue synthétique globale de la conformité et gouvernance.
+3. 🛡️ **Vigilance LAB-FT** (`lab_ft_activity`) : Cartographie de vulnérabilité du réseau d'agences et filtrage PEP.
+4. 👥 **Matrice des Compétences** (`training_status`) : Bilan des formations réglementaires et résultats QCM.
+5. 🔍 **Piste d'Audit & Contrôle** (`audit_trail`) : Rapprochements RegTools vs NS et contrôles échantillonnés.
+6. ⚠️ **Analyse d'Incidents & Crises** (`incident_report`) : Suivi des ruptures de conformité et remédiations.
+
+---
+
+## 5. FONCTIONNALITÉS CLÉS D'EXPORTATION
+
+- **Générateur Word Officiel CGA (.doc)** : Document Microsoft Word natif enrichi du logo MAE et de la mention de date du jour.
+- **Visualisation Interactive Réactive** : Adaptation instantanée des graphiques et des tableaux au changement d'exercice (2026 par défaut).
+- **Exportateur Excel (.xlsx)** : Fichiers multi-onglets structurés par thématique.
 
 ---
 *Ce document sert de mémoire vive pour toutes les sessions de développement ultérieures sur le module Reporting.*
