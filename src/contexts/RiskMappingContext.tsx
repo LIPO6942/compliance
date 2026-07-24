@@ -134,9 +134,20 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   const editRisk = async (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt' | 'planActionLastUpdated' | 'planActionCreatedAt' | 'dmrLastUpdated' | 'dmrCreatedAt'>>) => {
     if (!isFirebaseConfigured || !db) return;
     const docRef = doc(db, risksCollectionName, riskId);
-    // Remove undefined fields to avoid Firestore errors
+
+    // Champs CTAF : on les préserve explicitement même si vides (null = effacement dans Firestore)
+    const ctafFields = ['ctafClassification', 'ctafNotifRef', 'ctafComment'];
+
+    // Remove undefined fields to avoid Firestore errors — SAUF les champs CTAF qu'on garde
     const cleanUpdate = Object.fromEntries(
-      Object.entries(riskUpdate).filter(([, value]) => value !== undefined)
+      Object.entries(riskUpdate).filter(([key, value]) => {
+        if (ctafFields.includes(key)) return true; // Toujours inclure les champs CTAF
+        return value !== undefined;
+      }).map(([key, value]) => {
+        // Convertir undefined → null pour les champs CTAF (efface le champ dans Firestore)
+        if (ctafFields.includes(key) && value === undefined) return [key, null];
+        return [key, value];
+      })
     );
 
     // Détecter les champs modifiés pour mettre à jour les dates spécifiques
@@ -149,6 +160,7 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
     // Détecter quel type de champs sont modifiés
     const hasPlanActionUpdate = Object.keys(cleanUpdate).some(key => planActionFields.includes(key));
     const hasDmrUpdate = Object.keys(cleanUpdate).some(key => dmrFields.includes(key));
+    const hasCtafUpdate = Object.keys(cleanUpdate).some(key => ctafFields.includes(key));
 
     // Mettre à jour la date appropriée selon les champs modifiés
     if (hasPlanActionUpdate) {
@@ -157,13 +169,18 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
     if (hasDmrUpdate) {
       updates.dmrLastUpdated = today;
     }
-    // Ne mettre à jour lastUpdated que si les champs ne sont ni Plan d'actions ni DMR
+    // Mettre à jour lastUpdated pour les modifications générales ET CTAF
     if (!hasPlanActionUpdate && !hasDmrUpdate) {
+      updates.lastUpdated = today;
+    }
+    // Pour les champs CTAF : toujours mettre à jour lastUpdated (date de modification du signalement)
+    if (hasCtafUpdate) {
       updates.lastUpdated = today;
     }
 
     await updateDoc(docRef, updates);
   };
+
 
   const removeRisk = async (riskId: string) => {
     if (!isFirebaseConfigured || !db) return;

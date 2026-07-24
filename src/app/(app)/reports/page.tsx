@@ -266,34 +266,13 @@ export default function ReportsPage() {
   const retraitCountries = countryRisks.filter((r) => r.ctafClassification === "retrait");
 
   // Construction des notifications CTAF dynamiques
-  // Chaque notification = groupe de risques Pays avec la même ctafNotifRef (ou une par date)
+  // Chaque notification = groupe de risques Pays avec la même ctafNotifRef
   const ctafNotifications = React.useMemo(() => {
-    // Grouper tous les risques Pays par référence de notification
-    const grouped = new Map<string, {
-      ref: string;
-      date: string;
-      highRisk: string[];
-      monitored: string[];
-      removed: string[];
-      comments: string[];
-    }>();
+    // Filtrer seulement les risques Pays AVEC une classification CTAF définie
+    const classifiedRisks = countryRisks.filter((r) => !!r.ctafClassification);
 
-    // Ajouter d'abord les vrais risques de la matrice
-    countryRisks.forEach((r) => {
-      const ref = r.ctafNotifRef || `اشعار ${r.lastUpdated || selectedPeriod}`;
-      if (!grouped.has(ref)) {
-        grouped.set(ref, { ref, date: r.lastUpdated || "", highRisk: [], monitored: [], removed: [], comments: [] });
-      }
-      const group = grouped.get(ref)!;
-      const name = r.riskDescription || r.category;
-      if (r.ctafClassification === "haut_risque") group.highRisk.push(name);
-      else if (r.ctafClassification === "surveillance") group.monitored.push(name);
-      else if (r.ctafClassification === "retrait") group.removed.push(name);
-      if (r.ctafComment) group.comments.push(r.ctafComment);
-    });
-
-    // Si aucune donnée Pays dans la matrice → afficher les notifications de base (référence documentaire)
-    if (grouped.size === 0) {
+    // Si aucun risque n'a de classification CTAF → fallback statique documentaire
+    if (classifiedRisks.length === 0) {
       return [
         {
           ref: `اشعار 223/${selectedPeriod}`,
@@ -325,10 +304,55 @@ export default function ReportsPage() {
       ];
     }
 
-    return Array.from(grouped.values()).map((g) => ({
-      ...g,
-      isStatic: false,
-    }));
+    // Formater une date ISO (2026-03-17) en DD/MM/YYYY lisible
+    const formatDate = (isoDate: string): string => {
+      if (!isoDate) return "";
+      try {
+        if (isoDate.includes("/")) return isoDate; // Déjà au bon format
+        const d = new Date(isoDate);
+        if (isNaN(d.getTime())) return isoDate;
+        return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+      } catch {
+        return isoDate;
+      }
+    };
+
+    // Grouper par référence de notification
+    const grouped = new Map<string, {
+      ref: string;
+      date: string;
+      highRisk: string[];
+      monitored: string[];
+      removed: string[];
+      comments: string[];
+      isStatic: boolean;
+    }>();
+
+    classifiedRisks.forEach((r) => {
+      // Utiliser la référence CTAF saisie, sinon un ID générique propre (pas la date ISO brute)
+      const rawRef = r.ctafNotifRef?.trim();
+      const ref = rawRef
+        ? rawRef
+        : `اشعار ${selectedPeriod} — ${r.riskDescription?.substring(0, 25) || "Pays"}`;
+      const date = formatDate(r.lastUpdated || "");
+
+      if (!grouped.has(ref)) {
+        grouped.set(ref, { ref, date, highRisk: [], monitored: [], removed: [], comments: [], isStatic: false });
+      }
+      const group = grouped.get(ref)!;
+
+      // Mettre à jour la date avec la plus récente
+      if (date && (!group.date || date > group.date)) group.date = date;
+
+      const name = r.riskDescription || "Pays";
+      if (r.ctafClassification === "haut_risque") group.highRisk.push(name);
+      else if (r.ctafClassification === "surveillance") group.monitored.push(name);
+      else if (r.ctafClassification === "retrait") group.removed.push(name);
+
+      if (r.ctafComment?.trim()) group.comments.push(r.ctafComment.trim());
+    });
+
+    return Array.from(grouped.values());
   }, [countryRisks, selectedPeriod]);
 
   // Graphiques
