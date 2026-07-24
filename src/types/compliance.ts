@@ -189,6 +189,10 @@ export interface RiskMappingItem {
   planActionCreatedAt?: string; // Date création Plan d'actions
   dmrLastUpdated?: string; // Date modif DMR
   dmrCreatedAt?: string; // Date création DMR
+  // Champs CTAF/GAFI — uniquement pour les risques « Pays et Zones Géographiques »
+  ctafClassification?: "haut_risque" | "surveillance" | "retrait"; // Classification CTAF du pays
+  ctafNotifRef?: string;   // Référence du signalement CTAF (ex: اشعار 237/2026)
+  ctafComment?: string;    // Commentaire optionnel : motif / origine de la modification
 }
 
 export interface CustomKeyword {
