@@ -317,6 +317,8 @@ export default function ReportsPage() {
     ];
   }, [resolvedCountries, hautRisqueCountries, surveillanceCountries, selectedPeriod, todayFormatted]);
 
+  const safeRisks = Array.isArray(risks) ? risks : [];
+
   // Graphiques
   const riskChartData = React.useMemo(() => {
     if (!safeRisks.length) {
