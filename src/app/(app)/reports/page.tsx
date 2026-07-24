@@ -504,7 +504,7 @@ export default function ReportsPage() {
         ${ctafNotifications.map(n => `
           <p><strong>${n.ref}</strong> — Haut Risque : ${n.highRisk} — Surveillance : ${n.monitored} — Retrait : ${n.removed}</p>
         `).join("")}
-        ${countryRisks.length > 0 ? `<p><em>Facteurs pays issus de la Matrice des Risques (mis à jour le ${todayFormatted}) : ${countryRisks.map(r => r.riskDescription || r.category).join(", ")}</em></p>` : ""}
+        ${customModifiedCountries.length > 0 ? `<p><em>Facteurs pays modifiés dans la Matrice des Risques (mis à jour le ${todayFormatted}) : ${customModifiedCountries.map(c => c.name).join(", ")}</em></p>` : ""}
 
         <h2>V. المالحق والجداول الترتيبية (Tableaux Officiels CGA)</h2>
         <h3>جدول عدد 01: رزنامة تحيين ملفات المنخرطين حسب درجة المخاطر</h3>
@@ -1269,21 +1269,21 @@ export default function ReportsPage() {
               </Card>
             </div>
 
-            {/* Facteurs risques pays depuis la matrice */}
-            {countryRisks.length > 0 && (
+            {/* Facteurs risques pays modifiés depuis la matrice */}
+            {customModifiedCountries.length > 0 && (
               <Card className="p-6 border-slate-200 dark:border-slate-800 rounded-2xl space-y-3">
                 <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
                   <Globe2 className="h-4 w-4 text-rose-600" /> Facteurs de Risque « Pays » — Matrice des Risques (Mise à jour temps réel)
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {countryRisks.map((r, i) => (
+                  {customModifiedCountries.map((r, i) => (
                     <div key={i} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 space-y-1">
-                      <p className="font-bold text-xs text-slate-900 dark:text-white">{r.riskDescription}</p>
-                      <div className="flex gap-2">
-                        <Badge className={cn("text-[9px] font-black", r.riskLevel === "Élevé" ? "bg-rose-100 text-rose-700" : r.riskLevel === "Moyen" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700")}>
-                          {r.riskLevel}
+                      <p className="font-bold text-xs text-slate-900 dark:text-white">{r.name}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge className={cn("text-[9px] font-black", r.risk === "RE" ? "bg-rose-100 text-rose-700" : r.risk === "RM" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700")}>
+                          {r.risk === "RE" ? "Haut Risque (RE)" : r.risk === "RM" ? "Sous Surveillance (RM)" : "Retrait / Faible (RF)"}
                         </Badge>
-                        {r.lastUpdated && <span className="text-[9px] text-slate-400">modifié {r.lastUpdated}</span>}
+                        {r.other && <span className="text-[9px] text-slate-500 italic truncate max-w-[150px]">{r.other}</span>}
                       </div>
                     </div>
                   ))}
