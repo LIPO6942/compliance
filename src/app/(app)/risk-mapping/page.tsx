@@ -71,10 +71,6 @@ const riskSchema = z.object({
   deadline: z.string().optional(),
   responsible: z.string().optional(),
   completionLevel: z.coerce.number().min(0).max(100).optional(),
-  // Champs CTAF/GAFI — Pays et Zones Géographiques uniquement
-  ctafClassification: z.enum(["haut_risque", "surveillance", "retrait"]).optional(),
-  ctafNotifRef: z.string().optional(),
-  ctafComment: z.string().optional(),
 });
 
 type RiskFormValues = z.infer<typeof riskSchema>;
@@ -738,9 +734,6 @@ export default function RiskMappingPage() {
         deadline: data.deadline || "",
         responsible: data.responsible || "",
         completionLevel: data.completionLevel || 0,
-        ctafClassification: data.ctafClassification || undefined,
-        ctafNotifRef: data.ctafNotifRef || "",
-        ctafComment: data.ctafComment || "",
       });
     } else {
       form.reset({
@@ -761,9 +754,6 @@ export default function RiskMappingPage() {
         deadline: "",
         responsible: "",
         completionLevel: 0,
-        ctafClassification: undefined,
-        ctafNotifRef: "",
-        ctafComment: "",
       });
     }
   };
@@ -775,7 +765,6 @@ export default function RiskMappingPage() {
       const numProba = Number(values.probabilite) || 1;
       const numImpact = Number(values.impact) || 1;
 
-      const isPaysCat = values.category === "Pays et Zones Géographiques";
       const sanitizedValues = {
         department: values.department || "",
         category: values.category || "Clients",
@@ -789,10 +778,6 @@ export default function RiskMappingPage() {
         deadline: values.deadline || "",
         responsible: values.responsible || "",
         actionCorrective: values.actionCorrective || "",
-        // Champs CTAF — préservés uniquement pour les risques Pays
-        ctafClassification: isPaysCat ? (values.ctafClassification || undefined) : undefined,
-        ctafNotifRef: isPaysCat ? (values.ctafNotifRef || "") : "",
-        ctafComment: isPaysCat ? (values.ctafComment || "") : "",
       };
 
       // Smart merge for action items when editing from the dialog
@@ -2653,103 +2638,6 @@ export default function RiskMappingPage() {
                     </div>
                   </div>
                 </div>
-
-                {/* SECTION CTAF — Visible uniquement pour Pays et Zones Géographiques */}
-                {form.watch("category") === "Pays et Zones Géographiques" && (
-                  <div className="space-y-5 bg-rose-50/30 dark:bg-rose-950/10 p-8 rounded-[2.5rem] border-l-4 border-l-rose-500 border-y border-r border-rose-100 dark:border-rose-900/40 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-1 bg-rose-500 rounded-full" />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-600">Suivi CTAF / GAFI — Signalement Pays</h3>
-                      </div>
-                      <Badge variant="outline" className="bg-rose-100 text-rose-700 border-rose-200 font-black text-[9px] uppercase tracking-widest">CTAF</Badge>
-                    </div>
-                    <p className="text-[10px] text-rose-600/70 font-medium italic">
-                      Ces informations seront automatiquement reportées dans la rubrique «&nbsp;Suivi continu des notifications CTAF / GAFI&nbsp;» du rapport annuel CGA.
-                    </p>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Classification CTAF */}
-                      <FormField
-                        control={form.control}
-                        name="ctafClassification"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-rose-700/80">Classification CTAF du Pays</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || ""}>
-                              <FormControl>
-                                <SelectTrigger className="h-11 rounded-xl bg-white dark:bg-slate-900 border-2 border-rose-100 dark:border-rose-900/50 font-bold shadow-sm">
-                                  <SelectValue placeholder="Sélectionner la classification..." />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent className="rounded-xl border-none shadow-2xl">
-                                <SelectItem value="haut_risque" className="font-bold">
-                                  <span className="flex items-center gap-2">
-                                    <span className="h-2 w-2 rounded-full bg-rose-600 inline-block" />
-                                    Haut Risque (مخاطر مرتفعة)
-                                  </span>
-                                </SelectItem>
-                                <SelectItem value="surveillance" className="font-bold">
-                                  <span className="flex items-center gap-2">
-                                    <span className="h-2 w-2 rounded-full bg-amber-500 inline-block" />
-                                    Sous Surveillance GAFI
-                                  </span>
-                                </SelectItem>
-                                <SelectItem value="retrait" className="font-bold">
-                                  <span className="flex items-center gap-2">
-                                    <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
-                                    Retrait Liste (Risque Faible)
-                                  </span>
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      {/* Référence de la Notification CTAF */}
-                      <FormField
-                        control={form.control}
-                        name="ctafNotifRef"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-rose-700/80">Référence de la Notification (اشعار)</FormLabel>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                placeholder="Ex: اشعار 237/2026 du 28/10/2026"
-                                className="h-11 rounded-xl bg-white dark:bg-slate-900 border-2 border-rose-100 dark:border-rose-900/50 font-semibold text-xs shadow-sm"
-                              />
-                            </FormControl>
-                            <FormDescription className="text-[9px] italic opacity-60">Référence du signalement CTAF / GAFI ayant motivé cette modification.</FormDescription>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    {/* Commentaire optionnel */}
-                    <FormField
-                      control={form.control}
-                      name="ctafComment"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-wider text-rose-700/80">
-                            Commentaire — Motif de la Modification <span className="text-rose-400 font-normal italic">(optionnel)</span>
-                          </FormLabel>
-                          <FormControl>
-                            <Textarea
-                              {...field}
-                              placeholder="Ex: Mise sous surveillance suite à la liste GAFI du 28/10/2026 — Pays identifié comme non-coopératif en matière de LAB/FT..."
-                              className="min-h-[80px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-rose-100 dark:border-rose-900/50 font-semibold text-xs shadow-sm"
-                            />
-                          </FormControl>
-                          <FormDescription className="text-[9px] italic opacity-60">Ce commentaire apparaîtra dans le rapport annuel CGA dans la rubrique suivi CTAF / GAFI.</FormDescription>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-900/50 p-8 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800">

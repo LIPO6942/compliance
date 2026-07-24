@@ -44,7 +44,7 @@ const RISK_LEVELS = [
 ];
 
 // ── 1. Pays ──
-const COUNTRIES_DATA = [
+export const COUNTRIES_DATA = [
   { numeric: 4, alpha3: "AFG", name: "Afghanistan", gafi: false, corruption: true, oecd: false, terrorism: true, other: "", risk: "RE" },
   { numeric: 8, alpha3: "ALB", name: "Albanie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
   { numeric: 10, alpha3: "ATA", name: "Antarctique", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },

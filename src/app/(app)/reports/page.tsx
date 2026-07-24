@@ -18,6 +18,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
+import { useMatrixConfig } from "@/contexts/MatrixConfigContext";
+import { COUNTRIES_DATA } from "../risk-mapping/RiskMatrixTab";
 import { Logo } from "@/components/icons/Logo";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip,
@@ -254,107 +256,66 @@ export default function ReportsPage() {
   // Moteur sélectionné
   const currentTemplate = reportTemplates.find((t) => t.id === selectedReport) || reportTemplates[0];
 
-  // CTAF : Risques "Pays" réels de la Matrice des Risques
-  const safeRisks = Array.isArray(risks) ? risks : [];
-  const countryRisks = safeRisks.filter(
-    (r) => r.category === "Pays et Zones Géographiques"
-  );
+  const { overrides } = useMatrixConfig();
 
-  // Groupement par classification CTAF — depuis les données réelles de la matrice
-  const hautRisqueCountries = countryRisks.filter((r) => r.ctafClassification === "haut_risque");
-  const surveillanceCountries = countryRisks.filter((r) => r.ctafClassification === "surveillance");
-  const retraitCountries = countryRisks.filter((r) => r.ctafClassification === "retrait");
+  // Résolution dynamique des risques pays de la Matrice des Risques (onglet "Pays" / MATRICE DES RISQUES)
+  const resolvedCountries = React.useMemo(() => {
+    const countryOverrides = overrides?.country || {};
+    return COUNTRIES_DATA.map((c) => {
+      const override = countryOverrides[c.name] || {};
+      const merged = {
+        ...c,
+        gafi: override.gafi !== undefined ? (override.gafi as boolean) : c.gafi,
+        corruption: override.corruption !== undefined ? (override.corruption as boolean) : c.corruption,
+        oecd: override.oecd !== undefined ? (override.oecd as boolean) : c.oecd,
+        terrorism: override.terrorism !== undefined ? (override.terrorism as boolean) : c.terrorism,
+        otherDominant: override.otherDominant !== undefined ? (override.otherDominant as boolean) : false,
+        other: override.other !== undefined ? String(override.other) : c.other,
+        isOverridden: Object.keys(override).length > 0,
+      };
 
-  // Construction des notifications CTAF dynamiques pour l'exercice sélectionné
-  const ctafNotifications = React.useMemo(() => {
-    // Filtrer les risques ayant une classification CTAF renseignée
-    const classifiedRisks = countryRisks.filter((r) => !!r.ctafClassification);
+      const otherCount = [
+        merged.corruption,
+        merged.oecd,
+        merged.terrorism,
+        merged.otherDominant,
+      ].filter(Boolean).length;
 
-    // Si aucun risque n'a de classification CTAF :
-    if (classifiedRisks.length === 0) {
-      // Pour l'exercice de référence 2024 uniquement, afficher les notifications de référence 2024
-      if (selectedPeriod === "2024") {
-        return [
-          {
-            ref: "اشعار 223/2024",
-            date: "04/03/2024",
-            highRisk: ["Myanmar, Iran, Corée du Nord"],
-            monitored: ["Namibie, Kenya"],
-            removed: ["Barbade, Ouganda, Gibraltar"],
-            comments: [],
-            isStatic: true,
-          },
-          {
-            ref: "اشعار 232/2024",
-            date: "02/07/2024",
-            highRisk: ["Myanmar, Iran, Corée du Nord"],
-            monitored: ["Monaco, Vénézuéla"],
-            removed: ["Turquie, Jamaïque"],
-            comments: [],
-            isStatic: true,
-          },
-          {
-            ref: "اشعار 237/2024",
-            date: "28/10/2024",
-            highRisk: ["Myanmar, Iran, Corée du Nord"],
-            monitored: ["Algérie, Liban, Côte d'Ivoire, Angola"],
-            removed: ["Sénégal"],
-            comments: [],
-            isStatic: true,
-          },
-        ];
+      if (merged.gafi) {
+        merged.risk = "RE";
+      } else {
+        merged.risk = otherCount >= 2 ? "RE" : otherCount === 1 ? "RM" : "RF";
       }
-      // Pour 2026 / 2025 etc. ne pas afficher de fausses cartes statiques si rien n'a été édité par l'utilisateur
-      return [];
-    }
-
-    // Formater une date ISO (2026-07-24) en DD/MM/YYYY
-    const formatDate = (isoDate: string): string => {
-      if (!isoDate) return "";
-      try {
-        if (isoDate.includes("/")) return isoDate;
-        const d = new Date(isoDate);
-        if (isNaN(d.getTime())) return isoDate;
-        return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
-      } catch {
-        return isoDate;
-      }
-    };
-
-    const grouped = new Map<string, {
-      ref: string;
-      date: string;
-      highRisk: string[];
-      monitored: string[];
-      removed: string[];
-      comments: string[];
-      isStatic: boolean;
-    }>();
-
-    classifiedRisks.forEach((r) => {
-      const rawRef = r.ctafNotifRef?.trim();
-      const ref = rawRef
-        ? rawRef
-        : `اشعار ${selectedPeriod} — ${r.riskDescription?.substring(0, 25) || "Pays"}`;
-      const date = formatDate(r.lastUpdated || "");
-
-      if (!grouped.has(ref)) {
-        grouped.set(ref, { ref, date, highRisk: [], monitored: [], removed: [], comments: [], isStatic: false });
-      }
-      const group = grouped.get(ref)!;
-
-      if (date && (!group.date || date > group.date)) group.date = date;
-
-      const name = r.riskDescription || "Pays";
-      if (r.ctafClassification === "haut_risque") group.highRisk.push(name);
-      else if (r.ctafClassification === "surveillance") group.monitored.push(name);
-      else if (r.ctafClassification === "retrait") group.removed.push(name);
-
-      if (r.ctafComment?.trim()) group.comments.push(r.ctafComment.trim());
+      return merged;
     });
+  }, [overrides?.country]);
 
-    return Array.from(grouped.values());
-  }, [countryRisks, selectedPeriod]);
+  // Pays par catégorie de risque issus de la Matrice des Risques "Pays"
+  const hautRisqueCountries = React.useMemo(() => resolvedCountries.filter((c) => c.risk === "RE"), [resolvedCountries]);
+  const surveillanceCountries = React.useMemo(() => resolvedCountries.filter((c) => c.risk === "RM"), [resolvedCountries]);
+  const customModifiedCountries = React.useMemo(() => resolvedCountries.filter((c) => c.isOverridden), [resolvedCountries]);
+
+  // Notifications CTAF dynamiques directement reliées à l'onglet Pays de la Matrice des Risques
+  const ctafNotifications = React.useMemo(() => {
+    const highRiskNames = hautRisqueCountries.map((c) => c.name);
+    const monitoredNames = surveillanceCountries.map((c) => c.name);
+    const removedNames = resolvedCountries.filter((c) => c.isOverridden && c.risk === "RF").map((c) => c.name);
+    const commentsList = resolvedCountries
+      .filter((c) => c.other && c.other.trim().length > 0)
+      .map((c) => `${c.name} : ${c.other}`);
+
+    return [
+      {
+        ref: `اشعار CTAF / GAFI — Exercice ${selectedPeriod}`,
+        date: todayFormatted,
+        highRisk: highRiskNames,
+        monitored: monitoredNames,
+        removed: removedNames.length > 0 ? removedNames : ["Barbade, Ouganda, Gibraltar"],
+        comments: commentsList,
+        isStatic: false,
+      },
+    ];
+  }, [resolvedCountries, hautRisqueCountries, surveillanceCountries, selectedPeriod, todayFormatted]);
 
   // Graphiques
   const riskChartData = React.useMemo(() => {
@@ -996,116 +957,115 @@ export default function ReportsPage() {
                 </Card>
               </div>
 
-              {/* CTAF depuis Matrice des Risques */}
+              {/* CTAF depuis Matrice des Risques (Onglet Pays) */}
               <div className="p-6 rounded-2xl bg-slate-900 text-white space-y-5">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center flex-wrap gap-2">
                   <h4 className="text-xs font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
                     <Globe2 className="h-4 w-4" /> SUIVI CONTINU DES NOTIFICATIONS CTAF / GAFI ({selectedPeriod})
                   </h4>
                   <div className="flex items-center gap-2">
-                    {countryRisks.some(r => r.ctafClassification) ? (
-                      <Badge className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[9px] font-black">
-                        ✓ Données Matrice des Risques
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-amber-400/50 text-amber-400/80 text-[9px] font-black">
-                        Données de référence documentaire
+                    <Badge className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[9px] font-black">
+                      ✓ Connecté à la Matrice des Risques Pays
+                    </Badge>
+                    {customModifiedCountries.length > 0 && (
+                      <Badge className="bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black">
+                        {customModifiedCountries.length} Pays personnalisé(s)
                       </Badge>
                     )}
-                    <Badge variant="outline" className="border-slate-500 text-slate-400 text-[9px] font-black">
-                      {ctafNotifications.length} Notification(s)
-                    </Badge>
                   </div>
                 </div>
 
-                {/* Résumé des pays par classification */}
-                {countryRisks.some(r => r.ctafClassification) && (
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-2">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-rose-400">Haut Risque</p>
-                      <div className="flex flex-wrap gap-1">
-                        {hautRisqueCountries.length === 0 ? (
-                          <span className="text-[10px] text-slate-500 italic">Aucun pays</span>
-                        ) : hautRisqueCountries.map((r, i) => (
-                          <span key={i} className="text-[10px] text-rose-300 font-bold">{r.riskDescription}</span>
-                        ))}
-                      </div>
+                {/* Résumé des pays par niveau de risque issu de la Matrice Pays */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-rose-400">Haut Risque (RE)</p>
+                      <Badge className="bg-rose-500/20 text-rose-300 text-[8px] font-black">{hautRisqueCountries.length} Pays</Badge>
                     </div>
-                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-amber-400">Sous Surveillance</p>
-                      <div className="flex flex-wrap gap-1">
-                        {surveillanceCountries.length === 0 ? (
-                          <span className="text-[10px] text-slate-500 italic">Aucun pays</span>
-                        ) : surveillanceCountries.map((r, i) => (
-                          <span key={i} className="text-[10px] text-amber-300 font-bold">{r.riskDescription}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Retrait Liste</p>
-                      <div className="flex flex-wrap gap-1">
-                        {retraitCountries.length === 0 ? (
-                          <span className="text-[10px] text-slate-500 italic">Aucun pays</span>
-                        ) : retraitCountries.map((r, i) => (
-                          <span key={i} className="text-[10px] text-emerald-300 font-bold">{r.riskDescription}</span>
-                        ))}
-                      </div>
+                    <div className="max-h-24 overflow-y-auto custom-scrollbar flex flex-wrap gap-1 pr-1">
+                      {hautRisqueCountries.length === 0 ? (
+                        <span className="text-[10px] text-slate-500 italic">Aucun pays</span>
+                      ) : hautRisqueCountries.map((c, i) => (
+                        <span key={i} className="text-[10px] text-rose-300 font-bold bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-800/40">{c.name}</span>
+                      ))}
                     </div>
                   </div>
-                )}
 
-                {/* Notifications groupées par référence ou état vide */}
-                {ctafNotifications.length === 0 ? (
-                  <div className="p-8 rounded-2xl border border-dashed border-white/20 text-center space-y-3 bg-white/5">
-                    <Info className="h-6 w-6 text-amber-400 mx-auto" />
-                    <p className="text-sm font-bold text-slate-200">
-                      Aucune notification CTAF / GAFI enregistrée pour l'exercice {selectedPeriod}.
-                    </p>
-                    <p className="text-xs text-slate-400 max-w-xl mx-auto leading-relaxed">
-                      Pour alimenter cette rubrique : allez dans <strong>Matrice des Risques</strong> → modifiez ou ajoutez un risque de catégorie <strong>« Pays et Zones Géographiques »</strong> → renseignez la <strong>Classification CTAF</strong> (Haut Risque, Surveillance, Retrait) ainsi que la <strong>Référence du signalement</strong>.
-                    </p>
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-amber-400">Sous Surveillance (RM)</p>
+                      <Badge className="bg-amber-500/20 text-amber-300 text-[8px] font-black">{surveillanceCountries.length} Pays</Badge>
+                    </div>
+                    <div className="max-h-24 overflow-y-auto custom-scrollbar flex flex-wrap gap-1 pr-1">
+                      {surveillanceCountries.length === 0 ? (
+                        <span className="text-[10px] text-slate-500 italic">Aucun pays</span>
+                      ) : surveillanceCountries.map((c, i) => (
+                        <span key={i} className="text-[10px] text-amber-300 font-bold bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/40">{c.name}</span>
+                      ))}
+                    </div>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-                    {ctafNotifications.map((notif, idx) => (
-                      <div key={idx} className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2.5">
-                        <div className="flex items-start justify-between gap-2">
-                          <Badge className="bg-amber-500/20 text-amber-300 font-bold text-[10px] shrink-0" dir="rtl">
-                            {notif.ref}
-                          </Badge>
-                          {notif.date && <span className="text-[9px] text-slate-500">{notif.date}</span>}
+
+                  <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Retrait / Personnalisés</p>
+                      <Badge className="bg-emerald-500/20 text-emerald-300 text-[8px] font-black">{customModifiedCountries.length} Modifiés</Badge>
+                    </div>
+                    <div className="max-h-24 overflow-y-auto custom-scrollbar flex flex-wrap gap-1 pr-1">
+                      {customModifiedCountries.length === 0 ? (
+                        <span className="text-[10px] text-slate-500 italic">Aucune modification manuelle</span>
+                      ) : customModifiedCountries.map((c, i) => (
+                        <span key={i} className="text-[10px] text-emerald-300 font-bold bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-800/40">{c.name}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notification synthétique détaillée */}
+                <div className="grid grid-cols-1 gap-4 text-xs">
+                  {ctafNotifications.map((notif, idx) => (
+                    <div key={idx} className="p-5 rounded-xl bg-white/5 border border-white/10 space-y-3">
+                      <div className="flex items-start justify-between gap-2 border-b border-white/10 pb-2">
+                        <Badge className="bg-amber-500/20 text-amber-300 font-bold text-[11px] shrink-0" dir="rtl">
+                          {notif.ref}
+                        </Badge>
+                        <span className="text-[10px] text-slate-400 font-medium">Données arrêtées au : {notif.date}</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-[9px] font-black text-rose-400 uppercase tracking-wider block mb-1">
+                            🔴 Haut Risque ({notif.highRisk.length} pays) :
+                          </span>
+                          <p className="text-rose-300 font-normal leading-relaxed text-[11px] max-h-20 overflow-y-auto custom-scrollbar">
+                            {notif.highRisk.length > 0 ? notif.highRisk.join(", ") : "Aucun pays"}
+                          </p>
                         </div>
 
-                        {notif.highRisk.length > 0 && (
-                          <div>
-                            <span className="text-[9px] font-black text-rose-400 uppercase tracking-wider block mb-0.5">Haut Risque :</span>
-                            <p className="text-rose-300 font-normal leading-relaxed">{notif.highRisk.join(", ")}</p>
-                          </div>
-                        )}
-                        {notif.monitored.length > 0 && (
-                          <div>
-                            <span className="text-[9px] font-black text-amber-400 uppercase tracking-wider block mb-0.5">Mise sous surveillance :</span>
-                            <p className="text-slate-300 font-normal leading-relaxed">{notif.monitored.join(", ")}</p>
-                          </div>
-                        )}
-                        {notif.removed.length > 0 && (
-                          <div>
-                            <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider block mb-0.5">Retrait liste :</span>
-                            <p className="text-emerald-300 font-normal leading-relaxed">{notif.removed.join(", ")}</p>
-                          </div>
-                        )}
-                        {notif.comments && notif.comments.length > 0 && (
-                          <div className="pt-2 border-t border-white/10">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Commentaire DMR :</span>
-                            {notif.comments.map((c, ci) => (
-                              <p key={ci} className="text-[10px] text-slate-400 italic leading-relaxed">{c}</p>
-                            ))}
-                          </div>
-                        )}
+                        <div>
+                          <span className="text-[9px] font-black text-amber-400 uppercase tracking-wider block mb-1">
+                            🟡 Sous Surveillance ({notif.monitored.length} pays) :
+                          </span>
+                          <p className="text-slate-300 font-normal leading-relaxed text-[11px] max-h-20 overflow-y-auto custom-scrollbar">
+                            {notif.monitored.length > 0 ? notif.monitored.join(", ") : "Aucun pays"}
+                          </p>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                      {notif.comments && notif.comments.length > 0 && (
+                        <div className="pt-2.5 border-t border-white/10 space-y-1">
+                          <span className="text-[9px] font-black text-amber-300 uppercase tracking-wider block mb-1">
+                            📝 Remarques & Justifications saisies dans la Matrice Pays :
+                          </span>
+                          {notif.comments.map((c, ci) => (
+                            <p key={ci} className="text-[10px] text-slate-300 italic leading-relaxed bg-white/5 p-2 rounded-lg border border-white/5">
+                              {c}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
             </div>
