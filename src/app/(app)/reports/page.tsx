@@ -265,50 +265,54 @@ export default function ReportsPage() {
   const surveillanceCountries = countryRisks.filter((r) => r.ctafClassification === "surveillance");
   const retraitCountries = countryRisks.filter((r) => r.ctafClassification === "retrait");
 
-  // Construction des notifications CTAF dynamiques
-  // Chaque notification = groupe de risques Pays avec la même ctafNotifRef
+  // Construction des notifications CTAF dynamiques pour l'exercice sélectionné
   const ctafNotifications = React.useMemo(() => {
-    // Filtrer seulement les risques Pays AVEC une classification CTAF définie
+    // Filtrer les risques ayant une classification CTAF renseignée
     const classifiedRisks = countryRisks.filter((r) => !!r.ctafClassification);
 
-    // Si aucun risque n'a de classification CTAF → fallback statique documentaire
+    // Si aucun risque n'a de classification CTAF :
     if (classifiedRisks.length === 0) {
-      return [
-        {
-          ref: `اشعار 223/${selectedPeriod}`,
-          date: `04/03/${selectedPeriod}`,
-          highRisk: ["Myanmar, Iran, Corée du Nord"],
-          monitored: ["Namibie, Kenya"],
-          removed: ["Barbade, Ouganda, Gibraltar"],
-          comments: [],
-          isStatic: true,
-        },
-        {
-          ref: `اشعار 232/${selectedPeriod}`,
-          date: `02/07/${selectedPeriod}`,
-          highRisk: ["Myanmar, Iran, Corée du Nord"],
-          monitored: ["Monaco, Vénézuéla"],
-          removed: ["Turquie, Jamaïque"],
-          comments: [],
-          isStatic: true,
-        },
-        {
-          ref: `اشعار 237/${selectedPeriod}`,
-          date: `28/10/${selectedPeriod}`,
-          highRisk: ["Myanmar, Iran, Corée du Nord"],
-          monitored: ["Algérie, Liban, Côte d'Ivoire, Angola"],
-          removed: ["Sénégal"],
-          comments: [],
-          isStatic: true,
-        },
-      ];
+      // Pour l'exercice de référence 2024 uniquement, afficher les notifications de référence 2024
+      if (selectedPeriod === "2024") {
+        return [
+          {
+            ref: "اشعار 223/2024",
+            date: "04/03/2024",
+            highRisk: ["Myanmar, Iran, Corée du Nord"],
+            monitored: ["Namibie, Kenya"],
+            removed: ["Barbade, Ouganda, Gibraltar"],
+            comments: [],
+            isStatic: true,
+          },
+          {
+            ref: "اشعار 232/2024",
+            date: "02/07/2024",
+            highRisk: ["Myanmar, Iran, Corée du Nord"],
+            monitored: ["Monaco, Vénézuéla"],
+            removed: ["Turquie, Jamaïque"],
+            comments: [],
+            isStatic: true,
+          },
+          {
+            ref: "اشعار 237/2024",
+            date: "28/10/2024",
+            highRisk: ["Myanmar, Iran, Corée du Nord"],
+            monitored: ["Algérie, Liban, Côte d'Ivoire, Angola"],
+            removed: ["Sénégal"],
+            comments: [],
+            isStatic: true,
+          },
+        ];
+      }
+      // Pour 2026 / 2025 etc. ne pas afficher de fausses cartes statiques si rien n'a été édité par l'utilisateur
+      return [];
     }
 
-    // Formater une date ISO (2026-03-17) en DD/MM/YYYY lisible
+    // Formater une date ISO (2026-07-24) en DD/MM/YYYY
     const formatDate = (isoDate: string): string => {
       if (!isoDate) return "";
       try {
-        if (isoDate.includes("/")) return isoDate; // Déjà au bon format
+        if (isoDate.includes("/")) return isoDate;
         const d = new Date(isoDate);
         if (isNaN(d.getTime())) return isoDate;
         return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -317,7 +321,6 @@ export default function ReportsPage() {
       }
     };
 
-    // Grouper par référence de notification
     const grouped = new Map<string, {
       ref: string;
       date: string;
@@ -329,7 +332,6 @@ export default function ReportsPage() {
     }>();
 
     classifiedRisks.forEach((r) => {
-      // Utiliser la référence CTAF saisie, sinon un ID générique propre (pas la date ISO brute)
       const rawRef = r.ctafNotifRef?.trim();
       const ref = rawRef
         ? rawRef
@@ -341,7 +343,6 @@ export default function ReportsPage() {
       }
       const group = grouped.get(ref)!;
 
-      // Mettre à jour la date avec la plus récente
       if (date && (!group.date || date > group.date)) group.date = date;
 
       const name = r.riskDescription || "Pays";
@@ -1053,53 +1054,56 @@ export default function ReportsPage() {
                   </div>
                 )}
 
-                {/* Notifications groupées par référence */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-                  {ctafNotifications.map((notif, idx) => (
-                    <div key={idx} className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <Badge className="bg-amber-500/20 text-amber-300 font-bold text-[10px] shrink-0" dir="rtl">
-                          {notif.ref}
-                        </Badge>
-                        {notif.date && <span className="text-[9px] text-slate-500">{notif.date}</span>}
-                      </div>
-
-                      {notif.highRisk.length > 0 && (
-                        <div>
-                          <span className="text-[9px] font-black text-rose-400 uppercase tracking-wider block mb-0.5">Haut Risque :</span>
-                          <p className="text-rose-300 font-normal leading-relaxed">{notif.highRisk.join(", ")}</p>
-                        </div>
-                      )}
-                      {notif.monitored.length > 0 && (
-                        <div>
-                          <span className="text-[9px] font-black text-amber-400 uppercase tracking-wider block mb-0.5">Mise sous surveillance :</span>
-                          <p className="text-slate-300 font-normal leading-relaxed">{notif.monitored.join(", ")}</p>
-                        </div>
-                      )}
-                      {notif.removed.length > 0 && (
-                        <div>
-                          <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider block mb-0.5">Retrait liste :</span>
-                          <p className="text-emerald-300 font-normal leading-relaxed">{notif.removed.join(", ")}</p>
-                        </div>
-                      )}
-                      {notif.comments && notif.comments.length > 0 && (
-                        <div className="pt-2 border-t border-white/10">
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Commentaire DMR :</span>
-                          {notif.comments.map((c, ci) => (
-                            <p key={ci} className="text-[10px] text-slate-400 italic leading-relaxed">{c}</p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {!countryRisks.some(r => r.ctafClassification) && (
-                  <div className="flex items-center gap-2 pt-2 border-t border-white/10">
-                    <Info className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
-                    <p className="text-[10px] text-amber-300 font-bold italic">
-                      Pour personnaliser ces données : allez dans <strong>Matrice des Risques</strong> → modifiez un risque de catégorie <strong>« Pays et Zones Géographiques »</strong> → renseignez la Classification CTAF et la Référence du signalement.
+                {/* Notifications groupées par référence ou état vide */}
+                {ctafNotifications.length === 0 ? (
+                  <div className="p-8 rounded-2xl border border-dashed border-white/20 text-center space-y-3 bg-white/5">
+                    <Info className="h-6 w-6 text-amber-400 mx-auto" />
+                    <p className="text-sm font-bold text-slate-200">
+                      Aucune notification CTAF / GAFI enregistrée pour l'exercice {selectedPeriod}.
                     </p>
+                    <p className="text-xs text-slate-400 max-w-xl mx-auto leading-relaxed">
+                      Pour alimenter cette rubrique : allez dans <strong>Matrice des Risques</strong> → modifiez ou ajoutez un risque de catégorie <strong>« Pays et Zones Géographiques »</strong> → renseignez la <strong>Classification CTAF</strong> (Haut Risque, Surveillance, Retrait) ainsi que la <strong>Référence du signalement</strong>.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                    {ctafNotifications.map((notif, idx) => (
+                      <div key={idx} className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <Badge className="bg-amber-500/20 text-amber-300 font-bold text-[10px] shrink-0" dir="rtl">
+                            {notif.ref}
+                          </Badge>
+                          {notif.date && <span className="text-[9px] text-slate-500">{notif.date}</span>}
+                        </div>
+
+                        {notif.highRisk.length > 0 && (
+                          <div>
+                            <span className="text-[9px] font-black text-rose-400 uppercase tracking-wider block mb-0.5">Haut Risque :</span>
+                            <p className="text-rose-300 font-normal leading-relaxed">{notif.highRisk.join(", ")}</p>
+                          </div>
+                        )}
+                        {notif.monitored.length > 0 && (
+                          <div>
+                            <span className="text-[9px] font-black text-amber-400 uppercase tracking-wider block mb-0.5">Mise sous surveillance :</span>
+                            <p className="text-slate-300 font-normal leading-relaxed">{notif.monitored.join(", ")}</p>
+                          </div>
+                        )}
+                        {notif.removed.length > 0 && (
+                          <div>
+                            <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider block mb-0.5">Retrait liste :</span>
+                            <p className="text-emerald-300 font-normal leading-relaxed">{notif.removed.join(", ")}</p>
+                          </div>
+                        )}
+                        {notif.comments && notif.comments.length > 0 && (
+                          <div className="pt-2 border-t border-white/10">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Commentaire DMR :</span>
+                            {notif.comments.map((c, ci) => (
+                              <p key={ci} className="text-[10px] text-slate-400 italic leading-relaxed">{c}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

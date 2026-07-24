@@ -112,77 +112,75 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt' | 'planActionLastUpdated' | 'planActionCreatedAt' | 'dmrLastUpdated' | 'dmrCreatedAt'>) => {
-    if (!isFirebaseConfigured || !db) return;
-    // Remove undefined fields (e.g., documentId) to avoid Firestore errors
     const cleanRisk = Object.fromEntries(
       Object.entries(risk).filter(([, value]) => value !== undefined)
     );
     const today = new Date().toISOString().split('T')[0];
-    const newRisk = {
+    const newRisk: RiskMappingItem = {
+      id: `risk_${Date.now()}`,
       ...cleanRisk,
       createdAt: today,
       lastUpdated: today,
-      // Initialiser les dates spécifiques
       planActionCreatedAt: today,
       planActionLastUpdated: today,
       dmrCreatedAt: today,
       dmrLastUpdated: today,
-    };
+    } as RiskMappingItem;
+
+    setRisks((prev) => [newRisk, ...prev]);
+
+    if (!isFirebaseConfigured || !db) return;
     await addDoc(collection(db, risksCollectionName), newRisk);
   };
 
   const editRisk = async (riskId: string, riskUpdate: Partial<Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt' | 'planActionLastUpdated' | 'planActionCreatedAt' | 'dmrLastUpdated' | 'dmrCreatedAt'>>) => {
-    if (!isFirebaseConfigured || !db) return;
-    const docRef = doc(db, risksCollectionName, riskId);
-
-    // Champs CTAF : on les préserve explicitement même si vides (null = effacement dans Firestore)
     const ctafFields = ['ctafClassification', 'ctafNotifRef', 'ctafComment'];
 
-    // Remove undefined fields to avoid Firestore errors — SAUF les champs CTAF qu'on garde
     const cleanUpdate = Object.fromEntries(
       Object.entries(riskUpdate).filter(([key, value]) => {
-        if (ctafFields.includes(key)) return true; // Toujours inclure les champs CTAF
+        if (ctafFields.includes(key)) return true;
         return value !== undefined;
       }).map(([key, value]) => {
-        // Convertir undefined → null pour les champs CTAF (efface le champ dans Firestore)
         if (ctafFields.includes(key) && value === undefined) return [key, null];
         return [key, value];
       })
     );
 
-    // Détecter les champs modifiés pour mettre à jour les dates spécifiques
     const planActionFields = ['weaknessPoint', 'actionCorrective', 'deadline', 'responsible', 'completionLevel'];
     const dmrFields = ['dmrEfficiency', 'dmrProbability', 'justification', 'maePosition'];
 
     const today = new Date().toISOString().split('T')[0];
     const updates: Record<string, unknown> = { ...cleanUpdate };
 
-    // Détecter quel type de champs sont modifiés
     const hasPlanActionUpdate = Object.keys(cleanUpdate).some(key => planActionFields.includes(key));
     const hasDmrUpdate = Object.keys(cleanUpdate).some(key => dmrFields.includes(key));
     const hasCtafUpdate = Object.keys(cleanUpdate).some(key => ctafFields.includes(key));
 
-    // Mettre à jour la date appropriée selon les champs modifiés
     if (hasPlanActionUpdate) {
       updates.planActionLastUpdated = today;
     }
     if (hasDmrUpdate) {
       updates.dmrLastUpdated = today;
     }
-    // Mettre à jour lastUpdated pour les modifications générales ET CTAF
     if (!hasPlanActionUpdate && !hasDmrUpdate) {
       updates.lastUpdated = today;
     }
-    // Pour les champs CTAF : toujours mettre à jour lastUpdated (date de modification du signalement)
     if (hasCtafUpdate) {
       updates.lastUpdated = today;
     }
 
+    setRisks((prev) =>
+      prev.map((r) => (r.id === riskId ? ({ ...r, ...updates } as RiskMappingItem) : r))
+    );
+
+    if (!isFirebaseConfigured || !db) return;
+    const docRef = doc(db, risksCollectionName, riskId);
     await updateDoc(docRef, updates);
   };
 
-
   const removeRisk = async (riskId: string) => {
+    setRisks((prev) => prev.filter((r) => r.id !== riskId));
+
     if (!isFirebaseConfigured || !db) return;
     await deleteDoc(doc(db, risksCollectionName, riskId));
   };
