@@ -54,39 +54,105 @@ const actionColors: Record<ActivityAction, { bg: string, text: string, icon: any
 
 export default function AdminActivityPage() {
     const { logs, isAdmin } = useActivityLog();
-    const { user } = useUser();
+    const { user, isLoaded } = useUser();
     const router = useRouter();
     const [searchTerm, setSearchTerm] = React.useState("");
     const [filterAction, setFilterAction] = React.useState<string>("all");
     const [currentPage, setCurrentPage] = React.useState(1);
     const itemsPerPage = 50;
 
-    // Security check: only moslem.gouia@mae.tn can see this
+    const currentUserEmail = user?.authEmail || user?.email || "";
+    const userIsAdmin = isAdmin(currentUserEmail);
+
+    // Security check: only admins can see this
     React.useEffect(() => {
-        if (user?.email && !isAdmin(user.email)) {
+        if (isLoaded && (!currentUserEmail || !userIsAdmin)) {
             router.push("/dashboard");
         }
-    }, [user?.email, isAdmin, router]);
+    }, [isLoaded, currentUserEmail, userIsAdmin, router]);
 
-    if (!user?.email || !isAdmin(user.email)) return null;
+    if (!isLoaded || !currentUserEmail || !userIsAdmin) return null;
 
-    const filteredLogs = logs.filter(log => {
-        const matchesSearch =
-            log.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            log.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            log.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            log.module.toLowerCase().includes(searchTerm.toLowerCase());
+    const safeLogs = Array.isArray(logs) ? logs : [];
 
-        const matchesAction = filterAction === "all" || log.action === filterAction;
+    const filteredLogs = safeLogs.filter(log => {
+        if (!log) return false;
+
+        const userName = (log.userName || "").toLowerCase();
+        const userEmail = (log.userEmail || "").toLowerCase();
+        const label = (log.label || "").toLowerCase();
+        const moduleName = (log.module || "").toLowerCase();
+        const search = (searchTerm || "").toLowerCase().trim();
+
+        const matchesSearch = !search ||
+            userName.includes(search) ||
+            userEmail.includes(search) ||
+            label.includes(search) ||
+            moduleName.includes(search);
+
+        const logAction = log.action || "OTHER";
+        const matchesAction = filterAction === "all" || logAction === filterAction;
 
         return matchesSearch && matchesAction;
     });
 
-    const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+    const totalPages = Math.ceil(filteredLogs.length / itemsPerPage) || 1;
     const startIndex = (currentPage - 1) * itemsPerPage;
     const currentLogs = filteredLogs.slice(startIndex, startIndex + itemsPerPage);
 
-    const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    const getInitials = (name?: string) => {
+        if (!name || typeof name !== 'string') return "U";
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) return "U";
+        return parts.map(n => n[0]).join('').toUpperCase().substring(0, 2) || "U";
+    };
+
+    const safeFormatDate = (dateVal: any, formatStr: string) => {
+        if (!dateVal) return "N/A";
+        try {
+            let d: Date;
+            if (typeof dateVal === 'object' && dateVal !== null && 'seconds' in dateVal) {
+                d = new Date(dateVal.seconds * 1000);
+            } else if (dateVal instanceof Date) {
+                d = dateVal;
+            } else {
+                d = new Date(dateVal);
+            }
+            if (isNaN(d.getTime())) return "N/A";
+            return format(d, formatStr, { locale: fr });
+        } catch {
+            return "N/A";
+        }
+    };
+
+    const handleExportCSV = () => {
+        if (!filteredLogs || filteredLogs.length === 0) return;
+        const headers = ["ID", "Date", "Heure", "Utilisateur", "Email", "Action", "Module", "Description", "Détail"];
+        const rows = filteredLogs.map(l => {
+            const dateStr = safeFormatDate(l.timestamp, 'yyyy-MM-dd');
+            const timeStr = safeFormatDate(l.timestamp, 'HH:mm:ss');
+            return [
+                l.id || '',
+                dateStr,
+                timeStr,
+                `"${(l.userName || '').replace(/"/g, '""')}"`,
+                `"${(l.userEmail || '').replace(/"/g, '""')}"`,
+                l.action || '',
+                `"${(l.module || '').replace(/"/g, '""')}"`,
+                `"${(l.label || '').replace(/"/g, '""')}"`,
+                `"${(l.detail || '').replace(/"/g, '""')}"`
+            ].join(',');
+        });
+        const csvContent = "\uFEFF" + [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `journal_activite_${format(new Date(), 'yyyy-MM-dd_HHmm')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
         <div className="space-y-6">
@@ -105,7 +171,11 @@ export default function AdminActivityPage() {
                         <p className="text-muted-foreground">Audit complet des actions et modifications effectuées sur la plateforme.</p>
                     </div>
                 </div>
-                <Button variant="outline" className="gap-2 font-bold border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100">
+                <Button
+                    variant="outline"
+                    className="gap-2 font-bold border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                    onClick={handleExportCSV}
+                >
                     <Download className="h-4 w-4" />
                     Exporter CSV
                 </Button>
@@ -128,7 +198,7 @@ export default function AdminActivityPage() {
                     <Badge variant="secondary" className="h-11 px-4 rounded-xl border border-slate-200 bg-white shadow-sm flex items-center gap-2">
                         <Filter className="h-4 w-4 text-slate-400" />
                         <select
-                            className="bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-700 outline-none"
+                            className="bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-700 outline-none cursor-pointer"
                             value={filterAction}
                             onChange={(e) => {
                                 setFilterAction(e.target.value);
@@ -137,6 +207,7 @@ export default function AdminActivityPage() {
                         >
                             <option value="all">Toutes les actions</option>
                             <option value="LOGIN">Connexions</option>
+                            <option value="LOGOUT">Déconnexions</option>
                             <option value="RISK_ADD">Ajouts Risques</option>
                             <option value="RISK_EDIT">Modifs Risques</option>
                             <option value="RISK_DELETE">Suppressions Risques</option>
@@ -163,10 +234,11 @@ export default function AdminActivityPage() {
                     <TableBody>
                         {currentLogs.length > 0 ? (
                             currentLogs.map((log) => {
-                                const style = actionColors[log.action] || actionColors.OTHER;
-                                const ActionIcon = style.icon;
+                                const actionKey = (log.action || 'OTHER') as ActivityAction;
+                                const style = actionColors[actionKey] || actionColors.OTHER;
+                                const ActionIcon = style.icon || Activity;
                                 return (
-                                    <TableRow key={log.id} className="hover:bg-slate-50/80 transition-colors border-slate-100 group">
+                                    <TableRow key={log.id || `${log.timestamp}-${Math.random()}`} className="hover:bg-slate-50/80 transition-colors border-slate-100 group">
                                         <TableCell className="py-4">
                                             <div className="flex items-center gap-3">
                                                 <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
@@ -175,23 +247,23 @@ export default function AdminActivityPage() {
                                                     </AvatarFallback>
                                                 </Avatar>
                                                 <div className="flex flex-col">
-                                                    <span className="font-bold text-slate-900 group-hover:text-primary transition-colors">{log.userName}</span>
-                                                    <span className="text-[10px] text-slate-400 font-medium">{log.userEmail}</span>
+                                                    <span className="font-bold text-slate-900 group-hover:text-primary transition-colors">{log.userName || "Utilisateur"}</span>
+                                                    <span className="text-[10px] text-slate-400 font-medium">{log.userEmail || "Non renseigné"}</span>
                                                 </div>
                                             </div>
                                         </TableCell>
                                         <TableCell className="py-4">
                                             <Badge className={cn("rounded-lg px-2.5 py-1 gap-1.5 border-none shadow-sm font-bold text-[10px] uppercase tracking-tighter", style.bg, style.text)}>
                                                 <ActionIcon className="h-3 w-3" />
-                                                {log.action.replace('_', ' ')}
+                                                {(log.action || 'OTHER').replace(/_/g, ' ')}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="py-4">
                                             <div className="flex flex-col">
-                                                <span className="text-sm font-medium text-slate-700">{log.label}</span>
+                                                <span className="text-sm font-medium text-slate-700">{log.label || "-"}</span>
                                                 <div className="flex items-center gap-1.5 mt-0.5">
                                                     <Badge variant="outline" className="text-[10px] font-bold text-slate-400 border-slate-200 py-0">
-                                                        {log.module}
+                                                        {log.module || "Général"}
                                                     </Badge>
                                                     {log.detail && (
                                                         <span className="text-[10px] text-slate-400 italic">({log.detail})</span>
@@ -202,10 +274,10 @@ export default function AdminActivityPage() {
                                         <TableCell className="py-4 text-center">
                                             <div className="flex flex-col items-center">
                                                 <span className="text-sm font-black text-slate-600">
-                                                    {format(new Date(log.timestamp), 'HH:mm:ss', { locale: fr })}
+                                                    {safeFormatDate(log.timestamp, 'HH:mm:ss')}
                                                 </span>
                                                 <span className="text-[10px] text-slate-400 font-semibold">
-                                                    {format(new Date(log.timestamp), 'dd MMM yyyy', { locale: fr })}
+                                                    {safeFormatDate(log.timestamp, 'dd MMM yyyy')}
                                                 </span>
                                             </div>
                                         </TableCell>
@@ -292,7 +364,7 @@ export default function AdminActivityPage() {
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
                         <span className="text-3xl font-black text-emerald-600">
-                            {new Set(logs.map((l: ActivityEntry) => l.userEmail)).size}
+                            {new Set(safeLogs.map((l: ActivityEntry) => l?.userEmail).filter(Boolean)).size}
                         </span>
                     </CardContent>
                 </Card>
@@ -305,7 +377,7 @@ export default function AdminActivityPage() {
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
                         <span className="text-3xl font-black text-blue-600">
-                            {logs.length}
+                            {safeLogs.length}
                         </span>
                     </CardContent>
                 </Card>
@@ -318,7 +390,7 @@ export default function AdminActivityPage() {
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
                         <span className="text-sm font-bold text-indigo-600 block truncate">
-                            {logs[0] ? logs[0].label : 'N/A'}
+                            {safeLogs[0]?.label || 'N/A'}
                         </span>
                     </CardContent>
                 </Card>

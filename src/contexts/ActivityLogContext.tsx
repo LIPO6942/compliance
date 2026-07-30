@@ -38,7 +38,12 @@ interface ActivityLogContextType {
     isAdmin: (email: string) => boolean;
 }
 
-const ADMIN_EMAILS = ['moslem.gouia@mae.tn', 'moslem.gouia@gmail.com'];
+const ADMIN_EMAILS = [
+    'moslem.gouia@mae.tn',
+    'moslem.gouia@gmail.com',
+    'conformite@mae.com.tn',
+    'admin@mae.tn'
+];
 const LOCAL_KEY = 'compliance_activity_log';
 const MAX_LOCAL_LOGS = 200;
 
@@ -46,6 +51,27 @@ const ActivityLogContext = createContext<ActivityLogContextType | undefined>(und
 
 export const ActivityLogProvider = ({ children }: { children: ReactNode }) => {
     const [logs, setLogs] = useState<ActivityEntry[]>([]);
+
+    const sanitizeEntry = (data: any, id?: string): ActivityEntry => {
+        let timestampStr = data?.timestamp;
+        if (!timestampStr && data?.serverTimestamp) {
+            if (typeof data.serverTimestamp.toDate === 'function') {
+                timestampStr = data.serverTimestamp.toDate().toISOString();
+            } else if (data.serverTimestamp.seconds) {
+                timestampStr = new Date(data.serverTimestamp.seconds * 1000).toISOString();
+            }
+        }
+        return {
+            id: id || data?.id,
+            timestamp: typeof timestampStr === 'string' ? timestampStr : new Date().toISOString(),
+            userEmail: data?.userEmail || '',
+            userName: data?.userName || data?.userEmail || 'Utilisateur',
+            action: data?.action || 'OTHER',
+            label: data?.label || '',
+            detail: data?.detail || '',
+            module: data?.module || 'Général',
+        };
+    };
 
     // Load from Firestore or localStorage
     useEffect(() => {
@@ -56,10 +82,7 @@ export const ActivityLogProvider = ({ children }: { children: ReactNode }) => {
                 limit(500)
             );
             const unsub = onSnapshot(q, (snap) => {
-                const entries: ActivityEntry[] = snap.docs.map(doc => ({
-                    id: doc.id,
-                    ...(doc.data() as Omit<ActivityEntry, 'id'>),
-                }));
+                const entries: ActivityEntry[] = snap.docs.map(doc => sanitizeEntry(doc.data(), doc.id));
                 setLogs(entries);
             }, (err) => {
                 console.warn('ActivityLog Firestore error, falling back to localStorage', err);
@@ -74,14 +97,28 @@ export const ActivityLogProvider = ({ children }: { children: ReactNode }) => {
     const loadFromLocal = () => {
         try {
             const saved = localStorage.getItem(LOCAL_KEY);
-            if (saved) setLogs(JSON.parse(saved));
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    setLogs(parsed.map(item => sanitizeEntry(item)));
+                }
+            }
         } catch { /* ignore */ }
     };
 
     const logAction = useCallback((entry: Omit<ActivityEntry, 'id' | 'timestamp'>) => {
         const now = new Date().toISOString();
-        const userEmailToUse = auth?.currentUser?.email || entry.userEmail;
-        const full: ActivityEntry = { ...entry, userEmail: userEmailToUse, timestamp: now };
+        const userEmailToUse = auth?.currentUser?.email || entry.userEmail || '';
+        const userNameToUse = entry.userName || auth?.currentUser?.displayName || userEmailToUse || 'Utilisateur';
+        const full: ActivityEntry = {
+            ...entry,
+            userEmail: userEmailToUse,
+            userName: userNameToUse,
+            action: entry.action || 'OTHER',
+            label: entry.label || '',
+            module: entry.module || 'Général',
+            timestamp: now
+        };
 
         if (isFirebaseConfigured && db) {
             addDoc(collection(db, 'activity_logs'), {
@@ -103,7 +140,10 @@ export const ActivityLogProvider = ({ children }: { children: ReactNode }) => {
         }
     }, []);
 
-    const isAdmin = useCallback((email: string) => ADMIN_EMAILS.includes(email), []);
+    const isAdmin = useCallback((email?: string) => {
+        if (!email) return false;
+        return ADMIN_EMAILS.some(a => a.toLowerCase() === email.toLowerCase());
+    }, []);
 
     return (
         <ActivityLogContext.Provider value={{ logs, logAction, isAdmin }}>
