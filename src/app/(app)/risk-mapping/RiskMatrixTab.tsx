@@ -629,10 +629,12 @@ export function RiskMatrixTab() {
 
     // Special behavior 1: Deselecting GAFI for a country
     if (category === 'country' && field === 'gafi' && value === false) {
-      await updateOverride('country', itemId, 'gafi', false, authorName, itemName);
       const defaultComment = "Après avoir été retiré de la liste GAFI";
-      await updateOverride('country', itemId, 'otherDominant', true, authorName, itemName);
-      await updateOverride('country', itemId, 'other', defaultComment, authorName, itemName);
+      await updateOverride('country', itemId, {
+        gafi: false,
+        otherDominant: true,
+        other: defaultComment
+      }, authorName, itemName);
 
       toast({
         title: "Retrait GAFI enregistré",
@@ -657,8 +659,10 @@ export function RiskMatrixTab() {
 
     // Special behavior 2: Disabling (supprimer le "Oui") of Autre facteur dominant for a country
     if (category === 'country' && field === 'otherDominant' && value === false) {
-      await updateOverride('country', itemId, 'otherDominant', false, authorName, itemName);
-      await updateOverride('country', itemId, 'other', '', authorName, itemName);
+      await updateOverride('country', itemId, {
+        otherDominant: false,
+        other: ''
+      }, authorName, itemName);
 
       toast({
         title: "Facteur désactivé",
@@ -683,11 +687,12 @@ export function RiskMatrixTab() {
 
     // Special behavior 3: Enabling Autre facteur dominant for a country manually
     if (category === 'country' && field === 'otherDominant' && value === true) {
-      await updateOverride('country', itemId, 'otherDominant', true, authorName, itemName);
       const currentCountry = resolvedCountries.find(c => c.name === itemId);
-      if (!currentCountry?.other) {
-        await updateOverride('country', itemId, 'other', 'Autre critère spécifique', authorName, itemName);
-      }
+      const comment = currentCountry?.other || 'Autre critère spécifique';
+      await updateOverride('country', itemId, {
+        otherDominant: true,
+        other: comment
+      }, authorName, itemName);
 
       toast({
         title: "Facteur activé",
@@ -2905,10 +2910,7 @@ export function RiskMatrixTab() {
               <button
                 type="button"
                 onClick={handleAddSubmit}
-                className="text-xs font-bold px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 text-white"
-                style={{ backgroundColor: '#7c3aed' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#6d28d9'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#7c3aed'; }}
+                className="text-xs font-bold px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 focus:bg-blue-700 shadow-md shadow-blue-500/20 border-none outline-none"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Ajouter l&apos;élément
@@ -2999,7 +3001,7 @@ export function RiskMatrixTab() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmChange}
-              className="text-xs font-bold px-4 py-2 bg-violet-650 hover:bg-violet-700 text-white rounded-xl shadow-md shadow-violet-200 dark:shadow-none transition-all cursor-pointer"
+              className="text-xs font-bold px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 focus:bg-blue-700 text-white rounded-xl shadow-md shadow-blue-500/20 dark:shadow-none transition-all cursor-pointer border-none outline-none"
             >
               Confirmer
             </AlertDialogAction>

@@ -125,10 +125,10 @@ interface MatrixConfigContextType {
   updateOverride: (
     category: OverrideCategory,
     itemId: string,
-    field: string,
-    value: boolean | string,
-    author: string,
-    itemName?: string
+    fieldOrFields: string | Record<string, boolean | string>,
+    valueOrAuthor?: boolean | string,
+    authorParam?: string,
+    itemNameParam?: string
   ) => Promise<void>;
   
   resetOverrides: (
@@ -389,30 +389,61 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
 
   // ── Generic update override ────────────────────────────────────────────────
   const updateOverride = useCallback(
-    async (category: OverrideCategory, itemId: string, field: string, value: boolean | string, author: string, itemName?: string) => {
-      const categoryObj = overrides[category] || {};
-      const itemObj = categoryObj[itemId] || {};
+    async (
+      category: OverrideCategory,
+      itemId: string,
+      fieldOrFields: string | Record<string, boolean | string>,
+      valueOrAuthor?: boolean | string,
+      authorParam?: string,
+      itemNameParam?: string
+    ) => {
+      let fieldsToUpdate: Record<string, boolean | string> = {};
+      let author = '';
+      let itemName: string | undefined;
 
-      let oldValue = '';
-      let newValue = '';
-      if (typeof value === 'string') {
-        oldValue = String(itemObj[field] || 'Aucune');
-        newValue = value;
+      if (typeof fieldOrFields === 'object' && fieldOrFields !== null) {
+        fieldsToUpdate = fieldOrFields;
+        author = typeof valueOrAuthor === 'string' ? valueOrAuthor : (authorParam || '');
+        itemName = authorParam || itemNameParam;
       } else {
-        oldValue = itemObj[field] ? 'Oui' : 'Non (—)';
-        newValue = value ? 'Oui' : 'Non (—)';
+        fieldsToUpdate = { [fieldOrFields as string]: valueOrAuthor as boolean | string };
+        author = authorParam || '';
+        itemName = itemNameParam;
       }
 
-      const updatedOverrides: Record<OverrideCategory, Record<string, Record<string, boolean | string>>> = {
-        ...overrides,
-        [category]: {
-          ...categoryObj,
-          [itemId]: {
-            ...itemObj,
-            [field]: value,
+      const displayName = itemName || itemId;
+
+      setOverrides((prevOverrides) => {
+        const categoryObj = prevOverrides[category] || {};
+        const itemObj = categoryObj[itemId] || {};
+        const updatedItemObj = {
+          ...itemObj,
+          ...fieldsToUpdate,
+        };
+
+        const updatedOverrides: Record<OverrideCategory, Record<string, Record<string, boolean | string>>> = {
+          ...prevOverrides,
+          [category]: {
+            ...categoryObj,
+            [itemId]: updatedItemObj,
           },
-        },
-      };
+        };
+
+        lsSave(LS_OVERRIDES, updatedOverrides);
+
+        if (isFirebaseConfigured && db) {
+          try {
+            const overridesRef = doc(db, MATRIX_OVERRIDES_DOC);
+            setDoc(overridesRef, { [category]: updatedOverrides[category] }, { merge: true }).catch(err =>
+              console.error('[MatrixConfig] override Firestore setDoc error:', err)
+            );
+          } catch (e) {
+            console.error('[MatrixConfig] Override Write error:', e);
+          }
+        }
+
+        return updatedOverrides;
+      });
 
       const catLabel: Record<OverrideCategory, string> = {
         profession: 'Prof. PP',
@@ -424,60 +455,51 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
         sale: 'Technique'
       };
 
-      const displayName = itemName || itemId;
+      const fieldNames = Object.keys(fieldsToUpdate).join(', ');
 
-      const entry: MatrixHistoryEntry = {
-        id: String(Date.now()),
-        date: new Date().toISOString(),
-        user: author,
-        field: `${catLabel[category] || category} [${displayName}] → ${field}`,
-        oldValue,
-        newValue,
-      };
-
-      const updatedHistory = [entry, ...kycHistory].slice(0, 200);
-
-      setOverrides(updatedOverrides);
-      setKycHistory(updatedHistory);
-      lsSave(LS_OVERRIDES, updatedOverrides);
-      lsSave(LS_HISTORY, updatedHistory);
+      setKycHistory(prevHistory => {
+        const entry: MatrixHistoryEntry = {
+          id: String(Date.now()),
+          date: new Date().toISOString(),
+          user: author || 'Utilisateur',
+          field: `${catLabel[category] || category} [${displayName}] → ${fieldNames}`,
+          oldValue: 'Précédent',
+          newValue: 'Mis à jour',
+        };
+        const updatedHistory = [entry, ...prevHistory].slice(0, 200);
+        lsSave(LS_HISTORY, updatedHistory);
+        if (isFirebaseConfigured && db) {
+          const ref = doc(db, MATRIX_DOC);
+          setDoc(ref, { history: updatedHistory }, { merge: true }).catch(err =>
+            console.error('[MatrixConfig] history setDoc error:', err)
+          );
+        }
+        return updatedHistory;
+      });
 
       if (isFirebaseConfigured && db) {
         try {
-          const overridesRef = doc(db, MATRIX_OVERRIDES_DOC);
-          await setDoc(overridesRef, { [category]: updatedOverrides[category] }, { merge: true });
-
-          const ref = doc(db, MATRIX_DOC);
-          await setDoc(ref, { history: updatedHistory }, { merge: true });
-
-          // Collaborative live dashboard logging
-          try {
-            const dashboardCategoryMap: Record<OverrideCategory, string> = {
-              profession: "Profession PP",
-              moral: "Activité P. Morales",
-              country: "Pays",
-              gov: "Gouvernorats",
-              product: "Produits",
-              dist: "Voie de distribution / Vente",
-              sale: "Voie de distribution / Vente",
-            };
-            await addDoc(collection(db, "riskFactorLogs"), {
-              date: new Date().toISOString(),
-              user: author,
-              factors: [dashboardCategoryMap[category] || category],
-              note: typeof value === 'string'
-                ? `Modification de la remarque sur « ${displayName} » : ${oldValue} → ${newValue}`
-                : `Modification sur « ${displayName} » : le paramètre « ${field} » a été mis à ${value ? 'Oui' : 'Non'}`,
-            });
-          } catch (logErr) {
-            console.error('[MatrixConfig] Failed to write live log:', logErr);
-          }
-        } catch (e) {
-          console.error('[MatrixConfig] Override Write error:', e);
+          const dashboardCategoryMap: Record<OverrideCategory, string> = {
+            profession: "Profession PP",
+            moral: "Activité P. Morales",
+            country: "Pays",
+            gov: "Gouvernorats",
+            product: "Produits",
+            dist: "Voie de distribution / Vente",
+            sale: "Voie de distribution / Vente",
+          };
+          await addDoc(collection(db, "riskFactorLogs"), {
+            date: new Date().toISOString(),
+            user: author || 'Utilisateur',
+            factors: [dashboardCategoryMap[category] || category],
+            note: `Modification sur « ${displayName} » : ${fieldNames}`,
+          });
+        } catch (logErr) {
+          console.error('[MatrixConfig] Failed to write live log:', logErr);
         }
       }
     },
-    [overrides, kycHistory]
+    []
   );
 
   // ── Add a custom item ──────────────────────────────────────────────────────
