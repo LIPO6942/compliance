@@ -269,7 +269,7 @@ export default function ReportsPage() {
         corruption: override.corruption !== undefined ? (override.corruption as boolean) : c.corruption,
         oecd: override.oecd !== undefined ? (override.oecd as boolean) : c.oecd,
         terrorism: override.terrorism !== undefined ? (override.terrorism as boolean) : c.terrorism,
-        otherDominant: override.otherDominant !== undefined ? (override.otherDominant as boolean) : false,
+        otherDominant: override.otherDominant !== undefined ? (override.otherDominant as boolean) : Boolean(c.other && c.other.trim() !== ""),
         other: override.other !== undefined ? String(override.other) : c.other,
         isOverridden: Object.keys(override).length > 0,
       };

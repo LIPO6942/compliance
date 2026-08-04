@@ -627,6 +627,89 @@ export function RiskMatrixTab() {
     const oldValueStr = !value ? 'Oui' : 'Non (—)';
     const newValueStr = value ? 'Oui' : 'Non (—)';
 
+    // Special behavior 1: Deselecting GAFI for a country
+    if (category === 'country' && field === 'gafi' && value === false) {
+      await updateOverride('country', itemId, 'gafi', false, authorName, itemName);
+      const defaultComment = "Après avoir été retiré de la liste GAFI";
+      await updateOverride('country', itemId, 'otherDominant', true, authorName, itemName);
+      await updateOverride('country', itemId, 'other', defaultComment, authorName, itemName);
+
+      toast({
+        title: "Retrait GAFI enregistré",
+        description: `« ${itemName} » retiré de la liste GAFI. Le pays a été placé en Risque Moyen (RM) avec la remarque : « ${defaultComment} ».`
+      });
+
+      if (user) {
+        logAction({
+          userEmail: user.email,
+          userName: user.name,
+          action: "SETTINGS_UPDATE",
+          label: `Matrice KYC [country] - ${itemName} → Retrait GAFI (RM)`,
+          detail: `GAFI: Oui → Non | Autre facteur dominant: Non → Oui (${defaultComment})`,
+          module: "Matrice des Risques"
+        });
+      }
+
+      setConfirmOpen(false);
+      setPendingChange(null);
+      return;
+    }
+
+    // Special behavior 2: Disabling (supprimer le "Oui") of Autre facteur dominant for a country
+    if (category === 'country' && field === 'otherDominant' && value === false) {
+      await updateOverride('country', itemId, 'otherDominant', false, authorName, itemName);
+      await updateOverride('country', itemId, 'other', '', authorName, itemName);
+
+      toast({
+        title: "Facteur désactivé",
+        description: `« ${itemName} » : l'autre facteur dominant a été désactivé et la remarque effacée.`
+      });
+
+      if (user) {
+        logAction({
+          userEmail: user.email,
+          userName: user.name,
+          action: "SETTINGS_UPDATE",
+          label: `Matrice KYC [country] - ${itemName} → Autre facteur dominant désactivé`,
+          detail: `Oui → Non`,
+          module: "Matrice des Risques"
+        });
+      }
+
+      setConfirmOpen(false);
+      setPendingChange(null);
+      return;
+    }
+
+    // Special behavior 3: Enabling Autre facteur dominant for a country manually
+    if (category === 'country' && field === 'otherDominant' && value === true) {
+      await updateOverride('country', itemId, 'otherDominant', true, authorName, itemName);
+      const currentCountry = resolvedCountries.find(c => c.name === itemId);
+      if (!currentCountry?.other) {
+        await updateOverride('country', itemId, 'other', 'Autre critère spécifique', authorName, itemName);
+      }
+
+      toast({
+        title: "Facteur activé",
+        description: `« ${itemName} » : l'autre facteur dominant a été activé.`
+      });
+
+      if (user) {
+        logAction({
+          userEmail: user.email,
+          userName: user.name,
+          action: "SETTINGS_UPDATE",
+          label: `Matrice KYC [country] - ${itemName} → Autre facteur dominant activé`,
+          detail: `Non → Oui`,
+          module: "Matrice des Risques"
+        });
+      }
+
+      setConfirmOpen(false);
+      setPendingChange(null);
+      return;
+    }
+
     await updateOverride(category, itemId, field, value, authorName, itemName);
 
     const fieldLabels: Record<string, string> = {
@@ -635,6 +718,7 @@ export function RiskMatrixTab() {
       airport: "Aéroport",
       market: "Contrebande",
       other: "Autres critères",
+      otherDominant: "Autre facteur dominant",
       liquid: "Liquidité",
       forex: "Devises / Étranger",
       highValue: "Capital Élevé",
@@ -713,13 +797,14 @@ export function RiskMatrixTab() {
   const resolvedCountries = React.useMemo(() => {
     return COUNTRIES_DATA.map((c) => {
       const override = overrides.country[c.name] || {};
+      const defaultOtherDominant = Boolean(c.other && c.other.trim() !== "");
       const merged = {
         ...c,
         gafi: override.gafi !== undefined ? override.gafi as boolean : c.gafi,
         corruption: override.corruption !== undefined ? override.corruption as boolean : c.corruption,
         oecd: override.oecd !== undefined ? override.oecd as boolean : c.oecd,
         terrorism: override.terrorism !== undefined ? override.terrorism as boolean : c.terrorism,
-        otherDominant: override.otherDominant !== undefined ? override.otherDominant as boolean : false,
+        otherDominant: override.otherDominant !== undefined ? override.otherDominant as boolean : defaultOtherDominant,
         other: override.other !== undefined ? String(override.other) : c.other,
       };
       
@@ -1910,23 +1995,7 @@ export function RiskMatrixTab() {
                     <TableCell className="p-1.5 text-center">
                       <div className="flex flex-col items-center justify-center gap-1">
                         <button
-                          onClick={async () => {
-                            const val = c.otherDominant;
-                            if (!val) {
-                              const comment = prompt("Veuillez saisir une remarque pour cet autre facteur dominant :");
-                              if (comment !== null) {
-                                await updateOverride('country', c.name, 'otherDominant', true, authorName);
-                                await updateOverride('country', c.name, 'other', comment, authorName);
-                                toast({ title: "Facteur activé", description: "L'autre facteur dominant a été activé." });
-                              }
-                            } else {
-                              if (confirm("Voulez-vous désactiver cet autre facteur dominant ? Cela effacera la remarque associée.")) {
-                                await updateOverride('country', c.name, 'otherDominant', false, authorName);
-                                await updateOverride('country', c.name, 'other', '', authorName);
-                                toast({ title: "Facteur désactivé", description: "L'autre facteur dominant a été désactivé." });
-                              }
-                            }
-                          }}
+                          onClick={() => handleToggleRequest('country', c.name, 'otherDominant', c.otherDominant, c.name)}
                           className={cn(
                             "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-28 text-center",
                             c.otherDominant 
@@ -2858,39 +2927,64 @@ export function RiskMatrixTab() {
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-slate-500 dark:text-slate-400 mt-2">
               {pendingChange ? (
-                <>
-                  Voulez-vous vraiment modifier le critère <strong className="text-slate-700 dark:text-slate-200">« {
-                    {
-                      border: "Zone frontalière",
-                      port: "Port International",
-                      airport: "Aéroport",
-                      market: "Contrebande",
-                      other: "Autres critères",
-                      liquid: "Liquidité",
-                      forex: "Devises / Étranger",
-                      highValue: "Capital Élevé",
-                      fraud: "Fraude / Sinistralité",
-                      cap: "Capitalisation / Rachat",
-                      complex: "Difficulté de Contrôle",
-                      nonCompliance: "Non-soumission LBC",
-                      noCulture: "Pas de culture LBC",
-                      noContact: "Pas de contact direct",
-                      noOriginals: "Pas d'originaux",
-                      cash: "Argent liquide",
-                      objects: "Objets de valeur",
-                      volume: "Volume élevé",
-                      noInfo: "Manque d'information",
-                      complexEval: "Évaluation difficile",
-                      intermediary: "Intermédiation",
-                      corruption: "Exposition corruption",
-                      gafi: "Pays GAFI / Sanctions",
-                      oecd: "Paradis Fiscal (OCDE)",
-                      terrorism: "Risque Terroriste"
-                    }[pendingChange.field] || pendingChange.field
-                  } »</strong> pour <strong className="text-slate-700 dark:text-slate-200">« {pendingChange.itemName} »</strong> ?
-                  <br /><br />
-                  Cette modification mettra à jour la cotation de risque de manière automatique et sera synchronisée en temps réel pour tous les utilisateurs.
-                </>
+                pendingChange.category === 'country' && pendingChange.field === 'gafi' && pendingChange.value === false ? (
+                  <>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      Retrait de la liste GAFI pour « {pendingChange.itemName} »
+                    </span>
+                    <br /><br />
+                    En désélectionnant le facteur GAFI, ce pays sera automatiquement positionné en <strong className="text-amber-600 dark:text-amber-400">Risque Moyen (RM)</strong> et recevra la remarque préremplie :
+                    <br />
+                    <em className="font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded mt-1.5 inline-block">
+                      « Après avoir été retiré de la liste GAFI »
+                    </em>
+                    <br /><br />
+                    <span className="text-[11px] text-slate-400">
+                      Cette modification réévaluera immédiatement la cotation du pays et sera synchronisée en temps réel pour tous les utilisateurs.
+                    </span>
+                  </>
+                ) : pendingChange.category === 'country' && pendingChange.field === 'otherDominant' && pendingChange.value === false ? (
+                  <>
+                    Voulez-vous vraiment désactiver l&apos;<strong>Autre facteur dominant</strong> pour <strong className="text-slate-700 dark:text-slate-200">« {pendingChange.itemName} »</strong> ?
+                    <br /><br />
+                    Cette action supprimera le « Oui » ainsi que la remarque associée, et réévaluera automatiquement le niveau de risque du pays.
+                  </>
+                ) : (
+                  <>
+                    Voulez-vous vraiment modifier le critère <strong className="text-slate-700 dark:text-slate-200">« {
+                      {
+                        border: "Zone frontalière",
+                        port: "Port International",
+                        airport: "Aéroport",
+                        market: "Contrebande",
+                        other: "Autres critères",
+                        otherDominant: "Autre facteur dominant",
+                        liquid: "Liquidité",
+                        forex: "Devises / Étranger",
+                        highValue: "Capital Élevé",
+                        fraud: "Fraude / Sinistralité",
+                        cap: "Capitalisation / Rachat",
+                        complex: "Difficulté de Contrôle",
+                        nonCompliance: "Non-soumission LBC",
+                        noCulture: "Pas de culture LBC",
+                        noContact: "Pas de contact direct",
+                        noOriginals: "Pas d'originaux",
+                        cash: "Argent liquide",
+                        objects: "Objets de valeur",
+                        volume: "Volume élevé",
+                        noInfo: "Manque d'information",
+                        complexEval: "Évaluation difficile",
+                        intermediary: "Intermédiation",
+                        corruption: "Exposition corruption",
+                        gafi: "Pays GAFI / Sanctions",
+                        oecd: "Paradis Fiscal (OCDE)",
+                        terrorism: "Risque Terroriste"
+                      }[pendingChange.field] || pendingChange.field
+                    } »</strong> pour <strong className="text-slate-700 dark:text-slate-200">« {pendingChange.itemName} »</strong> ?
+                    <br /><br />
+                    Cette modification mettra à jour la cotation de risque de manière automatique et sera synchronisée en temps réel pour tous les utilisateurs.
+                  </>
+                )
               ) : (
                 "Voulez-vous vraiment modifier ce paramètre ? Cette modification mettra à jour la cotation de risque de manière automatique et sera synchronisée en temps réel pour tous les utilisateurs."
               )}
