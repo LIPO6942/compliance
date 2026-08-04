@@ -127,7 +127,8 @@ interface MatrixConfigContextType {
     itemId: string,
     field: string,
     value: boolean | string,
-    author: string
+    author: string,
+    itemName?: string
   ) => Promise<void>;
   
   resetOverrides: (
@@ -388,7 +389,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
 
   // ── Generic update override ────────────────────────────────────────────────
   const updateOverride = useCallback(
-    async (category: OverrideCategory, itemId: string, field: string, value: boolean | string, author: string) => {
+    async (category: OverrideCategory, itemId: string, field: string, value: boolean | string, author: string, itemName?: string) => {
       const categoryObj = overrides[category] || {};
       const itemObj = categoryObj[itemId] || {};
 
@@ -423,11 +424,13 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
         sale: 'Technique'
       };
 
+      const displayName = itemName || itemId;
+
       const entry: MatrixHistoryEntry = {
         id: String(Date.now()),
         date: new Date().toISOString(),
         user: author,
-        field: `${catLabel[category] || category} [${itemId}] → ${field}`,
+        field: `${catLabel[category] || category} [${displayName}] → ${field}`,
         oldValue,
         newValue,
       };
@@ -463,8 +466,8 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
               user: author,
               factors: [dashboardCategoryMap[category] || category],
               note: typeof value === 'string'
-                ? `Modification de la remarque sur « ${itemId} » : ${oldValue} → ${newValue}`
-                : `Modification sur « ${itemId} » : le paramètre « ${field} » a été mis à ${value ? 'Oui' : 'Non'}`,
+                ? `Modification de la remarque sur « ${displayName} » : ${oldValue} → ${newValue}`
+                : `Modification sur « ${displayName} » : le paramètre « ${field} » a été mis à ${value ? 'Oui' : 'Non'}`,
             });
           } catch (logErr) {
             console.error('[MatrixConfig] Failed to write live log:', logErr);

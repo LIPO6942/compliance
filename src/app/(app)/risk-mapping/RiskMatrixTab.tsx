@@ -582,16 +582,17 @@ export function RiskMatrixTab() {
 
   const authorName = user?.name || user?.email || "Utilisateur";
 
-  const handleSaveComment = async (category: OverrideCategory, itemId: string, field: string, originalVal: string) => {
+  const handleSaveComment = async (category: OverrideCategory, itemId: string, field: string, originalVal: string, itemName?: string) => {
+    const displayName = itemName || itemId;
     if (editingText.trim() === originalVal.trim()) {
       setEditingCell(null);
       return;
     }
     try {
-      await updateOverride(category, itemId, field, editingText.trim(), authorName);
+      await updateOverride(category, itemId, field, editingText.trim(), authorName, displayName);
       toast({
         title: "✅ Remarque mise à jour",
-        description: `Remarque pour « ${itemId} » mise à jour avec succès.`
+        description: `Remarque pour « ${displayName} » mise à jour avec succès.`
       });
     } catch (err: any) {
       toast({
@@ -626,11 +627,40 @@ export function RiskMatrixTab() {
     const oldValueStr = !value ? 'Oui' : 'Non (—)';
     const newValueStr = value ? 'Oui' : 'Non (—)';
 
-    await updateOverride(category, itemId, field, value, authorName);
+    await updateOverride(category, itemId, field, value, authorName, itemName);
+
+    const fieldLabels: Record<string, string> = {
+      border: "Zone frontalière",
+      port: "Port International",
+      airport: "Aéroport",
+      market: "Contrebande",
+      other: "Autres critères",
+      liquid: "Liquidité",
+      forex: "Devises / Étranger",
+      highValue: "Capital Élevé",
+      fraud: "Fraude / Sinistralité",
+      cap: "Capitalisation / Rachat",
+      complex: "Difficulté de Contrôle",
+      nonCompliance: "Non-soumission LBC",
+      noCulture: "Pas de culture LBC",
+      noContact: "Pas de contact direct",
+      noOriginals: "Pas d'originaux",
+      cash: "Argent liquide",
+      objects: "Objets de valeur",
+      volume: "Volume élevé",
+      noInfo: "Manque d'information",
+      complexEval: "Évaluation difficile",
+      intermediary: "Intermédiation",
+      corruption: "Exposition corruption",
+      gafi: "Pays GAFI / Sanctions",
+      oecd: "Paradis Fiscal (OCDE)",
+      terrorism: "Risque Terroriste"
+    };
+    const fieldDisplayName = fieldLabels[field] || field;
 
     toast({
       title: "Modification enregistrée",
-      description: `« ${itemName} » : paramètre « ${field} » mis à jour.`
+      description: `« ${itemName} » : paramètre « ${fieldDisplayName} » mis à jour.`
     });
 
     if (user) {
@@ -638,7 +668,7 @@ export function RiskMatrixTab() {
         userEmail: user.email,
         userName: user.name,
         action: "SETTINGS_UPDATE",
-        label: `Matrice KYC [${category}] - ${itemName} → ${field}`,
+        label: `Matrice KYC [${category}] - ${itemName} → ${fieldDisplayName}`,
         detail: `${oldValueStr} → ${newValueStr}`,
         module: "Matrice des Risques"
       });
@@ -725,7 +755,8 @@ export function RiskMatrixTab() {
         merged.border,
         merged.port,
         merged.airport,
-        merged.market
+        merged.market,
+        Boolean(merged.other && merged.other.trim() !== "")
       ].filter(Boolean).length;
       
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
@@ -2021,9 +2052,9 @@ export function RiskMatrixTab() {
                         <Input
                           value={editingText}
                           onChange={e => setEditingText(e.target.value)}
-                          onBlur={() => handleSaveComment('gov', String(g.id), 'other', g.other || '')}
+                          onBlur={() => handleSaveComment('gov', String(g.id), 'other', g.other || '', g.name)}
                           onKeyDown={e => {
-                            if (e.key === 'Enter') handleSaveComment('gov', String(g.id), 'other', g.other || '');
+                            if (e.key === 'Enter') handleSaveComment('gov', String(g.id), 'other', g.other || '', g.name);
                             if (e.key === 'Escape') setEditingCell(null);
                           }}
                           autoFocus
@@ -2128,9 +2159,9 @@ export function RiskMatrixTab() {
                         <Input
                           value={editingText}
                           onChange={e => setEditingText(e.target.value)}
-                          onBlur={() => handleSaveComment('product', String(p.code), 'comment', p.comment || '')}
+                          onBlur={() => handleSaveComment('product', String(p.code), 'comment', p.comment || '', p.name)}
                           onKeyDown={e => {
-                            if (e.key === 'Enter') handleSaveComment('product', String(p.code), 'comment', p.comment || '');
+                            if (e.key === 'Enter') handleSaveComment('product', String(p.code), 'comment', p.comment || '', p.name);
                             if (e.key === 'Escape') setEditingCell(null);
                           }}
                           autoFocus
@@ -2443,9 +2474,9 @@ export function RiskMatrixTab() {
                           <Input
                             value={editingText}
                             onChange={e => setEditingText(e.target.value)}
-                            onBlur={() => handleSaveComment('moral', a.code, 'comment', a.comment || '')}
+                            onBlur={() => handleSaveComment('moral', a.code, 'comment', a.comment || '', a.name)}
                             onKeyDown={e => {
-                              if (e.key === 'Enter') handleSaveComment('moral', a.code, 'comment', a.comment || '');
+                              if (e.key === 'Enter') handleSaveComment('moral', a.code, 'comment', a.comment || '', a.name);
                               if (e.key === 'Escape') setEditingCell(null);
                             }}
                             autoFocus
@@ -2826,7 +2857,43 @@ export function RiskMatrixTab() {
               Confirmer la modification ?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-              Voulez-vous vraiment modifier ce paramètre ? Cette modification mettra à jour la cotation de risque de manière automatique et sera synchronisée en temps réel pour tous les utilisateurs.
+              {pendingChange ? (
+                <>
+                  Voulez-vous vraiment modifier le critère <strong className="text-slate-700 dark:text-slate-200">« {
+                    {
+                      border: "Zone frontalière",
+                      port: "Port International",
+                      airport: "Aéroport",
+                      market: "Contrebande",
+                      other: "Autres critères",
+                      liquid: "Liquidité",
+                      forex: "Devises / Étranger",
+                      highValue: "Capital Élevé",
+                      fraud: "Fraude / Sinistralité",
+                      cap: "Capitalisation / Rachat",
+                      complex: "Difficulté de Contrôle",
+                      nonCompliance: "Non-soumission LBC",
+                      noCulture: "Pas de culture LBC",
+                      noContact: "Pas de contact direct",
+                      noOriginals: "Pas d'originaux",
+                      cash: "Argent liquide",
+                      objects: "Objets de valeur",
+                      volume: "Volume élevé",
+                      noInfo: "Manque d'information",
+                      complexEval: "Évaluation difficile",
+                      intermediary: "Intermédiation",
+                      corruption: "Exposition corruption",
+                      gafi: "Pays GAFI / Sanctions",
+                      oecd: "Paradis Fiscal (OCDE)",
+                      terrorism: "Risque Terroriste"
+                    }[pendingChange.field] || pendingChange.field
+                  } »</strong> pour <strong className="text-slate-700 dark:text-slate-200">« {pendingChange.itemName} »</strong> ?
+                  <br /><br />
+                  Cette modification mettra à jour la cotation de risque de manière automatique et sera synchronisée en temps réel pour tous les utilisateurs.
+                </>
+              ) : (
+                "Voulez-vous vraiment modifier ce paramètre ? Cette modification mettra à jour la cotation de risque de manière automatique et sera synchronisée en temps réel pour tous les utilisateurs."
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-6 flex gap-2 justify-end">
