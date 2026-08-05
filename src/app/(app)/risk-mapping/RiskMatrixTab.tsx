@@ -415,7 +415,7 @@ const MORAL_ACTIVITIES_DATA = [
 // PHYS_PROFESSIONS_DATA imported from professions_data.json
 
 export function RiskMatrixTab() {
-  const { logAction } = useActivityLog();
+  const { logAction, isAdmin } = useActivityLog();
   const { user } = useUser();
   const { toast } = useToast();
   const {
