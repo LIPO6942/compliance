@@ -256,22 +256,34 @@ export default function ReportsPage() {
   // Moteur sélectionné
   const currentTemplate = reportTemplates.find((t) => t.id === selectedReport) || reportTemplates[0];
 
-  const { overrides } = useMatrixConfig();
+  const { overrides, baselineOverrides } = useMatrixConfig();
 
   // Résolution dynamique des risques pays de la Matrice des Risques (onglet "Pays" / MATRICE DES RISQUES)
   const resolvedCountries = React.useMemo(() => {
-    const countryOverrides = overrides?.country || {};
+    const countryBase = baselineOverrides?.country || {};
+    const countryUser = overrides?.country || {};
+
     return COUNTRIES_DATA.map((c) => {
-      const override = countryOverrides[c.name] || {};
+      const baseOv = countryBase[c.name] || {};
+      const userOv = countryUser[c.name] || {};
+      const defaultOtherDominant = Boolean(c.other && c.other.trim() !== "");
+
+      const gafi = userOv.gafi !== undefined ? (userOv.gafi as boolean) : (baseOv.gafi !== undefined ? (baseOv.gafi as boolean) : c.gafi);
+      const corruption = userOv.corruption !== undefined ? (userOv.corruption as boolean) : (baseOv.corruption !== undefined ? (baseOv.corruption as boolean) : c.corruption);
+      const oecd = userOv.oecd !== undefined ? (userOv.oecd as boolean) : (baseOv.oecd !== undefined ? (baseOv.oecd as boolean) : c.oecd);
+      const terrorism = userOv.terrorism !== undefined ? (userOv.terrorism as boolean) : (baseOv.terrorism !== undefined ? (baseOv.terrorism as boolean) : c.terrorism);
+      const otherDominant = userOv.otherDominant !== undefined ? (userOv.otherDominant as boolean) : (baseOv.otherDominant !== undefined ? (baseOv.otherDominant as boolean) : defaultOtherDominant);
+      const other = userOv.other !== undefined ? String(userOv.other) : (baseOv.other !== undefined ? String(baseOv.other) : c.other);
+
       const merged = {
         ...c,
-        gafi: override.gafi !== undefined ? (override.gafi as boolean) : c.gafi,
-        corruption: override.corruption !== undefined ? (override.corruption as boolean) : c.corruption,
-        oecd: override.oecd !== undefined ? (override.oecd as boolean) : c.oecd,
-        terrorism: override.terrorism !== undefined ? (override.terrorism as boolean) : c.terrorism,
-        otherDominant: override.otherDominant !== undefined ? (override.otherDominant as boolean) : Boolean(c.other && c.other.trim() !== ""),
-        other: override.other !== undefined ? String(override.other) : c.other,
-        isOverridden: Object.keys(override).length > 0,
+        gafi,
+        corruption,
+        oecd,
+        terrorism,
+        otherDominant,
+        other,
+        isOverridden: Object.keys(userOv).length > 0,
       };
 
       const otherCount = [
@@ -288,7 +300,7 @@ export default function ReportsPage() {
       }
       return merged;
     });
-  }, [overrides?.country]);
+  }, [baselineOverrides?.country, overrides?.country]);
 
   // Pays modifiés dans la Matrice des Risques "Pays" (Onglet Pays)
   const customModifiedCountries = React.useMemo(() => resolvedCountries.filter((c) => c.isOverridden), [resolvedCountries]);

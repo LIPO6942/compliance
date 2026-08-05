@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Search, Globe, MapPin, Package, Layers, Grid, Users, Landmark,
-  Download, FileText, History, CheckCircle2, Clock, Save, Plus, Trash2
+  Download, FileText, History, CheckCircle2, Clock, Save, Plus, Trash2, ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -422,6 +422,7 @@ export function RiskMatrixTab() {
     kycFactors,
     kycHistory,
     overrides,
+    baselineOverrides,
     customItems,
     deletedItems,
     addCustomItem,
@@ -430,10 +431,12 @@ export function RiskMatrixTab() {
     updateFactor: ctxUpdateFactor,
     resetFactors: ctxResetFactors,
     updateOverride,
-    resetOverrides
+    resetOverrides,
+    consolidateAsBaseline
   } = useMatrixConfig();
 
   const [subTab, setSubTab] = React.useState<"params" | "countries" | "govs" | "products" | "dist" | "moral" | "physical">("params");
+  const [consolidateDialogOpen, setConsolidateDialogOpen] = React.useState(false);
   
   // State for Add Item Modal
   const [addItemModalOpen, setAddItemModalOpen] = React.useState(false);
@@ -800,17 +803,29 @@ export function RiskMatrixTab() {
   // ── Overrides Resolution & Dynamic Risk Calculation ──
 
   const resolvedCountries = React.useMemo(() => {
+    const baseOvCat = baselineOverrides?.country || {};
+    const userOvCat = overrides?.country || {};
+
     return COUNTRIES_DATA.map((c) => {
-      const override = overrides.country[c.name] || {};
+      const baseOv = baseOvCat[c.name] || {};
+      const userOv = userOvCat[c.name] || {};
       const defaultOtherDominant = Boolean(c.other && c.other.trim() !== "");
+
+      const gafi = userOv.gafi !== undefined ? (userOv.gafi as boolean) : (baseOv.gafi !== undefined ? (baseOv.gafi as boolean) : c.gafi);
+      const corruption = userOv.corruption !== undefined ? (userOv.corruption as boolean) : (baseOv.corruption !== undefined ? (baseOv.corruption as boolean) : c.corruption);
+      const oecd = userOv.oecd !== undefined ? (userOv.oecd as boolean) : (baseOv.oecd !== undefined ? (baseOv.oecd as boolean) : c.oecd);
+      const terrorism = userOv.terrorism !== undefined ? (userOv.terrorism as boolean) : (baseOv.terrorism !== undefined ? (baseOv.terrorism as boolean) : c.terrorism);
+      const otherDominant = userOv.otherDominant !== undefined ? (userOv.otherDominant as boolean) : (baseOv.otherDominant !== undefined ? (baseOv.otherDominant as boolean) : defaultOtherDominant);
+      const other = userOv.other !== undefined ? String(userOv.other) : (baseOv.other !== undefined ? String(baseOv.other) : c.other);
+
       const merged = {
         ...c,
-        gafi: override.gafi !== undefined ? override.gafi as boolean : c.gafi,
-        corruption: override.corruption !== undefined ? override.corruption as boolean : c.corruption,
-        oecd: override.oecd !== undefined ? override.oecd as boolean : c.oecd,
-        terrorism: override.terrorism !== undefined ? override.terrorism as boolean : c.terrorism,
-        otherDominant: override.otherDominant !== undefined ? override.otherDominant as boolean : defaultOtherDominant,
-        other: override.other !== undefined ? String(override.other) : c.other,
+        gafi,
+        corruption,
+        oecd,
+        terrorism,
+        otherDominant,
+        other,
       };
       
       const otherCount = [
@@ -827,18 +842,29 @@ export function RiskMatrixTab() {
       }
       return merged;
     });
-  }, [overrides.country]);
+  }, [baselineOverrides?.country, overrides?.country]);
 
   const resolvedGovs = React.useMemo(() => {
+    const baseOvCat = baselineOverrides?.gov || {};
+    const userOvCat = overrides?.gov || {};
+
     return GOVERNORATES_DATA.map((g) => {
-      const override = overrides.gov[String(g.id)] || {};
+      const baseOv = baseOvCat[String(g.id)] || {};
+      const userOv = userOvCat[String(g.id)] || {};
+
+      const border = userOv.border !== undefined ? (userOv.border as boolean) : (baseOv.border !== undefined ? (baseOv.border as boolean) : g.border);
+      const port = userOv.port !== undefined ? (userOv.port as boolean) : (baseOv.port !== undefined ? (baseOv.port as boolean) : g.port);
+      const airport = userOv.airport !== undefined ? (userOv.airport as boolean) : (baseOv.airport !== undefined ? (baseOv.airport as boolean) : g.airport);
+      const market = userOv.market !== undefined ? (userOv.market as boolean) : (baseOv.market !== undefined ? (baseOv.market as boolean) : g.market);
+      const other = userOv.other !== undefined ? String(userOv.other) : (baseOv.other !== undefined ? String(baseOv.other) : g.other);
+
       const merged = {
         ...g,
-        border: override.border !== undefined ? override.border as boolean : g.border,
-        port: override.port !== undefined ? override.port as boolean : g.port,
-        airport: override.airport !== undefined ? override.airport as boolean : g.airport,
-        market: override.market !== undefined ? override.market as boolean : g.market,
-        other: override.other !== undefined ? String(override.other) : g.other,
+        border,
+        port,
+        airport,
+        market,
+        other,
       };
       
       const count = [
@@ -852,19 +878,31 @@ export function RiskMatrixTab() {
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
-  }, [overrides.gov]);
+  }, [baselineOverrides?.gov, overrides?.gov]);
 
   const resolvedProducts = React.useMemo(() => {
+    const baseOvCat = baselineOverrides?.product || {};
+    const userOvCat = overrides?.product || {};
+
     return PRODUCTS_DATA.map((p) => {
-      const override = overrides.product[String(p.code)] || {};
+      const baseOv = baseOvCat[String(p.code)] || {};
+      const userOv = userOvCat[String(p.code)] || {};
+
+      const liquid = userOv.liquid !== undefined ? (userOv.liquid as boolean) : (baseOv.liquid !== undefined ? (baseOv.liquid as boolean) : p.liquid);
+      const forex = userOv.forex !== undefined ? (userOv.forex as boolean) : (baseOv.forex !== undefined ? (baseOv.forex as boolean) : p.forex);
+      const highValue = userOv.highValue !== undefined ? (userOv.highValue as boolean) : (baseOv.highValue !== undefined ? (baseOv.highValue as boolean) : p.highValue);
+      const fraud = userOv.fraud !== undefined ? (userOv.fraud as boolean) : (baseOv.fraud !== undefined ? (baseOv.fraud as boolean) : p.fraud);
+      const cap = userOv.cap !== undefined ? (userOv.cap as boolean) : (baseOv.cap !== undefined ? (baseOv.cap as boolean) : p.cap);
+      const comment = userOv.comment !== undefined ? String(userOv.comment) : (baseOv.comment !== undefined ? String(baseOv.comment) : p.comment);
+
       const merged = {
         ...p,
-        liquid: override.liquid !== undefined ? override.liquid as boolean : p.liquid,
-        forex: override.forex !== undefined ? override.forex as boolean : p.forex,
-        highValue: override.highValue !== undefined ? override.highValue as boolean : p.highValue,
-        fraud: override.fraud !== undefined ? override.fraud as boolean : p.fraud,
-        cap: override.cap !== undefined ? override.cap as boolean : p.cap,
-        comment: override.comment !== undefined ? String(override.comment) : p.comment,
+        liquid,
+        forex,
+        highValue,
+        fraud,
+        cap,
+        comment,
       };
       
       const count = [
@@ -878,20 +916,29 @@ export function RiskMatrixTab() {
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
-  }, [overrides.product]);
+  }, [baselineOverrides?.product, overrides?.product]);
 
   const resolvedDist = React.useMemo(() => {
+    const baseOvCat = baselineOverrides?.dist || {};
+    const userOvCat = overrides?.dist || {};
+
     const list = customItems?.dist ? [...customItems.dist] : [];
     const base = DISTRIBUTION_DATA.filter(d => !deletedItems?.dist?.includes(d.code));
     const all = [...base, ...list];
     
     return all.map((d) => {
-      const override = overrides.dist[d.code] || {};
+      const baseOv = baseOvCat[d.code] || {};
+      const userOv = userOvCat[d.code] || {};
+
+      const complex = userOv.complex !== undefined ? (userOv.complex as boolean) : (baseOv.complex !== undefined ? (baseOv.complex as boolean) : d.complex);
+      const nonCompliance = userOv.nonCompliance !== undefined ? (userOv.nonCompliance as boolean) : (baseOv.nonCompliance !== undefined ? (baseOv.nonCompliance as boolean) : d.nonCompliance);
+      const noCulture = userOv.noCulture !== undefined ? (userOv.noCulture as boolean) : (baseOv.noCulture !== undefined ? (baseOv.noCulture as boolean) : d.noCulture);
+
       const merged = {
         ...d,
-        complex: override.complex !== undefined ? override.complex as boolean : d.complex,
-        nonCompliance: override.nonCompliance !== undefined ? override.nonCompliance as boolean : d.nonCompliance,
-        noCulture: override.noCulture !== undefined ? override.noCulture as boolean : d.noCulture,
+        complex,
+        nonCompliance,
+        noCulture,
       };
       
       const count = [
@@ -903,19 +950,27 @@ export function RiskMatrixTab() {
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
-  }, [overrides.dist, customItems?.dist, deletedItems?.dist]);
+  }, [baselineOverrides?.dist, overrides?.dist, customItems?.dist, deletedItems?.dist]);
 
   const resolvedSales = React.useMemo(() => {
+    const baseOvCat = baselineOverrides?.sale || {};
+    const userOvCat = overrides?.sale || {};
+
     const list = customItems?.sale ? [...customItems.sale] : [];
     const base = SALES_TECHNIQUES_DATA.filter(s => !deletedItems?.sale?.includes(String(s.code)));
     const all = [...base, ...list];
     
     return all.map((s) => {
-      const override = overrides.sale[String(s.code)] || {};
+      const baseOv = baseOvCat[String(s.code)] || {};
+      const userOv = userOvCat[String(s.code)] || {};
+
+      const noContact = userOv.noContact !== undefined ? (userOv.noContact as boolean) : (baseOv.noContact !== undefined ? (baseOv.noContact as boolean) : s.noContact);
+      const noOriginals = userOv.noOriginals !== undefined ? (userOv.noOriginals as boolean) : (baseOv.noOriginals !== undefined ? (baseOv.noOriginals as boolean) : s.noOriginals);
+
       const merged = {
         ...s,
-        noContact: override.noContact !== undefined ? override.noContact as boolean : s.noContact,
-        noOriginals: override.noOriginals !== undefined ? override.noOriginals as boolean : s.noOriginals,
+        noContact,
+        noOriginals,
       };
       
       const count = [
@@ -926,25 +981,39 @@ export function RiskMatrixTab() {
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
-  }, [overrides.sale, customItems?.sale, deletedItems?.sale]);
+  }, [baselineOverrides?.sale, overrides?.sale, customItems?.sale, deletedItems?.sale]);
 
   const resolvedMoralActivities = React.useMemo(() => {
+    const baseOvCat = baselineOverrides?.moral || {};
+    const userOvCat = overrides?.moral || {};
+
     const list = customItems?.moral ? [...customItems.moral] : [];
     const base = MORAL_ACTIVITIES_DATA.filter(a => !deletedItems?.moral?.includes(a.code));
     const all = [...base, ...list];
     
     return all.map((a) => {
-      const override = overrides.moral[a.code] || {};
+      const baseOv = baseOvCat[a.code] || {};
+      const userOv = userOvCat[a.code] || {};
+
+      const cash = userOv.cash !== undefined ? (userOv.cash as boolean) : (baseOv.cash !== undefined ? (baseOv.cash as boolean) : a.cash);
+      const objects = userOv.objects !== undefined ? (userOv.objects as boolean) : (baseOv.objects !== undefined ? (baseOv.objects as boolean) : a.objects);
+      const volume = userOv.volume !== undefined ? (userOv.volume as boolean) : (baseOv.volume !== undefined ? (baseOv.volume as boolean) : a.volume);
+      const noInfo = userOv.noInfo !== undefined ? (userOv.noInfo as boolean) : (baseOv.noInfo !== undefined ? (baseOv.noInfo as boolean) : a.noInfo);
+      const complexEval = userOv.complexEval !== undefined ? (userOv.complexEval as boolean) : (baseOv.complexEval !== undefined ? (baseOv.complexEval as boolean) : a.complexEval);
+      const intermediary = userOv.intermediary !== undefined ? (userOv.intermediary as boolean) : (baseOv.intermediary !== undefined ? (baseOv.intermediary as boolean) : a.intermediary);
+      const corruption = userOv.corruption !== undefined ? (userOv.corruption as boolean) : (baseOv.corruption !== undefined ? (baseOv.corruption as boolean) : a.corruption);
+      const comment = userOv.comment !== undefined ? String(userOv.comment) : (baseOv.comment !== undefined ? String(baseOv.comment) : a.comment);
+
       const merged = {
         ...a,
-        cash: override.cash !== undefined ? override.cash as boolean : a.cash,
-        objects: override.objects !== undefined ? override.objects as boolean : a.objects,
-        volume: override.volume !== undefined ? override.volume as boolean : a.volume,
-        noInfo: override.noInfo !== undefined ? override.noInfo as boolean : a.noInfo,
-        complexEval: override.complexEval !== undefined ? override.complexEval as boolean : a.complexEval,
-        intermediary: override.intermediary !== undefined ? override.intermediary as boolean : a.intermediary,
-        corruption: override.corruption !== undefined ? override.corruption as boolean : a.corruption,
-        comment: override.comment !== undefined ? String(override.comment) : a.comment,
+        cash,
+        objects,
+        volume,
+        noInfo,
+        complexEval,
+        intermediary,
+        corruption,
+        comment,
       };
       
       const count = [
@@ -960,24 +1029,37 @@ export function RiskMatrixTab() {
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
-  }, [overrides.moral, customItems?.moral, deletedItems?.moral]);
+  }, [baselineOverrides?.moral, overrides?.moral, customItems?.moral, deletedItems?.moral]);
 
   const resolvedPhysicalProfessions = React.useMemo(() => {
+    const baseOvCat = baselineOverrides?.profession || {};
+    const userOvCat = overrides?.profession || {};
+
     const list = customItems?.profession ? [...customItems.profession] : [];
     const base = PHYS_PROFESSIONS_DATA.filter(p => !deletedItems?.profession?.includes(p.name));
     const all = [...base, ...list];
     
     return all.map((p) => {
-      const override = overrides.profession[p.name] || {};
+      const baseOv = baseOvCat[p.name] || {};
+      const userOv = userOvCat[p.name] || {};
+
+      const cash = userOv.cash !== undefined ? (userOv.cash as boolean) : (baseOv.cash !== undefined ? (baseOv.cash as boolean) : p.cash);
+      const objects = userOv.objects !== undefined ? (userOv.objects as boolean) : (baseOv.objects !== undefined ? (baseOv.objects as boolean) : p.objects);
+      const volume = userOv.volume !== undefined ? (userOv.volume as boolean) : (baseOv.volume !== undefined ? (baseOv.volume as boolean) : p.volume);
+      const noInfo = userOv.noInfo !== undefined ? (userOv.noInfo as boolean) : (baseOv.noInfo !== undefined ? (baseOv.noInfo as boolean) : p.noInfo);
+      const complexEval = userOv.complexEval !== undefined ? (userOv.complexEval as boolean) : (baseOv.complexEval !== undefined ? (baseOv.complexEval as boolean) : p.complexEval);
+      const intermediary = userOv.intermediary !== undefined ? (userOv.intermediary as boolean) : (baseOv.intermediary !== undefined ? (baseOv.intermediary as boolean) : p.intermediary);
+      const corruption = userOv.corruption !== undefined ? (userOv.corruption as boolean) : (baseOv.corruption !== undefined ? (baseOv.corruption as boolean) : p.corruption);
+
       const merged = {
         ...p,
-        cash: override.cash !== undefined ? override.cash : p.cash,
-        objects: override.objects !== undefined ? override.objects : p.objects,
-        volume: override.volume !== undefined ? override.volume : p.volume,
-        noInfo: override.noInfo !== undefined ? override.noInfo : p.noInfo,
-        complexEval: override.complexEval !== undefined ? override.complexEval : p.complexEval,
-        intermediary: override.intermediary !== undefined ? override.intermediary : p.intermediary,
-        corruption: override.corruption !== undefined ? override.corruption : p.corruption,
+        cash,
+        objects,
+        volume,
+        noInfo,
+        complexEval,
+        intermediary,
+        corruption,
       };
       
       const count = [
@@ -993,7 +1075,7 @@ export function RiskMatrixTab() {
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
-  }, [overrides.profession, customItems?.profession, deletedItems?.profession]);
+  }, [baselineOverrides?.profession, overrides?.profession, customItems?.profession, deletedItems?.profession]);
 
   // ── Filtered Memos ──
 
@@ -1565,6 +1647,19 @@ export function RiskMatrixTab() {
               </ScrollArea>
             </DialogContent>
           </Dialog>
+
+          {/* Admin Consolidation Button */}
+          {isAdmin(user?.email || '') && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConsolidateDialogOpen(true)}
+              className="h-9 px-4 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02] dark:bg-blue-950/20 dark:border-blue-900 dark:text-blue-400"
+              title="Définir la configuration actuelle de la matrice comme la base officielle (consolide la matrice et réinitialise l'historique de modification)"
+            >
+              <ShieldCheck className="mr-1.5 h-3.5 w-3.5 text-blue-600" /> Fixer comme Matrice de Base (Admin)
+            </Button>
+          )}
 
           {/* Export PDF */}
           <Button
@@ -3004,6 +3099,53 @@ export function RiskMatrixTab() {
               className="text-xs font-bold px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 focus:bg-blue-700 text-white rounded-xl shadow-md shadow-blue-500/20 dark:shadow-none transition-all cursor-pointer border-none outline-none"
             >
               Confirmer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Admin Consolidation Confirmation Dialog */}
+      <AlertDialog open={consolidateDialogOpen} onOpenChange={setConsolidateDialogOpen}>
+        <AlertDialogContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md p-6 shadow-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-blue-600" />
+              Consolider la matrice comme base officielle ?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-500 dark:text-slate-400 mt-2 space-y-2">
+              <span>
+                Vous allez enregistrer la configuration actuelle de tous les facteurs (pays, gouvernorats, produits, etc.) comme la <strong className="text-slate-800 dark:text-slate-200">matrice de référence officielle</strong>.
+              </span>
+              <br /><br />
+              <span className="block font-semibold text-slate-700 dark:text-slate-300">
+                Conséquences de cette action :
+              </span>
+              <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-300 text-[11px]">
+                <li>Les modifications actuelles deviennent la <strong>norme par défaut</strong> de l&apos;application.</li>
+                <li>L&apos;historique des modifications temporaires sera réinitialisé pour conserver une base propre.</li>
+                <li>Le <strong>reporting</strong> utilisera ce tableau comme base officielle sans marquer ces ajustements comme des modifications utilisateur.</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 flex gap-2 justify-end">
+            <AlertDialogCancel 
+              onClick={() => setConsolidateDialogOpen(false)}
+              className="text-xs font-bold px-4 py-2 border rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                await consolidateAsBaseline(authorName);
+                toast({
+                  title: "✅ Matrice officielle consolidée",
+                  description: "L'état actuel a été fixé comme la nouvelle matrice de référence officielle."
+                });
+                setConsolidateDialogOpen(false);
+              }}
+              className="text-xs font-bold px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 focus:bg-blue-700 text-white rounded-xl shadow-md shadow-blue-500/20 dark:shadow-none transition-all cursor-pointer border-none outline-none"
+            >
+              Fixer comme base officielle
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

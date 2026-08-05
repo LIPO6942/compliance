@@ -106,6 +106,7 @@ interface MatrixConfigContextType {
   loading: boolean;
   
   overrides: Record<OverrideCategory, Record<string, Record<string, boolean | string>>>;
+  baselineOverrides: Record<OverrideCategory, Record<string, Record<string, boolean | string>>>;
   professionOverrides: Record<string, Record<string, boolean>>; // alias
   
   customItems: Record<string, any[]>;
@@ -135,6 +136,8 @@ interface MatrixConfigContextType {
     category: OverrideCategory | 'all',
     author: string
   ) => Promise<void>;
+
+  consolidateAsBaseline: (author: string) => Promise<void>;
   
   updateProfessionFactor: (
     professionName: string,
@@ -177,9 +180,11 @@ function lsSave(key: string, value: unknown) {
 
 // ── Provider ─────────────────────────────────────────────────────────────────
 export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
+  const LS_BASELINE_OVERRIDES = 'matrixKycBaselineOverrides';
   const [kycFactors, setKycFactors] = useState<KycFactor[]>(() => lsLoad(LS_FACTORS, DEFAULT_KYC_FACTORS));
   const [kycHistory, setKycHistory] = useState<MatrixHistoryEntry[]>(() => lsLoad(LS_HISTORY, []));
   const [overrides, setOverrides] = useState<Record<OverrideCategory, Record<string, Record<string, boolean | string>>>>(() => lsLoad(LS_OVERRIDES, DEFAULT_OVERRIDES));
+  const [baselineOverrides, setBaselineOverrides] = useState<Record<OverrideCategory, Record<string, Record<string, boolean | string>>>>(() => lsLoad(LS_BASELINE_OVERRIDES, DEFAULT_OVERRIDES));
   const [customItems, setCustomItems] = useState<Record<string, any[]>>(() => lsLoad('matrixKycCustomItems', {
     dist: [],
     sale: [],
@@ -242,8 +247,11 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
             dist: data.dist ?? {},
             sale: data.sale ?? {}
           };
+          const loadedBaseline = data.baselineOverrides ?? DEFAULT_OVERRIDES;
           setOverrides(loadedOverrides);
+          setBaselineOverrides(loadedBaseline);
           lsSave(LS_OVERRIDES, loadedOverrides);
+          lsSave(LS_BASELINE_OVERRIDES, loadedBaseline);
 
           const loadedCustom = data.customItems ?? {
             dist: [],
@@ -264,6 +272,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setDoc(overridesRef, {
             ...DEFAULT_OVERRIDES,
+            baselineOverrides: DEFAULT_OVERRIDES,
             customItems: { dist: [], sale: [], moral: [], profession: [] },
             deletedItems: { dist: [], sale: [], moral: [], profession: [] }
           });
@@ -730,6 +739,83 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
     [overrides, customItems, deletedItems, kycHistory]
   );
 
+  // ── Consolidate matrix as official baseline (Admin) ────────────────────────
+  const consolidateAsBaseline = useCallback(
+    async (author: string) => {
+      const newBaseline: Record<OverrideCategory, Record<string, Record<string, boolean | string>>> = {
+        profession: { ...(baselineOverrides.profession || {}), ...(overrides.profession || {}) },
+        moral: { ...(baselineOverrides.moral || {}), ...(overrides.moral || {}) },
+        country: { ...(baselineOverrides.country || {}), ...(overrides.country || {}) },
+        gov: { ...(baselineOverrides.gov || {}), ...(overrides.gov || {}) },
+        product: { ...(baselineOverrides.product || {}), ...(overrides.product || {}) },
+        dist: { ...(baselineOverrides.dist || {}), ...(overrides.dist || {}) },
+        sale: { ...(baselineOverrides.sale || {}), ...(overrides.sale || {}) },
+      };
+
+      const emptyOverrides: Record<OverrideCategory, Record<string, Record<string, boolean | string>>> = {
+        profession: {},
+        moral: {},
+        country: {},
+        gov: {},
+        product: {},
+        dist: {},
+        sale: {}
+      };
+
+      const consolidatedHistory: MatrixHistoryEntry[] = [
+        {
+          id: String(Date.now()),
+          date: new Date().toISOString(),
+          user: author,
+          field: 'Consolidation Admin : Matrice de référence officielle fixée',
+          oldValue: 'Modifications de configuration',
+          newValue: 'Base officielle',
+        }
+      ];
+
+      setBaselineOverrides(newBaseline);
+      setOverrides(emptyOverrides);
+      setKycHistory(consolidatedHistory);
+
+      lsSave(LS_BASELINE_OVERRIDES, newBaseline);
+      lsSave(LS_OVERRIDES, emptyOverrides);
+      lsSave(LS_HISTORY, consolidatedHistory);
+
+      if (isFirebaseConfigured && db) {
+        try {
+          const overridesRef = doc(db, MATRIX_OVERRIDES_DOC);
+          await setDoc(overridesRef, {
+            baselineOverrides: newBaseline,
+            profession: {},
+            moral: {},
+            country: {},
+            gov: {},
+            product: {},
+            dist: {},
+            sale: {}
+          }, { merge: true });
+
+          const ref = doc(db, MATRIX_DOC);
+          await setDoc(ref, { history: consolidatedHistory }, { merge: true });
+
+          try {
+            await addDoc(collection(db, "riskFactorLogs"), {
+              date: new Date().toISOString(),
+              user: author,
+              factors: ["Matrice des Risques"],
+              note: "Consolidation et fixation de la matrice de référence officielle par l'administrateur.",
+            });
+          } catch (logErr) {
+            console.error('[MatrixConfig] Failed to write live log:', logErr);
+          }
+        } catch (e) {
+          console.error('[MatrixConfig] Consolidate baseline error:', e);
+        }
+      }
+    },
+    [baselineOverrides, overrides]
+  );
+
   // ── Backward compatibility aliases ─────────────────────────────────────────
   const updateProfessionFactor = useCallback(
     async (professionName: string, field: string, value: boolean, author: string) => {
@@ -751,6 +837,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
       kycHistory,
       loading,
       overrides,
+      baselineOverrides,
       professionOverrides: overrides.profession,
       customItems,
       deletedItems,
@@ -760,6 +847,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
       resetFactors,
       updateOverride,
       resetOverrides,
+      consolidateAsBaseline,
       updateProfessionFactor,
       resetProfessionOverrides
     }}>
