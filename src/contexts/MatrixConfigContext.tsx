@@ -185,18 +185,24 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
   const [kycHistory, setKycHistory] = useState<MatrixHistoryEntry[]>(() => lsLoad(LS_HISTORY, []));
   const [overrides, setOverrides] = useState<Record<OverrideCategory, Record<string, Record<string, boolean | string>>>>(() => lsLoad(LS_OVERRIDES, DEFAULT_OVERRIDES));
   const [baselineOverrides, setBaselineOverrides] = useState<Record<OverrideCategory, Record<string, Record<string, boolean | string>>>>(() => lsLoad(LS_BASELINE_OVERRIDES, DEFAULT_OVERRIDES));
-  const [customItems, setCustomItems] = useState<Record<string, any[]>>(() => lsLoad('matrixKycCustomItems', {
-    dist: [],
-    sale: [],
-    moral: [],
-    profession: []
-  }));
-  const [deletedItems, setDeletedItems] = useState<Record<string, string[]>>(() => lsLoad('matrixKycDeletedItems', {
-    dist: [],
-    sale: [],
-    moral: [],
-    profession: []
-  }));
+  const [customItems, setCustomItems] = useState<Record<string, any[]>>(() => {
+    const raw = lsLoad<Record<string, any[]>>('matrixKycCustomItems', {});
+    return {
+      dist: Array.isArray(raw.dist) ? raw.dist : [],
+      sale: Array.isArray(raw.sale) ? raw.sale : [],
+      moral: Array.isArray(raw.moral) ? raw.moral : [],
+      profession: Array.isArray(raw.profession) ? raw.profession : []
+    };
+  });
+  const [deletedItems, setDeletedItems] = useState<Record<string, string[]>>(() => {
+    const raw = lsLoad<Record<string, string[]>>('matrixKycDeletedItems', {});
+    return {
+      dist: Array.isArray(raw.dist) ? raw.dist : [],
+      sale: Array.isArray(raw.sale) ? raw.sale : [],
+      moral: Array.isArray(raw.moral) ? raw.moral : [],
+      profession: Array.isArray(raw.profession) ? raw.profession : []
+    };
+  });
   const [loading, setLoading] = useState(true);
 
   // ── Real-time Firestore listener ─────────────────────────────────────────
@@ -253,17 +259,17 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
           lsSave(LS_OVERRIDES, loadedOverrides);
           lsSave(LS_BASELINE_OVERRIDES, loadedBaseline);
 
-          const loadedCustom = data.customItems ?? {
-            dist: [],
-            sale: [],
-            moral: [],
-            profession: []
+          const loadedCustom = {
+            dist: Array.isArray(data.customItems?.dist) ? data.customItems.dist : [],
+            sale: Array.isArray(data.customItems?.sale) ? data.customItems.sale : [],
+            moral: Array.isArray(data.customItems?.moral) ? data.customItems.moral : [],
+            profession: Array.isArray(data.customItems?.profession) ? data.customItems.profession : []
           };
-          const loadedDeleted = data.deletedItems ?? {
-            dist: [],
-            sale: [],
-            moral: [],
-            profession: []
+          const loadedDeleted = {
+            dist: Array.isArray(data.deletedItems?.dist) ? data.deletedItems.dist : [],
+            sale: Array.isArray(data.deletedItems?.sale) ? data.deletedItems.sale : [],
+            moral: Array.isArray(data.deletedItems?.moral) ? data.deletedItems.moral : [],
+            profession: Array.isArray(data.deletedItems?.profession) ? data.deletedItems.profession : []
           };
           setCustomItems(loadedCustom);
           setDeletedItems(loadedDeleted);

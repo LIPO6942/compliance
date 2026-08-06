@@ -441,6 +441,7 @@ export function RiskMatrixTab() {
   // State for Add Item Modal
   const [addItemModalOpen, setAddItemModalOpen] = React.useState(false);
   const [addItemCategory, setAddItemCategory] = React.useState<'dist' | 'sale' | 'moral' | 'profession' | null>(null);
+  const [customDomainInput, setCustomDomainInput] = React.useState("");
   const [newItemData, setNewItemData] = React.useState({
     code: "",
     name: "",
@@ -461,8 +462,21 @@ export function RiskMatrixTab() {
 
   const handleOpenAddModal = (category: 'dist' | 'sale' | 'moral' | 'profession') => {
     setAddItemCategory(category);
+    setCustomDomainInput("");
+
+    let defaultCode = "";
+    if (category === 'moral') {
+      const nums = resolvedMoralActivities.map(a => parseFloat(a.code)).filter(n => !isNaN(n));
+      const maxCode = nums.length > 0 ? Math.max(...nums) : 0;
+      defaultCode = (maxCode + 1).toFixed(1);
+    } else if (category === 'dist') {
+      const nums = resolvedDist.map(d => parseInt(String(d.code).replace(/\D/g, ''))).filter(n => !isNaN(n));
+      const maxCode = nums.length > 0 ? Math.max(...nums) : 0;
+      defaultCode = `C${(maxCode + 1).toString().padStart(2, '0')}`;
+    }
+
     setNewItemData({
-      code: "",
+      code: defaultCode,
       name: "",
       domain: "",
       complex: false,
@@ -487,17 +501,13 @@ export function RiskMatrixTab() {
       toast({ title: "Erreur", description: "Veuillez saisir un nom.", variant: "destructive" });
       return;
     }
-    if ((addItemCategory === 'dist' || addItemCategory === 'sale' || addItemCategory === 'moral') && !newItemData.code.trim()) {
-      toast({ title: "Erreur", description: "Veuillez saisir un code.", variant: "destructive" });
-      return;
-    }
-    if (addItemCategory === 'profession' && !newItemData.domain.trim()) {
-      toast({ title: "Erreur", description: "Veuillez saisir un domaine / secteur.", variant: "destructive" });
-      return;
-    }
 
     let payload: any = {};
     if (addItemCategory === 'dist') {
+      if (!newItemData.code.trim()) {
+        toast({ title: "Erreur", description: "Veuillez saisir un code.", variant: "destructive" });
+        return;
+      }
       payload = {
         code: newItemData.code.trim(),
         name: newItemData.name.trim(),
@@ -508,6 +518,10 @@ export function RiskMatrixTab() {
         comment: ''
       };
     } else if (addItemCategory === 'sale') {
+      if (!newItemData.code.trim()) {
+        toast({ title: "Erreur", description: "Veuillez saisir un code.", variant: "destructive" });
+        return;
+      }
       payload = {
         code: parseInt(newItemData.code.trim()) || String(newItemData.code.trim()),
         name: newItemData.name.trim(),
@@ -517,6 +531,15 @@ export function RiskMatrixTab() {
         comment: ''
       };
     } else if (addItemCategory === 'moral') {
+      if (!newItemData.code.trim()) {
+        toast({ title: "Erreur", description: "Veuillez saisir un code.", variant: "destructive" });
+        return;
+      }
+      const existingCode = resolvedMoralActivities.find(a => String(a.code).trim().toLowerCase() === newItemData.code.trim().toLowerCase());
+      if (existingCode) {
+        toast({ title: "Code déjà existant", description: `Une activité morale avec le code « ${newItemData.code.trim()} » existe déjà (${existingCode.name}).`, variant: "destructive" });
+        return;
+      }
       payload = {
         code: newItemData.code.trim(),
         name: newItemData.name.trim(),
@@ -531,8 +554,18 @@ export function RiskMatrixTab() {
         comment: ''
       };
     } else if (addItemCategory === 'profession') {
+      const selectedDomain = newItemData.domain === "__OTHER__" ? customDomainInput.trim() : newItemData.domain.trim();
+      if (!selectedDomain) {
+        toast({ title: "Erreur", description: "Veuillez sélectionner ou saisir un domaine / secteur.", variant: "destructive" });
+        return;
+      }
+      const existingName = resolvedPhysicalProfessions.find(p => p.name.trim().toLowerCase() === newItemData.name.trim().toLowerCase());
+      if (existingName) {
+        toast({ title: "Profession existante", description: `La profession « ${newItemData.name.trim()} » existe déjà dans la matrice des risques.`, variant: "destructive" });
+        return;
+      }
       payload = {
-        domain: newItemData.domain.trim(),
+        domain: selectedDomain,
         name: newItemData.name.trim(),
         cash: newItemData.cash,
         objects: newItemData.objects,
@@ -796,9 +829,12 @@ export function RiskMatrixTab() {
   };
 
   const uniqueDomains = React.useMemo(() => {
-    const domains = new Set(PHYS_PROFESSIONS_DATA.map(p => p.domain));
+    const baseDomains = PHYS_PROFESSIONS_DATA.map(p => p.domain);
+    const customProfessions = Array.isArray(customItems?.profession) ? customItems.profession : [];
+    const customDomains = customProfessions.map((p: any) => p.domain).filter(Boolean);
+    const domains = new Set([...baseDomains, ...customDomains]);
     return Array.from(domains).sort();
-  }, []);
+  }, [customItems?.profession]);
 
   // ── Overrides Resolution & Dynamic Risk Calculation ──
 
@@ -2850,28 +2886,21 @@ export function RiskMatrixTab() {
                     className="w-full h-9 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-400 cursor-pointer"
                   >
                     <option value="">-- Sélectionner un domaine --</option>
-                    <option value="ADMINISTRATION PUBLIQUE">Administration Publique</option>
-                    <option value="AGRICULTURE , PECHE ET ENVIRONNEMENT">Agriculture, Pêche et Environnement</option>
-                    <option value="ARCHITECTURE ET CONSTRUCTION">Architecture et Construction</option>
-                    <option value="ARTISANAT ET METIERS D'ARTS">Artisanat et Métiers d&apos;Arts</option>
-                    <option value="ARTS ET CULTURE">Arts et Culture</option>
-                    <option value="CONSEIL ET EXPERTISE">Conseil et Expertise</option>
-                    <option value="COSMETIQUE ET BIEN ETRE">Cosmétique et Bien-être</option>
-                    <option value="DROIT ET JUSTICE">Droit et Justice</option>
-                    <option value="EDITION ET PUBLICATION">Édition et Publication</option>
-                    <option value="ENSEIGNEMENT ET RECHERCHE">Enseignement et Recherche</option>
-                    <option value="FINANCES ET COMMERCE">Finances et Commerce</option>
-                    <option value="HOTELLERIE ET RESTAURATION">Hôtellerie et Restauration</option>
-                    <option value="INDUSTRIE ET PRODUCTION">Industrie et Production</option>
-                    <option value="MEDIAS , INFORMATIONS ET COMMUNICATION">Médias, Informations et Communication</option>
-                    <option value="PRODUCTION, DISTRIBUTION DES EAUX ET D'ENERGIE ( ELECTRICITE,GAZ ET ENERGIES RENOUVELABLES)">Production &amp; Distribution Eaux / Énergie</option>
-                    <option value="Santé et Médical">Santé et Médical</option>
-                    <option value="SERVICES ET ASSISTANCE">Services et Assistance</option>
-                    <option value="SOCIAL ET HUMANITAIRE">Social et Humanitaire</option>
-                    <option value="SPORT ET LOISIRS">Sport et Loisirs</option>
-                    <option value="TECHNOLOGIES ET INFORMATIQUE">Technologies et Informatique</option>
-                    <option value="TRANSPORT ET LOGISTISQUE">Transport et Logistique</option>
+                    {uniqueDomains.map(dom => (
+                      <option key={dom} value={dom}>{dom}</option>
+                    ))}
+                    <option value="__OTHER__">➕ Autre (Saisir un nouveau domaine...)</option>
                   </select>
+                  {newItemData.domain === "__OTHER__" && (
+                    <div className="mt-2">
+                      <Input
+                        value={customDomainInput}
+                        onChange={e => setCustomDomainInput(e.target.value)}
+                        placeholder="Saisir le nom du nouveau domaine..."
+                        className="h-9 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl"
+                      />
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div>
