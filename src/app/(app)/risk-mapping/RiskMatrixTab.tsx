@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Search, Globe, MapPin, Package, Layers, Grid, Users, Landmark,
-  Download, FileText, History, CheckCircle2, Clock, Save, Plus, Trash2, ShieldCheck
+  Download, FileText, History, CheckCircle2, Clock, Save, Plus, Trash2, ShieldCheck, Pencil
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -618,6 +618,61 @@ export function RiskMatrixTab() {
   } | null>(null);
 
   const authorName = user?.name || user?.email || "Utilisateur";
+  const isUserAdmin = user ? isAdmin(user.authEmail || user.email || '') : false;
+
+  // Admin Label Editing state
+  const [editNameItem, setEditNameItem] = React.useState<{ category: OverrideCategory; itemId: string; currentName: string } | null>(null);
+  const [newLabelText, setNewLabelText] = React.useState("");
+
+  const handleOpenEditLabel = (category: OverrideCategory, itemId: string, currentName: string) => {
+    if (!isUserAdmin) {
+      toast({
+        variant: "destructive",
+        title: "Accès restreint",
+        description: "Seuls les administrateurs peuvent modifier les libellés."
+      });
+      return;
+    }
+    setEditNameItem({ category, itemId, currentName });
+    setNewLabelText(currentName);
+  };
+
+  const handleSaveLabel = async () => {
+    if (!editNameItem || !newLabelText.trim()) return;
+    if (!isUserAdmin) return;
+
+    const { category, itemId, currentName } = editNameItem;
+    if (newLabelText.trim() === currentName.trim()) {
+      setEditNameItem(null);
+      return;
+    }
+
+    try {
+      await updateOverride(category, itemId, 'name', newLabelText.trim(), authorName, currentName);
+      toast({
+        title: "✅ Libellé mis à jour",
+        description: `Le libellé de « ${currentName} » a été renommé en « ${newLabelText.trim()} ».`
+      });
+
+      if (user) {
+        logAction({
+          userEmail: user.email,
+          userName: user.name,
+          action: "SETTINGS_UPDATE",
+          label: `Matrice KYC [${category}] - Modification Libellé`,
+          detail: `« ${currentName} » → « ${newLabelText.trim()} »`,
+          module: "Matrice des Risques"
+        });
+      }
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: `Impossible de modifier le libellé : ${err.message}`
+      });
+    }
+    setEditNameItem(null);
+  };
 
   const handleSaveComment = async (category: OverrideCategory, itemId: string, field: string, originalVal: string, itemName?: string) => {
     const displayName = itemName || itemId;
@@ -848,6 +903,7 @@ export function RiskMatrixTab() {
       const userOv = userOvCat[c.name] || {};
       const defaultOtherDominant = Boolean(c.other && c.other.trim() !== "");
 
+      const name = userOv.name !== undefined ? String(userOv.name) : (baseOv.name !== undefined ? String(baseOv.name) : c.name);
       const gafi = userOv.gafi !== undefined ? (userOv.gafi as boolean) : (baseOv.gafi !== undefined ? (baseOv.gafi as boolean) : c.gafi);
       const corruption = userOv.corruption !== undefined ? (userOv.corruption as boolean) : (baseOv.corruption !== undefined ? (baseOv.corruption as boolean) : c.corruption);
       const oecd = userOv.oecd !== undefined ? (userOv.oecd as boolean) : (baseOv.oecd !== undefined ? (baseOv.oecd as boolean) : c.oecd);
@@ -857,6 +913,7 @@ export function RiskMatrixTab() {
 
       const merged = {
         ...c,
+        name,
         gafi,
         corruption,
         oecd,
@@ -889,6 +946,7 @@ export function RiskMatrixTab() {
       const baseOv = baseOvCat[String(g.id)] || {};
       const userOv = userOvCat[String(g.id)] || {};
 
+      const name = userOv.name !== undefined ? String(userOv.name) : (baseOv.name !== undefined ? String(baseOv.name) : g.name);
       const border = userOv.border !== undefined ? (userOv.border as boolean) : (baseOv.border !== undefined ? (baseOv.border as boolean) : g.border);
       const port = userOv.port !== undefined ? (userOv.port as boolean) : (baseOv.port !== undefined ? (baseOv.port as boolean) : g.port);
       const airport = userOv.airport !== undefined ? (userOv.airport as boolean) : (baseOv.airport !== undefined ? (baseOv.airport as boolean) : g.airport);
@@ -897,6 +955,7 @@ export function RiskMatrixTab() {
 
       const merged = {
         ...g,
+        name,
         border,
         port,
         airport,
@@ -925,6 +984,7 @@ export function RiskMatrixTab() {
       const baseOv = baseOvCat[String(p.code)] || {};
       const userOv = userOvCat[String(p.code)] || {};
 
+      const name = userOv.name !== undefined ? String(userOv.name) : (baseOv.name !== undefined ? String(baseOv.name) : p.name);
       const liquid = userOv.liquid !== undefined ? (userOv.liquid as boolean) : (baseOv.liquid !== undefined ? (baseOv.liquid as boolean) : p.liquid);
       const forex = userOv.forex !== undefined ? (userOv.forex as boolean) : (baseOv.forex !== undefined ? (baseOv.forex as boolean) : p.forex);
       const highValue = userOv.highValue !== undefined ? (userOv.highValue as boolean) : (baseOv.highValue !== undefined ? (baseOv.highValue as boolean) : p.highValue);
@@ -934,6 +994,7 @@ export function RiskMatrixTab() {
 
       const merged = {
         ...p,
+        name,
         liquid,
         forex,
         highValue,
@@ -967,15 +1028,19 @@ export function RiskMatrixTab() {
       const baseOv = baseOvCat[String(d.code)] || baseOvCat[d.code] || {};
       const userOv = userOvCat[String(d.code)] || userOvCat[d.code] || {};
 
+      const name = userOv.name !== undefined ? String(userOv.name) : (baseOv.name !== undefined ? String(baseOv.name) : d.name);
       const complex = userOv.complex !== undefined ? (userOv.complex as boolean) : (baseOv.complex !== undefined ? (baseOv.complex as boolean) : d.complex);
       const nonCompliance = userOv.nonCompliance !== undefined ? (userOv.nonCompliance as boolean) : (baseOv.nonCompliance !== undefined ? (baseOv.nonCompliance as boolean) : d.nonCompliance);
       const noCulture = userOv.noCulture !== undefined ? (userOv.noCulture as boolean) : (baseOv.noCulture !== undefined ? (baseOv.noCulture as boolean) : d.noCulture);
+      const comment = userOv.comment !== undefined ? String(userOv.comment) : (baseOv.comment !== undefined ? String(baseOv.comment) : d.comment);
 
       const merged = {
         ...d,
+        name,
         complex,
         nonCompliance,
         noCulture,
+        comment,
       };
       
       const count = [
@@ -1001,13 +1066,17 @@ export function RiskMatrixTab() {
       const baseOv = baseOvCat[String(s.code)] || baseOvCat[s.code] || {};
       const userOv = userOvCat[String(s.code)] || userOvCat[s.code] || {};
 
+      const name = userOv.name !== undefined ? String(userOv.name) : (baseOv.name !== undefined ? String(baseOv.name) : s.name);
       const noContact = userOv.noContact !== undefined ? (userOv.noContact as boolean) : (baseOv.noContact !== undefined ? (baseOv.noContact as boolean) : s.noContact);
       const noOriginals = userOv.noOriginals !== undefined ? (userOv.noOriginals as boolean) : (baseOv.noOriginals !== undefined ? (baseOv.noOriginals as boolean) : s.noOriginals);
+      const comment = userOv.comment !== undefined ? String(userOv.comment) : (baseOv.comment !== undefined ? String(baseOv.comment) : s.comment);
 
       const merged = {
         ...s,
+        name,
         noContact,
         noOriginals,
+        comment,
       };
       
       const count = [
@@ -1032,6 +1101,7 @@ export function RiskMatrixTab() {
       const baseOv = baseOvCat[a.code] || {};
       const userOv = userOvCat[a.code] || {};
 
+      const name = userOv.name !== undefined ? String(userOv.name) : (baseOv.name !== undefined ? String(baseOv.name) : a.name);
       const cash = userOv.cash !== undefined ? (userOv.cash as boolean) : (baseOv.cash !== undefined ? (baseOv.cash as boolean) : a.cash);
       const objects = userOv.objects !== undefined ? (userOv.objects as boolean) : (baseOv.objects !== undefined ? (baseOv.objects as boolean) : a.objects);
       const volume = userOv.volume !== undefined ? (userOv.volume as boolean) : (baseOv.volume !== undefined ? (baseOv.volume as boolean) : a.volume);
@@ -1043,6 +1113,7 @@ export function RiskMatrixTab() {
 
       const merged = {
         ...a,
+        name,
         cash,
         objects,
         volume,
@@ -1080,6 +1151,7 @@ export function RiskMatrixTab() {
       const baseOv = baseOvCat[p.name] || {};
       const userOv = userOvCat[p.name] || {};
 
+      const name = userOv.name !== undefined ? String(userOv.name) : (baseOv.name !== undefined ? String(baseOv.name) : p.name);
       const cash = userOv.cash !== undefined ? (userOv.cash as boolean) : (baseOv.cash !== undefined ? (baseOv.cash as boolean) : p.cash);
       const objects = userOv.objects !== undefined ? (userOv.objects as boolean) : (baseOv.objects !== undefined ? (baseOv.objects as boolean) : p.objects);
       const volume = userOv.volume !== undefined ? (userOv.volume as boolean) : (baseOv.volume !== undefined ? (baseOv.volume as boolean) : p.volume);
@@ -1090,6 +1162,7 @@ export function RiskMatrixTab() {
 
       const merged = {
         ...p,
+        name,
         cash,
         objects,
         volume,
@@ -2109,7 +2182,22 @@ export function RiskMatrixTab() {
                   <TableRow key={c.alpha3} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", c.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
                     <TableCell className="text-center text-slate-500">{c.numeric}</TableCell>
                     <TableCell className="text-center font-bold text-slate-700 dark:text-slate-350">{c.alpha3}</TableCell>
-                    <TableCell className="font-bold text-slate-900 dark:text-white">{c.name}</TableCell>
+                    <TableCell className="font-bold text-slate-900 dark:text-white">
+                      <div className="flex items-center justify-between gap-2 group">
+                        <span>{c.name}</span>
+                        {isUserAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full cursor-pointer flex-shrink-0"
+                            title="Modifier le libellé (Admin)"
+                            onClick={() => handleOpenEditLabel('country', c.name, c.name)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
                     {[
                       { field: "gafi", yesLabel: "🔴 Oui" },
                       { field: "corruption", yesLabel: "🔶 CPI < 30" },
@@ -2232,7 +2320,22 @@ export function RiskMatrixTab() {
                 {filteredGovs.map(g => (
                   <TableRow key={g.id} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", g.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
                     <TableCell className="text-center text-slate-500">{g.id}</TableCell>
-                    <TableCell className="font-bold text-slate-900 dark:text-white">{g.name}</TableCell>
+                    <TableCell className="font-bold text-slate-900 dark:text-white">
+                      <div className="flex items-center justify-between gap-2 group">
+                        <span>{g.name}</span>
+                        {isUserAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full cursor-pointer flex-shrink-0"
+                            title="Modifier le libellé (Admin)"
+                            onClick={() => handleOpenEditLabel('gov', String(g.id), g.name)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right font-medium text-slate-400">{g.nameAr}</TableCell>
                     {[
                       { field: "border", yesLabel: "🛡️ Oui" },
@@ -2339,7 +2442,22 @@ export function RiskMatrixTab() {
                 {filteredProducts.map(p => (
                   <TableRow key={p.code} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", p.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
                     <TableCell className="text-center text-slate-500 font-bold">{p.code}</TableCell>
-                    <TableCell className="font-bold text-slate-900 dark:text-white">{p.name}</TableCell>
+                    <TableCell className="font-bold text-slate-900 dark:text-white">
+                      <div className="flex items-center justify-between gap-2 group">
+                        <span>{p.name}</span>
+                        {isUserAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full cursor-pointer flex-shrink-0"
+                            title="Modifier le libellé (Admin)"
+                            onClick={() => handleOpenEditLabel('product', String(p.code), p.name)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
                     {[
                       { field: "liquid", yesLabel: "💧 Oui" },
                       { field: "forex", yesLabel: "💵 Oui" },
@@ -2451,7 +2569,22 @@ export function RiskMatrixTab() {
                   {filteredDist.map(d => (
                     <TableRow key={d.code} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", d.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
                       <TableCell className="text-center text-slate-500 font-bold">{d.code}</TableCell>
-                      <TableCell className="font-bold text-slate-900 dark:text-white">{d.name}</TableCell>
+                      <TableCell className="font-bold text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between gap-2 group">
+                          <span>{d.name}</span>
+                          {isUserAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full cursor-pointer flex-shrink-0"
+                              title="Modifier le libellé (Admin)"
+                              onClick={() => handleOpenEditLabel('dist', String(d.code), d.name)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                       {[
                         { field: "complex", yesLabel: "⚠️ Oui" },
                         { field: "nonCompliance", yesLabel: "🔴 Oui" },
@@ -2541,7 +2674,22 @@ export function RiskMatrixTab() {
                   {filteredSales.map(s => (
                     <TableRow key={s.code} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", s.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
                       <TableCell className="text-center text-slate-500 font-bold">{s.code}</TableCell>
-                      <TableCell className="font-bold text-slate-900 dark:text-white">{s.name}</TableCell>
+                      <TableCell className="font-bold text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between gap-2 group">
+                          <span>{s.name}</span>
+                          {isUserAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full cursor-pointer flex-shrink-0"
+                              title="Modifier le libellé (Admin)"
+                              onClick={() => handleOpenEditLabel('sale', String(s.code), s.name)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                       {[
                         { field: "noContact", yesLabel: "🌐 Oui" },
                         { field: "noOriginals", yesLabel: "📄 Oui" }
@@ -2656,7 +2804,22 @@ export function RiskMatrixTab() {
                   {filteredMoralActivities.map(a => (
                     <TableRow key={a.code} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", a.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
                       <TableCell className="text-slate-500 font-bold">{a.code}</TableCell>
-                      <TableCell className="font-bold text-slate-900 dark:text-white truncate" title={a.name}>{a.name}</TableCell>
+                      <TableCell className="font-bold text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between gap-2 group">
+                          <span className="truncate" title={a.name}>{a.name}</span>
+                          {isUserAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full cursor-pointer flex-shrink-0"
+                              title="Modifier le libellé (Admin)"
+                              onClick={() => handleOpenEditLabel('moral', a.code, a.name)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                       {[
                         { field: "cash", label: "Liquide" },
                         { field: "objects", label: "Objets" },
@@ -2800,7 +2963,22 @@ export function RiskMatrixTab() {
                   {filteredPhysicalProfessions.map((p, idx) => (
                     <TableRow key={idx} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", p.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
                       <TableCell className="font-semibold text-slate-400 text-[10px] uppercase tracking-wider truncate" title={p.domain}>{p.domain}</TableCell>
-                      <TableCell className="font-bold text-slate-900 dark:text-white truncate" title={p.name}>{p.name}</TableCell>
+                      <TableCell className="font-bold text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between gap-2 group">
+                          <span className="truncate" title={p.name}>{p.name}</span>
+                          {isUserAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full cursor-pointer flex-shrink-0"
+                              title="Modifier le libellé (Admin)"
+                              onClick={() => handleOpenEditLabel('profession', p.name, p.name)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                       {[
                         { field: "cash", label: "Liquide" },
                         { field: "objects", label: "Objets" },
@@ -3188,6 +3366,54 @@ export function RiskMatrixTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Label Dialog (Admin Only) */}
+      <Dialog open={!!editNameItem} onOpenChange={(open) => !open && setEditNameItem(null)}>
+        <DialogContent className="max-w-md bg-white dark:bg-slate-900 border-none shadow-2xl rounded-2xl p-6">
+          <DialogHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+            <DialogTitle className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Pencil className="h-4 w-4 text-emerald-500" />
+              Modifier le libellé (Administrateur)
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                Nouveau nom du facteur / canal :
+              </label>
+              <Input
+                value={newLabelText}
+                onChange={(e) => setNewLabelText(e.target.value)}
+                placeholder="Saisissez le nouveau libellé..."
+                className="text-xs font-medium"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveLabel();
+                }}
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 italic">
+              Cette modification sera enregistrée et synchronisée pour l&apos;ensemble de la cartographie des risques.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditNameItem(null)}
+              className="text-xs font-bold cursor-pointer"
+            >
+              Annuler
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveLabel}
+              className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+            >
+              <Save className="h-3.5 w-3.5 mr-1" /> Enregistrer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
