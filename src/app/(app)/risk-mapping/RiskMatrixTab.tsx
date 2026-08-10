@@ -356,17 +356,18 @@ const PRODUCTS_DATA = [
 
 // ── 4. Distribution & Techniques ──
 const DISTRIBUTION_DATA = [
-  { code: "1.0", name: "Agent", complex: false, nonCompliance: false, noCulture: false, risk: "RF", comment: "" },
-  { code: "2.0", name: "Agent général", complex: false, nonCompliance: true, noCulture: false, risk: "RM", comment: "" },
-  { code: "3.0", name: "Courtier", complex: true, nonCompliance: true, noCulture: false, risk: "RE", comment: "" },
-  { code: "4.0", name: "Succursale Digitale", complex: true, nonCompliance: true, noCulture: false, risk: "RE", comment: "" }
+  { code: 1, name: "Succursale", complex: false, nonCompliance: false, noCulture: false, risk: "RF", comment: "Technique de vente : Présentielle" },
+  { code: 2, name: "Agent général", complex: false, nonCompliance: true, noCulture: false, risk: "RM", comment: "Technique de vente : Présentielle" },
+  { code: 3, name: "Distribution Digitale ( site web- Application mobile)", complex: true, nonCompliance: true, noCulture: false, risk: "RE", comment: "Technique de vente : A distance" },
+  { code: 4, name: "Distribution Automatisée (Borne libre-service)", complex: true, nonCompliance: true, noCulture: false, risk: "RE", comment: "Technique de vente : A distance" },
+  { code: 5, name: "Courtier", complex: true, nonCompliance: true, noCulture: false, risk: "RE", comment: "Technique de vente : Présentielle" },
+  { code: 6, name: "Bancassurance", complex: true, nonCompliance: true, noCulture: false, risk: "RE", comment: "Technique de vente : Présentielle" },
+  { code: 7, name: "La Poste Tunisienne", complex: true, nonCompliance: true, noCulture: false, risk: "RE", comment: "Technique de vente : Présentielle" }
 ];
 
 const SALES_TECHNIQUES_DATA = [
-  { code: 1, name: "Présentielle (Contact direct)", noContact: false, noOriginals: false, risk: "RF", comment: "" },
-  { code: 2, name: "À distance", noContact: true, noOriginals: true, risk: "RE", comment: "" },
-  { code: 3, name: "Banque-assurances", noContact: true, noOriginals: true, risk: "RE", comment: "" },
-  { code: 4, name: "La Poste Tunisienne", noContact: true, noOriginals: true, risk: "RE", comment: "" }
+  { code: 1, name: "Présentielle", noContact: false, noOriginals: false, risk: "RF", comment: "" },
+  { code: 2, name: "A distance", noContact: true, noOriginals: true, risk: "RE", comment: "" }
 ];
 
 // ── 5. Activité P Morales ──
@@ -472,7 +473,7 @@ export function RiskMatrixTab() {
     } else if (category === 'dist') {
       const nums = resolvedDist.map(d => parseInt(String(d.code).replace(/\D/g, ''))).filter(n => !isNaN(n));
       const maxCode = nums.length > 0 ? Math.max(...nums) : 0;
-      defaultCode = `C${(maxCode + 1).toString().padStart(2, '0')}`;
+      defaultCode = String(maxCode + 1);
     }
 
     setNewItemData({
@@ -959,12 +960,12 @@ export function RiskMatrixTab() {
     const userOvCat = overrides?.dist || {};
 
     const list = customItems?.dist ? [...customItems.dist] : [];
-    const base = DISTRIBUTION_DATA.filter(d => !deletedItems?.dist?.includes(d.code));
+    const base = DISTRIBUTION_DATA.filter(d => !deletedItems?.dist?.includes(String(d.code)) && !deletedItems?.dist?.includes(d.code as any));
     const all = [...base, ...list];
     
     return all.map((d) => {
-      const baseOv = baseOvCat[d.code] || {};
-      const userOv = userOvCat[d.code] || {};
+      const baseOv = baseOvCat[String(d.code)] || baseOvCat[d.code] || {};
+      const userOv = userOvCat[String(d.code)] || userOvCat[d.code] || {};
 
       const complex = userOv.complex !== undefined ? (userOv.complex as boolean) : (baseOv.complex !== undefined ? (baseOv.complex as boolean) : d.complex);
       const nonCompliance = userOv.nonCompliance !== undefined ? (userOv.nonCompliance as boolean) : (baseOv.nonCompliance !== undefined ? (baseOv.nonCompliance as boolean) : d.nonCompliance);
@@ -993,12 +994,12 @@ export function RiskMatrixTab() {
     const userOvCat = overrides?.sale || {};
 
     const list = customItems?.sale ? [...customItems.sale] : [];
-    const base = SALES_TECHNIQUES_DATA.filter(s => !deletedItems?.sale?.includes(String(s.code)));
+    const base = SALES_TECHNIQUES_DATA.filter(s => !deletedItems?.sale?.includes(String(s.code)) && !deletedItems?.sale?.includes(s.code as any));
     const all = [...base, ...list];
     
     return all.map((s) => {
-      const baseOv = baseOvCat[String(s.code)] || {};
-      const userOv = userOvCat[String(s.code)] || {};
+      const baseOv = baseOvCat[String(s.code)] || baseOvCat[s.code] || {};
+      const userOv = userOvCat[String(s.code)] || userOvCat[s.code] || {};
 
       const noContact = userOv.noContact !== undefined ? (userOv.noContact as boolean) : (baseOv.noContact !== undefined ? (baseOv.noContact as boolean) : s.noContact);
       const noOriginals = userOv.noOriginals !== undefined ? (userOv.noOriginals as boolean) : (baseOv.noOriginals !== undefined ? (baseOv.noOriginals as boolean) : s.noOriginals);
@@ -1491,20 +1492,22 @@ export function RiskMatrixTab() {
     wsD.views = [{ showGridLines: true }];
     wsD.columns = [
       { header: "Code", key: "code", width: 10 },
-      { header: "Canal", key: "name", width: 30 },
-      { header: "Difficulté Contrôle", key: "complex", width: 20 },
-      { header: "Non-soumission", key: "nonCompliance", width: 20 },
-      { header: "Pas de culture LBC", key: "noCulture", width: 22 },
-      { header: "Risque", key: "risk", width: 12 }
+      { header: "Voie de distribution", key: "name", width: 45 },
+      { header: "Complexité / difficulté du contrôle", key: "complex", width: 30 },
+      { header: "Risque de non soumission aux règles de la compagnie", key: "nonCompliance", width: 40 },
+      { header: "Manque de la culture de conformité", key: "noCulture", width: 30 },
+      { header: "Risque", key: "risk", width: 12 },
+      { header: "Commentaire", key: "comment", width: 35 }
     ];
     resolvedDist.forEach((d) => {
       wsD.addRow({
         code: d.code,
         name: d.name,
-        complex: d.complex ? "Oui" : "—",
-        nonCompliance: d.nonCompliance ? "Oui" : "—",
-        noCulture: d.noCulture ? "Oui" : "—",
-        risk: d.risk
+        complex: d.complex ? "X" : "—",
+        nonCompliance: d.nonCompliance ? "X" : "—",
+        noCulture: d.noCulture ? "X" : "—",
+        risk: d.risk,
+        comment: d.comment || ""
       });
     });
     applyGlobalSheetStyles(wsD);
@@ -1514,18 +1517,20 @@ export function RiskMatrixTab() {
     wsS.views = [{ showGridLines: true }];
     wsS.columns = [
       { header: "Code", key: "code", width: 10 },
-      { header: "Voie de distribution / Vente", key: "name", width: 35 },
-      { header: "Pas de contact direct", key: "noContact", width: 22 },
-      { header: "Pas d'originaux", key: "noOriginals", width: 18 },
-      { header: "Risque", key: "risk", width: 12 }
+      { header: "Technique de vente", key: "name", width: 30 },
+      { header: "Absence du contact direct avec le client", key: "noContact", width: 35 },
+      { header: "Impossibilité de vérifier les documents originaux", key: "noOriginals", width: 40 },
+      { header: "Risque", key: "risk", width: 12 },
+      { header: "Commentaire", key: "comment", width: 35 }
     ];
     resolvedSales.forEach((s) => {
       wsS.addRow({
         code: s.code,
         name: s.name,
-        noContact: s.noContact ? "Oui" : "—",
-        noOriginals: s.noOriginals ? "Oui" : "—",
-        risk: s.risk
+        noContact: s.noContact ? "X" : "—",
+        noOriginals: s.noOriginals ? "X" : "—",
+        risk: s.risk,
+        comment: s.comment || ""
       });
     });
     applyGlobalSheetStyles(wsS);
@@ -2432,19 +2437,20 @@ export function RiskMatrixTab() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-slate-50/30 dark:bg-slate-900/10 text-xs">
-                    <TableHead className="font-bold text-center w-[80px]">Code</TableHead>
-                    <TableHead className="font-bold">Canal</TableHead>
+                    <TableHead className="font-bold text-center w-[60px]">Code</TableHead>
+                    <TableHead className="font-bold">Voie de distribution</TableHead>
                     <TableHead className="font-bold text-center">Difficulté Contrôle</TableHead>
                     <TableHead className="font-bold text-center">Non-soumission</TableHead>
                     <TableHead className="font-bold text-center">Pas de culture LBC</TableHead>
-                    <TableHead className="font-bold text-center w-[90px]">Risque</TableHead>
+                    <TableHead className="font-bold text-center w-[80px]">Risque</TableHead>
+                    <TableHead className="font-bold text-left">Commentaire</TableHead>
                     <TableHead className="font-bold text-center w-[60px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="text-xs">
                   {filteredDist.map(d => (
                     <TableRow key={d.code} className={cn("hover:bg-slate-50/50 dark:hover:bg-slate-900/20", d.risk === "RE" ? "bg-rose-50/10 dark:bg-rose-950/5" : "")}>
-                      <TableCell className="text-center text-slate-500">{d.code}</TableCell>
+                      <TableCell className="text-center text-slate-500 font-bold">{d.code}</TableCell>
                       <TableCell className="font-bold text-slate-900 dark:text-white">{d.name}</TableCell>
                       {[
                         { field: "complex", yesLabel: "⚠️ Oui" },
@@ -2455,7 +2461,7 @@ export function RiskMatrixTab() {
                         return (
                           <TableCell key={col.field} className="text-center p-1.5">
                             <button
-                              onClick={() => handleToggleRequest('dist', d.code, col.field, val, d.name)}
+                              onClick={() => handleToggleRequest('dist', String(d.code), col.field, val, d.name)}
                               className={cn(
                                 "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-24 text-center",
                                 val 
@@ -2469,12 +2475,13 @@ export function RiskMatrixTab() {
                         );
                       })}
                       <TableCell className="text-center">{renderBadge(d.risk)}</TableCell>
+                      <TableCell className="text-slate-600 dark:text-slate-400 text-[11px] italic">{d.comment || "—"}</TableCell>
                       <TableCell className="text-center p-1.5">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 text-rose-500 hover:text-rose-750 hover:bg-rose-50 rounded-full cursor-pointer"
-                          onClick={() => handleRemoveRequest('dist', d.code, d.name)}
+                          onClick={() => handleRemoveRequest('dist', String(d.code), d.name)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -2483,7 +2490,7 @@ export function RiskMatrixTab() {
                   ))}
                   {filteredDist.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-10 text-slate-400 italic font-semibold">Aucun canal trouvé</TableCell>
+                      <TableCell colSpan={8} className="text-center py-10 text-slate-400 italic font-semibold">Aucun canal trouvé</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -2521,11 +2528,12 @@ export function RiskMatrixTab() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-slate-50/30 dark:bg-slate-900/10 text-xs">
-                    <TableHead className="font-bold text-center w-[80px]">Code</TableHead>
-                    <TableHead className="font-bold">Voie de distribution / Vente</TableHead>
+                    <TableHead className="font-bold text-center w-[60px]">Code</TableHead>
+                    <TableHead className="font-bold">Technique de vente</TableHead>
                     <TableHead className="font-bold text-center">Pas de contact direct</TableHead>
                     <TableHead className="font-bold text-center">Pas d&apos;originaux</TableHead>
-                    <TableHead className="font-bold text-center w-[90px]">Risque</TableHead>
+                    <TableHead className="font-bold text-center w-[80px]">Risque</TableHead>
+                    <TableHead className="font-bold text-left">Commentaire</TableHead>
                     <TableHead className="font-bold text-center w-[60px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -2556,6 +2564,7 @@ export function RiskMatrixTab() {
                         );
                       })}
                       <TableCell className="text-center">{renderBadge(s.risk)}</TableCell>
+                      <TableCell className="text-slate-600 dark:text-slate-400 text-[11px] italic">{s.comment || "—"}</TableCell>
                       <TableCell className="text-center p-1.5">
                         <Button
                           variant="ghost"
@@ -2570,7 +2579,7 @@ export function RiskMatrixTab() {
                   ))}
                   {filteredSales.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-10 text-slate-400 italic font-semibold">Aucune technique trouvée</TableCell>
+                      <TableCell colSpan={7} className="text-center py-10 text-slate-400 italic font-semibold">Aucune technique trouvée</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
