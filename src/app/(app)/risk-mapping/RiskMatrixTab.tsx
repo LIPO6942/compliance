@@ -1329,8 +1329,23 @@ export function RiskMatrixTab() {
     const wb = new ExcelJS.Workbook();
     wb.creator = "Compliance Navigator";
 
+    // Helper to get Excel column letter (e.g. 1 -> A, 26 -> Z, 27 -> AA)
+    const getColLetter = (colIndex: number): string => {
+      let temp = colIndex;
+      let letter = "";
+      while (temp > 0) {
+        const mod = (temp - 1) % 26;
+        letter = String.fromCharCode(65 + mod) + letter;
+        temp = Math.floor((temp - 1) / 26);
+      }
+      return letter;
+    };
+
     // Styles global apply helper
-    const applyGlobalSheetStyles = (ws: ExcelJS.Worksheet) => {
+    const applyGlobalSheetStyles = (
+      ws: ExcelJS.Worksheet,
+      factorConfig?: { factorStartCol: string; factorEndCol: string; gafiCol?: string }
+    ) => {
       // Header row style
       const headerRow = ws.getRow(1);
       headerRow.height = 30;
@@ -1347,8 +1362,11 @@ export function RiskMatrixTab() {
       });
 
       // Data rows style
-      const riskBg: Record<string, string> = { RE: "FFFFE4E6", RM: "FFFEF9C3", RF: "FFD1FAE5" };
-      const riskText: Record<string, string> = { RE: "FF9F1239", RM: "FF92400E", RF: "FF065F46" };
+      const riskBg: Record<string, string> = { RE: "FFFFE4E6", RM: "FFFEF9C3", RF: "FFD1FAE5", "Élevé": "FFFFE4E6", "Moyen": "FFFEF9C3", "Faible": "FFD1FAE5" };
+      const riskText: Record<string, string> = { RE: "FF9F1239", RM: "FF92400E", RF: "FF065F46", "Élevé": "FF9F1239", "Moyen": "FF92400E", "Faible": "FF065F46" };
+
+      // Find risk column index dynamically by key
+      const riskColIndex = ws.columns.findIndex((col) => col.key === "risk") + 1;
 
       ws.eachRow((row, rowNumber) => {
         if (rowNumber === 1) return;
@@ -1356,9 +1374,36 @@ export function RiskMatrixTab() {
         const isEven = rowNumber % 2 === 0;
         const bg = isEven ? "FFF8FAFC" : "FFFFFFFF"; // Alternating slate-50 rows
 
-        // Find risk value in this row (typically last cell)
-        const riskCell = row.getCell(ws.columns.length);
-        const riskVal = riskCell.value as string;
+        let rawRiskVal = "";
+        if (riskColIndex > 0) {
+          const cellVal = row.getCell(riskColIndex).value;
+          if (typeof cellVal === "string") {
+            rawRiskVal = cellVal;
+          } else if (cellVal && typeof cellVal === "object" && "result" in cellVal) {
+            rawRiskVal = String((cellVal as any).result || "");
+          }
+        }
+
+        // Apply formula for risk column if factorConfig is provided
+        if (riskColIndex > 0 && factorConfig) {
+          const riskCell = row.getCell(riskColIndex);
+          const r = rowNumber;
+          const { factorStartCol, factorEndCol, gafiCol } = factorConfig;
+          let formulaStr = "";
+          if (gafiCol) {
+            formulaStr = `IF(${gafiCol}${r}="Oui","Élevé",IF(COUNTIF(${factorStartCol}${r}:${factorEndCol}${r},"Oui*")>=2,"Élevé",IF(COUNTIF(${factorStartCol}${r}:${factorEndCol}${r},"Oui*")=1,"Moyen","Faible")))`;
+          } else {
+            formulaStr = `IF(COUNTIF(${factorStartCol}${r}:${factorEndCol}${r},"Oui*")>=2,"Élevé",IF(COUNTIF(${factorStartCol}${r}:${factorEndCol}${r},"Oui*")=1,"Moyen","Faible"))`;
+          }
+
+          const resultText = rawRiskVal === "RE" ? "Élevé" : rawRiskVal === "RM" ? "Moyen" : (rawRiskVal === "RF" ? "Faible" : (rawRiskVal || "Faible"));
+
+          riskCell.value = {
+            formula: formulaStr,
+            result: resultText
+          };
+          rawRiskVal = resultText;
+        }
 
         row.eachCell((cell, colNumber) => {
           cell.font = { name: "Segoe UI", size: 9, color: { argb: "FF1E293B" } };
@@ -1386,15 +1431,54 @@ export function RiskMatrixTab() {
           };
 
           // Background fill & custom fonts for risk levels
-          if (column.key === "risk" && riskBg[riskVal]) {
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: riskBg[riskVal] } };
-            cell.font = { name: "Segoe UI", size: 9, bold: true, color: { argb: riskText[riskVal] } };
-            cell.value = riskVal === "RE" ? "Élevé" : riskVal === "RM" ? "Moyen" : "Faible";
+          if (colNumber === riskColIndex) {
+            const bgKey = rawRiskVal in riskBg ? rawRiskVal : (rawRiskVal === "RE" ? "RE" : rawRiskVal === "RM" ? "RM" : "RF");
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: riskBg[bgKey] || "FFD1FAE5" } };
+            cell.font = { name: "Segoe UI", size: 9, bold: true, color: { argb: riskText[bgKey] || "FF065F46" } };
           } else {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
           }
         });
       });
+
+      // Add Excel Conditional Formatting if risk column exists
+      if (riskColIndex > 0 && ws.rowCount > 1) {
+        const riskColLetter = getColLetter(riskColIndex);
+        const range = `${riskColLetter}2:${riskColLetter}${ws.rowCount}`;
+
+        ws.addConditionalFormatting({
+          ref: range,
+          rules: [
+            {
+              type: "cellIs",
+              operator: "equal",
+              formulae: ['"Élevé"'],
+              style: {
+                fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFFFE4E6" } },
+                font: { color: { argb: "FF9F1239" }, bold: true }
+              }
+            },
+            {
+              type: "cellIs",
+              operator: "equal",
+              formulae: ['"Moyen"'],
+              style: {
+                fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFFEF9C3" } },
+                font: { color: { argb: "FF92400E" }, bold: true }
+              }
+            },
+            {
+              type: "cellIs",
+              operator: "equal",
+              formulae: ['"Faible"'],
+              style: {
+                fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFD1FAE5" } },
+                font: { color: { argb: "FF065F46" }, bold: true }
+              }
+            }
+          ]
+        });
+      }
     };
 
     // ── Sheet 1: Légende & Méthodologie ──
@@ -1500,7 +1584,7 @@ export function RiskMatrixTab() {
         risk: c.risk
       });
     });
-    applyGlobalSheetStyles(wsC);
+    applyGlobalSheetStyles(wsC, { gafiCol: "D", factorStartCol: "E", factorEndCol: "H" });
 
     // ── Sheet 4: Gouvernorats (TN) ──
     const wsG = wb.addWorksheet("2. Gouvernorats");
@@ -1517,6 +1601,7 @@ export function RiskMatrixTab() {
       { header: "Risque", key: "risk", width: 12 }
     ];
     resolvedGovs.forEach((g) => {
+      const otherVal = g.other && g.other.trim() !== "" ? (g.other.startsWith("Oui") ? g.other : "Oui - " + g.other) : "—";
       wsG.addRow({
         id: g.id,
         name: g.name,
@@ -1525,11 +1610,11 @@ export function RiskMatrixTab() {
         port: g.port ? "Oui" : "—",
         airport: g.airport ? "Oui" : "—",
         market: g.market ? "Oui" : "—",
-        other: g.other || "—",
+        other: otherVal,
         risk: g.risk
       });
     });
-    applyGlobalSheetStyles(wsG);
+    applyGlobalSheetStyles(wsG, { factorStartCol: "D", factorEndCol: "H" });
 
     // ── Sheet 5: Produits d'Assurance ──
     const wsPr = wb.addWorksheet("3. Produits d'Assurance");
@@ -1558,7 +1643,7 @@ export function RiskMatrixTab() {
         risk: p.risk
       });
     });
-    applyGlobalSheetStyles(wsPr);
+    applyGlobalSheetStyles(wsPr, { factorStartCol: "C", factorEndCol: "G" });
 
     // ── Sheet 6: Canaux de Distribution ──
     const wsD = wb.addWorksheet("4. Canaux");
@@ -1576,14 +1661,14 @@ export function RiskMatrixTab() {
       wsD.addRow({
         code: d.code,
         name: d.name,
-        complex: d.complex ? "X" : "—",
-        nonCompliance: d.nonCompliance ? "X" : "—",
-        noCulture: d.noCulture ? "X" : "—",
+        complex: d.complex ? "Oui" : "—",
+        nonCompliance: d.nonCompliance ? "Oui" : "—",
+        noCulture: d.noCulture ? "Oui" : "—",
         risk: d.risk,
         comment: d.comment || ""
       });
     });
-    applyGlobalSheetStyles(wsD);
+    applyGlobalSheetStyles(wsD, { factorStartCol: "C", factorEndCol: "E" });
 
     // ── Sheet 7: Techniques de Vente ──
     const wsS = wb.addWorksheet("5. Techniques de Vente");
@@ -1600,13 +1685,13 @@ export function RiskMatrixTab() {
       wsS.addRow({
         code: s.code,
         name: s.name,
-        noContact: s.noContact ? "X" : "—",
-        noOriginals: s.noOriginals ? "X" : "—",
+        noContact: s.noContact ? "Oui" : "—",
+        noOriginals: s.noOriginals ? "Oui" : "—",
         risk: s.risk,
         comment: s.comment || ""
       });
     });
-    applyGlobalSheetStyles(wsS);
+    applyGlobalSheetStyles(wsS, { factorStartCol: "C", factorEndCol: "D" });
 
     // ── Sheet 8: Activités Morales (PM) ──
     const wsM = wb.addWorksheet("6. Activités Morales");
@@ -1639,7 +1724,7 @@ export function RiskMatrixTab() {
         risk: a.risk
       });
     });
-    applyGlobalSheetStyles(wsM);
+    applyGlobalSheetStyles(wsM, { factorStartCol: "C", factorEndCol: "I" });
 
     // ── Sheet 9: Professions PP ──
     const wsPh = wb.addWorksheet("7. Professions PP");
@@ -1670,7 +1755,7 @@ export function RiskMatrixTab() {
         risk: p.risk
       });
     });
-    applyGlobalSheetStyles(wsPh);
+    applyGlobalSheetStyles(wsPh, { factorStartCol: "C", factorEndCol: "I" });
 
     // Write file to user
     const today = new Date().toISOString().split("T")[0];
