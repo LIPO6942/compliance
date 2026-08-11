@@ -1342,7 +1342,7 @@ export function RiskMatrixTab() {
     };
 
     // Styles global apply helper
-    const applyGlobalSheetStyles = (
+    const applyGlobalSheetStyles = async (
       ws: ExcelJS.Worksheet,
       factorConfig?: { factorStartCol: string; factorEndCol: string; gafiCol?: string }
     ) => {
@@ -1495,6 +1495,23 @@ export function RiskMatrixTab() {
           ]
         });
       }
+
+      // Solution 2: Protect worksheet against editing (Read-Only audit protection)
+      await ws.protect("Compliance2026!", {
+        selectLockedCells: true,
+        selectUnlockedCells: true,
+        formatCells: false,
+        formatColumns: false,
+        formatRows: false,
+        insertColumns: false,
+        insertRows: false,
+        insertHyperlinks: false,
+        deleteColumns: false,
+        deleteRows: false,
+        sort: false,
+        autoFilter: false,
+        pivotTables: false
+      });
     };
 
     // ── Sheet 1: Légende & Méthodologie ──
@@ -1514,9 +1531,17 @@ export function RiskMatrixTab() {
     subCell.font = { name: "Segoe UI", size: 10, italic: true, color: { argb: "FF64748B" } };
     wsL.getRow(3).height = 20;
 
-    wsL.getRow(5).values = ["Niveau de Risque", "Représentation", "Critère de calcul automatique"];
-    wsL.getRow(5).height = 26;
-    wsL.getRow(5).eachCell((cell) => {
+    wsL.mergeCells("A4:C4");
+    const certCell = wsL.getCell("A4");
+    certCell.value = "🔒 Document officiel certifié en lecture seule. Toute modification du paramétrage doit être effectuée directement depuis l'application Web Compliance Navigator.";
+    certCell.font = { name: "Segoe UI", size: 9, bold: true, color: { argb: "FF991B1B" } };
+    certCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } };
+    certCell.alignment = { vertical: "middle", horizontal: "left" };
+    wsL.getRow(4).height = 24;
+
+    wsL.getRow(6).values = ["Niveau de Risque", "Représentation", "Critère de calcul automatique"];
+    wsL.getRow(6).height = 26;
+    wsL.getRow(6).eachCell((cell) => {
       cell.font = { name: "Segoe UI", bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } };
       cell.alignment = { vertical: "middle", horizontal: "center" };
@@ -1531,7 +1556,7 @@ export function RiskMatrixTab() {
     legendData.forEach((row, i) => {
       const r = wsL.addRow([row.level, row.repr, row.rule]);
       r.height = 24;
-      const rowNum = 6 + i;
+      const rowNum = 7 + i;
       r.eachCell((cell, col) => {
         cell.font = { name: "Segoe UI", size: 9, color: { argb: "FF1E293B" } };
         cell.border = {
@@ -1542,13 +1567,13 @@ export function RiskMatrixTab() {
         };
         cell.alignment = { vertical: "middle", horizontal: col === 3 ? "left" : "center" };
         
-        if (rowNum === 6) {
+        if (rowNum === 7) {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE4E6" } };
           if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF9F1239" } };
-        } else if (rowNum === 7) {
+        } else if (rowNum === 8) {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF9C3" } };
           if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF92400E" } };
-        } else if (rowNum === 8) {
+        } else if (rowNum === 9) {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD1FAE5" } };
           if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF065F46" } };
         }
@@ -1558,6 +1583,8 @@ export function RiskMatrixTab() {
     wsL.getColumn(1).width = 25;
     wsL.getColumn(2).width = 18;
     wsL.getColumn(3).width = 50;
+
+    await wsL.protect("Compliance2026!", { selectLockedCells: true, selectUnlockedCells: true });
 
     // ── Sheet 2: Structure & Pondérations ──
     const wsP = wb.addWorksheet("Pondérations & Structure");
@@ -1571,7 +1598,7 @@ export function RiskMatrixTab() {
       { header: "Agrégation", key: "agregation", width: 15 }
     ];
     kycFactors.forEach((f) => wsP.addRow(f));
-    applyGlobalSheetStyles(wsP);
+    await applyGlobalSheetStyles(wsP);
 
     // ── Sheet 3: Pays ──
     const wsC = wb.addWorksheet("1. Pays");
@@ -1600,7 +1627,7 @@ export function RiskMatrixTab() {
         risk: c.risk
       });
     });
-    applyGlobalSheetStyles(wsC, { gafiCol: "D", factorStartCol: "E", factorEndCol: "H" });
+    await applyGlobalSheetStyles(wsC, { gafiCol: "D", factorStartCol: "E", factorEndCol: "H" });
 
     // ── Sheet 4: Gouvernorats (TN) ──
     const wsG = wb.addWorksheet("2. Gouvernorats");
@@ -1630,7 +1657,7 @@ export function RiskMatrixTab() {
         risk: g.risk
       });
     });
-    applyGlobalSheetStyles(wsG, { factorStartCol: "D", factorEndCol: "H" });
+    await applyGlobalSheetStyles(wsG, { factorStartCol: "D", factorEndCol: "H" });
 
     // ── Sheet 5: Produits d'Assurance ──
     const wsPr = wb.addWorksheet("3. Produits d'Assurance");
@@ -1659,7 +1686,7 @@ export function RiskMatrixTab() {
         risk: p.risk
       });
     });
-    applyGlobalSheetStyles(wsPr, { factorStartCol: "C", factorEndCol: "G" });
+    await applyGlobalSheetStyles(wsPr, { factorStartCol: "C", factorEndCol: "G" });
 
     // ── Sheet 6: Canaux de Distribution ──
     const wsD = wb.addWorksheet("4. Canaux");
@@ -1684,7 +1711,7 @@ export function RiskMatrixTab() {
         comment: d.comment || ""
       });
     });
-    applyGlobalSheetStyles(wsD, { factorStartCol: "C", factorEndCol: "E" });
+    await applyGlobalSheetStyles(wsD, { factorStartCol: "C", factorEndCol: "E" });
 
     // ── Sheet 7: Techniques de Vente ──
     const wsS = wb.addWorksheet("5. Techniques de Vente");
@@ -1707,7 +1734,7 @@ export function RiskMatrixTab() {
         comment: s.comment || ""
       });
     });
-    applyGlobalSheetStyles(wsS, { factorStartCol: "C", factorEndCol: "D" });
+    await applyGlobalSheetStyles(wsS, { factorStartCol: "C", factorEndCol: "D" });
 
     // ── Sheet 8: Activités Morales (PM) ──
     const wsM = wb.addWorksheet("6. Activités Morales");
@@ -1740,7 +1767,7 @@ export function RiskMatrixTab() {
         risk: a.risk
       });
     });
-    applyGlobalSheetStyles(wsM, { factorStartCol: "C", factorEndCol: "I" });
+    await applyGlobalSheetStyles(wsM, { factorStartCol: "C", factorEndCol: "I" });
 
     // ── Sheet 9: Professions PP ──
     const wsPh = wb.addWorksheet("7. Professions PP");
@@ -1771,7 +1798,7 @@ export function RiskMatrixTab() {
         risk: p.risk
       });
     });
-    applyGlobalSheetStyles(wsPh, { factorStartCol: "C", factorEndCol: "I" });
+    await applyGlobalSheetStyles(wsPh, { factorStartCol: "C", factorEndCol: "I" });
 
     // Write file to user
     const today = new Date().toISOString().split("T")[0];
