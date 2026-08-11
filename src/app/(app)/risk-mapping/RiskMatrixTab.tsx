@@ -438,7 +438,7 @@ export function RiskMatrixTab() {
 
   const [subTab, setSubTab] = React.useState<"params" | "countries" | "govs" | "products" | "dist" | "moral" | "physical">("params");
   const [consolidateDialogOpen, setConsolidateDialogOpen] = React.useState(false);
-  
+
   // State for Add Item Modal
   const [addItemModalOpen, setAddItemModalOpen] = React.useState(false);
   const [addItemCategory, setAddItemCategory] = React.useState<'dist' | 'sale' | 'moral' | 'profession' | null>(null);
@@ -921,14 +921,14 @@ export function RiskMatrixTab() {
         otherDominant,
         other,
       };
-      
+
       const otherCount = [
         merged.corruption,
         merged.oecd,
         merged.terrorism,
         merged.otherDominant
       ].filter(Boolean).length;
-      
+
       if (merged.gafi) {
         merged.risk = "RE";
       } else {
@@ -962,7 +962,7 @@ export function RiskMatrixTab() {
         market,
         other,
       };
-      
+
       const count = [
         merged.border,
         merged.port,
@@ -970,7 +970,7 @@ export function RiskMatrixTab() {
         merged.market,
         Boolean(merged.other && merged.other.trim() !== "")
       ].filter(Boolean).length;
-      
+
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
@@ -1002,7 +1002,7 @@ export function RiskMatrixTab() {
         cap,
         comment,
       };
-      
+
       const count = [
         merged.liquid,
         merged.forex,
@@ -1010,7 +1010,7 @@ export function RiskMatrixTab() {
         merged.fraud,
         merged.cap
       ].filter(Boolean).length;
-      
+
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
@@ -1023,7 +1023,7 @@ export function RiskMatrixTab() {
     const list = customItems?.dist ? [...customItems.dist] : [];
     const base = DISTRIBUTION_DATA.filter(d => !deletedItems?.dist?.includes(String(d.code)) && !deletedItems?.dist?.includes(d.code as any));
     const all = [...base, ...list];
-    
+
     return all.map((d) => {
       const baseOv = baseOvCat[String(d.code)] || baseOvCat[d.code] || {};
       const userOv = userOvCat[String(d.code)] || userOvCat[d.code] || {};
@@ -1042,13 +1042,13 @@ export function RiskMatrixTab() {
         noCulture,
         comment,
       };
-      
+
       const count = [
         merged.complex,
         merged.nonCompliance,
         merged.noCulture
       ].filter(Boolean).length;
-      
+
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
@@ -1061,7 +1061,7 @@ export function RiskMatrixTab() {
     const list = customItems?.sale ? [...customItems.sale] : [];
     const base = SALES_TECHNIQUES_DATA.filter(s => !deletedItems?.sale?.includes(String(s.code)) && !deletedItems?.sale?.includes(s.code as any));
     const all = [...base, ...list];
-    
+
     return all.map((s) => {
       const baseOv = baseOvCat[String(s.code)] || baseOvCat[s.code] || {};
       const userOv = userOvCat[String(s.code)] || userOvCat[s.code] || {};
@@ -1078,12 +1078,12 @@ export function RiskMatrixTab() {
         noOriginals,
         comment,
       };
-      
+
       const count = [
         merged.noContact,
         merged.noOriginals
       ].filter(Boolean).length;
-      
+
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
@@ -1096,7 +1096,7 @@ export function RiskMatrixTab() {
     const list = customItems?.moral ? [...customItems.moral] : [];
     const base = MORAL_ACTIVITIES_DATA.filter(a => !deletedItems?.moral?.includes(a.code));
     const all = [...base, ...list];
-    
+
     return all.map((a) => {
       const baseOv = baseOvCat[a.code] || {};
       const userOv = userOvCat[a.code] || {};
@@ -1123,7 +1123,7 @@ export function RiskMatrixTab() {
         corruption,
         comment,
       };
-      
+
       const count = [
         merged.cash,
         merged.objects,
@@ -1133,7 +1133,7 @@ export function RiskMatrixTab() {
         merged.intermediary,
         merged.corruption
       ].filter(Boolean).length;
-      
+
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
@@ -1146,7 +1146,7 @@ export function RiskMatrixTab() {
     const list = customItems?.profession ? [...customItems.profession] : [];
     const base = PHYS_PROFESSIONS_DATA.filter(p => !deletedItems?.profession?.includes(p.name));
     const all = [...base, ...list];
-    
+
     return all.map((p) => {
       const baseOv = baseOvCat[p.name] || {};
       const userOv = userOvCat[p.name] || {};
@@ -1171,7 +1171,7 @@ export function RiskMatrixTab() {
         intermediary,
         corruption,
       };
-      
+
       const count = [
         merged.cash,
         merged.objects,
@@ -1181,7 +1181,7 @@ export function RiskMatrixTab() {
         merged.intermediary,
         merged.corruption,
       ].filter(Boolean).length;
-      
+
       merged.risk = count >= 2 ? "RE" : count === 1 ? "RM" : "RF";
       return merged;
     });
@@ -1312,11 +1312,11 @@ export function RiskMatrixTab() {
   }, [overrides]);
 
   const renderBadge = (risk: string) => {
-    const style = risk === "RE" 
+    const style = risk === "RE"
       ? "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-450 dark:border-rose-900"
       : risk === "RM"
-      ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-450 dark:border-amber-900"
-      : "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-450 dark:border-emerald-900";
+        ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-450 dark:border-amber-900"
+        : "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-450 dark:border-emerald-900";
     return (
       <Badge variant="outline" className={cn("font-bold text-[10px] uppercase px-2 py-0.5", style)}>
         {risk === "RE" ? "Élevé" : risk === "RM" ? "Moyen" : "Faible"}
@@ -1326,6 +1326,9 @@ export function RiskMatrixTab() {
 
   // ── Export Excel (matrice des risques) ──
   const exportMatrixExcel = async () => {
+    // Mot de passe de protection des feuilles Excel
+    const EXCEL_PROTECTION_PASSWORD = "conformite2026!";
+
     const wb = new ExcelJS.Workbook();
     wb.creator = "Compliance Navigator";
 
@@ -1432,18 +1435,18 @@ export function RiskMatrixTab() {
 
           // Apply cell alignment
           const column = ws.columns[colNumber - 1];
-          const isCenter = column.key === "code" || 
-                           column.key === "numeric" || 
-                           column.key === "alpha3" || 
-                           column.key === "coeff" || 
-                           column.key === "agregation" || 
-                           column.key === "risk" ||
-                           cell.value === "Oui" || 
-                           cell.value === "—";
-          cell.alignment = { 
-            vertical: "middle", 
+          const isCenter = column.key === "code" ||
+            column.key === "numeric" ||
+            column.key === "alpha3" ||
+            column.key === "coeff" ||
+            column.key === "agregation" ||
+            column.key === "risk" ||
+            cell.value === "Oui" ||
+            cell.value === "—";
+          cell.alignment = {
+            vertical: "middle",
             horizontal: isCenter ? "center" : "left",
-            wrapText: true 
+            wrapText: true
           };
 
           // Background fill & custom fonts for risk levels
@@ -1497,7 +1500,7 @@ export function RiskMatrixTab() {
       }
 
       // Solution 2: Protect worksheet against editing (Read-Only audit protection)
-      await ws.protect("Compliance2026!", {
+      await ws.protect(EXCEL_PROTECTION_PASSWORD, {
         selectLockedCells: true,
         selectUnlockedCells: true,
         formatCells: false,
@@ -1514,10 +1517,10 @@ export function RiskMatrixTab() {
       });
     };
 
-    // ── Sheet 1: Légende & Méthodologie ──
+    // ── Sheet 1: Légende & Cotation ──
     const wsL = wb.addWorksheet("Légende & Cotation");
     wsL.views = [{ showGridLines: true }];
-    
+
     wsL.mergeCells("A2:C2");
     const titleCell = wsL.getCell("A2");
     titleCell.value = "Compliance Navigator — Légende de la Matrice des Risques";
@@ -1566,7 +1569,7 @@ export function RiskMatrixTab() {
           right: { style: "thin", color: { argb: "FFE2E8F0" } }
         };
         cell.alignment = { vertical: "middle", horizontal: col === 3 ? "left" : "center" };
-        
+
         if (rowNum === 7) {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE4E6" } };
           if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF9F1239" } };
@@ -1584,7 +1587,7 @@ export function RiskMatrixTab() {
     wsL.getColumn(2).width = 18;
     wsL.getColumn(3).width = 50;
 
-    await wsL.protect("Compliance2026!", { selectLockedCells: true, selectUnlockedCells: true });
+    await wsL.protect(EXCEL_PROTECTION_PASSWORD, { selectLockedCells: true, selectUnlockedCells: true });
 
     // ── Sheet 2: Structure & Pondérations ──
     const wsP = wb.addWorksheet("Pondérations & Structure");
@@ -1967,8 +1970,8 @@ export function RiskMatrixTab() {
               className={cn(
                 "border-2 transition-all duration-300 cursor-pointer relative overflow-hidden group hover:shadow-md hover:scale-[1.01] active:scale-[0.99]",
                 item.color,
-                isFilterActive 
-                  ? "ring-2 ring-violet-500 shadow-md border-violet-300 dark:border-violet-700" 
+                isFilterActive
+                  ? "ring-2 ring-violet-500 shadow-md border-violet-300 dark:border-violet-700"
                   : "border-slate-100 dark:border-slate-800/80"
               )}
             >
@@ -2000,8 +2003,8 @@ export function RiskMatrixTab() {
                     <span>{item.stats.percentage}%</span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div 
-                      className={cn("h-full rounded-full transition-all duration-700", item.barColor)} 
+                    <div
+                      className={cn("h-full rounded-full transition-all duration-700", item.barColor)}
                       style={{ width: `${item.stats.percentage}%` }}
                     />
                   </div>
@@ -2014,9 +2017,9 @@ export function RiskMatrixTab() {
                       <span className="text-[9px] text-slate-400 italic">Aucune entité</span>
                     ) : (
                       Object.keys(item.stats.byType).map(type => (
-                        <Badge 
-                          key={type} 
-                          variant="secondary" 
+                        <Badge
+                          key={type}
+                          variant="secondary"
                           className="text-[8px] font-bold py-0 px-1.5 bg-slate-100/50 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-100 transition-colors"
                         >
                           {type} : {item.stats.byType[type]}
@@ -2339,7 +2342,7 @@ export function RiskMatrixTab() {
                             onClick={() => handleToggleRequest('country', c.name, col.field, val, c.name)}
                             className={cn(
                               "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-28 text-center",
-                              val 
+                              val
                                 ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
                                 : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
                             )}
@@ -2355,7 +2358,7 @@ export function RiskMatrixTab() {
                           onClick={() => handleToggleRequest('country', c.name, 'otherDominant', c.otherDominant, c.name)}
                           className={cn(
                             "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-28 text-center",
-                            c.otherDominant 
+                            c.otherDominant
                               ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
                               : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
                           )}
@@ -2478,7 +2481,7 @@ export function RiskMatrixTab() {
                             onClick={() => handleToggleRequest('gov', String(g.id), col.field, val, g.name)}
                             className={cn(
                               "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-28 text-center",
-                              val 
+                              val
                                 ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
                                 : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
                             )}
@@ -2600,7 +2603,7 @@ export function RiskMatrixTab() {
                             onClick={() => handleToggleRequest('product', String(p.code), col.field, val, p.name)}
                             className={cn(
                               "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-28 text-center",
-                              val 
+                              val
                                 ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
                                 : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
                             )}
@@ -2725,7 +2728,7 @@ export function RiskMatrixTab() {
                               onClick={() => handleToggleRequest('dist', String(d.code), col.field, val, d.name)}
                               className={cn(
                                 "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-24 text-center",
-                                val 
+                                val
                                   ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
                                   : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
                               )}
@@ -2829,7 +2832,7 @@ export function RiskMatrixTab() {
                               onClick={() => handleToggleRequest('sale', String(s.code), col.field, val, s.name)}
                               className={cn(
                                 "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-24 text-center",
-                                val 
+                                val
                                   ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
                                   : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
                               )}
@@ -2964,7 +2967,7 @@ export function RiskMatrixTab() {
                               onClick={() => handleToggleRequest('moral', a.code, col.field, val, a.name)}
                               className={cn(
                                 "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-12 text-center",
-                                val 
+                                val
                                   ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
                                   : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
                               )}
@@ -3123,7 +3126,7 @@ export function RiskMatrixTab() {
                               onClick={() => handleToggleRequest('profession', p.name, col.field, val, p.name)}
                               className={cn(
                                 "text-[9px] font-black uppercase tracking-tight py-1 px-2.5 rounded-md border shadow-xs transition-all hover:scale-105 cursor-pointer w-12 text-center",
-                                val 
+                                val
                                   ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900"
                                   : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:border-slate-800"
                               )}
@@ -3234,8 +3237,8 @@ export function RiskMatrixTab() {
                 <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
                   {addItemCategory === 'dist' ? 'Nom du Canal *'
                     : addItemCategory === 'sale' ? 'Nom de la Technique *'
-                    : addItemCategory === 'moral' ? "Nom de l'Activité *"
-                    : 'Nom de la Profession *'}
+                      : addItemCategory === 'moral' ? "Nom de l'Activité *"
+                        : 'Nom de la Profession *'}
                 </label>
                 <Input
                   value={newItemData.name}
@@ -3260,11 +3263,10 @@ export function RiskMatrixTab() {
                       key={field}
                       type="button"
                       onClick={() => setNewItemData(d => ({ ...d, [field]: !d[field] }))}
-                      className={`text-[10px] font-bold py-2 px-3 rounded-xl border transition-all text-left flex items-center gap-2 ${
-                        newItemData[field]
+                      className={`text-[10px] font-bold py-2 px-3 rounded-xl border transition-all text-left flex items-center gap-2 ${newItemData[field]
                           ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
                           : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
-                      }`}
+                        }`}
                     >
                       <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center text-[8px] font-black border ${newItemData[field] ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
                         {newItemData[field] ? '✓' : ''}
@@ -3281,11 +3283,10 @@ export function RiskMatrixTab() {
                       key={field}
                       type="button"
                       onClick={() => setNewItemData(d => ({ ...d, [field]: !d[field] }))}
-                      className={`text-[10px] font-bold py-2 px-3 rounded-xl border transition-all text-left flex items-center gap-2 ${
-                        newItemData[field]
+                      className={`text-[10px] font-bold py-2 px-3 rounded-xl border transition-all text-left flex items-center gap-2 ${newItemData[field]
                           ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
                           : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
-                      }`}
+                        }`}
                     >
                       <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center text-[8px] font-black border ${newItemData[field] ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
                         {newItemData[field] ? '✓' : ''}
@@ -3307,11 +3308,10 @@ export function RiskMatrixTab() {
                       key={field}
                       type="button"
                       onClick={() => setNewItemData(d => ({ ...d, [field]: !d[field] }))}
-                      className={`text-[10px] font-bold py-2 px-3 rounded-xl border transition-all text-left flex items-center gap-2 ${
-                        newItemData[field]
+                      className={`text-[10px] font-bold py-2 px-3 rounded-xl border transition-all text-left flex items-center gap-2 ${newItemData[field]
                           ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
                           : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
-                      }`}
+                        }`}
                     >
                       <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center text-[8px] font-black border ${newItemData[field] ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
                         {newItemData[field] ? '✓' : ''}
@@ -3432,7 +3432,7 @@ export function RiskMatrixTab() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-6 flex gap-2 justify-end">
-            <AlertDialogCancel 
+            <AlertDialogCancel
               onClick={() => { setConfirmOpen(false); setPendingChange(null); }}
               className="text-xs font-bold px-4 py-2 border rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
@@ -3472,7 +3472,7 @@ export function RiskMatrixTab() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-6 flex gap-2 justify-end">
-            <AlertDialogCancel 
+            <AlertDialogCancel
               onClick={() => setConsolidateDialogOpen(false)}
               className="text-xs font-bold px-4 py-2 border rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
