@@ -1405,6 +1405,22 @@ export function RiskMatrixTab() {
           rawRiskVal = resultText;
         }
 
+        // Attach Data Validation dropdown list ("Oui", "—") to all factor cells
+        if (factorConfig) {
+          const startColLetter = factorConfig.gafiCol || factorConfig.factorStartCol;
+          const startColIdx = startColLetter.charCodeAt(0) - 64;
+          const endColIdx = factorConfig.factorEndCol.charCodeAt(0) - 64;
+
+          for (let c = startColIdx; c <= endColIdx; c++) {
+            const factorCell = row.getCell(c);
+            factorCell.dataValidation = {
+              type: "list",
+              allowBlank: true,
+              formulae: ['"Oui, —"']
+            };
+          }
+        }
+
         row.eachCell((cell, colNumber) => {
           cell.font = { name: "Segoe UI", size: 9, color: { argb: "FF1E293B" } };
           cell.border = {
