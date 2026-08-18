@@ -1165,7 +1165,7 @@ export default function RegtoolsDiffPage() {
   // Agency stats and tabs state
   const [activeTab, setActiveTab] = useState<"list" | "stats" | "similar" | "report">("list");
   const [statsSearchQuery, setStatsSearchQuery] = useState("");
-  const [statsSortField, setStatsSortField] = useState<"agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
+  const [statsSortField, setStatsSortField] = useState<"agence" | "nom" | "type" | "total" | "totalContracts" | "totalAdherents" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
   const [statsSortDirection, setStatsSortDirection] = useState<"asc" | "desc">("asc");
 
   // Page Tab state and History state
@@ -1179,7 +1179,7 @@ export default function RegtoolsDiffPage() {
   const [historyTab, setHistoryTab] = useState<"stats" | "list" | "similar" | "report">("stats");
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [historyStatsSearchQuery, setHistoryStatsSearchQuery] = useState("");
-  const [historySortField, setHistorySortField] = useState<"agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
+  const [historySortField, setHistorySortField] = useState<"agence" | "nom" | "type" | "total" | "totalContracts" | "totalAdherents" | "existing" | "missing" | "pctExisting" | "pctMissing">("agence");
   const [historySortDirection, setHistorySortDirection] = useState<"asc" | "desc">("asc");
   const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(15);
@@ -2412,13 +2412,14 @@ export default function RegtoolsDiffPage() {
     try {
       const currentDate = new Date().toLocaleDateString("fr-FR");
       const isVie = reconciliationType === "VIE";
-      const fileLabel = isVie ? "VIE" : "NS";
+      const fileLabel = data.ns && data.vie ? "NS+VIE" : isVie ? "VIE" : "NS";
 
       const exportHeaders = [
         "Code Agence",
         "Nom Agence",
+        `Total Nb Contrats ${fileLabel}`,
         "Type",
-        `Total ${fileLabel}`,
+        `Total Adhérents ${fileLabel}`,
         "Présentes dans RegTools (KYC Conformes)",
         "Absentes de RegTools (KYC Manquants)",
         "Taux de Présence KYC (%)",
@@ -2436,8 +2437,9 @@ export default function RegtoolsDiffPage() {
         sheetAOA.push([
           stat.agence,
           stat.nom,
+          stat.totalContracts ?? stat.total,
           stat.type,
-          stat.total,
+          stat.totalAdherents ?? (stat.existing + stat.missing),
           stat.existing,
           stat.missing,
           stat.pctExisting,
@@ -2450,8 +2452,9 @@ export default function RegtoolsDiffPage() {
         sheetAOA.push([
           "TOTAL GLOBAL",
           "",
+          globalStats.totalContracts ?? globalStats.total,
           "",
-          globalStats.total,
+          globalStats.totalAdherents ?? (globalStats.existing + globalStats.missing),
           globalStats.existing,
           globalStats.missing,
           globalStats.pctExisting,
@@ -2636,7 +2639,9 @@ export default function RegtoolsDiffPage() {
   const agencyStats = useMemo(() => {
     if (!comparisonDone) return [];
 
-    const statsMap = new Map<string, { total: number; missing: number }>();
+    const contractsMap = new Map<string, number>();
+    const similarMap = new Map<string, number>();
+    const missingMap = new Map<string, number>();
 
     // Determine which raw rows to include based on portfolioFilter
     const rawRows: any[] = [];
@@ -2655,7 +2660,7 @@ export default function RegtoolsDiffPage() {
       }
     }
 
-    // Count total rows per agency
+    // Count total contract rows per agency
     rawRows.forEach(row => {
       const isVie = row.__sourcePortfolio === "VIE";
       const agencyCol = isVie ? mapping.vieAgence : mapping.nsAgence;
@@ -2664,13 +2669,25 @@ export default function RegtoolsDiffPage() {
       if (agenceStr !== "Non spécifié") {
         agenceStr = resolveAgencyFromText(agenceStr).code;
       }
-      if (!statsMap.has(agenceStr)) {
-        statsMap.set(agenceStr, { total: 0, missing: 0 });
-      }
-      statsMap.get(agenceStr)!.total += 1;
+      contractsMap.set(agenceStr, (contractsMap.get(agenceStr) || 0) + 1);
     });
 
-    // Count missing rows per agency
+    // Count similar rows (KYC Conformes) per agency
+    similarRows.forEach(row => {
+      if (portfolioFilter !== "ALL" && row.__sourcePortfolio !== portfolioFilter) {
+        return;
+      }
+      const isVie = row.__sourcePortfolio === "VIE";
+      const agencyCol = isVie ? mapping.vieAgence : mapping.nsAgence;
+      const agenceVal = row[agencyCol];
+      let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
+      if (agenceStr !== "Non spécifié") {
+        agenceStr = resolveAgencyFromText(agenceStr).code;
+      }
+      similarMap.set(agenceStr, (similarMap.get(agenceStr) || 0) + 1);
+    });
+
+    // Count missing rows (KYC Absents / Écarts) per agency
     missingRows.forEach(row => {
       if (portfolioFilter !== "ALL" && row.__sourcePortfolio !== portfolioFilter) {
         return;
@@ -2682,32 +2699,38 @@ export default function RegtoolsDiffPage() {
       if (agenceStr !== "Non spécifié") {
         agenceStr = resolveAgencyFromText(agenceStr).code;
       }
-      if (statsMap.has(agenceStr)) {
-        statsMap.get(agenceStr)!.missing += 1;
-      } else {
-        statsMap.set(agenceStr, { total: 0, missing: 1 });
-      }
+      missingMap.set(agenceStr, (missingMap.get(agenceStr) || 0) + 1);
     });
 
-    // Convert to array and calculate percentages
-    return Array.from(statsMap.entries())
-      .map(([agence, counts]) => {
-        const existing = counts.total - counts.missing;
-        const pctMissing = counts.total > 0 ? parseFloat(((counts.missing / counts.total) * 100).toFixed(2)) : 0;
-        const pctExisting = counts.total > 0 ? parseFloat(((existing / counts.total) * 100).toFixed(2)) : 0;
-        const agencyInfo = resolveAgencyInfo(agence);
-        return {
-          agence: agencyInfo.code,
-          nom: agencyInfo.name,
-          type: agencyInfo.type,
-          total: counts.total,
-          missing: counts.missing,
-          existing,
-          pctMissing,
-          pctExisting
-        };
-      });
-  }, [data.ns, data.vie, missingRows, comparisonDone, mapping.nsAgence, mapping.vieAgence, portfolioFilter, resolveAgencyInfo]);
+    const allAgencies = new Set<string>([
+      ...contractsMap.keys(),
+      ...similarMap.keys(),
+      ...missingMap.keys()
+    ]);
+
+    // Convert to array and calculate percentages on the base of totalAdherents
+    return Array.from(allAgencies).map(agence => {
+      const totalContracts = contractsMap.get(agence) || 0;
+      const existing = similarMap.get(agence) || 0;
+      const missing = missingMap.get(agence) || 0;
+      const totalAdherents = existing + missing;
+      const pctMissing = totalAdherents > 0 ? parseFloat(((missing / totalAdherents) * 100).toFixed(2)) : 0;
+      const pctExisting = totalAdherents > 0 ? parseFloat(((existing / totalAdherents) * 100).toFixed(2)) : 0;
+      const agencyInfo = resolveAgencyInfo(agence);
+      return {
+        agence: agencyInfo.code,
+        nom: agencyInfo.name,
+        type: agencyInfo.type,
+        totalContracts,
+        totalAdherents,
+        total: totalAdherents,
+        missing,
+        existing,
+        pctMissing,
+        pctExisting
+      };
+    });
+  }, [data.ns, data.vie, similarRows, missingRows, comparisonDone, mapping.nsAgence, mapping.vieAgence, portfolioFilter, resolveAgencyInfo]);
 
   const sortedAgencyStats = useMemo(() => {
     const items = [...agencyStats];
@@ -2833,19 +2856,22 @@ export default function RegtoolsDiffPage() {
     if (!comparisonDone || (!data.ns && !data.vie)) return null;
     const nsTotal = data.ns ? data.ns.length : 0;
     const vieTotal = data.vie ? data.vie.length : 0;
-    const total = nsTotal + vieTotal;
+    const totalContracts = nsTotal + vieTotal;
+    const existing = similarRows.length;
     const missing = missingRows.length;
-    const existing = total - missing;
-    const pctExisting = total > 0 ? parseFloat(((existing / total) * 100).toFixed(2)) : 0;
-    const pctMissing = total > 0 ? parseFloat(((missing / total) * 100).toFixed(2)) : 0;
+    const totalAdherents = existing + missing;
+    const pctExisting = totalAdherents > 0 ? parseFloat(((existing / totalAdherents) * 100).toFixed(2)) : 0;
+    const pctMissing = totalAdherents > 0 ? parseFloat(((missing / totalAdherents) * 100).toFixed(2)) : 0;
     return {
-      total,
+      totalContracts,
+      totalAdherents,
+      total: totalAdherents,
       missing,
       existing,
       pctExisting,
       pctMissing
     };
-  }, [data.ns, data.vie, missingRows, comparisonDone]);
+  }, [data.ns, data.vie, similarRows, missingRows, comparisonDone]);
 
   // Load History from Firestore & LocalStorage
   const loadHistory = useCallback(async () => {
@@ -3071,31 +3097,35 @@ export default function RegtoolsDiffPage() {
           }
 
           // Merge Agency Stats
-          const statsMap = new Map<string, { total: number; missing: number; existing: number }>();
+          const statsMap = new Map<string, { totalContracts: number; totalAdherents: number; missing: number; existing: number }>();
           const addStats = (stats: any[]) => {
             if (!stats) return;
             stats.forEach(stat => {
               if (!statsMap.has(stat.agence)) {
-                statsMap.set(stat.agence, { total: 0, missing: 0, existing: 0 });
+                statsMap.set(stat.agence, { totalContracts: 0, totalAdherents: 0, missing: 0, existing: 0 });
               }
               const entry = statsMap.get(stat.agence)!;
-              entry.total += stat.total || 0;
+              entry.totalContracts += stat.totalContracts ?? stat.total ?? 0;
               entry.missing += stat.missing || 0;
               entry.existing += stat.existing || 0;
+              entry.totalAdherents += stat.totalAdherents ?? (stat.existing + stat.missing) ?? (stat.total || 0);
             });
           };
           if (nsReport?.agencyStats) addStats(nsReport.agencyStats);
           if (vieReport?.agencyStats) addStats(vieReport.agencyStats);
 
           mergedReport.agencyStats = Array.from(statsMap.entries()).map(([agence, counts]) => {
-            const pctMissing = counts.total > 0 ? parseFloat(((counts.missing / counts.total) * 100).toFixed(2)) : 0;
-            const pctExisting = counts.total > 0 ? parseFloat(((counts.existing / counts.total) * 100).toFixed(2)) : 0;
+            const totalAdherents = counts.existing + counts.missing;
+            const pctMissing = totalAdherents > 0 ? parseFloat(((counts.missing / totalAdherents) * 100).toFixed(2)) : 0;
+            const pctExisting = totalAdherents > 0 ? parseFloat(((counts.existing / totalAdherents) * 100).toFixed(2)) : 0;
             const agencyInfo = resolveAgencyInfo(agence);
             return {
               agence,
               nom: agencyInfo.name,
               type: agencyInfo.type,
-              total: counts.total,
+              totalContracts: counts.totalContracts,
+              totalAdherents,
+              total: totalAdherents,
               missing: counts.missing,
               existing: counts.existing,
               pctMissing,
@@ -3104,15 +3134,18 @@ export default function RegtoolsDiffPage() {
           });
 
           // Calculate overall stats
-          const total = (nsReport?.globalStats?.total || 0) + (vieReport?.globalStats?.total || 0);
+          const totalContracts = (nsReport?.globalStats?.totalContracts || nsReport?.globalStats?.total || 0) + (vieReport?.globalStats?.totalContracts || vieReport?.globalStats?.total || 0);
+          const existing = mergedReport.similarRows.length;
           const missing = mergedReport.missingRows.length;
-          const existing = total - missing;
+          const totalAdherents = existing + missing;
           mergedReport.globalStats = {
-            total,
+            totalContracts,
+            totalAdherents,
+            total: totalAdherents,
             missing,
             existing,
-            pctExisting: total > 0 ? parseFloat(((existing / total) * 100).toFixed(2)) : 0,
-            pctMissing: total > 0 ? parseFloat(((missing / total) * 100).toFixed(2)) : 0
+            pctExisting: totalAdherents > 0 ? parseFloat(((existing / totalAdherents) * 100).toFixed(2)) : 0,
+            pctMissing: totalAdherents > 0 ? parseFloat(((missing / totalAdherents) * 100).toFixed(2)) : 0
           };
 
           loadedReport = mergedReport;
@@ -3285,8 +3318,10 @@ export default function RegtoolsDiffPage() {
     let savedInFirestore = false;
 
     // Helper function to calculate agency stats per portfolio during save
-    const calculateStatsForPortfolio = (type: "NS" | "VIE", rawRows: any[], missingRowsList: any[], mappingVal: any) => {
-      const statsMap = new Map<string, { total: number; missing: number }>();
+    const calculateStatsForPortfolio = (type: "NS" | "VIE", rawRows: any[], missingRowsList: any[], similarRowsList: any[], mappingVal: any) => {
+      const contractsMap = new Map<string, number>();
+      const missingMap = new Map<string, number>();
+      const similarMap = new Map<string, number>();
       const isVie = type === "VIE";
       const agencyCol = isVie ? mappingVal.vieAgence : mappingVal.nsAgence;
 
@@ -3296,10 +3331,7 @@ export default function RegtoolsDiffPage() {
         if (agenceStr !== "Non spécifié") {
           agenceStr = resolveAgencyFromText(agenceStr).code;
         }
-        if (!statsMap.has(agenceStr)) {
-          statsMap.set(agenceStr, { total: 0, missing: 0 });
-        }
-        statsMap.get(agenceStr)!.total += 1;
+        contractsMap.set(agenceStr, (contractsMap.get(agenceStr) || 0) + 1);
       });
 
       missingRowsList.forEach(row => {
@@ -3308,24 +3340,40 @@ export default function RegtoolsDiffPage() {
         if (agenceStr !== "Non spécifié") {
           agenceStr = resolveAgencyFromText(agenceStr).code;
         }
-        if (statsMap.has(agenceStr)) {
-          statsMap.get(agenceStr)!.missing += 1;
-        } else {
-          statsMap.set(agenceStr, { total: 0, missing: 1 });
-        }
+        missingMap.set(agenceStr, (missingMap.get(agenceStr) || 0) + 1);
       });
 
-      return Array.from(statsMap.entries()).map(([agence, counts]) => {
-        const existing = counts.total - counts.missing;
-        const pctMissing = counts.total > 0 ? parseFloat(((counts.missing / counts.total) * 100).toFixed(2)) : 0;
-        const pctExisting = counts.total > 0 ? parseFloat(((existing / counts.total) * 100).toFixed(2)) : 0;
+      similarRowsList.forEach(row => {
+        const agenceVal = row[agencyCol];
+        let agenceStr = agenceVal !== undefined && agenceVal !== null ? String(agenceVal).trim() : "Non spécifié";
+        if (agenceStr !== "Non spécifié") {
+          agenceStr = resolveAgencyFromText(agenceStr).code;
+        }
+        similarMap.set(agenceStr, (similarMap.get(agenceStr) || 0) + 1);
+      });
+
+      const allAgencies = new Set<string>([
+        ...contractsMap.keys(),
+        ...missingMap.keys(),
+        ...similarMap.keys()
+      ]);
+
+      return Array.from(allAgencies).map(agence => {
+        const totalContracts = contractsMap.get(agence) || 0;
+        const existing = similarMap.get(agence) || 0;
+        const missing = missingMap.get(agence) || 0;
+        const totalAdherents = existing + missing;
+        const pctMissing = totalAdherents > 0 ? parseFloat(((missing / totalAdherents) * 100).toFixed(2)) : 0;
+        const pctExisting = totalAdherents > 0 ? parseFloat(((existing / totalAdherents) * 100).toFixed(2)) : 0;
         const agencyInfo = resolveAgencyInfo(agence);
         return {
           agence: agencyInfo.code,
           nom: agencyInfo.name,
           type: agencyInfo.type,
-          total: counts.total,
-          missing: counts.missing,
+          totalContracts,
+          totalAdherents,
+          total: totalAdherents,
+          missing,
           existing,
           pctMissing,
           pctExisting
@@ -3338,13 +3386,14 @@ export default function RegtoolsDiffPage() {
       const minifiedMissing = minifyRows(rowsMissing, columns[type.toLowerCase() as "ns" | "vie"]);
       const minifiedSimilar = minifyRows(rowsSimilar, columns[type.toLowerCase() as "ns" | "vie"]);
 
-      const total = rawDataList.length;
+      const totalContracts = rawDataList.length;
       const missing = rowsMissing.length;
-      const existing = total - missing;
-      const pctExisting = total > 0 ? parseFloat(((existing / total) * 100).toFixed(2)) : 0;
-      const pctMissing = total > 0 ? parseFloat(((missing / total) * 100).toFixed(2)) : 0;
+      const existing = rowsSimilar.length;
+      const totalAdherents = existing + missing;
+      const pctExisting = totalAdherents > 0 ? parseFloat(((existing / totalAdherents) * 100).toFixed(2)) : 0;
+      const pctMissing = totalAdherents > 0 ? parseFloat(((missing / totalAdherents) * 100).toFixed(2)) : 0;
 
-      const pStats = calculateStatsForPortfolio(type, rawDataList, rowsMissing, mapping);
+      const pStats = calculateStatsForPortfolio(type, rawDataList, rowsMissing, rowsSimilar, mapping);
       const kpis = extractRegtoolsKPIs(data.regtools || []);
 
       const reportPayload = {
@@ -3354,7 +3403,9 @@ export default function RegtoolsDiffPage() {
         fileNameRegtools: files.regtools ? files.regtools.name : "",
         savedAt: new Date().toISOString(),
         globalStats: {
-          total,
+          totalContracts,
+          totalAdherents,
+          total: totalAdherents,
           missing,
           existing,
           pctExisting,
@@ -3623,7 +3674,6 @@ export default function RegtoolsDiffPage() {
 
   // Memos for selected history report
   // Pre-resolve agency info for selected history report to ensure name/type are always present
-  // Pre-resolve agency info for selected history report to ensure name/type are always present
   const resolvedHistoryAgencyStats = useMemo(() => {
     if (!selectedHistoryReport) return [];
     
@@ -3640,7 +3690,41 @@ export default function RegtoolsDiffPage() {
       rawStats = selectedHistoryReport.agencyStats || [];
     }
 
-    // Merge duplicate stats that resolve to the same code (e.g. 108 and BÃ©ja)
+    // Pre-calculate exact similar counts per agency from similarRows if available
+    const historySimilarMap = new Map<string, number>();
+    if (selectedHistoryReport.similarRows && selectedHistoryReport.similarRows.length > 0) {
+      selectedHistoryReport.similarRows.forEach((row: any) => {
+        const rowPortfolio = row.__sourcePortfolio || (selectedHistoryReport.reconciliationType === "VIE" ? "VIE" : "NS");
+        if (historyPortfolioFilter !== "ALL" && rowPortfolio !== historyPortfolioFilter) {
+          return;
+        }
+        const isVieRow = rowPortfolio === "VIE";
+        const agencyCol = isVieRow ? selectedHistoryReport.mapping?.vieAgence : selectedHistoryReport.mapping?.nsAgence;
+        if (!agencyCol) return;
+        const code = getRowAgencyCode(row, agencyCol, isVieRow);
+        const resolvedCode = resolveAgencyInfo(code).code || code;
+        historySimilarMap.set(resolvedCode, (historySimilarMap.get(resolvedCode) || 0) + 1);
+      });
+    }
+
+    // Pre-calculate exact missing counts per agency from missingRows if available
+    const historyMissingMap = new Map<string, number>();
+    if (selectedHistoryReport.missingRows && selectedHistoryReport.missingRows.length > 0) {
+      selectedHistoryReport.missingRows.forEach((row: any) => {
+        const rowPortfolio = row.__sourcePortfolio || (selectedHistoryReport.reconciliationType === "VIE" ? "VIE" : "NS");
+        if (historyPortfolioFilter !== "ALL" && rowPortfolio !== historyPortfolioFilter) {
+          return;
+        }
+        const isVieRow = rowPortfolio === "VIE";
+        const agencyCol = isVieRow ? selectedHistoryReport.mapping?.vieAgence : selectedHistoryReport.mapping?.nsAgence;
+        if (!agencyCol) return;
+        const code = getRowAgencyCode(row, agencyCol, isVieRow);
+        const resolvedCode = resolveAgencyInfo(code).code || code;
+        historyMissingMap.set(resolvedCode, (historyMissingMap.get(resolvedCode) || 0) + 1);
+      });
+    }
+
+    // Merge duplicate stats that resolve to the same code (e.g. 108 and Béja)
     const mergedMap = new Map<string, any>();
     rawStats.forEach((stat: any) => {
       const info = resolveAgencyInfo(stat.agence);
@@ -3651,20 +3735,51 @@ export default function RegtoolsDiffPage() {
           agence: code,
           nom: info.name,
           type: info.type,
+          totalContracts: 0,
+          totalAdherents: 0,
           total: 0,
           existing: 0,
           missing: 0
         });
       }
-      const existing = mergedMap.get(code)!;
-      existing.total += (stat.total || 0);
-      existing.missing += (stat.missing || 0);
-      existing.existing = existing.total - existing.missing;
-      existing.pctMissing = existing.total > 0 ? parseFloat(((existing.missing / existing.total) * 100).toFixed(2)) : 0;
-      existing.pctExisting = existing.total > 0 ? parseFloat(((existing.existing / existing.total) * 100).toFixed(2)) : 0;
+      const existingEntry = mergedMap.get(code)!;
+      existingEntry.totalContracts += (stat.totalContracts ?? stat.total ?? 0);
+      existingEntry.missing += (stat.missing || 0);
+      existingEntry.existing += (stat.existing || 0);
+      if (stat.totalAdherents) {
+        existingEntry.totalAdherents += stat.totalAdherents;
+      }
     });
 
-    return Array.from(mergedMap.values());
+    // If we have exact similar counts from loaded similarRows, override existing/missing with exact counts
+    const hasLoadedSimilar = historySimilarMap.size > 0;
+    const hasLoadedMissing = historyMissingMap.size > 0;
+
+    return Array.from(mergedMap.values()).map(stat => {
+      const code = stat.agence;
+      let existing = stat.existing;
+      let missing = stat.missing;
+      if (hasLoadedSimilar) {
+        existing = historySimilarMap.get(code) || 0;
+      }
+      if (hasLoadedMissing && historyMissingMap.has(code)) {
+        missing = historyMissingMap.get(code)!;
+      }
+      const totalAdherents = stat.totalAdherents > 0 && !hasLoadedSimilar ? stat.totalAdherents : (existing + missing);
+      const pctMissing = totalAdherents > 0 ? parseFloat(((missing / totalAdherents) * 100).toFixed(2)) : 0;
+      const pctExisting = totalAdherents > 0 ? parseFloat(((existing / totalAdherents) * 100).toFixed(2)) : 0;
+
+      return {
+        ...stat,
+        totalContracts: stat.totalContracts,
+        totalAdherents,
+        total: totalAdherents,
+        existing,
+        missing,
+        pctMissing,
+        pctExisting
+      };
+    });
   }, [selectedHistoryReport, historyPortfolioFilter, resolveAgencyInfo]);
 
   const sortedHistoryAgencyStats = useMemo(() => {
@@ -4243,6 +4358,30 @@ export default function RegtoolsDiffPage() {
 
   const displayedHistoryGlobalStats = useMemo(() => {
     if (!selectedHistoryReport) return null;
+
+    if (resolvedHistoryAgencyStats.length > 0) {
+      let totalContracts = 0;
+      let existing = 0;
+      let missing = 0;
+      resolvedHistoryAgencyStats.forEach((stat: any) => {
+        totalContracts += (stat.totalContracts ?? stat.total ?? 0);
+        existing += (stat.existing ?? 0);
+        missing += (stat.missing ?? 0);
+      });
+      const totalAdherents = existing + missing;
+      const pctExisting = totalAdherents > 0 ? parseFloat(((existing / totalAdherents) * 100).toFixed(2)) : 0;
+      const pctMissing = totalAdherents > 0 ? parseFloat(((missing / totalAdherents) * 100).toFixed(2)) : 0;
+      return {
+        totalContracts,
+        totalAdherents,
+        total: totalAdherents,
+        existing,
+        missing,
+        pctExisting,
+        pctMissing
+      };
+    }
+
     if (selectedHistoryReport.reconciliationType === "BOTH") {
       if (historyPortfolioFilter === "NS") {
         return selectedHistoryReport.nsGlobalStats || null;
@@ -4251,7 +4390,7 @@ export default function RegtoolsDiffPage() {
       }
     }
     return selectedHistoryReport.globalStats || null;
-  }, [selectedHistoryReport, historyPortfolioFilter]);
+  }, [selectedHistoryReport, historyPortfolioFilter, resolvedHistoryAgencyStats]);
 
   const exportHistorySimilarExcel = () => {
     if (!selectedHistoryReport) return;
@@ -4399,13 +4538,16 @@ export default function RegtoolsDiffPage() {
     try {
       const report = selectedHistoryReport;
       const isVie = report.reconciliationType === "VIE";
-      const fileLabel = isVie ? "VIE" : "NS";
+      const isBoth = report.reconciliationType === "BOTH";
+      const fileLabel = isBoth ? "NS+VIE" : isVie ? "VIE" : "NS";
+      const portfolioLabel = historyPortfolioFilter === "ALL" ? fileLabel : historyPortfolioFilter;
       const currentDate = new Date(report.savedAt).toLocaleDateString("fr-FR");
       const exportHeaders = [
         "Code Agence",
         "Nom Agence",
+        `Total Nb Contrats ${portfolioLabel}`,
         "Type",
-        `Total ${fileLabel}`,
+        `Total Adhérents ${portfolioLabel}`,
         "Présentes dans RegTools (KYC Conformes)",
         "Absentes de RegTools (KYC Manquants)",
         "Taux de Présence KYC (%)",
@@ -4413,7 +4555,7 @@ export default function RegtoolsDiffPage() {
       ];
 
       const sheetAOA = [
-        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - STATISTIQUES AGENCE - ${report.monthLabel} (${fileLabel})`],
+        [`RAPPORT DE RAPPROCHEMENT HISTORIQUE - STATISTIQUES AGENCE - ${report.monthLabel} (${portfolioLabel})`],
         [`Date d'export : ${currentDate} | Nombre d'agences : ${filteredHistoryAgencyStats.length}`],
         [],
         exportHeaders
@@ -4423,8 +4565,9 @@ export default function RegtoolsDiffPage() {
         sheetAOA.push([
           stat.agence,
           stat.nom,
+          stat.totalContracts ?? stat.total,
           stat.type,
-          stat.total,
+          stat.totalAdherents ?? (stat.existing + stat.missing),
           stat.existing,
           stat.missing,
           stat.pctExisting,
@@ -4432,17 +4575,19 @@ export default function RegtoolsDiffPage() {
         ]);
       });
 
-      if (report.globalStats) {
+      const gStats = displayedHistoryGlobalStats || report.globalStats;
+      if (gStats) {
         sheetAOA.push([]);
         sheetAOA.push([
           "TOTAL GLOBAL",
           "",
+          gStats.totalContracts ?? gStats.total,
           "",
-          report.globalStats.total,
-          report.globalStats.existing,
-          report.globalStats.missing,
-          report.globalStats.pctExisting,
-          report.globalStats.pctMissing
+          gStats.totalAdherents ?? (gStats.existing + gStats.missing),
+          gStats.existing,
+          gStats.missing,
+          gStats.pctExisting,
+          gStats.pctMissing
         ]);
       }
 
@@ -4480,7 +4625,7 @@ export default function RegtoolsDiffPage() {
   };
 
   // Sort helper functions for History
-  const handleHistorySort = (field: "agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing") => {
+  const handleHistorySort = (field: "agence" | "nom" | "type" | "total" | "totalContracts" | "totalAdherents" | "existing" | "missing" | "pctExisting" | "pctMissing") => {
     if (historySortField === field) {
       setHistorySortDirection(prev => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -4491,7 +4636,7 @@ export default function RegtoolsDiffPage() {
 
   const renderHistorySortableHeader = (
     label: string, 
-    field: "agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing", 
+    field: "agence" | "nom" | "type" | "total" | "totalContracts" | "totalAdherents" | "existing" | "missing" | "pctExisting" | "pctMissing", 
     align: "left" | "center" = "left"
   ) => {
     const isActive = historySortField === field;
@@ -4553,7 +4698,7 @@ export default function RegtoolsDiffPage() {
   };
 
   // Sort helper functions
-  const handleSort = (field: "agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing") => {
+  const handleSort = (field: "agence" | "nom" | "type" | "total" | "totalContracts" | "totalAdherents" | "existing" | "missing" | "pctExisting" | "pctMissing") => {
     if (statsSortField === field) {
       setStatsSortDirection(prev => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -4564,7 +4709,7 @@ export default function RegtoolsDiffPage() {
 
   const renderSortableHeader = (
     label: string, 
-    field: "agence" | "nom" | "type" | "total" | "existing" | "missing" | "pctExisting" | "pctMissing", 
+    field: "agence" | "nom" | "type" | "total" | "totalContracts" | "totalAdherents" | "existing" | "missing" | "pctExisting" | "pctMissing", 
     align: "left" | "center" = "left"
   ) => {
     const isActive = statsSortField === field;
@@ -6325,8 +6470,9 @@ export default function RegtoolsDiffPage() {
                           <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                             {renderSortableHeader("Code Agence", "agence")}
                             {renderSortableHeader("Nom Agence", "nom")}
+                            {renderSortableHeader(`TOTAL Nb Contrats ${data.ns && data.vie ? "NS+VIE" : data.vie ? "VIE" : "NS"}`, "totalContracts", "center")}
                             {renderSortableHeader("Type", "type")}
-                            {renderSortableHeader(`Total ${data.ns && data.vie ? "NS + VIE" : data.vie ? "VIE" : "NS"}`, "total", "center")}
+                            {renderSortableHeader(`TOTAL Adhérents ${data.ns && data.vie ? "NS+VIE" : data.vie ? "VIE" : "NS"}`, "totalAdherents", "center")}
                             {renderSortableHeader("Présentes (Conformes)", "existing", "center")}
                             {renderSortableHeader("Absentes (Écarts)", "missing", "center")}
                             {renderSortableHeader("Taux Présence KYC", "pctExisting", "center")}
@@ -6361,11 +6507,14 @@ export default function RegtoolsDiffPage() {
                                   <span className="opacity-0 group-hover:opacity-100 text-[9px] text-blue-400 transition-opacity">↗ Tendances</span>
                                 </button>
                               </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-semibold text-slate-700 dark:text-slate-300">
+                                {(stat.totalContracts ?? stat.total).toLocaleString("fr-FR")}
+                              </td>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-600 dark:text-slate-400">
                                 {stat.type}
                               </td>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-semibold text-slate-700 dark:text-slate-300">
-                                {stat.total.toLocaleString("fr-FR")}
+                                {(stat.totalAdherents ?? (stat.existing + stat.missing)).toLocaleString("fr-FR")}
                               </td>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-emerald-600 dark:text-emerald-400 font-medium">
                                 {stat.existing.toLocaleString("fr-FR")}
@@ -6423,11 +6572,15 @@ export default function RegtoolsDiffPage() {
                           ))}
                           {globalStats && (
                             <tr className="bg-slate-50/80 dark:bg-slate-900/80 font-bold border-t border-slate-200 dark:border-slate-800">
-                              <td colSpan={3} className="p-3 text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">
+                              <td colSpan={2} className="p-3 text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">
                                 TOTAL GLOBAL
                               </td>
                               <td className="p-3 text-center text-slate-900 dark:text-white">
-                                {globalStats.total.toLocaleString("fr-FR")}
+                                {(globalStats.totalContracts ?? globalStats.total).toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 text-slate-600 dark:text-slate-400"></td>
+                              <td className="p-3 text-center text-slate-900 dark:text-white">
+                                {(globalStats.totalAdherents ?? (globalStats.existing + globalStats.missing)).toLocaleString("fr-FR")}
                               </td>
                               <td className="p-3 text-center text-emerald-600 dark:text-emerald-400">
                                 {globalStats.existing.toLocaleString("fr-FR")}
@@ -6696,10 +6849,10 @@ export default function RegtoolsDiffPage() {
 
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                  Taux Présence KYC : {selectedHistoryReport.globalStats?.pctExisting}%
+                  Taux Présence KYC : {displayedHistoryGlobalStats?.pctExisting ?? selectedHistoryReport.globalStats?.pctExisting}%
                 </span>
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                  Taux Absence KYC : {selectedHistoryReport.globalStats?.pctMissing}%
+                  Taux Absence KYC : {displayedHistoryGlobalStats?.pctMissing ?? selectedHistoryReport.globalStats?.pctMissing}%
                 </span>
               </div>
             </div>
@@ -6914,8 +7067,9 @@ export default function RegtoolsDiffPage() {
                           <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                             {renderHistorySortableHeader("Code Agence", "agence")}
                             {renderHistorySortableHeader("Nom Agence", "nom")}
+                            {renderHistorySortableHeader(`TOTAL Nb Contrats ${historyPortfolioFilter === "ALL" ? (selectedHistoryReport.reconciliationType === "BOTH" ? "NS+VIE" : selectedHistoryReport.reconciliationType === "VIE" ? "VIE" : "NS") : historyPortfolioFilter}`, "totalContracts", "center")}
                             {renderHistorySortableHeader("Type", "type")}
-                            {renderHistorySortableHeader(`Total ${historyReconciliationType === "BOTH" ? "NS + VIE" : historyReconciliationType === "VIE" ? "VIE" : "NS"}`, "total", "center")}
+                            {renderHistorySortableHeader(`TOTAL Adhérents ${historyPortfolioFilter === "ALL" ? (selectedHistoryReport.reconciliationType === "BOTH" ? "NS+VIE" : selectedHistoryReport.reconciliationType === "VIE" ? "VIE" : "NS") : historyPortfolioFilter}`, "totalAdherents", "center")}
                             {renderHistorySortableHeader("Présentes (Conformes)", "existing", "center")}
                             {renderHistorySortableHeader("Absentes (Écarts)", "missing", "center")}
                             {renderHistorySortableHeader("Taux Présence KYC", "pctExisting", "center")}
@@ -6950,11 +7104,14 @@ export default function RegtoolsDiffPage() {
                                   <span className="opacity-0 group-hover:opacity-100 text-[9px] text-blue-400 transition-opacity">↗ Tendances</span>
                                 </button>
                               </td>
+                              <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-semibold text-slate-700 dark:text-slate-300">
+                                {(stat.totalContracts ?? stat.total).toLocaleString("fr-FR")}
+                              </td>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-slate-600 dark:text-slate-400">
                                 {stat.type}
                               </td>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center font-semibold text-slate-700 dark:text-slate-300">
-                                {stat.total.toLocaleString("fr-FR")}
+                                {(stat.totalAdherents ?? (stat.existing + stat.missing)).toLocaleString("fr-FR")}
                               </td>
                               <td className="p-3 border-b border-slate-100 dark:border-slate-800/60 text-center text-emerald-600 dark:text-emerald-400 font-medium">
                                 {stat.existing.toLocaleString("fr-FR")}
@@ -7018,43 +7175,47 @@ export default function RegtoolsDiffPage() {
                               </td>
                             </tr>
                           ))}
-                          {selectedHistoryReport.globalStats && (
+                          {(displayedHistoryGlobalStats || selectedHistoryReport.globalStats) && (
                             <tr className="bg-slate-50/80 dark:bg-slate-900/80 font-bold border-t border-slate-200 dark:border-slate-800">
-                              <td colSpan={3} className="p-3 text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">
+                              <td colSpan={2} className="p-3 text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">
                                 TOTAL GLOBAL
                               </td>
                               <td className="p-3 text-center text-slate-900 dark:text-white">
-                                {selectedHistoryReport.globalStats.total.toLocaleString("fr-FR")}
+                                {((displayedHistoryGlobalStats || selectedHistoryReport.globalStats).totalContracts ?? (displayedHistoryGlobalStats || selectedHistoryReport.globalStats).total).toLocaleString("fr-FR")}
+                              </td>
+                              <td className="p-3 text-slate-600 dark:text-slate-400"></td>
+                              <td className="p-3 text-center text-slate-900 dark:text-white">
+                                {((displayedHistoryGlobalStats || selectedHistoryReport.globalStats).totalAdherents ?? ((displayedHistoryGlobalStats || selectedHistoryReport.globalStats).existing + (displayedHistoryGlobalStats || selectedHistoryReport.globalStats).missing)).toLocaleString("fr-FR")}
                               </td>
                               <td className="p-3 text-center text-emerald-600 dark:text-emerald-400">
-                                {selectedHistoryReport.globalStats.existing.toLocaleString("fr-FR")}
+                                {(displayedHistoryGlobalStats || selectedHistoryReport.globalStats).existing.toLocaleString("fr-FR")}
                               </td>
                               <td className="p-3 text-center text-rose-600 dark:text-rose-400">
-                                {selectedHistoryReport.globalStats.missing.toLocaleString("fr-FR")}
+                                {(displayedHistoryGlobalStats || selectedHistoryReport.globalStats).missing.toLocaleString("fr-FR")}
                               </td>
                               <td className="p-3 text-center text-emerald-600 dark:text-emerald-400">
-                                {selectedHistoryReport.globalStats.pctExisting}%
+                                {(displayedHistoryGlobalStats || selectedHistoryReport.globalStats).pctExisting}%
                               </td>
                               <td className="p-3 text-center text-rose-600 dark:text-rose-400">
-                                {selectedHistoryReport.globalStats.pctMissing}%
+                                {(displayedHistoryGlobalStats || selectedHistoryReport.globalStats).pctMissing}%
                               </td>
                               <td className="p-3">
                                 <div className="flex flex-col gap-1 w-full">
                                   <div className="flex h-2.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                                     <div 
-                                      style={{ width: `${selectedHistoryReport.globalStats.pctExisting}%` }} 
+                                      style={{ width: `${(displayedHistoryGlobalStats || selectedHistoryReport.globalStats).pctExisting}%` }} 
                                       className="bg-emerald-600 transition-all duration-500" 
-                                      title={`Présentes: ${selectedHistoryReport.globalStats.pctExisting}%`}
+                                      title={`Présentes: ${(displayedHistoryGlobalStats || selectedHistoryReport.globalStats).pctExisting}%`}
                                     />
                                     <div 
-                                      style={{ width: `${selectedHistoryReport.globalStats.pctMissing}%` }} 
+                                      style={{ width: `${(displayedHistoryGlobalStats || selectedHistoryReport.globalStats).pctMissing}%` }} 
                                       className="bg-rose-600 transition-all duration-500" 
-                                      title={`Absentes: ${selectedHistoryReport.globalStats.pctMissing}%`}
+                                      title={`Absentes: ${(displayedHistoryGlobalStats || selectedHistoryReport.globalStats).pctMissing}%`}
                                     />
                                   </div>
                                   <div className="flex justify-between text-[9px] text-slate-500">
-                                    <span>{selectedHistoryReport.globalStats.pctExisting}% global</span>
-                                    <span>{selectedHistoryReport.globalStats.pctMissing}% global</span>
+                                    <span>{(displayedHistoryGlobalStats || selectedHistoryReport.globalStats).pctExisting}% global</span>
+                                    <span>{(displayedHistoryGlobalStats || selectedHistoryReport.globalStats).pctMissing}% global</span>
                                   </div>
                                 </div>
                               </td>
