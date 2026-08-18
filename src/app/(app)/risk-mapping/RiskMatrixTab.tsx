@@ -1816,9 +1816,694 @@ export function RiskMatrixTab() {
     toast({ title: "Export réussi", description: "La matrice des risques a été exportée au format Excel complet." });
   };
 
+  // ── Helper HTML Builder for Full Matrix PDF Export ──
+  const buildMatrixPrintHTML = (): string => {
+    const todayFormatted = new Date().toLocaleDateString("fr-FR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+    const renderCell = (val: boolean | string | undefined | null) => {
+      if (val === true || val === "Oui") {
+        return `<span style="color: #047857; font-weight: 700;">Oui</span>`;
+      }
+      if (typeof val === "string" && val.startsWith("Oui")) {
+        return `<span style="color: #047857; font-weight: 700;">${val}</span>`;
+      }
+      return `<span style="color: #94a3b8;">—</span>`;
+    };
+
+    const renderRisk = (risk: string) => {
+      const r = risk === "RE" || risk === "Élevé" ? "RE" : risk === "RM" || risk === "Moyen" ? "RM" : "RF";
+      if (r === "RE") {
+        return `<span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-weight: 800; font-size: 8px; text-transform: uppercase; background-color: #ffe4e6; color: #9f1239; border: 1px solid #fecdd3;">Élevé</span>`;
+      }
+      if (r === "RM") {
+        return `<span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-weight: 800; font-size: 8px; text-transform: uppercase; background-color: #fef9c3; color: #92400e; border: 1px solid #fde68a;">Moyen</span>`;
+      }
+      return `<span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-weight: 800; font-size: 8px; text-transform: uppercase; background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0;">Faible</span>`;
+    };
+
+    return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Matrice des Risques KYC — MAE Assurance</title>
+  <style>
+    @page {
+      size: A4 landscape;
+      margin: 8mm 10mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      font-size: 9px;
+      line-height: 1.35;
+    }
+    .cover-page {
+      min-height: 94vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 10px 5px;
+      box-sizing: border-box;
+    }
+    .page-break {
+      page-break-before: always;
+      break-before: page;
+    }
+    .section-header {
+      margin: 0 0 10px 0;
+      padding-bottom: 5px;
+      border-bottom: 2px solid #6d28d9;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 900;
+      color: #5b21b6;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 0;
+    }
+    .section-meta {
+      font-size: 8.5px;
+      color: #64748b;
+      font-weight: 700;
+    }
+    .sub-title {
+      font-size: 10px;
+      font-weight: 800;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 10px 0 5px 0;
+    }
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      font-size: 8.5px;
+    }
+    .report-table thead {
+      display: table-header-group;
+    }
+    .report-table tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .report-table th {
+      background-color: #6d28d9 !important;
+      color: #ffffff !important;
+      font-weight: 800;
+      font-size: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      padding: 4.5px 6px;
+      border: 1px solid #5b21b6;
+      text-align: left;
+      vertical-align: middle;
+    }
+    .report-table td {
+      padding: 3.5px 5.5px;
+      border: 1px solid #e2e8f0;
+      vertical-align: middle;
+    }
+    .report-table tbody tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    .footer-note {
+      margin-top: 15px;
+      font-size: 8px;
+      color: #94a3b8;
+      text-align: center;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       PAGE DE GARDE : LOGO MAE + TITRE + WIDGETS DES NIVEAUX DE RISQUE
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="cover-page">
+    <div>
+      <!-- Header avec Logo MAE -->
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <img src="${origin}/mae_logo.png" alt="MAE Logo" style="height: 58px; object-fit: contain;" />
+          <div>
+            <div style="font-size: 15px; font-weight: 900; color: #0f172a; letter-spacing: -0.3px;">MAE ASSURANCE</div>
+            <div style="font-size: 9.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px;">Mutuelle Assurance de l'Enseignement</div>
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <span style="display: inline-block; padding: 4px 10px; background: #ede9fe; color: #6d28d9; border-radius: 14px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;">
+            KYC Risk Intelligence
+          </span>
+          <div style="font-size: 8.5px; color: #94a3b8; margin-top: 3px; font-weight: 600;">Document certifié conforme</div>
+        </div>
+      </div>
+
+      <!-- Titre principal -->
+      <div style="margin: 18px 0 16px 0; text-align: center;">
+        <div style="font-size: 10.5px; font-weight: 800; color: #6d28d9; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">
+          Gouvernance & Gestion des Risques — LAB / CFT
+        </div>
+        <h1 style="font-size: 26px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -0.5px; margin: 0 0 6px 0;">
+          Matrice des <span style="color: #6d28d9;">Risques KYC</span>
+        </h1>
+        <p style="font-size: 11px; color: #64748b; font-weight: 500; margin: 0 auto; max-width: 700px;">
+          Référentiel officiel de cotation, d'évaluation et de pondération des facteurs de risques de blanchiment de capitaux et de financement du terrorisme.
+        </p>
+      </div>
+
+      <!-- Métadonnées -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin-bottom: 18px;">
+        <div>
+          <div style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Entité Évaluée</div>
+          <div style="font-size: 10.5px; font-weight: 800; color: #1e293b; margin-top: 1px;">MAE Assurance</div>
+        </div>
+        <div>
+          <div style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Date d'évaluation</div>
+          <div style="font-size: 10.5px; font-weight: 800; color: #1e293b; margin-top: 1px;">${todayFormatted}</div>
+        </div>
+        <div>
+          <div style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Cadre Réglementaire</div>
+          <div style="font-size: 10.5px; font-weight: 800; color: #1e293b; margin-top: 1px;">Directives BCT, CGA, CTAF & GAFI</div>
+        </div>
+        <div>
+          <div style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Application Source</div>
+          <div style="font-size: 10.5px; font-weight: 800; color: #6d28d9; margin-top: 1px;">Compliance Navigator</div>
+        </div>
+      </div>
+
+      <!-- ── Widgets des Niveaux de Risque ── -->
+      <div style="margin-top: 10px;">
+        <div style="font-size: 11px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+          <span style="display: inline-block; width: 4px; height: 14px; background: #6d28d9; border-radius: 2px;"></span>
+          Répartition Globale des Niveaux de Risque (${riskDistributionStats.total} Entités au Référentiel)
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+          <!-- Widget RE -->
+          <div style="border: 2px solid #fecdd3; background: #fff1f2; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #be123c;">Risque Élevé (RE)</span>
+                <span style="font-size: 8px; font-weight: 700; background: #ffe4e6; color: #9f1239; padding: 2px 5px; border-radius: 8px;">≥ 70% ou ≥ 2 Oui</span>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 4px; margin: 6px 0;">
+                <span style="font-size: 28px; font-weight: 900; color: #881337; line-height: 1;">${riskDistributionStats.RE.count}</span>
+                <span style="font-size: 10px; font-weight: 700; color: #9f1239;">entités</span>
+              </div>
+              <div style="margin: 8px 0 4px 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 8.5px; font-weight: 700; color: #be123c; margin-bottom: 3px;">
+                  <span>Part dans le modèle</span>
+                  <span>${riskDistributionStats.RE.percentage}%</span>
+                </div>
+                <div style="height: 5px; width: 100%; background: #fecdd3; border-radius: 3px; overflow: hidden;">
+                  <div style="height: 100%; width: ${riskDistributionStats.RE.percentage}%; background: #f43f5e; border-radius: 3px;"></div>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid #fecdd3;">
+              <div style="font-size: 7.5px; font-weight: 800; text-transform: uppercase; color: #9f1239; margin-bottom: 3px; letter-spacing: 0.4px;">Répartition par catégorie :</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 3px;">
+                ${Object.entries(riskDistributionStats.RE.byType).map(([type, count]) => `
+                  <span style="font-size: 7.5px; font-weight: 700; background: #ffffff; color: #9f1239; border: 1px solid #fecdd3; padding: 1px 4px; border-radius: 3px;">${type}: ${count}</span>
+                `).join('') || '<span style="font-size: 7.5px; color: #9f1239; font-style: italic;">Aucune</span>'}
+              </div>
+            </div>
+          </div>
+
+          <!-- Widget RM -->
+          <div style="border: 2px solid #fde68a; background: #fffbeb; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #b45309;">Risque Moyen (RM)</span>
+                <span style="font-size: 8px; font-weight: 700; background: #fef3c7; color: #92400e; padding: 2px 5px; border-radius: 8px;">≥ 50% ou 1 Oui</span>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 4px; margin: 6px 0;">
+                <span style="font-size: 28px; font-weight: 900; color: #78350f; line-height: 1;">${riskDistributionStats.RM.count}</span>
+                <span style="font-size: 10px; font-weight: 700; color: #92400e;">entités</span>
+              </div>
+              <div style="margin: 8px 0 4px 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 8.5px; font-weight: 700; color: #b45309; margin-bottom: 3px;">
+                  <span>Part dans le modèle</span>
+                  <span>${riskDistributionStats.RM.percentage}%</span>
+                </div>
+                <div style="height: 5px; width: 100%; background: #fde68a; border-radius: 3px; overflow: hidden;">
+                  <div style="height: 100%; width: ${riskDistributionStats.RM.percentage}%; background: #f59e0b; border-radius: 3px;"></div>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid #fde68a;">
+              <div style="font-size: 7.5px; font-weight: 800; text-transform: uppercase; color: #92400e; margin-bottom: 3px; letter-spacing: 0.4px;">Répartition par catégorie :</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 3px;">
+                ${Object.entries(riskDistributionStats.RM.byType).map(([type, count]) => `
+                  <span style="font-size: 7.5px; font-weight: 700; background: #ffffff; color: #92400e; border: 1px solid #fde68a; padding: 1px 4px; border-radius: 3px;">${type}: ${count}</span>
+                `).join('') || '<span style="font-size: 7.5px; color: #92400e; font-style: italic;">Aucune</span>'}
+              </div>
+            </div>
+          </div>
+
+          <!-- Widget RF -->
+          <div style="border: 2px solid #a7f3d0; background: #f0fdf4; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #047857;">Risque Faible (RF)</span>
+                <span style="font-size: 8px; font-weight: 700; background: #d1fae5; color: #065f46; padding: 2px 5px; border-radius: 8px;">&lt; 50% ou 0 Oui</span>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 4px; margin: 6px 0;">
+                <span style="font-size: 28px; font-weight: 900; color: #064e3b; line-height: 1;">${riskDistributionStats.RF.count}</span>
+                <span style="font-size: 10px; font-weight: 700; color: #065f46;">entités</span>
+              </div>
+              <div style="margin: 8px 0 4px 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 8.5px; font-weight: 700; color: #047857; margin-bottom: 3px;">
+                  <span>Part dans le modèle</span>
+                  <span>${riskDistributionStats.RF.percentage}%</span>
+                </div>
+                <div style="height: 5px; width: 100%; background: #a7f3d0; border-radius: 3px; overflow: hidden;">
+                  <div style="height: 100%; width: ${riskDistributionStats.RF.percentage}%; background: #10b981; border-radius: 3px;"></div>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid #a7f3d0;">
+              <div style="font-size: 7.5px; font-weight: 800; text-transform: uppercase; color: #065f46; margin-bottom: 3px; letter-spacing: 0.4px;">Répartition par catégorie :</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 3px;">
+                ${Object.entries(riskDistributionStats.RF.byType).map(([type, count]) => `
+                  <span style="font-size: 7.5px; font-weight: 700; background: #ffffff; color: #065f46; border: 1px solid #a7f3d0; padding: 1px 4px; border-radius: 3px;">${type}: ${count}</span>
+                `).join('') || '<span style="font-size: 7.5px; color: #065f46; font-style: italic;">Aucune</span>'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Certification officielle -->
+    <div>
+      <div style="padding: 8px 12px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 6px; font-size: 8.5px; color: #991b1b; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+        <span>🔒</span>
+        <span>Document officiel certifié en lecture seule. Toute modification du paramétrage doit être effectuée directement depuis l'application Web Compliance Navigator.</span>
+      </div>
+      <div class="footer-note">
+        MUTUELLE ASSURANCE DE L'ENSEIGNEMENT (MAE) — DÉPARTEMENT CONFORMITÉ & AUDIT INTERNE | ÉDITÉ LE ${todayFormatted}
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       PAGE 2 : LÉGENDE & COTATION + PONDÉRATIONS & STRUCTURE
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="page-break"></div>
+  <div class="section-header">
+    <h2 class="section-title">1. Légende de Cotation & Structure des Facteurs KYC</h2>
+    <span class="section-meta">RÉFÉRENTIEL GÉNÉRAL DE COTATION</span>
+  </div>
+
+  <div class="sub-title">1.1. RÈGLES DE CALCUL AUTOMATIQUE DU NIVEAU DE RISQUE</div>
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th style="width: 25%;">Niveau de Risque</th>
+        <th style="width: 20%; text-align: center;">Représentation</th>
+        <th style="width: 55%;">Critère de calcul automatique</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span style="font-weight: 800; color: #9f1239;">Risque Élevé (RE)</span></td>
+        <td style="text-align: center;"><span style="display: inline-block; padding: 2px 10px; background: #ffe4e6; color: #9f1239; border: 1px solid #fecdd3; border-radius: 4px; font-weight: 800; font-size: 8.5px;">Rouge (RE)</span></td>
+        <td>Au moins 2 facteurs qualifiés de 'Oui' (&ge; 2 Oui) ou pays sous surveillance GAFI</td>
+      </tr>
+      <tr>
+        <td><span style="font-weight: 800; color: #92400e;">Risque Moyen (RM)</span></td>
+        <td style="text-align: center;"><span style="display: inline-block; padding: 2px 10px; background: #fef9c3; color: #92400e; border: 1px solid #fde68a; border-radius: 4px; font-weight: 800; font-size: 8.5px;">Orange (RM)</span></td>
+        <td>Exactement 1 facteur qualifié de 'Oui' (1 Oui)</td>
+      </tr>
+      <tr>
+        <td><span style="font-weight: 800; color: #065f46;">Risque Faible (RF)</span></td>
+        <td style="text-align: center;"><span style="display: inline-block; padding: 2px 10px; background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; border-radius: 4px; font-weight: 800; font-size: 8.5px;">Vert (RF)</span></td>
+        <td>Aucun facteur qualifié de 'Oui' (0 Oui, que des tirets)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="sub-title" style="margin-top: 16px;">1.2. PONDÉRATIONS & STRUCTURE DES FACTEURS D'ÉVALUATION</div>
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th style="width: 25%;">Facteur d'évaluation</th>
+        <th style="width: 30%;">KYC Physique</th>
+        <th style="width: 20%;">KYC Morale</th>
+        <th style="width: 20%;">KYC OBNL</th>
+        <th style="text-align: center; width: 8%;">Coeff</th>
+        <th style="text-align: center; width: 12%;">Agrégation</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${kycFactors.map(f => `
+        <tr>
+          <td style="font-weight: 700;">${f.facteur}</td>
+          <td>${f.kycPhys}</td>
+          <td>${f.kycMorale}</td>
+          <td>${f.kycObnl}</td>
+          <td style="text-align: center; font-weight: 700;">${f.coeff}</td>
+          <td style="text-align: center;">${f.agregation}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       PAGE 3 : 1. PAYS (ÉVALUATION DU RISQUE GÉOGRAPHIQUE)
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="page-break"></div>
+  <div class="section-header">
+    <h2 class="section-title">2. Matrice des Risques Géographiques — Pays (${resolvedCountries.length} Pays)</h2>
+    <span class="section-meta">FEUILLE 1. PAYS</span>
+  </div>
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th style="text-align: center; width: 50px;">ISO Num</th>
+        <th style="text-align: center; width: 65px;">ISO Alpha-3</th>
+        <th>Pays</th>
+        <th style="text-align: center; width: 55px;">GAFI</th>
+        <th style="text-align: center; width: 85px;">Corruption (CPI &lt; 30)</th>
+        <th style="text-align: center; width: 75px;">Paradis Fiscal</th>
+        <th style="text-align: center; width: 80px;">Terrorisme (GTI &gt; 6)</th>
+        <th>Autre facteur dominant (Remarque)</th>
+        <th style="text-align: center; width: 60px;">Risque</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${resolvedCountries.map(c => `
+        <tr>
+          <td style="text-align: center; font-weight: 700; color: #64748b;">${c.numeric || '—'}</td>
+          <td style="text-align: center; font-weight: 800;">${c.alpha3 || '—'}</td>
+          <td style="font-weight: 700;">${c.name}</td>
+          <td style="text-align: center;">${renderCell(c.gafi)}</td>
+          <td style="text-align: center;">${renderCell(c.corruption)}</td>
+          <td style="text-align: center;">${renderCell(c.oecd)}</td>
+          <td style="text-align: center;">${renderCell(c.terrorism)}</td>
+          <td style="font-size: 8px;">${c.otherDominant ? (c.other ? `Oui - ${c.other}` : 'Oui') : '<span style="color: #94a3b8;">—</span>'}</td>
+          <td style="text-align: center;">${renderRisk(c.risk)}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       PAGE 4 : 2. GOUVERNORATS (TUNISIE)
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="page-break"></div>
+  <div class="section-header">
+    <h2 class="section-title">3. Matrice des Risques Géographiques — Gouvernorats (${resolvedGovs.length} Gouvernorats)</h2>
+    <span class="section-meta">FEUILLE 2. GOUVERNORATS</span>
+  </div>
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th style="text-align: center; width: 45px;">Code</th>
+        <th>Gouvernorat (FR)</th>
+        <th>Gouvernorat (AR)</th>
+        <th style="text-align: center; width: 85px;">Zone frontalière</th>
+        <th style="text-align: center; width: 90px;">Port International</th>
+        <th style="text-align: center; width: 75px;">Aéroport</th>
+        <th style="text-align: center; width: 80px;">Contrebande</th>
+        <th>Autres critères</th>
+        <th style="text-align: center; width: 60px;">Risque</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${resolvedGovs.map(g => {
+        const otherVal = g.other && g.other.trim() !== "" ? (g.other.startsWith("Oui") ? g.other : "Oui - " + g.other) : "—";
+        return `
+        <tr>
+          <td style="text-align: center; font-weight: 800;">${g.id}</td>
+          <td style="font-weight: 700;">${g.name}</td>
+          <td style="font-weight: 600; color: #475569;">${g.nameAr || '—'}</td>
+          <td style="text-align: center;">${renderCell(g.border)}</td>
+          <td style="text-align: center;">${renderCell(g.port)}</td>
+          <td style="text-align: center;">${renderCell(g.airport)}</td>
+          <td style="text-align: center;">${renderCell(g.market)}</td>
+          <td style="font-size: 8px;">${otherVal !== "—" ? otherVal : '<span style="color: #94a3b8;">—</span>'}</td>
+          <td style="text-align: center;">${renderRisk(g.risk)}</td>
+        </tr>
+      `}).join('')}
+    </tbody>
+  </table>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       PAGE 5 : 3. PRODUITS D'ASSURANCE
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="page-break"></div>
+  <div class="section-header">
+    <h2 class="section-title">4. Matrice des Produits d'Assurance (${resolvedProducts.length} Produits)</h2>
+    <span class="section-meta">FEUILLE 3. PRODUITS D'ASSURANCE</span>
+  </div>
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th style="text-align: center; width: 45px;">Code</th>
+        <th>Contrat d'Assurance</th>
+        <th style="text-align: center; width: 65px;">Liquidité</th>
+        <th style="text-align: center; width: 85px;">Devises / Étranger</th>
+        <th style="text-align: center; width: 75px;">Capital Élevé</th>
+        <th style="text-align: center; width: 85px;">Fraude / Sinistralité</th>
+        <th style="text-align: center; width: 75px;">Capitalisation</th>
+        <th>Commentaire réglementaire</th>
+        <th style="text-align: center; width: 60px;">Risque</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${resolvedProducts.map(p => `
+        <tr>
+          <td style="text-align: center; font-weight: 800;">${p.code}</td>
+          <td style="font-weight: 700;">${p.name}</td>
+          <td style="text-align: center;">${renderCell(p.liquid)}</td>
+          <td style="text-align: center;">${renderCell(p.forex)}</td>
+          <td style="text-align: center;">${renderCell(p.highValue)}</td>
+          <td style="text-align: center;">${renderCell(p.fraud)}</td>
+          <td style="text-align: center;">${renderCell(p.cap)}</td>
+          <td style="font-size: 8px; color: #475569;">${p.comment || '<span style="color: #94a3b8;">—</span>'}</td>
+          <td style="text-align: center;">${renderRisk(p.risk)}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       PAGE 6 : 4. CANAUX DE DISTRIBUTION & 5. TECHNIQUES DE VENTE
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="page-break"></div>
+  <div class="section-header">
+    <h2 class="section-title">5. Matrice des Canaux & Techniques de Vente</h2>
+    <span class="section-meta">FEUILLES 4. CANAUX & 5. TECHNIQUES DE VENTE</span>
+  </div>
+
+  <div class="sub-title">5.1. CANAUX ET VOIES DE DISTRIBUTION (${resolvedDist.length} Canaux)</div>
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th style="text-align: center; width: 45px;">Code</th>
+        <th>Voie de distribution</th>
+        <th style="text-align: center; width: 130px;">Complexité / difficulté du contrôle</th>
+        <th style="text-align: center; width: 150px;">Risque non-soumission règles</th>
+        <th style="text-align: center; width: 130px;">Manque culture conformité</th>
+        <th style="text-align: center; width: 60px;">Risque</th>
+        <th>Commentaire</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${resolvedDist.map(d => `
+        <tr>
+          <td style="text-align: center; font-weight: 800;">${d.code}</td>
+          <td style="font-weight: 700;">${d.name}</td>
+          <td style="text-align: center;">${renderCell(d.complex)}</td>
+          <td style="text-align: center;">${renderCell(d.nonCompliance)}</td>
+          <td style="text-align: center;">${renderCell(d.noCulture)}</td>
+          <td style="text-align: center;">${renderRisk(d.risk)}</td>
+          <td style="font-size: 8px; color: #475569;">${d.comment || '<span style="color: #94a3b8;">—</span>'}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <div class="sub-title" style="margin-top: 14px;">5.2. TECHNIQUES DE VENTE ET MODALITÉS D'ENTRÉE EN RELATION (${resolvedSales.length} Techniques)</div>
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th style="text-align: center; width: 45px;">Code</th>
+        <th>Technique de vente</th>
+        <th style="text-align: center; width: 150px;">Absence de contact direct client</th>
+        <th style="text-align: center; width: 160px;">Impossibilité originaux</th>
+        <th style="text-align: center; width: 60px;">Risque</th>
+        <th>Commentaire</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${resolvedSales.map(s => `
+        <tr>
+          <td style="text-align: center; font-weight: 800;">${s.code}</td>
+          <td style="font-weight: 700;">${s.name}</td>
+          <td style="text-align: center;">${renderCell(s.noContact)}</td>
+          <td style="text-align: center;">${renderCell(s.noOriginals)}</td>
+          <td style="text-align: center;">${renderRisk(s.risk)}</td>
+          <td style="font-size: 8px; color: #475569;">${s.comment || '<span style="color: #94a3b8;">—</span>'}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       PAGE 7 : 6. ACTIVITÉS MORALES (PM)
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="page-break"></div>
+  <div class="section-header">
+    <h2 class="section-title">6. Matrice des Risques — Activités Morales (PM) (${resolvedMoralActivities.length} Activités)</h2>
+    <span class="section-meta">FEUILLE 6. ACTIVITÉS MORALES</span>
+  </div>
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th style="text-align: center; width: 45px;">Code</th>
+        <th>Activité</th>
+        <th style="text-align: center; width: 50px;">Liquide</th>
+        <th style="text-align: center; width: 65px;">Objets préc.</th>
+        <th style="text-align: center; width: 55px;">Volume</th>
+        <th style="text-align: center; width: 60px;">Manque Info</th>
+        <th style="text-align: center; width: 55px;">Complexe</th>
+        <th style="text-align: center; width: 65px;">Intermédiation</th>
+        <th style="text-align: center; width: 55px;">Corruption</th>
+        <th>Remarque</th>
+        <th style="text-align: center; width: 60px;">Risque</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${resolvedMoralActivities.map(a => `
+        <tr>
+          <td style="text-align: center; font-weight: 800;">${a.code}</td>
+          <td style="font-weight: 700;">${a.name}</td>
+          <td style="text-align: center;">${renderCell(a.cash)}</td>
+          <td style="text-align: center;">${renderCell(a.objects)}</td>
+          <td style="text-align: center;">${renderCell(a.volume)}</td>
+          <td style="text-align: center;">${renderCell(a.noInfo)}</td>
+          <td style="text-align: center;">${renderCell(a.complexEval)}</td>
+          <td style="text-align: center;">${renderCell(a.intermediary)}</td>
+          <td style="text-align: center;">${renderCell(a.corruption)}</td>
+          <td style="font-size: 8px; color: #475569;">${a.comment || '<span style="color: #94a3b8;">—</span>'}</td>
+          <td style="text-align: center;">${renderRisk(a.risk)}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       PAGE 8 : 7. PROFESSIONS DES PERSONNES PHYSIQUES (PP)
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="page-break"></div>
+  <div class="section-header">
+    <h2 class="section-title">7. Matrice des Risques — Professions Personnes Physiques (${resolvedPhysicalProfessions.length} Professions)</h2>
+    <span class="section-meta">FEUILLE 7. PROFESSIONS PP</span>
+  </div>
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th style="width: 120px;">Domaine / Secteur</th>
+        <th>Profession</th>
+        <th style="text-align: center; width: 50px;">Liquide</th>
+        <th style="text-align: center; width: 65px;">Objets préc.</th>
+        <th style="text-align: center; width: 55px;">Volume</th>
+        <th style="text-align: center; width: 60px;">Manque Info</th>
+        <th style="text-align: center; width: 55px;">Complexe</th>
+        <th style="text-align: center; width: 65px;">Intermédiation</th>
+        <th style="text-align: center; width: 55px;">Corruption</th>
+        <th style="text-align: center; width: 60px;">Risque</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${resolvedPhysicalProfessions.map(p => `
+        <tr>
+          <td style="font-weight: 700; color: #6d28d9;">${p.domain}</td>
+          <td style="font-weight: 700;">${p.name}</td>
+          <td style="text-align: center;">${renderCell(p.cash)}</td>
+          <td style="text-align: center;">${renderCell(p.objects)}</td>
+          <td style="text-align: center;">${renderCell(p.volume)}</td>
+          <td style="text-align: center;">${renderCell(p.noInfo)}</td>
+          <td style="text-align: center;">${renderCell(p.complexEval)}</td>
+          <td style="text-align: center;">${renderCell(p.intermediary)}</td>
+          <td style="text-align: center;">${renderCell(p.corruption)}</td>
+          <td style="text-align: center;">${renderRisk(p.risk)}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <div class="footer-note" style="margin-top: 20px;">
+    MAE ASSURANCE — CARTOGRAPHIE & MATRICE DES RISQUES KYC | FIN DU DOCUMENT CERTIFIÉ
+  </div>
+
+</body>
+</html>`;
+  };
+
   const exportMatrixPDF = () => {
-    window.print();
-    toast({ title: "Impression lancée", description: "La matrice des risques sera imprimée / exportée en PDF." });
+    try {
+      const htmlContent = buildMatrixPrintHTML();
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.style.visibility = "hidden";
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow?.document;
+      if (!doc) {
+        window.print();
+        return;
+      }
+
+      doc.open();
+      doc.write(htmlContent);
+      doc.close();
+
+      toast({
+        title: "Génération du PDF",
+        description: "Préparation du document complet de la Matrice des Risques avec page de garde..."
+      });
+
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 3000);
+      }, 500);
+    } catch (err: any) {
+      console.error("Erreur lors de la génération du PDF de la matrice :", err);
+      window.print();
+    }
   };
 
   return (
