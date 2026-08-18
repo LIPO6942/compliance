@@ -1972,43 +1972,32 @@ export function RiskMatrixTab() {
           </div>
         </div>
         <div style="text-align: right;">
-          <span style="display: inline-block; padding: 4px 10px; background: #ede9fe; color: #6d28d9; border-radius: 14px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;">
-            KYC Risk Intelligence
+          <span style="display: inline-block; padding: 6px 14px; background: #ede9fe; color: #6d28d9; border-radius: 16px; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;">
+            Matrice de Risques KYC
           </span>
-          <div style="font-size: 8.5px; color: #94a3b8; margin-top: 3px; font-weight: 600;">Document certifié conforme</div>
         </div>
       </div>
 
       <!-- Titre principal -->
-      <div style="margin: 18px 0 16px 0; text-align: center;">
-        <div style="font-size: 10.5px; font-weight: 800; color: #6d28d9; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">
-          Gouvernance & Gestion des Risques — LAB / CFT
-        </div>
-        <h1 style="font-size: 26px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -0.5px; margin: 0 0 6px 0;">
+      <div style="margin: 24px 0 20px 0; text-align: center;">
+        <h1 style="font-size: 28px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -0.5px; margin: 0;">
           Matrice des <span style="color: #6d28d9;">Risques KYC</span>
         </h1>
-        <p style="font-size: 11px; color: #64748b; font-weight: 500; margin: 0 auto; max-width: 700px;">
-          Référentiel officiel de cotation, d'évaluation et de pondération des facteurs de risques de blanchiment de capitaux et de financement du terrorisme.
-        </p>
       </div>
 
       <!-- Métadonnées -->
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin-bottom: 18px;">
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 22px;">
         <div>
-          <div style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Entité Évaluée</div>
-          <div style="font-size: 10.5px; font-weight: 800; color: #1e293b; margin-top: 1px;">MAE Assurance</div>
+          <div style="font-size: 8.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Entité Évaluée</div>
+          <div style="font-size: 11px; font-weight: 800; color: #1e293b; margin-top: 2px;">MAE Assurance</div>
         </div>
         <div>
-          <div style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Date d'évaluation</div>
-          <div style="font-size: 10.5px; font-weight: 800; color: #1e293b; margin-top: 1px;">${todayFormatted}</div>
+          <div style="font-size: 8.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Date d'évaluation</div>
+          <div style="font-size: 11px; font-weight: 800; color: #1e293b; margin-top: 2px;">${todayFormatted}</div>
         </div>
         <div>
-          <div style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Cadre Réglementaire</div>
-          <div style="font-size: 10.5px; font-weight: 800; color: #1e293b; margin-top: 1px;">Directives BCT, CGA, CTAF & GAFI</div>
-        </div>
-        <div>
-          <div style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Application Source</div>
-          <div style="font-size: 10.5px; font-weight: 800; color: #6d28d9; margin-top: 1px;">Compliance Navigator</div>
+          <div style="font-size: 8.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Cadre Réglementaire</div>
+          <div style="font-size: 11px; font-weight: 800; color: #1e293b; margin-top: 2px;">Directives BCT, CGA, CTAF & GAFI</div>
         </div>
       </div>
 
@@ -2116,13 +2105,9 @@ export function RiskMatrixTab() {
       </div>
     </div>
 
-    <!-- Certification officielle -->
+    <!-- Footer cover page -->
     <div>
-      <div style="padding: 8px 12px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 6px; font-size: 8.5px; color: #991b1b; font-weight: 700; display: flex; align-items: center; gap: 6px;">
-        <span>🔒</span>
-        <span>Document officiel certifié en lecture seule. Toute modification du paramétrage doit être effectuée directement depuis l'application Web Compliance Navigator.</span>
-      </div>
-      <div class="footer-note">
+      <div class="footer-note" style="border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 20px;">
         MUTUELLE ASSURANCE DE L'ENSEIGNEMENT (MAE) — DÉPARTEMENT CONFORMITÉ & AUDIT INTERNE | ÉDITÉ LE ${todayFormatted}
       </div>
     </div>
