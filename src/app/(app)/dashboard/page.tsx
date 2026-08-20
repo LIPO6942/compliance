@@ -326,11 +326,23 @@ export default function DashboardPage() {
     return latestRegtoolsKPIs.formTypes.slice(0, 8);
   }, [latestRegtoolsKPIs]);
 
-  // Regional breakdown by delegation for the latest month
+  // Regional breakdown by delegation — average across all months of the current year
   const delegationStats = React.useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    // Filter reports belonging to the current year
+    const currentYearReports = regtoolsHistory.filter(r => {
+      if (!r.savedAt) return false;
+      return new Date(r.savedAt).getFullYear() === currentYear;
+    });
+
+    // Collect unique months within the year
+    const monthKeys = Array.from(new Set(currentYearReports.map((r: any) => r.monthKey).filter(Boolean)));
+    const numberOfMonths = monthKeys.length || 1;
+
+    // Accumulate totals per delegation across all months of the year
     const delMap: Record<string, { name: string; total: number; missing: number }> = {};
-    
-    latestReports.forEach(r => {
+
+    currentYearReports.forEach(r => {
       const stats = r.agencyStats || [];
       stats.forEach((stat: any) => {
         const geo = getAgencyGeography(stat.agence, stat.nom);
@@ -345,16 +357,18 @@ export default function DashboardPage() {
 
     return Object.values(delMap).map(del => {
       const existing = del.total - del.missing;
+      // Average pctMissing across the number of distinct months recorded
       const pctMissing = del.total > 0 ? parseFloat(((del.missing / del.total) * 100).toFixed(2)) : 0;
       const pctExisting = del.total > 0 ? parseFloat(((existing / del.total) * 100).toFixed(2)) : 0;
       return {
         ...del,
         existing,
         pctMissing,
-        pctExisting
+        pctExisting,
+        numberOfMonths
       };
     }).sort((a, b) => b.pctMissing - a.pctMissing);
-  }, [latestReports]);
+  }, [regtoolsHistory]);
 
   // Top 5 critical agencies (highest missing rates)
   const criticalAgencies = React.useMemo(() => {
@@ -1496,7 +1510,10 @@ export default function DashboardPage() {
               <Card className="lg:col-span-7 bg-white dark:bg-slate-900 border-none shadow-xl p-5 flex flex-col gap-4">
                 <div>
                   <h3 className="font-bold text-slate-800 dark:text-white text-sm">Taux de Manquement KYC par Délégation</h3>
-                  <p className="text-[10px] text-slate-400 font-medium">Pourcentage de clients sans fiche KYC réglementaire</p>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Moyenne {new Date().getFullYear()} —{" "}
+                    {delegationStats.length > 0 ? delegationStats[0].numberOfMonths : 0} mois enregistré(s)
+                  </p>
                 </div>
                 <div className="h-[260px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
