@@ -61,6 +61,9 @@ import { isFirebaseConfigured } from "@/lib/firebase";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 import { useActivityLog } from "@/contexts/ActivityLogContext";
 import { Activity } from "lucide-react";
+import { MemoHeaderTrigger } from "@/components/memos/MemoHeaderTrigger";
+import { MemoDrawer } from "@/components/memos/MemoDrawer";
+import { FloatingPinnedMemoWidget } from "@/components/memos/FloatingPinnedMemoWidget";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
@@ -327,10 +330,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+
+          <div className="flex items-center gap-3">
+            {/* Déclencheur Mémos Intelligents */}
+            <MemoHeaderTrigger />
+
             <Link href="/alerts">
-              <Button variant="ghost" size="icon" aria-label="Voir les alertes" className="relative">
-                <BellRing className="h-6 w-6" />
+              <Button variant="ghost" size="icon" aria-label="Voir les alertes" className="relative hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">
+                <BellRing className="h-5 w-5 text-slate-600 dark:text-slate-300" />
                 {newAlertsCount > 0 && (
                   <span className="absolute top-0 right-0 flex h-2.5 w-2.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -346,6 +353,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
           {children}
         </main>
+        {/* Drawer latéral des mémos */}
+        <MemoDrawer />
+        {/* Widget flottant de mémo épinglé */}
+        <FloatingPinnedMemoWidget />
       </SidebarInset>
     </SidebarProvider>
   );

@@ -14,7 +14,7 @@ import { EcosystemProvider } from "@/contexts/EcosystemContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { RequirementsProvider } from "@/contexts/RequirementsContext";
 import { MatrixConfigProvider } from "@/contexts/MatrixConfigContext";
-
+import { MemoProvider } from "@/contexts/MemoContext";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 
@@ -38,9 +38,11 @@ export default function ApplicationGroupLayout({
                           <NotificationProvider>
                             <EcosystemProvider>
                               <RequirementsProvider>
-                              <MatrixConfigProvider>
-                                <AppLayout>{children}</AppLayout>
-                              </MatrixConfigProvider>
+                                <MatrixConfigProvider>
+                                  <MemoProvider>
+                                    <AppLayout>{children}</AppLayout>
+                                  </MemoProvider>
+                                </MatrixConfigProvider>
                               </RequirementsProvider>
                             </EcosystemProvider>
                           </NotificationProvider>
