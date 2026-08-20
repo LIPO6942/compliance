@@ -113,7 +113,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             setUser({
               ...data,
               uid: authUser.uid,
-              authEmail: authUser.email || undefined
+              authEmail: authUser.email || ''
             });
           } else {
             // Try to find matching team member for auto-initialization
@@ -170,7 +170,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const updateUser = async (newProfile: Partial<UserProfile>) => {
     if (!isFirebaseConfigured || !db || !user?.uid) return;
     const userDocRef = doc(db!, 'users', user.uid);
-    await setDoc(userDocRef, newProfile, { merge: true });
+    // Firestore rejects `undefined` values — strip them out before saving
+    const sanitized = Object.fromEntries(
+      Object.entries(newProfile).filter(([, v]) => v !== undefined)
+    );
+    await setDoc(userDocRef, sanitized, { merge: true });
   };
 
   const logout = async () => {
