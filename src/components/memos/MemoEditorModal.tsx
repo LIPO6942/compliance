@@ -234,15 +234,6 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
             <div className="h-2 w-2 rounded-full bg-rose-500 shadow-sm border border-rose-400" />
           </div>
 
-          {/* Bouton Fermer */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute top-4 right-4 p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors z-20 text-slate-500 dark:text-slate-400"
-          >
-            <X className="h-4 w-4" />
-          </button>
-
           {/* En-tête du Mémo Post-it */}
           <div className="flex justify-between items-center pb-3 border-b border-amber-200/60 dark:border-slate-800 pt-1">
             <div className="flex items-center gap-2">
@@ -284,8 +275,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                   className="w-full text-xs font-bold rounded-xl p-2 bg-white/90 dark:bg-slate-800/90 border border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 outline-none shadow-xs"
                 >
                   <option value="LAB_FT">🛡️ LAB / FT</option>
-                  <option value="CONFORMITE_REGLEMENTAIRE">⚖️ Réglementaire</option>
-                  <option value="AUDIT_CONTROLE">🔍 Audit & Contrôle</option>
+                  <option value="CONFORMITE_REGLEMENTAIRE">⚖️ Conformité Réglementaire</option>
                   <option value="GENERAL">📌 Général</option>
                 </select>
               </div>

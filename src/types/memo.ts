@@ -1,4 +1,4 @@
-export type MemoPillar = "LAB_FT" | "CONFORMITE_REGLEMENTAIRE" | "AUDIT_CONTROLE" | "GENERAL";
+export type MemoPillar = "LAB_FT" | "CONFORMITE_REGLEMENTAIRE" | "GENERAL";
 export type MemoScope = "COLLABORATIVE" | "PRIVATE";
 export type MemoPriority = "URGENT" | "ATTENTION" | "INFO";
 export type MemoStatus = "ACTIVE" | "RESOLVED" | "ARCHIVED";
@@ -66,13 +66,6 @@ export const PILLAR_CONFIG: Record<MemoPillar, { label: string; short: string; b
     badgeClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-300/50 dark:border-emerald-700/50",
     borderClass: "border-l-emerald-500",
     icon: "⚖️"
-  },
-  AUDIT_CONTROLE: {
-    label: "Audit & Contrôle Interne",
-    short: "Audit",
-    badgeClass: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-300/50 dark:border-blue-700/50",
-    borderClass: "border-l-blue-500",
-    icon: "🔍"
   },
   GENERAL: {
     label: "Général / Pense-bête",

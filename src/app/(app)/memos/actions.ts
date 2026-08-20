@@ -30,8 +30,6 @@ export async function reformulateMemoAction(
       ? "Lutte Anti-Blanchiment et Financement du Terrorisme (LAB/FT)"
       : pillar === "CONFORMITE_REGLEMENTAIRE"
       ? "Conformité Réglementaire & Normative"
-      : pillar === "AUDIT_CONTROLE"
-      ? "Audit & Contrôle Interne"
       : "Gouvernance & Conformité Générale";
 
   const styleInstruction =
