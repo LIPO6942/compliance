@@ -21,73 +21,16 @@ interface MemoContextType {
   deleteMemo: (id: string) => Promise<void>;
   toggleResolveMemo: (id: string) => Promise<void>;
   togglePinMemo: (id: string) => void;
+  toggleMemoScope: (id: string) => Promise<void>;
   toggleChecklistItem: (memoId: string, itemId: string) => Promise<void>;
   pinnedMemos: ComplianceMemo[];
   getMemosForSection: (href: string) => ComplianceMemo[];
   totalActiveCount: number;
+  collaborativeCount: number;
+  privateCount: number;
 }
 
-const LOCAL_STORAGE_KEY = "compliance_memos_v2";
-
-const INITIAL_DEMO_MEMOS: ComplianceMemo[] = [
-  {
-    id: "memo-demo-1",
-    title: "Points de contrôle Rapprochement RegTools (Juillet 2026)",
-    content: "Vérifier la concordance des 4 dossiers sous sanctions avant l'envoi du rapport trimestriel à la direction générale. S'assurer que les pièces justificatives sont archivées.",
-    pillar: "LAB_FT",
-    scope: "COLLABORATIVE",
-    priority: "URGENT",
-    status: "ACTIVE",
-    authorEmail: "moslem.gouia@mae.tn",
-    authorName: "Moslem G.",
-    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    associatedSectionHref: "/regtools-diff",
-    associatedSectionLabel: "Rapprochement Clients RegTools",
-    pinned: true,
-    checklists: [
-      { id: "chk-1", text: "Vérifier les 4 fiches sous sanctions", completed: true },
-      { id: "chk-2", text: "Contrôler les 86 profils PEP identifiés", completed: false },
-      { id: "chk-3", text: "Valider l'export Excel certifié", completed: false }
-    ]
-  },
-  {
-    id: "memo-demo-2",
-    title: "Revue des coefficients DMR — Matrice des Risques",
-    content: "Prévoir une réunion d'arbitrage avec la direction technique pour ajuster la pondération du facteur 'Voie de distribution / Vente à distance' suite aux dernières directives CGA.",
-    pillar: "CONFORMITE_REGLEMENTAIRE",
-    scope: "COLLABORATIVE",
-    priority: "ATTENTION",
-    status: "ACTIVE",
-    authorEmail: "conformite@mae.com.tn",
-    authorName: "Équipe Conformité",
-    createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-    associatedSectionHref: "/risk-mapping?tab=matrix",
-    associatedSectionLabel: "Matrice des Risques KYC",
-    pinned: false,
-    checklists: [
-      { id: "chk-4", text: "Préparer la note de cadrage", completed: false },
-      { id: "chk-5", text: "Vérifier l'historique des modifications", completed: true }
-    ]
-  },
-  {
-    id: "memo-demo-3",
-    title: "Suivi des anomalies du Cahier de Recette",
-    content: "L'anomalie ANO-003 (identification PEP non générée) doit être testée en priorité dès la mise en ligne du prochain patch éditeur.",
-    pillar: "AUDIT_CONTROLE",
-    scope: "COLLABORATIVE",
-    priority: "URGENT",
-    status: "ACTIVE",
-    authorEmail: "moslem.gouia@mae.tn",
-    authorName: "Moslem G.",
-    createdAt: new Date(Date.now() - 3600000 * 48).toISOString(),
-    associatedSectionHref: "/cahier-recette",
-    associatedSectionLabel: "Cahier de Recette RegTools",
-    pinned: false,
-    checklists: [
-      { id: "chk-6", text: "Rejouer les cas de test T-008, T-009 et T-010", completed: false }
-    ]
-  }
-];
+const LOCAL_STORAGE_KEY = "compliance_memos_v3";
 
 const MemoContext = createContext<MemoContextType | undefined>(undefined);
 
@@ -96,6 +39,9 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
   const [memos, setMemos] = useState<ComplianceMemo[]>(() => {
     if (typeof window !== "undefined") {
+      // Clean previous demo storage versions
+      localStorage.removeItem("compliance_memos_v1");
+      localStorage.removeItem("compliance_memos_v2");
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
         try {
@@ -105,7 +51,7 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     }
-    return INITIAL_DEMO_MEMOS;
+    return [];
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -328,8 +274,30 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [memos]
   );
 
+  const toggleMemoScope = useCallback(
+    async (id: string): Promise<void> => {
+      const target = memos.find((m) => m.id === id);
+      if (!target) return;
+      const nextScope: MemoScope = target.scope === "COLLABORATIVE" ? "PRIVATE" : "COLLABORATIVE";
+      await updateMemo(id, { scope: nextScope });
+      toast({
+        title: nextScope === "COLLABORATIVE" ? "Mémo partagé avec l'équipe" : "Mémo rendu privé",
+        description: nextScope === "COLLABORATIVE" ? "Ce mémo est maintenant visible par toute l'équipe." : "Ce mémo n'est plus visible que par vous.",
+      });
+    },
+    [memos, updateMemo, toast]
+  );
+
   const totalActiveCount = useMemo(() => {
     return memos.filter((m) => m.status === "ACTIVE").length;
+  }, [memos]);
+
+  const collaborativeCount = useMemo(() => {
+    return memos.filter((m) => m.status === "ACTIVE" && m.scope === "COLLABORATIVE").length;
+  }, [memos]);
+
+  const privateCount = useMemo(() => {
+    return memos.filter((m) => m.status === "ACTIVE" && m.scope === "PRIVATE").length;
   }, [memos]);
 
   return (
@@ -349,10 +317,13 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleteMemo,
         toggleResolveMemo,
         togglePinMemo,
+        toggleMemoScope,
         toggleChecklistItem,
         pinnedMemos,
         getMemosForSection,
         totalActiveCount,
+        collaborativeCount,
+        privateCount,
       }}
     >
       {children}

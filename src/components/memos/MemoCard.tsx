@@ -33,7 +33,7 @@ interface MemoCardProps {
 
 export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer }) => {
   const router = useRouter();
-  const { deleteMemo, toggleResolveMemo, togglePinMemo, toggleChecklistItem } = useMemos();
+  const { deleteMemo, toggleResolveMemo, togglePinMemo, toggleMemoScope, toggleChecklistItem } = useMemos();
 
   const pillarInfo = PILLAR_CONFIG[memo.pillar] || PILLAR_CONFIG.GENERAL;
   const isResolved = memo.status === "RESOLVED";
@@ -77,26 +77,28 @@ export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer 
               {pillarInfo.icon} {pillarInfo.short}
             </Badge>
 
-            {/* Badge Portée */}
-            <Badge
-              variant="outline"
+            {/* Badge Portée (Bascule en 1 clic) */}
+            <button
+              type="button"
+              onClick={() => toggleMemoScope(memo.id)}
+              title={memo.scope === "COLLABORATIVE" ? "Cliquez pour rendre ce mémo PRIVÉ" : "Cliquez pour partager ce mémo avec l'ÉQUIPE"}
               className={cn(
-                "text-[9px] font-bold px-1.5 py-0.5 border-none",
+                "text-[9px] font-bold px-2 py-0.5 rounded-full border transition-all duration-200 cursor-pointer hover:scale-105 flex items-center gap-1",
                 memo.scope === "COLLABORATIVE"
-                  ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                  ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/60 hover:bg-indigo-500/20"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200"
               )}
             >
               {memo.scope === "COLLABORATIVE" ? (
-                <span className="flex items-center gap-1">
-                  <Users className="h-2.5 w-2.5" /> Équipe
-                </span>
+                <>
+                  <Users className="h-2.5 w-2.5" /> Équipe ⇄
+                </>
               ) : (
-                <span className="flex items-center gap-1">
-                  <User className="h-2.5 w-2.5" /> Privé
-                </span>
+                <>
+                  <User className="h-2.5 w-2.5" /> Privé ⇄
+                </>
               )}
-            </Badge>
+            </button>
 
             {/* Badge Priorité */}
             {memo.priority === "URGENT" && (

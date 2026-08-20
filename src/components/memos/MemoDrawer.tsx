@@ -45,6 +45,8 @@ export const MemoDrawer: React.FC = () => {
     activeEditorMemo,
     setActiveEditorMemo,
     openDrawerWithNewMemo,
+    collaborativeCount,
+    privateCount,
   } = useMemos();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -156,7 +158,46 @@ export const MemoDrawer: React.FC = () => {
             </Button>
           </div>
 
-          {/* Filtres rapides */}
+          {/* Sélecteur de portée : Collaboratif (Équipe) / Privé (Individuel) / Tous */}
+          <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800/80">
+            <button
+              onClick={() => setFilterScope("ALL")}
+              className={cn(
+                "py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5",
+                filterScope === "ALL"
+                  ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+              )}
+            >
+              🌐 Tous ({memos.length})
+            </button>
+            <button
+              onClick={() => setFilterScope("COLLABORATIVE")}
+              className={cn(
+                "py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5",
+                filterScope === "COLLABORATIVE"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20"
+                  : "text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+              )}
+            >
+              <Users className="h-3.5 w-3.5" />
+              Équipe ({collaborativeCount})
+            </button>
+            <button
+              onClick={() => setFilterScope("PRIVATE")}
+              className={cn(
+                "py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5",
+                filterScope === "PRIVATE"
+                  ? "bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+              )}
+            >
+              <User className="h-3.5 w-3.5" />
+              Privés ({privateCount})
+            </button>
+          </div>
+
+          {/* Filtres contextuels & Volet */}
           <div className="space-y-2 pt-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               {/* Filtre Emplacement */}
@@ -169,11 +210,11 @@ export const MemoDrawer: React.FC = () => {
                     : "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                 )}
               >
-                Tous ({memos.length})
+                Toutes sections
               </button>
 
               <button
-                onClick={() => setFilterLocation("CURRENT_PAGE")}
+                onClick={() => setFilterLocation(filterLocation === "CURRENT_PAGE" ? "ALL" : "CURRENT_PAGE")}
                 className={cn(
                   "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1",
                   filterLocation === "CURRENT_PAGE"
@@ -190,8 +231,8 @@ export const MemoDrawer: React.FC = () => {
                 className={cn(
                   "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all",
                   filterPillar === "LAB_FT"
-                    ? "bg-amber-600 text-white shadow-sm"
-                    : "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400"
+                    ? "bg-amber-600 text-white shadow-sm font-bold"
+                    : "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                 )}
               >
                 🛡️ LAB/FT
@@ -204,8 +245,8 @@ export const MemoDrawer: React.FC = () => {
                 className={cn(
                   "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all",
                   filterPillar === "CONFORMITE_REGLEMENTAIRE"
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400"
+                    ? "bg-emerald-600 text-white shadow-sm font-bold"
+                    : "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                 )}
               >
                 ⚖️ Réglementaire
@@ -213,7 +254,7 @@ export const MemoDrawer: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-between text-[10px] text-slate-400 px-0.5">
-              <span>{filteredMemos.length} mémo(s) trouvé(s)</span>
+              <span>{filteredMemos.length} mémo(s) affiché(s)</span>
               <button
                 onClick={() => setFilterStatus(filterStatus === "ACTIVE" ? "RESOLVED" : "ACTIVE")}
                 className="hover:text-primary transition-colors font-semibold"
