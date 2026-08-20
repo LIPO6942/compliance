@@ -5379,7 +5379,7 @@ export default function RegtoolsDiffPage() {
                   : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
               )}
             >
-              Historique des Rapports ({savedReports.length})
+              Historique des Rapports ({new Set(savedReports.map((r: any) => r.monthKey || r.monthLabel)).size})
             </button>
           </div>
         </div>
