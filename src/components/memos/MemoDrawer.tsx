@@ -309,18 +309,6 @@ export const MemoDrawer: React.FC = () => {
           MAE Assurance • Espace de collaboration GRC & Mémos
         </div>
       </div>
-
-      {/* Modal d'édition */}
-      <MemoEditorModal
-        isOpen={isEditorOpen}
-        onClose={() => {
-          setIsEditorOpen(false);
-          setActiveEditorMemo(null);
-        }}
-        memoToEdit={activeEditorMemo}
-        defaultSectionHref={currentFullHref}
-        defaultSectionLabel={currentSectionLabel}
-      />
     </>
   );
 };

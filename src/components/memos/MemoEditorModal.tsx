@@ -4,8 +4,6 @@ import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,15 +16,15 @@ import {
   Users,
   User,
   AlertTriangle,
-  Info,
-  ShieldAlert,
   Layers,
   CheckCircle2,
   Check,
   Pin,
   X,
   Loader2,
-  Palette
+  Clock,
+  ShieldCheck,
+  Zap
 } from "lucide-react";
 import { ComplianceMemo, MemoPillar, MemoScope, MemoPriority, APP_SECTIONS, PILLAR_CONFIG } from "@/types/memo";
 import { useMemos } from "@/contexts/MemoContext";
@@ -41,55 +39,6 @@ interface MemoEditorModalProps {
   defaultSectionHref?: string;
   defaultSectionLabel?: string;
 }
-
-type PostItColor = "yellow" | "purple" | "emerald" | "blue";
-
-const POST_IT_THEMES: Record<PostItColor, {
-  name: string;
-  bgClass: string;
-  tapeClass: string;
-  borderClass: string;
-  textClass: string;
-  inputBgClass: string;
-  accentClass: string;
-}> = {
-  yellow: {
-    name: "Jaune Classique",
-    bgClass: "bg-gradient-to-b from-[#fefce8] via-[#fef9c3] to-[#fef08a] dark:from-[#37320c] dark:via-[#2c2808] dark:to-[#1f1c05]",
-    tapeClass: "bg-amber-300/40 dark:bg-amber-500/20 border-amber-300/60 shadow-inner",
-    borderClass: "border-amber-300/80 dark:border-amber-600/50",
-    textClass: "text-[#713f12] dark:text-[#fef08a]",
-    inputBgClass: "bg-amber-50/60 dark:bg-amber-950/40 text-[#422006] dark:text-[#fef9c3] placeholder:text-amber-700/40 dark:placeholder:text-amber-300/30",
-    accentClass: "bg-amber-500 text-white"
-  },
-  purple: {
-    name: "Lavande LAB/FT",
-    bgClass: "bg-gradient-to-b from-[#faf5ff] via-[#f3e8ff] to-[#e9d5ff] dark:from-[#2e1065] dark:via-[#1e0a45] dark:to-[#13042e]",
-    tapeClass: "bg-purple-300/40 dark:bg-purple-500/20 border-purple-300/60 shadow-inner",
-    borderClass: "border-purple-300/80 dark:border-purple-600/50",
-    textClass: "text-[#581c87] dark:text-[#e9d5ff]",
-    inputBgClass: "bg-purple-50/60 dark:bg-purple-950/40 text-[#3b0764] dark:text-[#f3e8ff] placeholder:text-purple-700/40 dark:placeholder:text-purple-300/30",
-    accentClass: "bg-purple-600 text-white"
-  },
-  emerald: {
-    name: "Menthe Réglementaire",
-    bgClass: "bg-gradient-to-b from-[#f0fdf4] via-[#dcfce7] to-[#bbf7d0] dark:from-[#052e16] dark:via-[#032010] dark:to-[#02140a]",
-    tapeClass: "bg-emerald-300/40 dark:bg-emerald-500/20 border-emerald-300/60 shadow-inner",
-    borderClass: "border-emerald-300/80 dark:border-emerald-600/50",
-    textClass: "text-[#065f46] dark:text-[#bbf7d0]",
-    inputBgClass: "bg-emerald-50/60 dark:bg-emerald-950/40 text-[#064e3b] dark:text-[#dcfce7] placeholder:text-emerald-700/40 dark:placeholder:text-emerald-300/30",
-    accentClass: "bg-emerald-600 text-white"
-  },
-  blue: {
-    name: "Bleu Ciel Audit",
-    bgClass: "bg-gradient-to-b from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd] dark:from-[#082f49] dark:via-[#041d2e] dark:to-[#021019]",
-    tapeClass: "bg-sky-300/40 dark:bg-sky-500/20 border-sky-300/60 shadow-inner",
-    borderClass: "border-sky-300/80 dark:border-sky-600/50",
-    textClass: "text-[#075985] dark:text-[#bae6fd]",
-    inputBgClass: "bg-sky-50/60 dark:bg-sky-950/40 text-[#0c4a6e] dark:text-[#e0f2fe] placeholder:text-sky-700/40 dark:placeholder:text-sky-300/30",
-    accentClass: "bg-sky-600 text-white"
-  }
-};
 
 export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
   isOpen,
@@ -106,7 +55,6 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
   const [pillar, setPillar] = useState<MemoPillar>("LAB_FT");
   const [scope, setScope] = useState<MemoScope>("COLLABORATIVE");
   const [priority, setPriority] = useState<MemoPriority>("ATTENTION");
-  const [postItColor, setPostItColor] = useState<PostItColor>("yellow");
   const [associatedSectionHref, setAssociatedSectionHref] = useState(defaultSectionHref);
   const [associatedSectionLabel, setAssociatedSectionLabel] = useState(defaultSectionLabel);
   const [checklistInput, setChecklistInput] = useState("");
@@ -120,19 +68,14 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
 
   useEffect(() => {
     if (memoToEdit) {
-      setTitle(memoToEdit.title);
-      setContent(memoToEdit.content);
-      setPillar(memoToEdit.pillar);
-      setScope(memoToEdit.scope);
-      setPriority(memoToEdit.priority);
+      setTitle(memoToEdit.title || "");
+      setContent(memoToEdit.content || "");
+      setPillar(memoToEdit.pillar || "LAB_FT");
+      setScope(memoToEdit.scope || "COLLABORATIVE");
+      setPriority(memoToEdit.priority || "ATTENTION");
       setAssociatedSectionHref(memoToEdit.associatedSectionHref || defaultSectionHref);
       setAssociatedSectionLabel(memoToEdit.associatedSectionLabel || defaultSectionLabel);
       setChecklists(memoToEdit.checklists || []);
-      setPostItColor(
-        memoToEdit.pillar === "LAB_FT" ? "purple" :
-        memoToEdit.pillar === "CONFORMITE_REGLEMENTAIRE" ? "emerald" :
-        memoToEdit.pillar === "AUDIT_CONTROLE" ? "blue" : "yellow"
-      );
     } else {
       setTitle("");
       setContent("");
@@ -142,13 +85,10 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
       setAssociatedSectionHref(defaultSectionHref);
       setAssociatedSectionLabel(defaultSectionLabel);
       setChecklists([]);
-      setPostItColor("yellow");
     }
     setShowAiPreview(false);
     setAiSuggestion(null);
   }, [memoToEdit, defaultSectionHref, defaultSectionLabel, isOpen]);
-
-  const theme = POST_IT_THEMES[postItColor];
 
   const handleAddChecklistItem = () => {
     if (!checklistInput.trim()) return;
@@ -178,7 +118,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
     if (!content.trim()) {
       toast({
         title: "Texte requis",
-        description: "Veuillez d'abord rédiger quelques lignes de note pour que l'IA puisse les reformuler.",
+        description: "Veuillez d'abord rédiger une ébauche de note pour que l'IA puisse la reformuler.",
         variant: "destructive",
       });
       return;
@@ -209,8 +149,8 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
         });
         setShowAiPreview(true);
         toast({
-          title: "Reformulation générée",
-          description: "La proposition de style a été créée avec succès.",
+          title: "Proposition générée",
+          description: "La reformulation IA est prête.",
         });
       }
     } catch (err) {
@@ -232,7 +172,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
     setShowAiPreview(false);
     toast({
       title: "Post-it mis à jour !",
-      description: "Le texte reformulé a été inséré dans votre post-it.",
+      description: "Le texte reformulé a été inséré dans votre mémo.",
     });
   };
 
@@ -241,13 +181,13 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
     if (!title.trim() || !content.trim()) {
       toast({
         title: "Champs requis",
-        description: "Veuillez renseigner un titre et le contenu de votre post-it.",
+        description: "Veuillez renseigner un titre et le contenu de votre mémo.",
         variant: "destructive",
       });
       return;
     }
 
-    if (memoToEdit) {
+    if (memoToEdit && memoToEdit.id) {
       await updateMemo(memoToEdit.id, {
         title: title.trim(),
         content: content.trim(),
@@ -280,116 +220,68 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-xl max-h-[92vh] overflow-y-auto p-0 border-none bg-transparent shadow-none">
         {/* ═══════════════════════════════════════════════════════════════════════
-             VÉRITABLE DESIGN POST-IT / STICKY NOTE AVEC BANDE ADHÉSIVE
+             DESIGN POST-IT PREMIUM : PAPIER IVOIRE / AMBRE GRC
              ═══════════════════════════════════════════════════════════════════════ */}
         <div
-          className={cn(
-            "relative rounded-3xl p-6 sm:p-7 shadow-2xl transition-all duration-300 border-2",
-            theme.bgClass,
-            theme.borderClass,
-            theme.textClass
-          )}
+          className="relative rounded-3xl p-6 sm:p-7 transition-all duration-300 border-2 bg-gradient-to-b from-[#FFFDF8] via-[#FEFBF0] to-[#FDF6E2] dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-950 border-amber-300/80 dark:border-amber-600/40 text-slate-800 dark:text-slate-100 shadow-2xl"
           style={{
             boxShadow:
-              "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1) inset, 8px 12px 24px rgba(0,0,0,0.15)",
+              "0 20px 45px -10px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(251, 191, 36, 0.15) inset, 0 8px 16px rgba(0,0,0,0.06)",
           }}
         >
-          {/* Bande de ruban adhésif / Tape translucide en haut */}
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-32 h-6 rounded-md backdrop-blur-md border border-white/60 dark:border-white/20 transform -rotate-1 shadow-sm flex items-center justify-center bg-white/40 dark:bg-white/10 z-20">
-            <div className="h-1.5 w-1.5 rounded-full bg-rose-500/80 shadow-sm" />
+          {/* Ruban adhésif / Punaise supérieure */}
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-28 h-6 rounded-md backdrop-blur-md border border-amber-400/40 dark:border-amber-600/30 transform -rotate-1 shadow-sm flex items-center justify-center bg-amber-200/50 dark:bg-amber-500/20 z-20">
+            <div className="h-2 w-2 rounded-full bg-rose-500 shadow-sm border border-rose-400" />
           </div>
 
           {/* Bouton Fermer */}
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors z-20"
+            className="absolute top-4 right-4 p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors z-20 text-slate-500 dark:text-slate-400"
           >
-            <X className="h-4 w-4 opacity-70" />
+            <X className="h-4 w-4" />
           </button>
 
-          {/* En-tête du Post-it */}
-          <div className="flex justify-between items-center pb-3 border-b border-black/10 dark:border-white/10 pt-1">
+          {/* En-tête du Mémo Post-it */}
+          <div className="flex justify-between items-center pb-3 border-b border-amber-200/60 dark:border-slate-800 pt-1">
             <div className="flex items-center gap-2">
-              <span className="text-base font-black uppercase tracking-tight flex items-center gap-1.5">
+              <span className="text-base font-black uppercase tracking-tight flex items-center gap-1.5 text-slate-900 dark:text-white">
                 <Pin className="h-4 w-4 fill-current text-rose-500 rotate-12" />
-                {memoToEdit ? "Modifier le Post-it" : "Nouveau Post-it Mémo"}
+                {memoToEdit ? "Modifier le Post-it" : "Nouveau Mémo Post-it"}
               </span>
             </div>
 
-            {/* Sélecteur de couleur du Post-it */}
-            <div className="flex items-center gap-1.5 mr-6">
-              <button
-                type="button"
-                onClick={() => setPostItColor("yellow")}
-                className={cn(
-                  "h-4 w-4 rounded-full bg-[#fef08a] border-2 transition-transform",
-                  postItColor === "yellow" ? "border-amber-600 scale-125 shadow-sm" : "border-amber-300 opacity-60"
-                )}
-                title="Jaune Classique"
-              />
-              <button
-                type="button"
-                onClick={() => setPostItColor("purple")}
-                className={cn(
-                  "h-4 w-4 rounded-full bg-[#e9d5ff] border-2 transition-transform",
-                  postItColor === "purple" ? "border-purple-600 scale-125 shadow-sm" : "border-purple-300 opacity-60"
-                )}
-                title="Lavande LAB/FT"
-              />
-              <button
-                type="button"
-                onClick={() => setPostItColor("emerald")}
-                className={cn(
-                  "h-4 w-4 rounded-full bg-[#bbf7d0] border-2 transition-transform",
-                  postItColor === "emerald" ? "border-emerald-600 scale-125 shadow-sm" : "border-emerald-300 opacity-60"
-                )}
-                title="Menthe Réglementaire"
-              />
-              <button
-                type="button"
-                onClick={() => setPostItColor("blue")}
-                className={cn(
-                  "h-4 w-4 rounded-full bg-[#bae6fd] border-2 transition-transform",
-                  postItColor === "blue" ? "border-sky-600 scale-125 shadow-sm" : "border-sky-300 opacity-60"
-                )}
-                title="Bleu Ciel Audit"
-              />
+            <div className="mr-8">
+              <Badge variant="outline" className="text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-300/60 dark:border-amber-700/60">
+                📌 Note Active
+              </Badge>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3.5 pt-3">
+          <form onSubmit={handleSubmit} className="space-y-4 pt-3.5">
             {/* Titre Post-it */}
             <div className="space-y-1">
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Titre de la note..."
-                className={cn(
-                  "text-sm font-black tracking-tight rounded-xl border-none shadow-sm focus-visible:ring-1 focus-visible:ring-black/20",
-                  theme.inputBgClass
-                )}
+                placeholder="Titre ou objet du mémo..."
+                className="text-sm font-black tracking-tight rounded-xl bg-white/90 dark:bg-slate-800/90 border-amber-200 dark:border-slate-700 text-slate-900 dark:text-white shadow-xs focus-visible:ring-1 focus-visible:ring-amber-500"
                 required
               />
             </div>
 
-            {/* Badges / Sélecteurs Métier & Portée */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {/* Badges / Sélecteurs Métier, Portée & Priorité */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {/* Volet */}
-              <div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                  Volet Métier
+                </label>
                 <select
                   value={pillar}
-                  onChange={(e) => {
-                    const nextPillar = e.target.value as MemoPillar;
-                    setPillar(nextPillar);
-                    if (nextPillar === "LAB_FT") setPostItColor("purple");
-                    else if (nextPillar === "CONFORMITE_REGLEMENTAIRE") setPostItColor("emerald");
-                    else if (nextPillar === "AUDIT_CONTROLE") setPostItColor("blue");
-                  }}
-                  className={cn(
-                    "w-full text-[11px] font-bold rounded-xl p-2 border border-black/10 dark:border-white/10 outline-none shadow-sm",
-                    theme.inputBgClass
-                  )}
+                  onChange={(e) => setPillar(e.target.value as MemoPillar)}
+                  className="w-full text-xs font-bold rounded-xl p-2 bg-white/90 dark:bg-slate-800/90 border border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 outline-none shadow-xs"
                 >
                   <option value="LAB_FT">🛡️ LAB / FT</option>
                   <option value="CONFORMITE_REGLEMENTAIRE">⚖️ Réglementaire</option>
@@ -399,89 +291,94 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
               </div>
 
               {/* Portée */}
-              <div className="grid grid-cols-2 gap-1 p-0.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5">
-                <button
-                  type="button"
-                  onClick={() => setScope("COLLABORATIVE")}
-                  className={cn(
-                    "py-1 px-1.5 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1",
-                    scope === "COLLABORATIVE"
-                      ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                      : "opacity-60 hover:opacity-100"
-                  )}
-                >
-                  <Users className="h-3 w-3" />
-                  Équipe
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScope("PRIVATE")}
-                  className={cn(
-                    "py-1 px-1.5 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1",
-                    scope === "PRIVATE"
-                      ? "bg-white dark:bg-slate-800 shadow-sm"
-                      : "opacity-60 hover:opacity-100"
-                  )}
-                >
-                  <User className="h-3 w-3" />
-                  Privé
-                </button>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                  Portée / Visibilité
+                </label>
+                <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-white/90 dark:bg-slate-800/90 border border-amber-200 dark:border-slate-700 shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => setScope("COLLABORATIVE")}
+                    className={cn(
+                      "py-1 px-1.5 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1",
+                      scope === "COLLABORATIVE"
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                    )}
+                  >
+                    <Users className="h-3 w-3" />
+                    Équipe
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScope("PRIVATE")}
+                    className={cn(
+                      "py-1 px-1.5 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1",
+                      scope === "PRIVATE"
+                        ? "bg-slate-800 dark:bg-slate-700 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                    )}
+                  >
+                    <User className="h-3 w-3" />
+                    Privé
+                  </button>
+                </div>
               </div>
 
               {/* Priorité */}
-              <div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                  Niveau de Priorité
+                </label>
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as MemoPriority)}
-                  className={cn(
-                    "w-full text-[11px] font-bold rounded-xl p-2 border border-black/10 dark:border-white/10 outline-none shadow-sm",
-                    theme.inputBgClass
-                  )}
+                  className="w-full text-xs font-bold rounded-xl p-2 bg-white/90 dark:bg-slate-800/90 border border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 outline-none shadow-xs"
                 >
-                  <option value="URGENT">🚨 Urgent</option>
+                  <option value="URGENT">🚨 Urgent / Bloquant</option>
                   <option value="ATTENTION">⚡ Attention</option>
-                  <option value="INFO">🟢 Info</option>
+                  <option value="INFO">🟢 Information</option>
                 </select>
               </div>
             </div>
 
-            {/* Section Associée */}
-            <div className="flex items-center gap-1.5">
-              <Layers className="h-3.5 w-3.5 opacity-60 shrink-0" />
+            {/* Section Applicative Associée */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <Layers className="h-3 w-3 text-indigo-500" />
+                Section Applicative Associée
+              </label>
               <select
                 value={associatedSectionHref}
                 onChange={(e) => handleSectionChange(e.target.value)}
-                className={cn(
-                  "w-full text-[11px] font-semibold rounded-xl p-1.5 border border-black/10 dark:border-white/10 outline-none shadow-sm truncate",
-                  theme.inputBgClass
-                )}
+                className="w-full text-xs font-semibold rounded-xl p-2 bg-white/90 dark:bg-slate-800/90 border border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 outline-none shadow-xs truncate"
               >
                 {APP_SECTIONS.map((sec) => (
                   <option key={sec.href} value={sec.href}>
-                    {sec.label}
+                    [{sec.group}] — {sec.label}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Zone de texte du Post-it & Barre Outil IA */}
+            {/* Zone de texte & Barre d'Outils IA */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center flex-wrap gap-1">
-                <span className="text-[10px] font-black uppercase tracking-wider opacity-70">
-                  Corps du Post-it
-                </span>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Contenu du mémo <span className="text-rose-500">*</span>
+                </label>
 
-                {/* Boutons Reformulation IA intégrés */}
-                <div className="flex items-center gap-1 bg-black/5 dark:bg-white/10 p-0.5 rounded-lg border border-black/10 dark:border-white/10">
-                  <span className="text-[9px] font-black uppercase px-1 flex items-center gap-1 opacity-80">
-                    <Sparkles className="h-2.5 w-2.5 text-rose-500" /> IA :
+                {/* Boutons Reformulation IA */}
+                <div className="flex items-center gap-1 bg-amber-500/10 dark:bg-slate-800 p-1 rounded-xl border border-amber-300/40 dark:border-slate-700">
+                  <span className="text-[9px] font-black uppercase text-amber-700 dark:text-amber-400 px-1 flex items-center gap-1">
+                    <Sparkles className="h-3 w-3 text-amber-500 animate-pulse" /> IA :
                   </span>
                   <button
                     type="button"
                     disabled={isReformulating || !content.trim()}
                     onClick={() => handleReformulate("FORMAL")}
-                    className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-white/80 dark:bg-slate-800 hover:bg-amber-500 hover:text-white transition-all shadow-xs disabled:opacity-40"
-                    title="Style formel de direction"
+                    className="px-2 py-0.5 text-[9px] font-bold rounded-lg bg-white dark:bg-slate-900 hover:bg-amber-500 hover:text-white transition-all shadow-xs disabled:opacity-40"
+                    title="Ton formel et soigné pour note de direction"
                   >
                     {isReformulating && aiStyle === "FORMAL" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "Formel"}
                   </button>
@@ -489,8 +386,8 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                     type="button"
                     disabled={isReformulating || !content.trim()}
                     onClick={() => handleReformulate("SYNTHETIC")}
-                    className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-white/80 dark:bg-slate-800 hover:bg-amber-500 hover:text-white transition-all shadow-xs disabled:opacity-40"
-                    title="Style synthétique à puces"
+                    className="px-2 py-0.5 text-[9px] font-bold rounded-lg bg-white dark:bg-slate-900 hover:bg-amber-500 hover:text-white transition-all shadow-xs disabled:opacity-40"
+                    title="Synthèse en bullet points orientée action"
                   >
                     {isReformulating && aiStyle === "SYNTHETIC" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "Synthétique"}
                   </button>
@@ -498,8 +395,8 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                     type="button"
                     disabled={isReformulating || !content.trim()}
                     onClick={() => handleReformulate("LEGAL")}
-                    className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-white/80 dark:bg-slate-800 hover:bg-amber-500 hover:text-white transition-all shadow-xs disabled:opacity-40"
-                    title="Style réglementaire juridique"
+                    className="px-2 py-0.5 text-[9px] font-bold rounded-lg bg-white dark:bg-slate-900 hover:bg-amber-500 hover:text-white transition-all shadow-xs disabled:opacity-40"
+                    title="Formulation réglementaire rigoureuse"
                   >
                     {isReformulating && aiStyle === "LEGAL" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "Réglementaire"}
                   </button>
@@ -509,50 +406,57 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
               <Textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Écrivez vos notes, consignes, observations de contrôle..."
+                placeholder="Rédigez vos observations, instructions, questions ou consignes ici..."
                 rows={4}
-                className={cn(
-                  "text-xs rounded-2xl font-medium leading-relaxed border-none shadow-sm focus-visible:ring-1 focus-visible:ring-black/20 resize-none",
-                  theme.inputBgClass
-                )}
+                className="text-xs rounded-2xl font-medium leading-relaxed bg-white/90 dark:bg-slate-800/90 border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 shadow-xs resize-none focus-visible:ring-1 focus-visible:ring-amber-500"
                 required
               />
             </div>
 
             {/* Prévisualisation Reformulation IA */}
             {showAiPreview && aiSuggestion && (
-              <div className="p-3 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-black/10 dark:border-white/10 shadow-md space-y-2 animate-in fade-in duration-200">
+              <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border-2 border-amber-400 dark:border-amber-500/60 shadow-md space-y-2 animate-in fade-in duration-200">
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" /> Proposition IA ({aiStyle})
+                  <span className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5" /> Proposition IA ({aiStyle === "FORMAL" ? "Formel" : aiStyle === "SYNTHETIC" ? "Synthétique" : "Réglementaire"})
                   </span>
                   <div className="flex items-center gap-1">
                     <Button
                       type="button"
                       size="sm"
                       onClick={handleApplyAiSuggestion}
-                      className="h-6 px-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[9px] font-bold gap-1"
+                      className="h-7 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black gap-1"
                     >
-                      <Check className="h-2.5 w-2.5" /> Insérer
+                      <Check className="h-3 w-3" /> Insérer cette version
                     </Button>
                     <button
                       type="button"
                       onClick={() => setShowAiPreview(false)}
-                      className="text-[9px] opacity-60 hover:opacity-100 p-1"
+                      className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
                     >
                       ✕
                     </button>
                   </div>
                 </div>
-                <p className="text-[11px] whitespace-pre-line leading-relaxed font-medium">
+                {aiSuggestion.title && (
+                  <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                    <span className="text-slate-400 font-normal">Titre suggéré :</span> {aiSuggestion.title}
+                  </p>
+                )}
+                <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed font-medium bg-amber-50/50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-amber-200/50 dark:border-slate-700">
                   {aiSuggestion.text}
                 </p>
               </div>
             )}
 
             {/* Checklist / Actions */}
-            <div className="space-y-1.5 pt-1 border-t border-black/10 dark:border-white/10">
-              <div className="flex gap-1.5">
+            <div className="space-y-2 pt-1 border-t border-amber-200/60 dark:border-slate-800">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                Checklist / Actions à vérifier
+              </label>
+
+              <div className="flex gap-2">
                 <Input
                   value={checklistInput}
                   onChange={(e) => setChecklistInput(e.target.value)}
@@ -562,35 +466,34 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                       handleAddChecklistItem();
                     }
                   }}
-                  placeholder="Ajouter une action à cocher..."
-                  className={cn(
-                    "text-[11px] rounded-xl h-7 border-none shadow-xs",
-                    theme.inputBgClass
-                  )}
+                  placeholder="Ajouter une action (ex: Contrôler la pièce d'identité)..."
+                  className="text-xs rounded-xl h-8 bg-white/90 dark:bg-slate-800/90 border-amber-200 dark:border-slate-700"
                 />
                 <Button
                   type="button"
                   size="sm"
                   onClick={handleAddChecklistItem}
-                  className="h-7 px-2.5 rounded-xl bg-black/10 dark:bg-white/10 hover:bg-black/20 text-[10px] font-bold shrink-0"
+                  className="h-8 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-800 dark:text-amber-200 text-xs font-bold shrink-0"
                 >
-                  <Plus className="h-3 w-3 mr-0.5" />
+                  <Plus className="h-3.5 w-3.5 mr-1" />
                   Ajouter
                 </Button>
               </div>
 
               {checklists.length > 0 && (
-                <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
                   {checklists.map((chk) => (
                     <div
                       key={chk.id}
-                      className="flex items-center justify-between gap-1.5 px-2 py-1 bg-white/40 dark:bg-black/20 rounded-lg text-[10px]"
+                      className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-amber-200/40 dark:border-slate-700 text-xs"
                     >
-                      <span className="truncate font-medium">☑ {chk.text}</span>
+                      <span className="truncate font-medium text-slate-700 dark:text-slate-300">
+                        • {chk.text}
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveChecklistItem(chk.id)}
-                        className="opacity-50 hover:opacity-100 p-0.5"
+                        className="text-slate-400 hover:text-rose-500 p-1"
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -601,29 +504,29 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
             </div>
 
             {/* Pied du Post-it */}
-            <div className="pt-3 border-t border-black/10 dark:border-white/10 flex justify-between items-center gap-2">
+            <div className="pt-3 border-t border-amber-200/60 dark:border-slate-800 flex justify-between items-center gap-2">
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 onClick={onClose}
-                className="h-8 px-3 rounded-xl text-xs font-semibold opacity-70 hover:opacity-100"
+                className="h-9 px-4 rounded-xl text-xs font-semibold bg-white/80 dark:bg-slate-800 border-amber-200 dark:border-slate-700"
               >
                 Annuler
               </Button>
               <Button
                 type="submit"
-                className="h-8 px-4 rounded-xl bg-slate-900 hover:bg-black text-white dark:bg-white dark:text-slate-900 text-xs font-black shadow-md"
+                className="h-9 px-5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black shadow-md shadow-amber-500/20"
               >
-                {memoToEdit ? "Sauvegarder" : "Coller le Post-it 📌"}
+                {memoToEdit ? "Enregistrer les modifications" : "Épingler le Post-it 📌"}
               </Button>
             </div>
           </form>
 
           {/* Effet d'ombre de coin replié en bas à droite */}
           <div
-            className="absolute bottom-0 right-0 w-6 h-6 pointer-events-none rounded-br-3xl"
+            className="absolute bottom-0 right-0 w-6 h-6 pointer-events-none rounded-br-3xl opacity-30"
             style={{
-              background: "linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.08) 50%)",
+              background: "linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.15) 50%)",
             }}
           />
         </div>

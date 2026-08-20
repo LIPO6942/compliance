@@ -63,6 +63,7 @@ import { useActivityLog } from "@/contexts/ActivityLogContext";
 import { Activity } from "lucide-react";
 import { MemoHeaderTrigger } from "@/components/memos/MemoHeaderTrigger";
 import { MemoDrawer } from "@/components/memos/MemoDrawer";
+import { MemoEditorModalWrapper } from "@/components/memos/MemoEditorModalWrapper";
 import { FloatingPinnedMemoWidget } from "@/components/memos/FloatingPinnedMemoWidget";
 
 const navItems = [
@@ -355,6 +356,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
         {/* Drawer latéral des mémos */}
         <MemoDrawer />
+        {/* Modal de création / édition de mémo (ouvrable directement via le '+' ou le tiroir) */}
+        <MemoEditorModalWrapper />
         {/* Widget flottant de mémo épinglé */}
         <FloatingPinnedMemoWidget />
       </SidebarInset>
