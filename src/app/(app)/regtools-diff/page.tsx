@@ -6679,6 +6679,9 @@ export default function RegtoolsDiffPage() {
                           </h4>
                           <p className="text-[10px] text-slate-400">
                             Dernière activité le {new Date(group.maxSavedAt).toLocaleDateString("fr-FR")}
+                            <span className="block text-[9px] text-slate-400/80 font-mono mt-0.5">
+                              à {new Date(group.maxSavedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                            </span>
                           </p>
                         </div>
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
@@ -6705,9 +6708,14 @@ export default function RegtoolsDiffPage() {
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
                                 Non-Vie (NS)
                               </span>
-                              <span className="text-[9px] text-slate-400">
-                                {new Date(group.nsReport.savedAt).toLocaleDateString("fr-FR")}
-                              </span>
+                              <div className="text-right">
+                                <span className="text-[9px] font-semibold text-slate-600 dark:text-slate-300 block">
+                                  {new Date(group.nsReport.savedAt).toLocaleDateString("fr-FR")}
+                                </span>
+                                <span className="text-[8px] text-slate-400 font-mono block">
+                                  {new Date(group.nsReport.savedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                                </span>
+                              </div>
                             </div>
                             <div className="text-[11px] text-slate-500 space-y-1 my-1">
                               <div className="flex justify-between">
@@ -6755,9 +6763,14 @@ export default function RegtoolsDiffPage() {
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400">
                                 Assurance VIE
                               </span>
-                              <span className="text-[9px] text-slate-400">
-                                {new Date(group.vieReport.savedAt).toLocaleDateString("fr-FR")}
-                              </span>
+                              <div className="text-right">
+                                <span className="text-[9px] font-semibold text-slate-600 dark:text-slate-300 block">
+                                  {new Date(group.vieReport.savedAt).toLocaleDateString("fr-FR")}
+                                </span>
+                                <span className="text-[8px] text-slate-400 font-mono block">
+                                  {new Date(group.vieReport.savedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                                </span>
+                              </div>
                             </div>
                             <div className="text-[11px] text-slate-500 space-y-1 my-1">
                               <div className="flex justify-between">
@@ -6836,7 +6849,7 @@ export default function RegtoolsDiffPage() {
                     </span>
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Sauvegardé le {new Date(selectedHistoryReport.savedAt).toLocaleDateString("fr-FR")}
+                    Sauvegardé le {new Date(selectedHistoryReport.savedAt).toLocaleDateString("fr-FR")} à {new Date(selectedHistoryReport.savedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                     {selectedHistoryReport.reconciliationType === "BOTH" && (
                       <> • NS : {selectedHistoryReport.fileNameNS} | VIE : {selectedHistoryReport.fileNameVIE}</>
                     )}
