@@ -6,7 +6,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,11 +22,11 @@ import {
   ShieldAlert,
   Layers,
   CheckCircle2,
-  ChevronDown,
-  Wand2,
-  Loader2,
   Check,
-  RefreshCw
+  Pin,
+  X,
+  Loader2,
+  Palette
 } from "lucide-react";
 import { ComplianceMemo, MemoPillar, MemoScope, MemoPriority, APP_SECTIONS, PILLAR_CONFIG } from "@/types/memo";
 import { useMemos } from "@/contexts/MemoContext";
@@ -42,6 +41,55 @@ interface MemoEditorModalProps {
   defaultSectionHref?: string;
   defaultSectionLabel?: string;
 }
+
+type PostItColor = "yellow" | "purple" | "emerald" | "blue";
+
+const POST_IT_THEMES: Record<PostItColor, {
+  name: string;
+  bgClass: string;
+  tapeClass: string;
+  borderClass: string;
+  textClass: string;
+  inputBgClass: string;
+  accentClass: string;
+}> = {
+  yellow: {
+    name: "Jaune Classique",
+    bgClass: "bg-gradient-to-b from-[#fefce8] via-[#fef9c3] to-[#fef08a] dark:from-[#37320c] dark:via-[#2c2808] dark:to-[#1f1c05]",
+    tapeClass: "bg-amber-300/40 dark:bg-amber-500/20 border-amber-300/60 shadow-inner",
+    borderClass: "border-amber-300/80 dark:border-amber-600/50",
+    textClass: "text-[#713f12] dark:text-[#fef08a]",
+    inputBgClass: "bg-amber-50/60 dark:bg-amber-950/40 text-[#422006] dark:text-[#fef9c3] placeholder:text-amber-700/40 dark:placeholder:text-amber-300/30",
+    accentClass: "bg-amber-500 text-white"
+  },
+  purple: {
+    name: "Lavande LAB/FT",
+    bgClass: "bg-gradient-to-b from-[#faf5ff] via-[#f3e8ff] to-[#e9d5ff] dark:from-[#2e1065] dark:via-[#1e0a45] dark:to-[#13042e]",
+    tapeClass: "bg-purple-300/40 dark:bg-purple-500/20 border-purple-300/60 shadow-inner",
+    borderClass: "border-purple-300/80 dark:border-purple-600/50",
+    textClass: "text-[#581c87] dark:text-[#e9d5ff]",
+    inputBgClass: "bg-purple-50/60 dark:bg-purple-950/40 text-[#3b0764] dark:text-[#f3e8ff] placeholder:text-purple-700/40 dark:placeholder:text-purple-300/30",
+    accentClass: "bg-purple-600 text-white"
+  },
+  emerald: {
+    name: "Menthe Réglementaire",
+    bgClass: "bg-gradient-to-b from-[#f0fdf4] via-[#dcfce7] to-[#bbf7d0] dark:from-[#052e16] dark:via-[#032010] dark:to-[#02140a]",
+    tapeClass: "bg-emerald-300/40 dark:bg-emerald-500/20 border-emerald-300/60 shadow-inner",
+    borderClass: "border-emerald-300/80 dark:border-emerald-600/50",
+    textClass: "text-[#065f46] dark:text-[#bbf7d0]",
+    inputBgClass: "bg-emerald-50/60 dark:bg-emerald-950/40 text-[#064e3b] dark:text-[#dcfce7] placeholder:text-emerald-700/40 dark:placeholder:text-emerald-300/30",
+    accentClass: "bg-emerald-600 text-white"
+  },
+  blue: {
+    name: "Bleu Ciel Audit",
+    bgClass: "bg-gradient-to-b from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd] dark:from-[#082f49] dark:via-[#041d2e] dark:to-[#021019]",
+    tapeClass: "bg-sky-300/40 dark:bg-sky-500/20 border-sky-300/60 shadow-inner",
+    borderClass: "border-sky-300/80 dark:border-sky-600/50",
+    textClass: "text-[#075985] dark:text-[#bae6fd]",
+    inputBgClass: "bg-sky-50/60 dark:bg-sky-950/40 text-[#0c4a6e] dark:text-[#e0f2fe] placeholder:text-sky-700/40 dark:placeholder:text-sky-300/30",
+    accentClass: "bg-sky-600 text-white"
+  }
+};
 
 export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
   isOpen,
@@ -58,6 +106,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
   const [pillar, setPillar] = useState<MemoPillar>("LAB_FT");
   const [scope, setScope] = useState<MemoScope>("COLLABORATIVE");
   const [priority, setPriority] = useState<MemoPriority>("ATTENTION");
+  const [postItColor, setPostItColor] = useState<PostItColor>("yellow");
   const [associatedSectionHref, setAssociatedSectionHref] = useState(defaultSectionHref);
   const [associatedSectionLabel, setAssociatedSectionLabel] = useState(defaultSectionLabel);
   const [checklistInput, setChecklistInput] = useState("");
@@ -79,6 +128,11 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
       setAssociatedSectionHref(memoToEdit.associatedSectionHref || defaultSectionHref);
       setAssociatedSectionLabel(memoToEdit.associatedSectionLabel || defaultSectionLabel);
       setChecklists(memoToEdit.checklists || []);
+      setPostItColor(
+        memoToEdit.pillar === "LAB_FT" ? "purple" :
+        memoToEdit.pillar === "CONFORMITE_REGLEMENTAIRE" ? "emerald" :
+        memoToEdit.pillar === "AUDIT_CONTROLE" ? "blue" : "yellow"
+      );
     } else {
       setTitle("");
       setContent("");
@@ -88,10 +142,13 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
       setAssociatedSectionHref(defaultSectionHref);
       setAssociatedSectionLabel(defaultSectionLabel);
       setChecklists([]);
+      setPostItColor("yellow");
     }
     setShowAiPreview(false);
     setAiSuggestion(null);
   }, [memoToEdit, defaultSectionHref, defaultSectionLabel, isOpen]);
+
+  const theme = POST_IT_THEMES[postItColor];
 
   const handleAddChecklistItem = () => {
     if (!checklistInput.trim()) return;
@@ -121,7 +178,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
     if (!content.trim()) {
       toast({
         title: "Texte requis",
-        description: "Veuillez d'abord rédiger une ébauche de note pour que l'IA puisse la reformuler.",
+        description: "Veuillez d'abord rédiger quelques lignes de note pour que l'IA puisse les reformuler.",
         variant: "destructive",
       });
       return;
@@ -152,8 +209,8 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
         });
         setShowAiPreview(true);
         toast({
-          title: "Proposition générée",
-          description: "La reformulation IA est prête pour relecture.",
+          title: "Reformulation générée",
+          description: "La proposition de style a été créée avec succès.",
         });
       }
     } catch (err) {
@@ -174,8 +231,8 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
     if (aiSuggestion.title && !title) setTitle(aiSuggestion.title);
     setShowAiPreview(false);
     toast({
-      title: "Texte appliqué !",
-      description: "La reformulation IA a été insérée dans votre mémo.",
+      title: "Post-it mis à jour !",
+      description: "Le texte reformulé a été inséré dans votre post-it.",
     });
   };
 
@@ -184,7 +241,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
     if (!title.trim() || !content.trim()) {
       toast({
         title: "Champs requis",
-        description: "Veuillez renseigner au minimum un titre et le contenu du mémo.",
+        description: "Veuillez renseigner un titre et le contenu de votre post-it.",
         variant: "destructive",
       });
       return;
@@ -221,71 +278,136 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6 rounded-3xl border-slate-200/60 dark:border-slate-800/60 bg-white dark:bg-slate-950 shadow-2xl">
-        <DialogHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <Sparkles className="h-5 w-5" />
-            </span>
-            <div>
-              <DialogTitle className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">
-                {memoToEdit ? "Modifier le Mémo" : "Nouveau Compliance Mémo"}
-              </DialogTitle>
-              <p className="text-xs text-slate-400">
-                Note de travail collaborative ou personnelle rattachée aux processus de conformité
-              </p>
-            </div>
-          </div>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-          {/* Titre */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-              Titre du mémo <span className="text-rose-500">*</span>
-            </label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex: Point de vigilance sur les clients sous sanctions..."
-              className="text-xs rounded-xl font-semibold bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800"
-              required
-            />
+      <DialogContent className="max-w-xl max-h-[92vh] overflow-y-auto p-0 border-none bg-transparent shadow-none">
+        {/* ═══════════════════════════════════════════════════════════════════════
+             VÉRITABLE DESIGN POST-IT / STICKY NOTE AVEC BANDE ADHÉSIVE
+             ═══════════════════════════════════════════════════════════════════════ */}
+        <div
+          className={cn(
+            "relative rounded-3xl p-6 sm:p-7 shadow-2xl transition-all duration-300 border-2",
+            theme.bgClass,
+            theme.borderClass,
+            theme.textClass
+          )}
+          style={{
+            boxShadow:
+              "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1) inset, 8px 12px 24px rgba(0,0,0,0.15)",
+          }}
+        >
+          {/* Bande de ruban adhésif / Tape translucide en haut */}
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-32 h-6 rounded-md backdrop-blur-md border border-white/60 dark:border-white/20 transform -rotate-1 shadow-sm flex items-center justify-center bg-white/40 dark:bg-white/10 z-20">
+            <div className="h-1.5 w-1.5 rounded-full bg-rose-500/80 shadow-sm" />
           </div>
 
-          {/* Sélecteurs Volet Métier, Portée & Priorité */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Volet */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                Volet Métier
-              </label>
-              <select
-                value={pillar}
-                onChange={(e) => setPillar(e.target.value as MemoPillar)}
-                className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2 outline-none"
-              >
-                <option value="LAB_FT">🛡️ LAB / FT</option>
-                <option value="CONFORMITE_REGLEMENTAIRE">⚖️ Conformité Réglementaire</option>
-                <option value="AUDIT_CONTROLE">🔍 Audit & Contrôle</option>
-                <option value="GENERAL">📌 Général / Pense-bête</option>
-              </select>
+          {/* Bouton Fermer */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors z-20"
+          >
+            <X className="h-4 w-4 opacity-70" />
+          </button>
+
+          {/* En-tête du Post-it */}
+          <div className="flex justify-between items-center pb-3 border-b border-black/10 dark:border-white/10 pt-1">
+            <div className="flex items-center gap-2">
+              <span className="text-base font-black uppercase tracking-tight flex items-center gap-1.5">
+                <Pin className="h-4 w-4 fill-current text-rose-500 rotate-12" />
+                {memoToEdit ? "Modifier le Post-it" : "Nouveau Post-it Mémo"}
+              </span>
             </div>
 
-            {/* Portée */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                Visibilité / Portée
-              </label>
-              <div className="grid grid-cols-2 gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+            {/* Sélecteur de couleur du Post-it */}
+            <div className="flex items-center gap-1.5 mr-6">
+              <button
+                type="button"
+                onClick={() => setPostItColor("yellow")}
+                className={cn(
+                  "h-4 w-4 rounded-full bg-[#fef08a] border-2 transition-transform",
+                  postItColor === "yellow" ? "border-amber-600 scale-125 shadow-sm" : "border-amber-300 opacity-60"
+                )}
+                title="Jaune Classique"
+              />
+              <button
+                type="button"
+                onClick={() => setPostItColor("purple")}
+                className={cn(
+                  "h-4 w-4 rounded-full bg-[#e9d5ff] border-2 transition-transform",
+                  postItColor === "purple" ? "border-purple-600 scale-125 shadow-sm" : "border-purple-300 opacity-60"
+                )}
+                title="Lavande LAB/FT"
+              />
+              <button
+                type="button"
+                onClick={() => setPostItColor("emerald")}
+                className={cn(
+                  "h-4 w-4 rounded-full bg-[#bbf7d0] border-2 transition-transform",
+                  postItColor === "emerald" ? "border-emerald-600 scale-125 shadow-sm" : "border-emerald-300 opacity-60"
+                )}
+                title="Menthe Réglementaire"
+              />
+              <button
+                type="button"
+                onClick={() => setPostItColor("blue")}
+                className={cn(
+                  "h-4 w-4 rounded-full bg-[#bae6fd] border-2 transition-transform",
+                  postItColor === "blue" ? "border-sky-600 scale-125 shadow-sm" : "border-sky-300 opacity-60"
+                )}
+                title="Bleu Ciel Audit"
+              />
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-3.5 pt-3">
+            {/* Titre Post-it */}
+            <div className="space-y-1">
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Titre de la note..."
+                className={cn(
+                  "text-sm font-black tracking-tight rounded-xl border-none shadow-sm focus-visible:ring-1 focus-visible:ring-black/20",
+                  theme.inputBgClass
+                )}
+                required
+              />
+            </div>
+
+            {/* Badges / Sélecteurs Métier & Portée */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {/* Volet */}
+              <div>
+                <select
+                  value={pillar}
+                  onChange={(e) => {
+                    const nextPillar = e.target.value as MemoPillar;
+                    setPillar(nextPillar);
+                    if (nextPillar === "LAB_FT") setPostItColor("purple");
+                    else if (nextPillar === "CONFORMITE_REGLEMENTAIRE") setPostItColor("emerald");
+                    else if (nextPillar === "AUDIT_CONTROLE") setPostItColor("blue");
+                  }}
+                  className={cn(
+                    "w-full text-[11px] font-bold rounded-xl p-2 border border-black/10 dark:border-white/10 outline-none shadow-sm",
+                    theme.inputBgClass
+                  )}
+                >
+                  <option value="LAB_FT">🛡️ LAB / FT</option>
+                  <option value="CONFORMITE_REGLEMENTAIRE">⚖️ Réglementaire</option>
+                  <option value="AUDIT_CONTROLE">🔍 Audit & Contrôle</option>
+                  <option value="GENERAL">📌 Général</option>
+                </select>
+              </div>
+
+              {/* Portée */}
+              <div className="grid grid-cols-2 gap-1 p-0.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5">
                 <button
                   type="button"
                   onClick={() => setScope("COLLABORATIVE")}
                   className={cn(
-                    "py-1.5 px-2 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1",
+                    "py-1 px-1.5 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1",
                     scope === "COLLABORATIVE"
                       ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                      : "text-slate-400 hover:text-slate-600"
+                      : "opacity-60 hover:opacity-100"
                   )}
                 >
                   <Users className="h-3 w-3" />
@@ -295,231 +417,216 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                   type="button"
                   onClick={() => setScope("PRIVATE")}
                   className={cn(
-                    "py-1.5 px-2 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1",
+                    "py-1 px-1.5 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1",
                     scope === "PRIVATE"
-                      ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm"
-                      : "text-slate-400 hover:text-slate-600"
+                      ? "bg-white dark:bg-slate-800 shadow-sm"
+                      : "opacity-60 hover:opacity-100"
                   )}
                 >
                   <User className="h-3 w-3" />
                   Privé
                 </button>
               </div>
-            </div>
 
-            {/* Priorité */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                Priorité
-              </label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as MemoPriority)}
-                className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2 outline-none"
-              >
-                <option value="URGENT">🚨 Urgent / Bloquant</option>
-                <option value="ATTENTION">⚡ Point d'attention</option>
-                <option value="INFO">🟢 Information</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Section Associée */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Layers className="h-3 w-3 text-indigo-500" />
-              Section Applicative Associée
-            </label>
-            <select
-              value={associatedSectionHref}
-              onChange={(e) => handleSectionChange(e.target.value)}
-              className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2 outline-none"
-            >
-              {APP_SECTIONS.map((sec) => (
-                <option key={sec.href} value={sec.href}>
-                  [{sec.group}] — {sec.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Contenu avec Barre d'Action IA */}
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center flex-wrap gap-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Contenu de la note <span className="text-rose-500">*</span>
-              </label>
-
-              {/* Barre de boutons IA */}
-              <div className="flex items-center gap-1 bg-amber-500/10 dark:bg-amber-500/5 p-1 rounded-xl border border-amber-300/40 dark:border-amber-700/40">
-                <span className="text-[9px] font-black uppercase text-amber-700 dark:text-amber-400 px-1.5 flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" /> Reformuler :
-                </span>
-                <button
-                  type="button"
-                  disabled={isReformulating || !content.trim()}
-                  onClick={() => handleReformulate("FORMAL")}
-                  className="px-2 py-1 text-[9px] font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-amber-500 hover:text-white transition-all shadow-sm disabled:opacity-50"
-                  title="Ton professionnel et soigné pour note de direction"
-                >
-                  {isReformulating && aiStyle === "FORMAL" ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    "Formel"
+              {/* Priorité */}
+              <div>
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as MemoPriority)}
+                  className={cn(
+                    "w-full text-[11px] font-bold rounded-xl p-2 border border-black/10 dark:border-white/10 outline-none shadow-sm",
+                    theme.inputBgClass
                   )}
-                </button>
-                <button
-                  type="button"
-                  disabled={isReformulating || !content.trim()}
-                  onClick={() => handleReformulate("SYNTHETIC")}
-                  className="px-2 py-1 text-[9px] font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-amber-500 hover:text-white transition-all shadow-sm disabled:opacity-50"
-                  title="Synthèse en bullet points orientée action"
                 >
-                  {isReformulating && aiStyle === "SYNTHETIC" ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    "Synthétique"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  disabled={isReformulating || !content.trim()}
-                  onClick={() => handleReformulate("LEGAL")}
-                  className="px-2 py-1 text-[9px] font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-amber-500 hover:text-white transition-all shadow-sm disabled:opacity-50"
-                  title="Formulation juridique & réglementaire rigoureuse"
-                >
-                  {isReformulating && aiStyle === "LEGAL" ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    "Réglementaire"
-                  )}
-                </button>
+                  <option value="URGENT">🚨 Urgent</option>
+                  <option value="ATTENTION">⚡ Attention</option>
+                  <option value="INFO">🟢 Info</option>
+                </select>
               </div>
             </div>
 
-            <Textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Rédigez vos observations, instructions, questions ou consignes ici..."
-              rows={4}
-              className="text-xs rounded-xl font-medium leading-relaxed bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800"
-              required
-            />
-          </div>
+            {/* Section Associée */}
+            <div className="flex items-center gap-1.5">
+              <Layers className="h-3.5 w-3.5 opacity-60 shrink-0" />
+              <select
+                value={associatedSectionHref}
+                onChange={(e) => handleSectionChange(e.target.value)}
+                className={cn(
+                  "w-full text-[11px] font-semibold rounded-xl p-1.5 border border-black/10 dark:border-white/10 outline-none shadow-sm truncate",
+                  theme.inputBgClass
+                )}
+              >
+                {APP_SECTIONS.map((sec) => (
+                  <option key={sec.href} value={sec.href}>
+                    {sec.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Aperçu de la Reformulation IA */}
-          {showAiPreview && aiSuggestion && (
-            <div className="p-3.5 bg-gradient-to-br from-amber-50 via-white to-amber-50/30 dark:from-amber-950/20 dark:via-slate-900 dark:to-amber-950/10 rounded-2xl border-2 border-amber-300 dark:border-amber-700/60 shadow-md space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Suggestion de Reformulation IA ({aiStyle === "FORMAL" ? "Style Formel" : aiStyle === "SYNTHETIC" ? "Style Synthétique" : "Style Réglementaire"})
+            {/* Zone de texte du Post-it & Barre Outil IA */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center flex-wrap gap-1">
+                <span className="text-[10px] font-black uppercase tracking-wider opacity-70">
+                  Corps du Post-it
                 </span>
-                <div className="flex items-center gap-1">
-                  <Button
+
+                {/* Boutons Reformulation IA intégrés */}
+                <div className="flex items-center gap-1 bg-black/5 dark:bg-white/10 p-0.5 rounded-lg border border-black/10 dark:border-white/10">
+                  <span className="text-[9px] font-black uppercase px-1 flex items-center gap-1 opacity-80">
+                    <Sparkles className="h-2.5 w-2.5 text-rose-500" /> IA :
+                  </span>
+                  <button
                     type="button"
-                    size="sm"
-                    onClick={handleApplyAiSuggestion}
-                    className="h-7 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black gap-1 shadow-sm"
+                    disabled={isReformulating || !content.trim()}
+                    onClick={() => handleReformulate("FORMAL")}
+                    className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-white/80 dark:bg-slate-800 hover:bg-amber-500 hover:text-white transition-all shadow-xs disabled:opacity-40"
+                    title="Style formel de direction"
                   >
-                    <Check className="h-3 w-3" />
-                    Appliquer cette version
-                  </Button>
-                  <Button
+                    {isReformulating && aiStyle === "FORMAL" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "Formel"}
+                  </button>
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowAiPreview(false)}
-                    className="h-7 text-[10px] text-slate-400 hover:text-slate-600"
+                    disabled={isReformulating || !content.trim()}
+                    onClick={() => handleReformulate("SYNTHETIC")}
+                    className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-white/80 dark:bg-slate-800 hover:bg-amber-500 hover:text-white transition-all shadow-xs disabled:opacity-40"
+                    title="Style synthétique à puces"
                   >
-                    Ignorer
-                  </Button>
+                    {isReformulating && aiStyle === "SYNTHETIC" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "Synthétique"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isReformulating || !content.trim()}
+                    onClick={() => handleReformulate("LEGAL")}
+                    className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-white/80 dark:bg-slate-800 hover:bg-amber-500 hover:text-white transition-all shadow-xs disabled:opacity-40"
+                    title="Style réglementaire juridique"
+                  >
+                    {isReformulating && aiStyle === "LEGAL" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "Réglementaire"}
+                  </button>
                 </div>
               </div>
 
-              {aiSuggestion.title && (
-                <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
-                  <span className="text-slate-400">Titre suggéré :</span> {aiSuggestion.title}
-                </p>
-              )}
-
-              <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed font-medium bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-200/50 dark:border-amber-800/50">
-                {aiSuggestion.text}
-              </p>
-            </div>
-          )}
-
-          {/* Checklist / Tâches */}
-          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-              Checklist / Actions à vérifier
-            </label>
-
-            <div className="flex gap-2">
-              <Input
-                value={checklistInput}
-                onChange={(e) => setChecklistInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddChecklistItem();
-                  }
-                }}
-                placeholder="Ajouter une action (ex: Valider justificatif identité)..."
-                className="text-xs rounded-xl h-8 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+              <Textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Écrivez vos notes, consignes, observations de contrôle..."
+                rows={4}
+                className={cn(
+                  "text-xs rounded-2xl font-medium leading-relaxed border-none shadow-sm focus-visible:ring-1 focus-visible:ring-black/20 resize-none",
+                  theme.inputBgClass
+                )}
+                required
               />
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleAddChecklistItem}
-                className="h-8 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold shrink-0"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Ajouter
-              </Button>
             </div>
 
-            {checklists.length > 0 && (
-              <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-                {checklists.map((chk) => (
-                  <div
-                    key={chk.id}
-                    className="flex items-center justify-between gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 text-xs"
-                  >
-                    <span className="truncate text-slate-700 dark:text-slate-300 font-medium">
-                      • {chk.text}
-                    </span>
+            {/* Prévisualisation Reformulation IA */}
+            {showAiPreview && aiSuggestion && (
+              <div className="p-3 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-black/10 dark:border-white/10 shadow-md space-y-2 animate-in fade-in duration-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" /> Proposition IA ({aiStyle})
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleApplyAiSuggestion}
+                      className="h-6 px-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[9px] font-bold gap-1"
+                    >
+                      <Check className="h-2.5 w-2.5" /> Insérer
+                    </Button>
                     <button
                       type="button"
-                      onClick={() => handleRemoveChecklistItem(chk.id)}
-                      className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                      onClick={() => setShowAiPreview(false)}
+                      className="text-[9px] opacity-60 hover:opacity-100 p-1"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      ✕
                     </button>
                   </div>
-                ))}
+                </div>
+                <p className="text-[11px] whitespace-pre-line leading-relaxed font-medium">
+                  {aiSuggestion.text}
+                </p>
               </div>
             )}
-          </div>
 
-          <DialogFooter className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="rounded-xl text-xs font-semibold"
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20"
-            >
-              {memoToEdit ? "Enregistrer les modifications" : "Créer le Mémo"}
-            </Button>
-          </DialogFooter>
-        </form>
+            {/* Checklist / Actions */}
+            <div className="space-y-1.5 pt-1 border-t border-black/10 dark:border-white/10">
+              <div className="flex gap-1.5">
+                <Input
+                  value={checklistInput}
+                  onChange={(e) => setChecklistInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddChecklistItem();
+                    }
+                  }}
+                  placeholder="Ajouter une action à cocher..."
+                  className={cn(
+                    "text-[11px] rounded-xl h-7 border-none shadow-xs",
+                    theme.inputBgClass
+                  )}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleAddChecklistItem}
+                  className="h-7 px-2.5 rounded-xl bg-black/10 dark:bg-white/10 hover:bg-black/20 text-[10px] font-bold shrink-0"
+                >
+                  <Plus className="h-3 w-3 mr-0.5" />
+                  Ajouter
+                </Button>
+              </div>
+
+              {checklists.length > 0 && (
+                <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                  {checklists.map((chk) => (
+                    <div
+                      key={chk.id}
+                      className="flex items-center justify-between gap-1.5 px-2 py-1 bg-white/40 dark:bg-black/20 rounded-lg text-[10px]"
+                    >
+                      <span className="truncate font-medium">☑ {chk.text}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveChecklistItem(chk.id)}
+                        className="opacity-50 hover:opacity-100 p-0.5"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Pied du Post-it */}
+            <div className="pt-3 border-t border-black/10 dark:border-white/10 flex justify-between items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onClose}
+                className="h-8 px-3 rounded-xl text-xs font-semibold opacity-70 hover:opacity-100"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                className="h-8 px-4 rounded-xl bg-slate-900 hover:bg-black text-white dark:bg-white dark:text-slate-900 text-xs font-black shadow-md"
+              >
+                {memoToEdit ? "Sauvegarder" : "Coller le Post-it 📌"}
+              </Button>
+            </div>
+          </form>
+
+          {/* Effet d'ombre de coin replié en bas à droite */}
+          <div
+            className="absolute bottom-0 right-0 w-6 h-6 pointer-events-none rounded-br-3xl"
+            style={{
+              background: "linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.08) 50%)",
+            }}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );
