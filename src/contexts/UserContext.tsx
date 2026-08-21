@@ -7,7 +7,7 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink
 } from "firebase/auth";
-import { doc, getDoc, setDoc, onSnapshot, collection, getDocs } from "firebase/firestore";
+import { doc, setDoc, onSnapshot, collection, getDocs } from "firebase/firestore";
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
 import { getDeviceId, getDeviceInfo } from '@/lib/deviceHelper';
 import { setDeviceLinkedProfile, clearDeviceLinkedProfile, getDeviceLinkedProfile } from '@/lib/deviceApprovalService';
@@ -145,82 +145,25 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // Direct login without relying on email link quota (for dev, testing, or quota fallback)
+  // Direct login: stores profile on this device, no email / Firebase auth needed
   const loginDirectly = useCallback(async (email: string, name?: string, role?: string) => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) throw new Error("Veuillez saisir une adresse email.");
 
-    let targetName = name;
-    let targetRole = role;
-
-    // Auto-match name and role from team if not provided
-    if (!targetName && db && isFirebaseConfigured) {
-      try {
-        const teamSnap = await getDocs(collection(db, 'team'));
-        const member = teamSnap.docs.find(d => {
-          const mData = d.data();
-          return mData.email === trimmedEmail || mData.secondaryEmail === trimmedEmail;
-        });
-        if (member) {
-          targetName = member.data().name;
-          targetRole = member.data().role;
-        }
-      } catch { /* ignore */ }
-    }
-
-    if (!targetName) {
-      if (trimmedEmail.toLowerCase().includes('moslem') || trimmedEmail.toLowerCase().includes('gouia')) {
-        targetName = 'Moslem G.';
-        targetRole = 'Direction Compliance & GRC';
-      } else if (trimmedEmail.toLowerCase().includes('sarah')) {
-        targetName = 'Sarah L.';
-        targetRole = 'Legal Counsel';
-      } else if (trimmedEmail.toLowerCase().includes('karim')) {
-        targetName = 'Karim B.';
-        targetRole = 'Risk Officer';
-      } else {
-        targetName = trimmedEmail.split('@')[0];
-        targetRole = 'Responsable Conformité';
-      }
-    }
-
-    // Try signing in anonymously to Firebase Auth if not already logged in
-    let uid = auth?.currentUser?.uid;
-    if (auth && isFirebaseConfigured && !uid) {
-      try {
-        const { signInAnonymously } = await import("firebase/auth");
-        const cred = await signInAnonymously(auth);
-        uid = cred.user.uid;
-      } catch (anonErr) {
-        console.warn("Anonymous sign-in not available, falling back to local UID:", anonErr);
-        uid = `usr-${Date.now()}`;
-      }
-    } else if (!uid) {
-      uid = `usr-${Date.now()}`;
-    }
-
     const newProfile: UserProfile = {
-      name: targetName || 'Utilisateur',
-      role: targetRole || 'Responsable Conformité',
+      name: name || trimmedEmail.split('@')[0],
+      role: role || 'Responsable Conformité',
       email: trimmedEmail,
       authEmail: trimmedEmail,
-      uid: uid
+      uid: auth?.currentUser?.uid || `local-${trimmedEmail.replace(/[^a-z0-9]/gi, '-')}`
     };
 
-    if (db && isFirebaseConfigured && uid) {
-      try {
-        const userDocRef = doc(db, 'users', uid);
-        await setDoc(userDocRef, newProfile, { merge: true });
-      } catch (err) {
-        console.warn("Could not sync user profile to Firestore (non-blocking):", err);
-      }
-    }
-
+    // Persist to localStorage (survives page reload / close)
     try {
       window.localStorage?.setItem('compliance_saved_user', JSON.stringify(newProfile));
     } catch { /* ignore */ }
 
-    // Permanently bind this profile to this device for seamless future auto-logins
+    // Bind this profile to this device permanently for auto-login on next visit
     setDeviceLinkedProfile({ email: trimmedEmail, name: newProfile.name, role: newProfile.role || '' });
 
     setUser(newProfile);
