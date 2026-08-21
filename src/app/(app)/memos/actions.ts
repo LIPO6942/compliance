@@ -84,7 +84,6 @@ CONSIGNES STRICTES :
             },
             { role: "user", content: prompt },
           ],
-          response_format: { type: "json_object" },
           temperature: 0.3,
         }),
       });
@@ -93,12 +92,15 @@ CONSIGNES STRICTES :
         const data = await res.json();
         const contentStr = data?.choices?.[0]?.message?.content;
         if (contentStr) {
-          const parsed = JSON.parse(contentStr);
-          if (parsed.reformulatedText) {
-            return {
-              reformulatedText: parsed.reformulatedText,
-              suggestedTitle: parsed.suggestedTitle,
-            };
+          const jsonMatch = contentStr.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.reformulatedText) {
+              return {
+                reformulatedText: parsed.reformulatedText,
+                suggestedTitle: parsed.suggestedTitle,
+              };
+            }
           }
         }
       }
@@ -160,19 +162,22 @@ export async function generateAutoTitleAction(params: {
     return { title: sectionLabel ? `Note — ${sectionLabel}` : "Note de conformité" };
   }
 
-  // 1. Essai avec Groq API si configuré pour un résumé concis
+  const trimmed = content.trim();
+
+  // 1. Essai avec Groq API si configuré pour un résumé synthétique de haut niveau
   const apiKey = process.env.GROQ_API_KEY;
   if (apiKey) {
     try {
       const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile" || "llama3-8b-8192";
-      const prompt = `Tu es un assistant de conformité bancassurance pour la MAE Assurance.
-Génère un TITRE DE MÉMO ultra-court (entre 4 et 7 mots maximum) résumant fidèlement le texte suivant.
-RÈGLE ABSOLUE : Reste strictement fidèle aux faits, aux noms de personnes, de modules ou de contrats mentionnés, sans aucune invention ni hallucination. Ne commence pas par "Note sur" ni "Mémo".
-Réponds UNIQUEMENT sous forme JSON : { "title": "Ton titre court" }
+      const prompt = `Tu es un expert en synthèse et conformité d'assurance MAE.
+Rédige un TITRE SYNTHÉTIQUE court, percutant et professionnel (entre 4 et 8 mots maximum) résumant fidèlement le problème, le constat ou la consigne énoncée dans le texte ci-dessous.
+IMPORTANT : Ne recopie pas bêtement le début du texte ! Formule un vrai titre de synthèse (Exemples : 'Non-persistance colonne Agent éditeur (Pagination)', 'Blocage des transactions suspectes PEP', 'Mise à jour cartographie des risques').
+Reste strictement fidèle aux termes et aux faits sans aucune invention.
+Réponds STRICTEMENT sous format JSON : { "title": "Ton titre synthétique" }
 
-TEXTE :
+TEXTE À RÉSUMER :
 """
-${content.trim()}
+${trimmed}
 """`;
 
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -184,11 +189,10 @@ ${content.trim()}
         body: JSON.stringify({
           model,
           messages: [
-            { role: "system", content: "Tu es un assistant expert en conformité qui répond uniquement en JSON." },
+            { role: "system", content: "Tu es un assistant expert qui répond exclusivement par un objet JSON { \"title\": \"...\" }." },
             { role: "user", content: prompt },
           ],
-          response_format: { type: "json_object" },
-          temperature: 0.2,
+          temperature: 0.1,
         }),
       });
 
@@ -196,18 +200,52 @@ ${content.trim()}
         const data = await res.json();
         const contentStr = data?.choices?.[0]?.message?.content;
         if (contentStr) {
-          const parsed = JSON.parse(contentStr);
-          if (parsed.title && typeof parsed.title === "string" && parsed.title.trim().length > 0) {
-            return { title: parsed.title.trim().replace(/^["']|["']$/g, "") };
+          const jsonMatch = contentStr.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.title && typeof parsed.title === "string" && parsed.title.trim().length > 3) {
+              return { title: parsed.title.trim().replace(/^["']|["']$/g, "") };
+            }
           }
         }
       }
     } catch (err) {
-      console.warn("[TITLE AI] Groq attempt error, using local extractor:", err);
+      console.warn("[TITLE AI] Groq attempt error, falling back:", err);
     }
   }
 
-  // 2. Fallback NLP déterministe ultra-fidèle (0ms, 100% sans déformation)
-  const localTitle = extractFaithfulTitle(content, pillar, sectionLabel);
+  // 2. Essai avec Gemini API si configuré
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    try {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+      const geminiPrompt = `Rédige un TITRE COURT ET SYNTHÉTIQUE (4 à 8 mots max) résumant ce constat de conformité : "${trimmed}". Réponds uniquement par { "title": "..." } au format JSON.`;
+      
+      const res = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: geminiPrompt }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const textResp = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (textResp) {
+          const parsed = JSON.parse(textResp);
+          if (parsed.title) {
+            return { title: parsed.title.trim().replace(/^["']|["']$/g, "") };
+          }
+        }
+      }
+    } catch (geminiErr) {
+      console.warn("[TITLE AI] Gemini attempt error:", geminiErr);
+    }
+  }
+
+  // 3. Fallback NLP sémantique haute fidélité (0ms, synthèse grammaticale)
+  const localTitle = extractFaithfulTitle(trimmed, pillar, sectionLabel);
   return { title: localTitle };
 }
