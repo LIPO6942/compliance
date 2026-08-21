@@ -42,6 +42,7 @@ export interface TrustedDeviceRecord {
 }
 
 const LOCAL_TRUSTED_PREFIX = 'compliance_trusted_device_';
+const DEVICE_LINKED_PROFILE_KEY = 'compliance_device_linked_profile';
 
 const normalizeEmail = (email: string): string => {
     return email.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -68,6 +69,41 @@ export const markDeviceTrustedLocally = (email: string, deviceId: string): void 
     try {
         const key = `${LOCAL_TRUSTED_PREFIX}${normalizeEmail(email)}_${deviceId}`;
         window.localStorage?.setItem(key, 'true');
+    } catch { /* ignore */ }
+};
+
+/**
+ * Saves the chosen profile for this specific device so on next visit the user
+ * is auto-logged in without seeing the login page at all.
+ */
+export const setDeviceLinkedProfile = (profile: { email: string; name: string; role: string }): void => {
+    if (typeof window === 'undefined') return;
+    try {
+        window.localStorage?.setItem(DEVICE_LINKED_PROFILE_KEY, JSON.stringify(profile));
+    } catch { /* ignore */ }
+};
+
+/**
+ * Returns the profile saved for this device, or null if no profile has been linked.
+ */
+export const getDeviceLinkedProfile = (): { email: string; name: string; role: string } | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+        const raw = window.localStorage?.getItem(DEVICE_LINKED_PROFILE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+};
+
+/**
+ * Clears the device linked profile (e.g. on logout).
+ */
+export const clearDeviceLinkedProfile = (): void => {
+    if (typeof window === 'undefined') return;
+    try {
+        window.localStorage?.removeItem(DEVICE_LINKED_PROFILE_KEY);
     } catch { /* ignore */ }
 };
 
@@ -213,15 +249,7 @@ export const approveDeviceRequest = async (
     try {
         const normEmail = normalizeEmail(request.targetEmail);
 
-        // 1. Mark request as approved
-        const reqDocRef = doc(db, 'device_authorizations', request.id);
-        await updateDoc(reqDocRef, {
-            status: 'approved',
-            approvedBy: approvedByEmail,
-            approvedAt: new Date().toISOString()
-        });
-
-        // 2. Add device to trusted_devices collection
+        // 1. Add device to trusted_devices collection FIRST
         const deviceDocRef = doc(db, 'trusted_devices', normEmail, 'devices', request.deviceId);
         const deviceRecord: TrustedDeviceRecord = {
             deviceId: request.deviceId,
@@ -231,6 +259,13 @@ export const approveDeviceRequest = async (
             lastSeen: new Date().toISOString()
         };
         await setDoc(deviceDocRef, deviceRecord, { merge: true });
+
+        // 2. Delete the request document entirely — this causes the real-time listener
+        //    on ALL connected devices to immediately remove it from the pending list,
+        //    making the popup disappear on every device simultaneously.
+        const reqDocRef = doc(db, 'device_authorizations', request.id);
+        await deleteDoc(reqDocRef);
+
     } catch (err) {
         console.error("Error approving device request:", err);
         throw err;

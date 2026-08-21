@@ -10,6 +10,7 @@ import {
 import { doc, getDoc, setDoc, onSnapshot, collection, getDocs } from "firebase/firestore";
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
 import { getDeviceId, getDeviceInfo } from '@/lib/deviceHelper';
+import { setDeviceLinkedProfile, clearDeviceLinkedProfile, getDeviceLinkedProfile } from '@/lib/deviceApprovalService';
 
 export interface UserProfile {
   name: string;
@@ -219,6 +220,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       window.localStorage?.setItem('compliance_saved_user', JSON.stringify(newProfile));
     } catch { /* ignore */ }
 
+    // Permanently bind this profile to this device for seamless future auto-logins
+    setDeviceLinkedProfile({ email: trimmedEmail, name: newProfile.name, role: newProfile.role || '' });
+
     setUser(newProfile);
     setIsLoaded(true);
   }, []);
@@ -247,13 +251,24 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   // Listen to Auth State and sync user profile
   useEffect(() => {
     if (!isFirebaseConfigured || !auth || !db) {
-      // Check for locally saved user session
+      // No Firebase — restore session from device linked profile or saved user
       try {
-        const saved = typeof window !== 'undefined' ? window.localStorage?.getItem('compliance_saved_user') : null;
-        if (saved) {
-          setUser(JSON.parse(saved));
+        const linked = getDeviceLinkedProfile();
+        if (linked) {
+          // Auto-restore with the permanently linked profile for this device
+          const saved = typeof window !== 'undefined' ? window.localStorage?.getItem('compliance_saved_user') : null;
+          const savedProfile = saved ? JSON.parse(saved) : null;
+          setUser(savedProfile || { name: linked.name, role: linked.role, email: linked.email });
+        } else {
+          const saved = typeof window !== 'undefined' ? window.localStorage?.getItem('compliance_saved_user') : null;
+          if (saved) setUser(JSON.parse(saved));
         }
-      } catch { /* ignore */ }
+      } catch {
+        try {
+          const saved = typeof window !== 'undefined' ? window.localStorage?.getItem('compliance_saved_user') : null;
+          if (saved) setUser(JSON.parse(saved));
+        } catch { /* ignore */ }
+      }
       setIsLoaded(true);
       return;
     }
@@ -382,7 +397,21 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           clearTimeout(safetyTimer);
         }
       } else {
-        // If not logged into Firebase, check localStorage
+        // Not authenticated in Firebase — try restoring from device linked profile first
+        try {
+          const linked = getDeviceLinkedProfile();
+          if (linked) {
+            const saved = typeof window !== 'undefined' ? window.localStorage?.getItem('compliance_saved_user') : null;
+            const savedProfile = saved ? JSON.parse(saved) : null;
+            // Restore user silently — no login page shown on return visit
+            setUser(savedProfile || { name: linked.name, role: linked.role, email: linked.email });
+            setIsLoaded(true);
+            clearTimeout(safetyTimer);
+            return;
+          }
+        } catch { /* ignore */ }
+
+        // Fallback to generic saved user
         try {
           const saved = typeof window !== 'undefined' ? window.localStorage?.getItem('compliance_saved_user') : null;
           if (saved) {
@@ -476,6 +505,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     try {
       window.localStorage?.removeItem('compliance_saved_user');
     } catch { /* ignore */ }
+    // Clear device profile binding so next visit shows the login page
+    clearDeviceLinkedProfile();
     setUser(null);
     clearStoredEmailForSignIn();
     clearEmailLinkStatus();
