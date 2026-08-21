@@ -1,6 +1,7 @@
 "use server";
 
 import { MemoPillar } from "@/types/memo";
+import { extractFaithfulTitle } from "@/lib/memoTitleGenerator";
 
 export interface ReformulateMemoParams {
   text: string;
@@ -141,7 +142,12 @@ function generateRuleBasedReformulation(
     };
   }
 
-import { extractFaithfulTitle } from "@/lib/memoTitleGenerator";
+  // FORMAL Default
+  return {
+    title: title,
+    text: `Note de conformité :\n\n${clean}\n\nRevue effectuée dans le cadre du suivi opérationnel et de la maîtrise des risques.`,
+  };
+}
 
 export async function generateAutoTitleAction(params: {
   content: string;
