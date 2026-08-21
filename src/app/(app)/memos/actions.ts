@@ -141,9 +141,67 @@ function generateRuleBasedReformulation(
     };
   }
 
-  // FORMAL Default
-  return {
-    title: title,
-    text: `Note de conformité :\n\n${clean}\n\nRevue effectuée dans le cadre du suivi opérationnel et de la maîtrise des risques.`,
-  };
+import { extractFaithfulTitle } from "@/lib/memoTitleGenerator";
+
+export async function generateAutoTitleAction(params: {
+  content: string;
+  pillar?: MemoPillar;
+  sectionLabel?: string;
+}): Promise<{ title: string }> {
+  const { content, pillar, sectionLabel } = params;
+
+  if (!content || !content.trim()) {
+    return { title: sectionLabel ? `Note — ${sectionLabel}` : "Note de conformité" };
+  }
+
+  // 1. Essai avec Groq API si configuré pour un résumé concis
+  const apiKey = process.env.GROQ_API_KEY;
+  if (apiKey) {
+    try {
+      const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile" || "llama3-8b-8192";
+      const prompt = `Tu es un assistant de conformité bancassurance pour la MAE Assurance.
+Génère un TITRE DE MÉMO ultra-court (entre 4 et 7 mots maximum) résumant fidèlement le texte suivant.
+RÈGLE ABSOLUE : Reste strictement fidèle aux faits, aux noms de personnes, de modules ou de contrats mentionnés, sans aucune invention ni hallucination. Ne commence pas par "Note sur" ni "Mémo".
+Réponds UNIQUEMENT sous forme JSON : { "title": "Ton titre court" }
+
+TEXTE :
+"""
+${content.trim()}
+"""`;
+
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: "Tu es un assistant expert en conformité qui répond uniquement en JSON." },
+            { role: "user", content: prompt },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.2,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const contentStr = data?.choices?.[0]?.message?.content;
+        if (contentStr) {
+          const parsed = JSON.parse(contentStr);
+          if (parsed.title && typeof parsed.title === "string" && parsed.title.trim().length > 0) {
+            return { title: parsed.title.trim().replace(/^["']|["']$/g, "") };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[TITLE AI] Groq attempt error, using local extractor:", err);
+    }
+  }
+
+  // 2. Fallback NLP déterministe ultra-fidèle (0ms, 100% sans déformation)
+  const localTitle = extractFaithfulTitle(content, pillar, sectionLabel);
+  return { title: localTitle };
 }

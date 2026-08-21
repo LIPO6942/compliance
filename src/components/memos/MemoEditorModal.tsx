@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -15,20 +15,17 @@ import {
   Trash2,
   Users,
   User,
-  AlertTriangle,
   Layers,
   CheckCircle2,
   Check,
   Pin,
-  X,
   Loader2,
-  Clock,
-  ShieldCheck,
-  Zap
+  Wand2
 } from "lucide-react";
 import { ComplianceMemo, MemoPillar, MemoScope, MemoPriority, APP_SECTIONS, PILLAR_CONFIG } from "@/types/memo";
 import { useMemos } from "@/contexts/MemoContext";
-import { reformulateMemoAction } from "@/app/(app)/memos/actions";
+import { reformulateMemoAction, generateAutoTitleAction } from "@/app/(app)/memos/actions";
+import { extractFaithfulTitle } from "@/lib/memoTitleGenerator";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +46,8 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
 }) => {
   const { addMemo, updateMemo } = useMemos();
   const { toast } = useToast();
+
+  const isEditing = Boolean(memoToEdit && memoToEdit.id);
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -90,6 +89,11 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
     setAiSuggestion(null);
   }, [memoToEdit, defaultSectionHref, defaultSectionLabel, isOpen]);
 
+  // Live faithful auto-title preview based on content
+  const liveAutoTitle = useMemo(() => {
+    return extractFaithfulTitle(content, pillar, associatedSectionLabel);
+  }, [content, pillar, associatedSectionLabel]);
+
   const handleAddChecklistItem = () => {
     if (!checklistInput.trim()) return;
     setChecklists((prev) => [
@@ -130,7 +134,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
     try {
       const result = await reformulateMemoAction({
         text: content,
-        title: title || undefined,
+        title: title || liveAutoTitle || undefined,
         pillar,
         style: selectedStyle,
         sectionLabel: associatedSectionLabel,
@@ -168,7 +172,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
   const handleApplyAiSuggestion = () => {
     if (!aiSuggestion) return;
     if (aiSuggestion.text) setContent(aiSuggestion.text);
-    if (aiSuggestion.title && !title) setTitle(aiSuggestion.title);
+    if (aiSuggestion.title) setTitle(aiSuggestion.title);
     setShowAiPreview(false);
     toast({
       title: "Post-it mis à jour !",
@@ -178,18 +182,24 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) {
+    if (!content.trim()) {
       toast({
-        title: "Champs requis",
-        description: "Veuillez renseigner un titre et le contenu de votre mémo.",
+        title: "Contenu requis",
+        description: "Veuillez rédiger le contenu de votre mémo.",
         variant: "destructive",
       });
       return;
     }
 
-    if (memoToEdit && memoToEdit.id) {
+    // Auto-generate title if not manually set or when creating a new memo
+    let finalTitle = title.trim();
+    if (!finalTitle) {
+      finalTitle = extractFaithfulTitle(content.trim(), pillar, associatedSectionLabel);
+    }
+
+    if (isEditing && memoToEdit) {
       await updateMemo(memoToEdit.id, {
-        title: title.trim(),
+        title: finalTitle,
         content: content.trim(),
         pillar,
         scope,
@@ -200,7 +210,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
       });
     } else {
       await addMemo({
-        title: title.trim(),
+        title: finalTitle,
         content: content.trim(),
         pillar,
         scope,
@@ -239,7 +249,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
             <div className="flex items-center gap-2">
               <span className="text-base font-black uppercase tracking-tight flex items-center gap-1.5 text-slate-900 dark:text-white">
                 <Pin className="h-4 w-4 fill-current text-rose-500 rotate-12" />
-                {memoToEdit ? "Modifier le Post-it" : "Nouveau Mémo Post-it"}
+                {isEditing ? "Modifier le Post-it" : "Nouveau Mémo Post-it"}
               </span>
             </div>
 
@@ -251,16 +261,47 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 pt-3.5">
-            {/* Titre Post-it */}
-            <div className="space-y-1">
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Titre ou objet du mémo..."
-                className="text-sm font-black tracking-tight rounded-xl bg-white/90 dark:bg-slate-800/90 border-amber-200 dark:border-slate-700 text-slate-900 dark:text-white shadow-xs focus-visible:ring-1 focus-visible:ring-amber-500"
-                required
-              />
-            </div>
+            {/* Si en mode modification, afficher le champ titre modifiable */}
+            {isEditing ? (
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                    Titre du Mémo
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setTitle(extractFaithfulTitle(content, pillar, associatedSectionLabel))}
+                    className="text-[9.5px] font-bold text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1"
+                    title="Régénérer automatiquement le titre à partir du contenu"
+                  >
+                    <Wand2 className="h-2.5 w-2.5" /> Titre auto
+                  </button>
+                </div>
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Titre ou objet du mémo..."
+                  className="text-sm font-black tracking-tight rounded-xl bg-white/90 dark:bg-slate-800/90 border-amber-200 dark:border-slate-700 text-slate-900 dark:text-white shadow-xs focus-visible:ring-1 focus-visible:ring-amber-500"
+                />
+              </div>
+            ) : (
+              /* En mode ajout : Titre auto-généré affiché sous forme d'aperçu dynamique */
+              <div className="p-2.5 rounded-2xl bg-amber-500/10 dark:bg-slate-800/80 border border-amber-300/50 dark:border-amber-700/50 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="p-1 rounded-lg bg-amber-500 text-white shrink-0 shadow-xs">
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </span>
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-black uppercase text-amber-800 dark:text-amber-300 block tracking-wider">
+                      Titre généré automatiquement par le contenu :
+                    </span>
+                    <p className="text-xs font-black text-slate-900 dark:text-white truncate">
+                      {content.trim() ? liveAutoTitle : "Rédigez votre mémo ci-dessous pour générer le titre..."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Badges / Sélecteurs Métier, Portée & Priorité */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -396,8 +437,8 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
               <Textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Rédigez vos observations, instructions, questions ou consignes ici..."
-                rows={4}
+                placeholder="Rédigez vos observations, instructions, questions ou consignes ici... Le titre sera généré automatiquement."
+                rows={5}
                 className="text-xs rounded-2xl font-medium leading-relaxed bg-white/90 dark:bg-slate-800/90 border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 shadow-xs resize-none focus-visible:ring-1 focus-visible:ring-amber-500"
                 required
               />
@@ -507,7 +548,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                 type="submit"
                 className="h-9 px-5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black shadow-md shadow-amber-500/20"
               >
-                {memoToEdit ? "Enregistrer les modifications" : "Épingler le Post-it 📌"}
+                {isEditing ? "Enregistrer les modifications" : "Épingler le Post-it 📌"}
               </Button>
             </div>
           </form>
