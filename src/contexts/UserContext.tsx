@@ -308,17 +308,48 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string) => {
-    if (!auth || typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
+
+    if (!isFirebaseConfigured || !auth) {
+      throw new Error("Configuration Firebase manquante. Veuillez vérifier vos identifiants dans .env.local.");
+    }
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      throw new Error("Veuillez saisir une adresse email valide.");
+    }
 
     const actionCodeSettings = {
       url: window.location.origin + '/login',
       handleCodeInApp: true,
     };
 
-    const trimmedEmail = email.trim();
-    await sendSignInLinkToEmail(auth, trimmedEmail, actionCodeSettings);
-    setStoredEmailForSignIn(trimmedEmail);
+    try {
+      await sendSignInLinkToEmail(auth, trimmedEmail, actionCodeSettings);
+      setStoredEmailForSignIn(trimmedEmail);
+    } catch (err: any) {
+      console.error("Firebase sendSignInLinkToEmail error:", err);
+      const code = err?.code || '';
+      let msg = "Une erreur est survenue lors de l'envoi du lien magique.";
+
+      if (code === 'auth/unauthorized-domain') {
+        msg = `Le domaine "${window.location.hostname}" n'est pas autorisé dans Firebase. Ajoutez ce domaine dans la Console Firebase > Authentication > Paramètres > Domaines autorisés.`;
+      } else if (code === 'auth/operation-not-allowed') {
+        msg = "La méthode 'Lien par e-mail (connexion sans mot de passe)' doit être activée dans la Console Firebase > Authentication > Modes de connexion.";
+      } else if (code === 'auth/invalid-email') {
+        msg = "L'adresse email saisie n'est pas valide.";
+      } else if (code === 'auth/too-many-requests') {
+        msg = "Trop de tentatives envoyées récemment. Veuillez patienter quelques minutes avant de réessayer.";
+      } else if (code === 'auth/network-request-failed') {
+        msg = "Échec de connexion au réseau. Vérifiez votre accès Internet.";
+      } else if (err?.message) {
+        msg = err.message;
+      }
+
+      throw new Error(msg);
+    }
   };
+
 
   const updateUser = async (newProfile: Partial<UserProfile>) => {
     if (!isFirebaseConfigured || !db || !user?.uid) return;

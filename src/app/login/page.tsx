@@ -29,6 +29,7 @@ export default function LoginPage() {
     const [isSent, setIsSent] = useState(false);
     const [loading, setLoading] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
+    const [sendError, setSendError] = useState<string | null>(null);
 
     // Auto-redirect if already authenticated
     useEffect(() => {
@@ -45,20 +46,24 @@ export default function LoginPage() {
         if (!email) return;
 
         setLoading(true);
+        setSendError(null);
         try {
             await login(email);
             setIsSent(true);
         } catch (error: any) {
-            console.error(error);
+            console.error("Login send error:", error);
+            const msg = error?.message || "Une erreur est survenue lors de l'envoi du mail. Vérifiez votre connexion ou la configuration Firebase.";
+            setSendError(msg);
             toast({
                 title: "Erreur d'envoi",
-                description: "Une erreur est survenue lors de l'envoi du mail. Vérifiez votre connexion ou la configuration Firebase.",
+                description: msg,
                 variant: "destructive",
             });
         } finally {
             setLoading(false);
         }
     };
+
 
     const handleConfirmEmailSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -235,7 +240,14 @@ export default function LoginPage() {
                         Entrez votre email professionnel pour recevoir un lien de connexion sécurisé.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="pb-10 pt-4">
+                <CardContent className="pb-10 pt-4 space-y-4">
+                    {sendError && (
+                        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-2.5">
+                            <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5 text-red-600" />
+                            <div>{sendError}</div>
+                        </div>
+                    )}
+
                     {isSent ? (
                         <div className="text-center space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
                             <div className="mx-auto w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-600">

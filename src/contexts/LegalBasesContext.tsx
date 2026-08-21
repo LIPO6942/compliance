@@ -61,14 +61,19 @@ export function LegalBasesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadLocalFallback = () => {
-    const saved = localStorage.getItem("legalBasesData");
-    if (saved) {
-      try {
+    if (typeof window === 'undefined') {
+      setLegalBases(defaultBases);
+      setIsLoaded(true);
+      return;
+    }
+    try {
+      const saved = window.localStorage?.getItem("legalBasesData");
+      if (saved) {
         setLegalBases(JSON.parse(saved));
-      } catch (e) {
+      } else {
         setLegalBases(defaultBases);
       }
-    } else {
+    } catch (e) {
       setLegalBases(defaultBases);
     }
     setIsLoaded(true);
@@ -83,8 +88,10 @@ export function LegalBasesProvider({ children }: { children: ReactNode }) {
     if (isFirebaseConfigured && db) {
       const docRef = doc(db, "settings", "legal_bases");
       setDoc(docRef, { bases: cleanBases }, { merge: true }).catch(console.error);
-    } else {
-      localStorage.setItem("legalBasesData", JSON.stringify(cleanBases));
+    } else if (typeof window !== 'undefined') {
+      try {
+        window.localStorage?.setItem("legalBasesData", JSON.stringify(cleanBases));
+      } catch { /* ignore */ }
     }
   };
 
@@ -108,10 +115,6 @@ export function LegalBasesProvider({ children }: { children: ReactNode }) {
     const newBases = legalBases.filter((lb) => lb.id !== id);
     saveBases(newBases);
   };
-
-  if (!isLoaded) {
-    return null; // Await initial load
-  }
 
   return (
     <LegalBasesContext.Provider value={{ legalBases, addLegalBase, updateLegalBase, deleteLegalBase }}>
