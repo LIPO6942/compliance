@@ -177,5 +177,11 @@ service cloud.firestore {
     match /matrixConfig/{document=**} {
       allow read, write: if true;  // Collaboratif — synchronisé pour tous les utilisateurs
     }
+    // ============================================
+    // COMPLIANCE MEMOS - Mémos d'équipe et notes
+    // ============================================
+    match /compliance_memos/{memoId} {
+      allow read, write: if true;  // Synchronisé pour l'ensemble des membres de l'équipe
+    }
   }
 }

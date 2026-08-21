@@ -32,14 +32,28 @@ interface MemoContextType {
 
 const LOCAL_STORAGE_KEY = "compliance_memos_v3";
 
+const cleanData = (data: any): any => {
+  if (Array.isArray(data)) {
+    return data.map(cleanData);
+  } else if (typeof data === "object" && data !== null) {
+    const cleaned: Record<string, any> = {};
+    for (const key in data) {
+      if (data[key] !== undefined) {
+        cleaned[key] = cleanData(data[key]);
+      }
+    }
+    return cleaned;
+  }
+  return data;
+};
+
 const MemoContext = createContext<MemoContextType | undefined>(undefined);
 
 export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useUser();
   const { toast } = useToast();
-  const [memos, setMemos] = useState<ComplianceMemo[]>(() => {
+  const [rawMemos, setRawMemos] = useState<ComplianceMemo[]>(() => {
     if (typeof window !== "undefined") {
-      // Clean previous demo storage versions
       localStorage.removeItem("compliance_memos_v1");
       localStorage.removeItem("compliance_memos_v2");
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -47,7 +61,7 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           return JSON.parse(saved);
         } catch (e) {
-          console.error(e);
+          console.error("Failed to parse local memos:", e);
         }
       }
     }
@@ -59,16 +73,29 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [activeEditorMemo, setActiveEditorMemo] = useState<ComplianceMemo | null>(null);
 
+  const currentUserEmail = (user?.authEmail || user?.email || "").toLowerCase().trim();
+
+  // Filter memos based on scope & user identity:
+  // - COLLABORATIVE memos are visible to the entire team across all sessions.
+  // - PRIVATE memos are visible only to the author (or in single-user offline fallback).
+  const visibleMemos = useMemo(() => {
+    return rawMemos.filter((m) => {
+      if (m.scope === "COLLABORATIVE") return true;
+      if (!m.authorEmail || !currentUserEmail) return true;
+      return m.authorEmail.toLowerCase().trim() === currentUserEmail;
+    });
+  }, [rawMemos, currentUserEmail]);
+
   // Sync to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(memos));
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(rawMemos));
     } catch (e) {
-      console.error(e);
+      console.error("Failed to sync memos to localStorage:", e);
     }
-  }, [memos]);
+  }, [rawMemos]);
 
-  // Sync with Firestore if configured
+  // Real-time bidirectional sync with Firestore
   useEffect(() => {
     if (!isFirebaseConfigured || !db) {
       setIsLoading(false);
@@ -83,13 +110,13 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubscribe = onSnapshot(
           q,
           (snapshot) => {
-            if (!snapshot.empty) {
-              const cloudMemos: ComplianceMemo[] = snapshot.docs.map((d) => ({
-                id: d.id,
-                ...d.data(),
-              })) as ComplianceMemo[];
-              setMemos(cloudMemos);
-            }
+            const cloudMemos: ComplianceMemo[] = snapshot.docs.map((d) => ({
+              id: d.id,
+              ...d.data(),
+            })) as ComplianceMemo[];
+            
+            // If cloud has records or empty collection
+            setRawMemos(cloudMemos);
             setIsLoading(false);
           },
           (err) => {
@@ -121,14 +148,18 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authorName,
         createdAt: new Date().toISOString(),
         status: "ACTIVE",
+        pinned: memoData.pinned ?? false,
+        checklists: memoData.checklists || [],
       };
 
-      setMemos((prev) => [newMemo, ...prev]);
+      // Update local state immediately for instant feedback
+      setRawMemos((prev) => [newMemo, ...prev.filter((m) => m.id !== newMemo.id)]);
 
+      // Persist to Firestore for real-time team collaboration
       if (isFirebaseConfigured && db) {
         try {
           const { doc, setDoc } = await import("firebase/firestore");
-          await setDoc(doc(db, "compliance_memos", newMemo.id), newMemo);
+          await setDoc(doc(db, "compliance_memos", newMemo.id), cleanData(newMemo));
         } catch (e) {
           console.error("Error saving memo to Firestore:", e);
         }
@@ -147,14 +178,14 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateMemo = useCallback(
     async (id: string, updates: Partial<ComplianceMemo>): Promise<void> => {
       const updatedData = { ...updates, updatedAt: new Date().toISOString() };
-      setMemos((prev) =>
+      setRawMemos((prev) =>
         prev.map((m) => (m.id === id ? { ...m, ...updatedData } : m))
       );
 
       if (isFirebaseConfigured && db) {
         try {
-          const { doc, updateDoc } = await import("firebase/firestore");
-          await updateDoc(doc(db, "compliance_memos", id), updatedData);
+          const { doc, setDoc } = await import("firebase/firestore");
+          await setDoc(doc(db, "compliance_memos", id), cleanData(updatedData), { merge: true });
         } catch (e) {
           console.error("Error updating memo in Firestore:", e);
         }
@@ -170,7 +201,7 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteMemo = useCallback(
     async (id: string): Promise<void> => {
-      setMemos((prev) => prev.filter((m) => m.id !== id));
+      setRawMemos((prev) => prev.filter((m) => m.id !== id));
 
       if (isFirebaseConfigured && db) {
         try {
@@ -191,7 +222,7 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const toggleResolveMemo = useCallback(
     async (id: string): Promise<void> => {
-      const memo = memos.find((m) => m.id === id);
+      const memo = rawMemos.find((m) => m.id === id);
       if (!memo) return;
 
       const isResolving = memo.status === "ACTIVE";
@@ -204,11 +235,11 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       await updateMemo(id, updates);
     },
-    [memos, user, updateMemo]
+    [rawMemos, user, updateMemo]
   );
 
   const togglePinMemo = useCallback((id: string) => {
-    setMemos((prev) =>
+    setRawMemos((prev) =>
       prev.map((m) => {
         if (m.id === id) {
           const nextPinned = !m.pinned;
@@ -221,7 +252,7 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const toggleChecklistItem = useCallback(
     async (memoId: string, itemId: string): Promise<void> => {
-      const targetMemo = memos.find((m) => m.id === memoId);
+      const targetMemo = rawMemos.find((m) => m.id === memoId);
       if (!targetMemo || !targetMemo.checklists) return;
 
       const updatedChecklists = targetMemo.checklists.map((chk) =>
@@ -230,7 +261,7 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       await updateMemo(memoId, { checklists: updatedChecklists });
     },
-    [memos, updateMemo]
+    [rawMemos, updateMemo]
   );
 
   const openDrawerWithNewMemo = useCallback(
@@ -256,13 +287,13 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const pinnedMemos = useMemo(() => {
-    return memos.filter((m) => m.pinned && m.status === "ACTIVE");
-  }, [memos]);
+    return visibleMemos.filter((m) => m.pinned && m.status === "ACTIVE");
+  }, [visibleMemos]);
 
   const getMemosForSection = useCallback(
     (href: string) => {
       const cleanPath = href.split("?")[0];
-      return memos.filter((m) => {
+      return visibleMemos.filter((m) => {
         const memoPath = m.associatedSectionHref.split("?")[0];
         return (
           m.associatedSectionHref === href ||
@@ -271,12 +302,12 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
       });
     },
-    [memos]
+    [visibleMemos]
   );
 
   const toggleMemoScope = useCallback(
     async (id: string): Promise<void> => {
-      const target = memos.find((m) => m.id === id);
+      const target = rawMemos.find((m) => m.id === id);
       if (!target) return;
       const nextScope: MemoScope = target.scope === "COLLABORATIVE" ? "PRIVATE" : "COLLABORATIVE";
       await updateMemo(id, { scope: nextScope });
@@ -285,25 +316,25 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: nextScope === "COLLABORATIVE" ? "Ce mémo est maintenant visible par toute l'équipe." : "Ce mémo n'est plus visible que par vous.",
       });
     },
-    [memos, updateMemo, toast]
+    [rawMemos, updateMemo, toast]
   );
 
   const totalActiveCount = useMemo(() => {
-    return memos.filter((m) => m.status === "ACTIVE").length;
-  }, [memos]);
+    return visibleMemos.filter((m) => m.status === "ACTIVE").length;
+  }, [visibleMemos]);
 
   const collaborativeCount = useMemo(() => {
-    return memos.filter((m) => m.status === "ACTIVE" && m.scope === "COLLABORATIVE").length;
-  }, [memos]);
+    return visibleMemos.filter((m) => m.status === "ACTIVE" && m.scope === "COLLABORATIVE").length;
+  }, [visibleMemos]);
 
   const privateCount = useMemo(() => {
-    return memos.filter((m) => m.status === "ACTIVE" && m.scope === "PRIVATE").length;
-  }, [memos]);
+    return visibleMemos.filter((m) => m.status === "ACTIVE" && m.scope === "PRIVATE").length;
+  }, [visibleMemos]);
 
   return (
     <MemoContext.Provider
       value={{
-        memos,
+        memos: visibleMemos,
         isLoading,
         isDrawerOpen,
         setIsDrawerOpen,
