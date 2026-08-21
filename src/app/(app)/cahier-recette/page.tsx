@@ -242,11 +242,17 @@ export default function TestBookPage() {
 
   // Test Case Actions
   const handleToggleStatus = (testId: string) => {
+    const nowIso = new Date().toISOString();
     const updated = testCases.map((t) => {
       if (t.id === testId) {
         const nextStatus: TestStatus =
           t.status === "OK" ? "KO" : t.status === "KO" ? "Non encore testé" : "OK";
-        return { ...t, status: nextStatus };
+        return {
+          ...t,
+          status: nextStatus,
+          updatedAt: nowIso,
+          createdAt: t.createdAt || nowIso,
+        };
       }
       return t;
     });
@@ -259,11 +265,22 @@ export default function TestBookPage() {
   };
 
   const handleAddTestCase = (newTestCase: TestCase, associatedAnomaly?: Anomaly) => {
-    const updatedTests = [newTestCase, ...testCases.filter((t) => t.id !== newTestCase.id)];
+    const nowIso = new Date().toISOString();
+    const preparedTest: TestCase = {
+      ...newTestCase,
+      createdAt: newTestCase.createdAt || nowIso,
+      updatedAt: nowIso,
+    };
+    const updatedTests = [preparedTest, ...testCases.filter((t) => t.id !== preparedTest.id)];
     let updatedAnomalies = [...anomalies];
 
     if (associatedAnomaly) {
-      updatedAnomalies = [associatedAnomaly, ...anomalies.filter((a) => a.id !== associatedAnomaly.id)];
+      const preparedAno: Anomaly = {
+        ...associatedAnomaly,
+        createdAt: associatedAnomaly.createdAt || nowIso,
+        updatedAt: nowIso,
+      };
+      updatedAnomalies = [preparedAno, ...anomalies.filter((a) => a.id !== preparedAno.id)];
       setAnomalies(updatedAnomalies);
     }
 
@@ -278,11 +295,22 @@ export default function TestBookPage() {
   };
 
   const handleUpdateTestCase = (updatedTestCase: TestCase, associatedAnomaly?: Anomaly) => {
-    const updatedTests = testCases.map((t) => (t.id === updatedTestCase.id ? updatedTestCase : t));
+    const nowIso = new Date().toISOString();
+    const preparedTest: TestCase = {
+      ...updatedTestCase,
+      updatedAt: nowIso,
+      createdAt: updatedTestCase.createdAt || nowIso,
+    };
+    const updatedTests = testCases.map((t) => (t.id === preparedTest.id ? preparedTest : t));
     let updatedAnomalies = [...anomalies];
 
     if (associatedAnomaly) {
-      updatedAnomalies = [associatedAnomaly, ...anomalies.filter((a) => a.id !== associatedAnomaly.id)];
+      const preparedAno: Anomaly = {
+        ...associatedAnomaly,
+        updatedAt: nowIso,
+        createdAt: associatedAnomaly.createdAt || nowIso,
+      };
+      updatedAnomalies = [preparedAno, ...anomalies.filter((a) => a.id !== preparedAno.id)];
       setAnomalies(updatedAnomalies);
     }
 
@@ -307,6 +335,7 @@ export default function TestBookPage() {
   // Anomaly Actions
   const handleToggleResolveAnomaly = (anomalyId: string) => {
     let resolvedStatus: string = "";
+    const nowIso = new Date().toISOString();
     const updated = anomalies.map((ano) => {
       if (ano.id === anomalyId) {
         const isCurrentlyResolved = ano.status === "RESOLUE";
@@ -315,7 +344,8 @@ export default function TestBookPage() {
         return {
           ...ano,
           status: nextStatus as any,
-          resolvedAt: !isCurrentlyResolved ? new Date().toISOString() : undefined,
+          updatedAt: nowIso,
+          resolvedAt: !isCurrentlyResolved ? nowIso : undefined,
           resolvedBy: !isCurrentlyResolved ? "Équipe Conformité" : undefined,
         };
       }
@@ -335,7 +365,14 @@ export default function TestBookPage() {
   };
 
   const handleAddAnomaly = (newAnomaly: Anomaly) => {
-    const updated = [newAnomaly, ...anomalies.filter((a) => a.id !== newAnomaly.id)];
+    const nowIso = new Date().toISOString();
+    const preparedAno: Anomaly = {
+      ...newAnomaly,
+      createdAt: newAnomaly.createdAt || nowIso,
+      updatedAt: nowIso,
+      resolvedAt: newAnomaly.status === "RESOLUE" ? (newAnomaly.resolvedAt || nowIso) : undefined,
+    };
+    const updated = [preparedAno, ...anomalies.filter((a) => a.id !== preparedAno.id)];
     setAnomalies(updated);
     saveToFirestore(testCases, updated);
     toast({
@@ -345,7 +382,14 @@ export default function TestBookPage() {
   };
 
   const handleUpdateAnomaly = (updatedAnomaly: Anomaly) => {
-    const updated = anomalies.map((a) => (a.id === updatedAnomaly.id ? updatedAnomaly : a));
+    const nowIso = new Date().toISOString();
+    const preparedAno: Anomaly = {
+      ...updatedAnomaly,
+      updatedAt: nowIso,
+      createdAt: updatedAnomaly.createdAt || nowIso,
+      resolvedAt: updatedAnomaly.status === "RESOLUE" ? (updatedAnomaly.resolvedAt || nowIso) : undefined,
+    };
+    const updated = anomalies.map((a) => (a.id === preparedAno.id ? preparedAno : a));
     setAnomalies(updated);
     saveToFirestore(testCases, updated);
     toast({

@@ -82,6 +82,27 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
     }
   };
 
+  // Helper to format date and time
+  const formatDateTime = (dateStr?: string) => {
+    if (!dateStr) return null;
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return null;
+      const datePart = d.toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+      const timePart = d.toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      return `${datePart} à ${timePart}`;
+    } catch {
+      return null;
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Barre d'outils et Filtres */}
@@ -210,19 +231,27 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
                 <div>
                   {/* En-tête de la carte */}
                   <CardHeader className="p-4 pb-2.5 flex flex-row items-center justify-between border-b border-slate-100 dark:border-slate-800 gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-black text-sm text-slate-900 dark:text-white">
-                        {ano.id}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800"
-                      >
-                        {ano.module}
-                      </Badge>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-black text-sm text-slate-900 dark:text-white">
+                          {ano.id}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800"
+                        >
+                          {ano.module}
+                        </Badge>
+                      </div>
+                      {ano.createdAt && (
+                        <div className="flex items-center gap-1 text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">
+                          <Clock className="h-2.5 w-2.5 text-slate-400 shrink-0" />
+                          <span>Enregistrée le {formatDateTime(ano.createdAt)}</span>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {/* Statut Résolu / Ouvert */}
                       <Badge
                         className={cn(
@@ -283,15 +312,11 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
                     )}
 
                     {isResolved && ano.resolvedAt && (
-                      <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-2 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50 text-[10px] text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 font-medium">
+                      <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50 text-[10.5px] text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 font-medium">
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                         <span>
-                          Résolue le{" "}
-                          {new Date(ano.resolvedAt).toLocaleDateString("fr-FR", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
+                          Résolue le <strong className="font-bold">{formatDateTime(ano.resolvedAt)}</strong>
+                          {ano.resolvedBy ? ` par ${ano.resolvedBy}` : ""}
                         </span>
                       </div>
                     )}

@@ -63,6 +63,9 @@ export const AnomalyModal: React.FC<AnomalyModalProps> = ({
     e.preventDefault();
     if (!id.trim() || !description.trim()) return;
 
+    const nowIso = new Date().toISOString();
+    const isResolved = status === "RESOLUE";
+
     onSave({
       id: id.trim(),
       module,
@@ -71,7 +74,10 @@ export const AnomalyModal: React.FC<AnomalyModalProps> = ({
       priority,
       status,
       linkedTest: linkedTest.trim() || "N/A",
-      resolvedAt: status === "RESOLUE" ? anomalyToEdit?.resolvedAt || new Date().toISOString() : undefined,
+      createdAt: anomalyToEdit?.createdAt || nowIso,
+      updatedAt: nowIso,
+      resolvedAt: isResolved ? (anomalyToEdit?.resolvedAt || nowIso) : undefined,
+      resolvedBy: isResolved ? (anomalyToEdit?.resolvedBy || "Équipe Conformité") : undefined,
     });
 
     onClose();

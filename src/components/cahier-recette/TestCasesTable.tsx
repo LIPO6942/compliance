@@ -132,6 +132,27 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
 
   const allAnomaliesCount = getModuleAnomalyCount("ALL");
 
+  // Helper to format date and time
+  const formatDateTime = (dateStr?: string) => {
+    if (!dateStr) return null;
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return null;
+      const datePart = d.toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+      const timePart = d.toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      return `${datePart} ${timePart}`;
+    } catch {
+      return null;
+    }
+  };
+
   return (
     <TooltipProvider delayDuration={150}>
       <div className="space-y-4">
@@ -284,7 +305,7 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200/60 dark:border-slate-800/60">
-                <th className="p-3.5 w-[80px]">ID</th>
+                <th className="p-3.5 w-[110px]">ID / Date</th>
                 <th className="p-3.5 w-[160px]">Module</th>
                 <th className="p-3.5 w-[240px]">Titre du Test</th>
                 <th className="p-3.5 w-[280px]">Étapes de Reproduction</th>
@@ -323,15 +344,26 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                       tc.status === "KO" && "bg-rose-50/20 dark:bg-rose-950/10"
                     )}
                   >
-                    <td className="p-3.5 font-bold font-mono text-slate-900 dark:text-white">
-                      {tc.id}
+                    <td className="p-3.5 align-top">
+                      <div className="font-bold font-mono text-slate-900 dark:text-white">
+                        {tc.id}
+                      </div>
+                      {tc.createdAt && (
+                        <div
+                          className="flex items-center gap-1 text-[9px] text-slate-400 dark:text-slate-500 font-medium mt-1 shrink-0"
+                          title={`Enregistré le ${formatDateTime(tc.createdAt)}`}
+                        >
+                          <Clock className="h-2.5 w-2.5 text-slate-400 shrink-0" />
+                          <span>{formatDateTime(tc.createdAt)}</span>
+                        </div>
+                      )}
                     </td>
-                    <td className="p-3.5">
+                    <td className="p-3.5 align-top">
                       <span className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold text-[10px]">
                         {tc.module}
                       </span>
                     </td>
-                    <td className="p-3.5 font-semibold text-slate-800 dark:text-slate-200">
+                    <td className="p-3.5 align-top font-semibold text-slate-800 dark:text-slate-200">
                       {tc.title}
                       {tc.comment && (
                         <p className="text-[10px] text-slate-500 font-normal mt-1 italic leading-relaxed bg-slate-50 dark:bg-slate-800/60 p-1.5 rounded-md border border-slate-100 dark:border-slate-800">
@@ -339,13 +371,13 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                         </p>
                       )}
                     </td>
-                    <td className="p-3.5 text-slate-600 dark:text-slate-400 whitespace-pre-line leading-relaxed text-[11px]">
+                    <td className="p-3.5 align-top text-slate-600 dark:text-slate-400 whitespace-pre-line leading-relaxed text-[11px]">
                       {tc.steps}
                     </td>
-                    <td className="p-3.5 text-slate-700 dark:text-slate-300 text-[11px] font-medium">
+                    <td className="p-3.5 align-top text-slate-700 dark:text-slate-300 text-[11px] font-medium">
                       {tc.expectedResult}
                     </td>
-                    <td className="p-3.5 text-center">
+                    <td className="p-3.5 align-top text-center">
                       <button
                         onClick={() => onToggleStatus(tc.id)}
                         title="Cliquer pour basculer le statut (OK → KO → Non testé)"
@@ -365,7 +397,7 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                         {tc.status === "OK" ? "OK" : tc.status === "KO" ? "KO" : "Non testé"}
                       </button>
                     </td>
-                    <td className="p-3.5 text-center font-mono text-[10px]">
+                    <td className="p-3.5 align-top text-center font-mono text-[10px]">
                       {tc.linkedAnomaly ? (
                         <span className="px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-black border border-rose-200 dark:border-rose-900">
                           {tc.linkedAnomaly}
@@ -374,7 +406,7 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                         <span className="text-slate-300 dark:text-slate-600">-</span>
                       )}
                     </td>
-                    <td className="p-3.5 text-center">
+                    <td className="p-3.5 align-top text-center">
                       <div className="flex items-center justify-center gap-1 opacity-80 group-hover:opacity-100">
                         <button
                           onClick={() => handleOpenEditModal(tc)}

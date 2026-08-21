@@ -128,6 +128,7 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
 
     const finalModule = isCustomModule ? customModule.trim() || "Général" : module;
     const finalLinkedAnomaly = declareAnomaly && anomalyId.trim() ? anomalyId.trim() : undefined;
+    const nowIso = new Date().toISOString();
 
     const testCaseResult: TestCase = {
       id: id.trim(),
@@ -138,11 +139,15 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
       status,
       linkedAnomaly: finalLinkedAnomaly,
       comment: comment.trim() || undefined,
+      createdAt: testCaseToEdit?.createdAt || nowIso,
+      updatedAt: nowIso,
     };
 
     let associatedAnomalyResult: Anomaly | undefined = undefined;
 
     if (declareAnomaly && anomalyId.trim()) {
+      const existingAno = existingAnomalies.find((a) => a.id === anomalyId.trim());
+      const isResolved = status === "OK";
       associatedAnomalyResult = {
         id: anomalyId.trim(),
         module: finalModule,
@@ -150,7 +155,11 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
         businessImpact: anomalyImpact.trim() || "Impact à qualifier par l'équipe conformité.",
         priority: anomalyPriority,
         linkedTest: id.trim(),
-        status: status === "OK" ? "RESOLUE" : "OUVERTE",
+        status: isResolved ? "RESOLUE" : "OUVERTE",
+        createdAt: existingAno?.createdAt || nowIso,
+        updatedAt: nowIso,
+        resolvedAt: isResolved ? (existingAno?.resolvedAt || nowIso) : undefined,
+        resolvedBy: isResolved ? (existingAno?.resolvedBy || "Équipe Conformité") : undefined,
       };
     }
 

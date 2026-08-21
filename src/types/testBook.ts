@@ -11,6 +11,8 @@ export interface TestCase {
   status: TestStatus;
   linkedAnomaly?: string;
   comment?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Anomaly {
@@ -21,6 +23,8 @@ export interface Anomaly {
   priority: AnomalyPriority;
   linkedTest: string;
   status?: AnomalyStatus;
+  createdAt?: string;
+  updatedAt?: string;
   resolvedAt?: string;
   resolvedBy?: string;
   resolutionComment?: string;
