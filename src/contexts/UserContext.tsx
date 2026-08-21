@@ -29,6 +29,7 @@ interface UserContextType {
   emailLinkStatus: EmailLinkStatus;
   emailLinkError: string | null;
   login: (email: string) => Promise<void>;
+  loginDirectly: (email: string, name?: string, role?: string) => Promise<void>;
   completeEmailSignIn: (email: string) => Promise<void>;
   updateUser: (newProfile: Partial<UserProfile>) => Promise<void>;
   logout: () => Promise<void>;
@@ -91,6 +92,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   const formatFirebaseAuthError = (code: string): string => {
     switch (code) {
+      case 'auth/quota-exceeded':
+        return "Quota journalier d'envoi d'emails Firebase dépassé (limite du forfait gratuit). Utilisez la connexion directe ci-dessous pour accéder immédiatement à l'application.";
       case 'auth/invalid-action-code':
         return 'Ce lien de connexion est invalide ou a déjà été utilisé. Veuillez générer un nouveau lien.';
       case 'auth/expired-action-code':
@@ -141,6 +144,85 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  // Direct login without relying on email link quota (for dev, testing, or quota fallback)
+  const loginDirectly = useCallback(async (email: string, name?: string, role?: string) => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) throw new Error("Veuillez saisir une adresse email.");
+
+    let targetName = name;
+    let targetRole = role;
+
+    // Auto-match name and role from team if not provided
+    if (!targetName && db && isFirebaseConfigured) {
+      try {
+        const teamSnap = await getDocs(collection(db, 'team'));
+        const member = teamSnap.docs.find(d => {
+          const mData = d.data();
+          return mData.email === trimmedEmail || mData.secondaryEmail === trimmedEmail;
+        });
+        if (member) {
+          targetName = member.data().name;
+          targetRole = member.data().role;
+        }
+      } catch { /* ignore */ }
+    }
+
+    if (!targetName) {
+      if (trimmedEmail.toLowerCase().includes('moslem') || trimmedEmail.toLowerCase().includes('gouia')) {
+        targetName = 'Moslem G.';
+        targetRole = 'Direction Compliance & GRC';
+      } else if (trimmedEmail.toLowerCase().includes('sarah')) {
+        targetName = 'Sarah L.';
+        targetRole = 'Legal Counsel';
+      } else if (trimmedEmail.toLowerCase().includes('karim')) {
+        targetName = 'Karim B.';
+        targetRole = 'Risk Officer';
+      } else {
+        targetName = trimmedEmail.split('@')[0];
+        targetRole = 'Responsable Conformité';
+      }
+    }
+
+    // Try signing in anonymously to Firebase Auth if not already logged in
+    let uid = auth?.currentUser?.uid;
+    if (auth && isFirebaseConfigured && !uid) {
+      try {
+        const { signInAnonymously } = await import("firebase/auth");
+        const cred = await signInAnonymously(auth);
+        uid = cred.user.uid;
+      } catch (anonErr) {
+        console.warn("Anonymous sign-in not available, falling back to local UID:", anonErr);
+        uid = `usr-${Date.now()}`;
+      }
+    } else if (!uid) {
+      uid = `usr-${Date.now()}`;
+    }
+
+    const newProfile: UserProfile = {
+      name: targetName || 'Utilisateur',
+      role: targetRole || 'Responsable Conformité',
+      email: trimmedEmail,
+      authEmail: trimmedEmail,
+      uid: uid
+    };
+
+    if (db && isFirebaseConfigured && uid) {
+      try {
+        const userDocRef = doc(db, 'users', uid);
+        await setDoc(userDocRef, newProfile, { merge: true });
+      } catch (err) {
+        console.warn("Could not sync user profile to Firestore (non-blocking):", err);
+      }
+    }
+
+    try {
+      window.localStorage?.setItem('compliance_saved_user', JSON.stringify(newProfile));
+    } catch { /* ignore */ }
+
+    setUser(newProfile);
+    setIsLoaded(true);
+  }, []);
+
   // Handle incoming email links on mount (Mobile & Desktop)
   useEffect(() => {
     if (!isFirebaseConfigured || !auth || typeof window === 'undefined') return;
@@ -153,7 +235,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       if (storedEmail) {
         // We have the email stored locally -> auto-login immediately
         completeEmailSignIn(storedEmail).catch(() => {
-          // If auto sign-in with stored email fails (e.g. wrong cached email), prompt for email
           setEmailLinkStatus('needs-email');
         });
       } else {
@@ -166,11 +247,18 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   // Listen to Auth State and sync user profile
   useEffect(() => {
     if (!isFirebaseConfigured || !auth || !db) {
+      // Check for locally saved user session
+      try {
+        const saved = typeof window !== 'undefined' ? window.localStorage?.getItem('compliance_saved_user') : null;
+        if (saved) {
+          setUser(JSON.parse(saved));
+        }
+      } catch { /* ignore */ }
       setIsLoaded(true);
       return;
     }
 
-    // Safety timeout: ensure isLoaded is true within 6 seconds even if Firebase or network hangs
+    // Safety timeout: ensure isLoaded is true within 6 seconds
     const safetyTimer = setTimeout(() => {
       setIsLoaded((prev) => {
         if (!prev) {
@@ -265,7 +353,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
               }
             } catch (snapErr) {
               console.error("Error processing user profile snapshot:", snapErr);
-              // Fallback user
               setUser({
                 ...defaultUser,
                 email: authUser.email || '',
@@ -295,7 +382,17 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           clearTimeout(safetyTimer);
         }
       } else {
-        setUser(null);
+        // If not logged into Firebase, check localStorage
+        try {
+          const saved = typeof window !== 'undefined' ? window.localStorage?.getItem('compliance_saved_user') : null;
+          if (saved) {
+            setUser(JSON.parse(saved));
+          } else {
+            setUser(null);
+          }
+        } catch {
+          setUser(null);
+        }
         setIsLoaded(true);
         clearTimeout(safetyTimer);
       }
@@ -332,7 +429,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       const code = err?.code || '';
       let msg = "Une erreur est survenue lors de l'envoi du lien magique.";
 
-      if (code === 'auth/unauthorized-domain') {
+      if (code === 'auth/quota-exceeded') {
+        msg = "Quota journalier d'envoi d'emails Firebase dépassé (limite du forfait gratuit). Utilisez la connexion directe ci-dessous pour accéder immédiatement à l'application sans attendre.";
+      } else if (code === 'auth/unauthorized-domain') {
         msg = `Le domaine "${window.location.hostname}" n'est pas autorisé dans Firebase. Ajoutez ce domaine dans la Console Firebase > Authentication > Paramètres > Domaines autorisés.`;
       } else if (code === 'auth/operation-not-allowed') {
         msg = "La méthode 'Lien par e-mail (connexion sans mot de passe)' doit être activée dans la Console Firebase > Authentication > Modes de connexion.";
@@ -350,11 +449,18 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-
   const updateUser = async (newProfile: Partial<UserProfile>) => {
-    if (!isFirebaseConfigured || !db || !user?.uid) return;
+    if (!isFirebaseConfigured || !db || !user?.uid) {
+      if (user) {
+        const updated = { ...user, ...newProfile };
+        setUser(updated);
+        try {
+          window.localStorage?.setItem('compliance_saved_user', JSON.stringify(updated));
+        } catch { /* ignore */ }
+      }
+      return;
+    }
     const userDocRef = doc(db, 'users', user.uid);
-    // Firestore rejects `undefined` values — strip them out before saving
     const sanitized = Object.fromEntries(
       Object.entries(newProfile).filter(([, v]) => v !== undefined)
     );
@@ -362,7 +468,14 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    if (auth) await auth.signOut();
+    if (auth) {
+      try {
+        await auth.signOut();
+      } catch { /* ignore */ }
+    }
+    try {
+      window.localStorage?.removeItem('compliance_saved_user');
+    } catch { /* ignore */ }
     setUser(null);
     clearStoredEmailForSignIn();
     clearEmailLinkStatus();
@@ -376,6 +489,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       emailLinkStatus,
       emailLinkError,
       login,
+      loginDirectly,
       completeEmailSignIn,
       updateUser,
       logout,
@@ -393,4 +507,5 @@ export const useUser = () => {
   }
   return context;
 };
+
 

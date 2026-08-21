@@ -6,13 +6,45 @@ import { useUser } from '@/contexts/UserContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, CheckCircle2, Loader2, ShieldCheck, AlertCircle, Smartphone, ArrowRight, RefreshCw } from 'lucide-react';
+import { Mail, CheckCircle2, Loader2, ShieldCheck, AlertCircle, Smartphone, ArrowRight, RefreshCw, Zap, UserCheck, ChevronRight } from 'lucide-react';
 import { Logo } from '@/components/icons/Logo';
 import { useToast } from "@/hooks/use-toast";
+
+const QUICK_PROFILES = [
+    {
+        name: "Moslem G.",
+        role: "Direction Compliance & GRC",
+        email: "moslem.gouia@mae.tn",
+        badge: "Admin",
+        color: "bg-emerald-50 text-emerald-700 border-emerald-200"
+    },
+    {
+        name: "Responsable Conformité",
+        role: "Équipe Conformité MAE",
+        email: "conformite@mae.com.tn",
+        badge: "GRC",
+        color: "bg-blue-50 text-blue-700 border-blue-200"
+    },
+    {
+        name: "Sarah L.",
+        role: "Legal Counsel",
+        email: "sarah@compliancenav.com",
+        badge: "DPO",
+        color: "bg-purple-50 text-purple-700 border-purple-200"
+    },
+    {
+        name: "Karim B.",
+        role: "Risk Officer",
+        email: "karim@compliancenav.com",
+        badge: "LCB-FT",
+        color: "bg-amber-50 text-amber-700 border-amber-200"
+    }
+];
 
 export default function LoginPage() {
     const {
         login,
+        loginDirectly,
         completeEmailSignIn,
         isLoaded,
         user,
@@ -28,6 +60,7 @@ export default function LoginPage() {
     const [confirmEmail, setConfirmEmail] = useState('');
     const [isSent, setIsSent] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [directLoading, setDirectLoading] = useState<string | null>(null);
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [sendError, setSendError] = useState<string | null>(null);
 
@@ -36,7 +69,7 @@ export default function LoginPage() {
         if (user && isLoaded) {
             const timer = setTimeout(() => {
                 router.push('/dashboard');
-            }, 800);
+            }, 600);
             return () => clearTimeout(timer);
         }
     }, [user, isLoaded, router]);
@@ -52,10 +85,10 @@ export default function LoginPage() {
             setIsSent(true);
         } catch (error: any) {
             console.error("Login send error:", error);
-            const msg = error?.message || "Une erreur est survenue lors de l'envoi du mail. Vérifiez votre connexion ou la configuration Firebase.";
+            const msg = error?.message || "Une erreur est survenue lors de l'envoi du mail.";
             setSendError(msg);
             toast({
-                title: "Erreur d'envoi",
+                title: "Information d'envoi",
                 description: msg,
                 variant: "destructive",
             });
@@ -64,6 +97,27 @@ export default function LoginPage() {
         }
     };
 
+    const handleDirectLogin = async (targetEmail: string, name?: string, role?: string) => {
+        setDirectLoading(targetEmail);
+        setSendError(null);
+        try {
+            await loginDirectly(targetEmail, name, role);
+            toast({
+                title: "Connexion réussie",
+                description: `Bienvenue, ${name || targetEmail}. Accès à l'application...`,
+            });
+            router.push('/dashboard');
+        } catch (err: any) {
+            console.error("Direct login failed:", err);
+            toast({
+                title: "Erreur de connexion",
+                description: err?.message || "Impossible de se connecter.",
+                variant: "destructive"
+            });
+        } finally {
+            setDirectLoading(null);
+        }
+    };
 
     const handleConfirmEmailSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -77,7 +131,7 @@ export default function LoginPage() {
                 description: "Votre identité a été validée avec succès.",
             });
         } catch (err) {
-            // Error is handled and stored in emailLinkError
+            // Handled in context
         } finally {
             setConfirmLoading(false);
         }
@@ -227,24 +281,38 @@ export default function LoginPage() {
         );
     }
 
-    // State 5: Default Login Page (Request new magic link)
+    // State 5: Default Login Page (Request magic link OR Instant direct login)
     return (
         <div className="flex min-h-screen items-center justify-center p-4 bg-slate-50">
-            <Card className="w-full max-w-md border-2 border-slate-100 shadow-xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300">
-                <CardHeader className="text-center pt-10">
-                    <div className="mx-auto mb-4 flex justify-center">
-                        <Logo className="h-20 w-20 bg-white shadow-xl rounded-full p-2" />
+            <Card className="w-full max-w-lg border-2 border-slate-100 shadow-xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300">
+                <CardHeader className="text-center pt-8 pb-4">
+                    <div className="mx-auto mb-3 flex justify-center">
+                        <Logo className="h-16 w-16 bg-white shadow-lg rounded-full p-2" />
                     </div>
                     <CardTitle className="text-3xl font-black tracking-tight">Bienvenue</CardTitle>
-                    <CardDescription className="text-slate-500 font-medium px-6">
-                        Entrez votre email professionnel pour recevoir un lien de connexion sécurisé.
+                    <CardDescription className="text-slate-500 font-medium px-4">
+                        Accédez à votre espace de travail Compliance & Conformité Réglementaire.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="pb-10 pt-4 space-y-4">
+
+                <CardContent className="pb-8 pt-2 space-y-6">
                     {sendError && (
-                        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-2.5">
-                            <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5 text-red-600" />
-                            <div>{sendError}</div>
+                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-sm space-y-3">
+                            <div className="flex items-start gap-2.5">
+                                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5 text-amber-600" />
+                                <div className="leading-relaxed font-medium">{sendError}</div>
+                            </div>
+                            {email && (
+                                <Button
+                                    size="sm"
+                                    className="w-full font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow"
+                                    onClick={() => handleDirectLogin(email)}
+                                    disabled={directLoading !== null}
+                                >
+                                    {directLoading === email ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+                                    Connexion directe avec {email}
+                                </Button>
+                            )}
                         </div>
                     )}
 
@@ -259,35 +327,116 @@ export default function LoginPage() {
                                     Consultez votre boîte mail (<strong>{email}</strong>) sur cet appareil ou votre téléphone et cliquez sur le lien pour vous connecter.
                                 </p>
                             </div>
-                            <Button variant="ghost" className="w-full text-slate-400 font-bold" onClick={() => setIsSent(false)}>
-                                Utiliser un autre email
-                            </Button>
+                            <div className="pt-2 space-y-2">
+                                <Button
+                                    variant="outline"
+                                    className="w-full rounded-xl font-bold"
+                                    onClick={() => handleDirectLogin(email)}
+                                >
+                                    <Zap className="mr-2 h-4 w-4 text-amber-500" />
+                                    Ouvrir directement sans attendre l'email
+                                </Button>
+                                <Button variant="ghost" className="w-full text-slate-400 font-bold text-xs" onClick={() => setIsSent(false)}>
+                                    Utiliser un autre email
+                                </Button>
+                            </div>
                         </div>
                     ) : (
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <Input
-                                    type="email"
-                                    placeholder="nom@mae.com.tn"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                    className="h-12 px-4 rounded-xl border-2 border-slate-100 focus:border-primary/30 focus:ring-primary/10 font-medium"
-                                />
+                        <div className="space-y-5">
+                            {/* Email Form */}
+                            <form onSubmit={handleSubmit} className="space-y-3">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                        Email professionnel
+                                    </label>
+                                    <Input
+                                        type="email"
+                                        placeholder="nom@mae.com.tn"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        required
+                                        className="h-12 px-4 rounded-xl border-2 border-slate-100 focus:border-primary/30 focus:ring-primary/10 font-medium"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                                    <Button
+                                        type="submit"
+                                        className="w-full h-11 rounded-xl font-bold shadow-md shadow-primary/20"
+                                        disabled={loading || directLoading !== null}
+                                    >
+                                        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                                        Envoyer le lien
+                                    </Button>
+
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full h-11 rounded-xl font-bold border-2 border-slate-200 hover:bg-slate-100"
+                                        onClick={() => {
+                                            if (email) {
+                                                handleDirectLogin(email);
+                                            } else {
+                                                toast({
+                                                    title: "Email requis",
+                                                    description: "Veuillez entrer une adresse email pour la connexion directe.",
+                                                });
+                                            }
+                                        }}
+                                        disabled={loading || directLoading !== null}
+                                    >
+                                        {directLoading === email ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4 text-amber-500" />}
+                                        Connexion directe
+                                    </Button>
+                                </div>
+                            </form>
+
+                            {/* Quick Team Profiles */}
+                            <div className="pt-2 border-t border-slate-100 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                        Accès Rapide par Profil
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                                        1 Clic
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {QUICK_PROFILES.map((p) => {
+                                        const isThisLoading = directLoading === p.email;
+                                        return (
+                                            <button
+                                                key={p.email}
+                                                type="button"
+                                                onClick={() => handleDirectLogin(p.email, p.name, p.role)}
+                                                disabled={directLoading !== null || loading}
+                                                className="flex items-center justify-between p-3 rounded-2xl border-2 border-slate-100 hover:border-primary/40 hover:bg-primary/5 transition-all text-left group cursor-pointer disabled:opacity-50"
+                                            >
+                                                <div className="space-y-0.5 truncate pr-2">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="font-bold text-xs text-slate-900 truncate">{p.name}</span>
+                                                        <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-md border ${p.color}`}>
+                                                            {p.badge}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-400 truncate">{p.role}</p>
+                                                </div>
+                                                {isThisLoading ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
+                                                ) : (
+                                                    <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                            <Button
-                                type="submit"
-                                className="w-full h-12 rounded-xl font-bold shadow-lg shadow-primary/20"
-                                disabled={loading}
-                            >
-                                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Envoyer le lien magique
-                            </Button>
-                        </form>
+                        </div>
                     )}
                 </CardContent>
             </Card>
         </div>
     );
 }
+
 
