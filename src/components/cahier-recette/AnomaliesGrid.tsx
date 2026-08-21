@@ -170,15 +170,9 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
           </div>
         </div>
 
-        {/* Bouton Déclarer une Anomalie */}
-        <Button
-          onClick={handleOpenAddModal}
-          size="sm"
-          className="h-8 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold gap-1.5 shadow-md shadow-rose-500/20 shrink-0"
-        >
-          <Plus className="h-4 w-4" />
-          Déclarer une Anomalie
-        </Button>
+        <div className="text-[11px] text-slate-400 font-semibold">
+          {anomalies.length} anomalie(s) répertoriée(s)
+        </div>
       </div>
 
       {/* Grille des Cartes d'Anomalies */}
@@ -195,15 +189,6 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
               Toutes les anomalies de cette catégorie sont résolues ou inexistantes.
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenAddModal}
-            className="rounded-xl text-xs font-bold gap-1"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Déclarer une nouvelle anomalie
-          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

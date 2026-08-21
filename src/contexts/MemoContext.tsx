@@ -95,7 +95,7 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [rawMemos]);
 
-  // Real-time bidirectional sync with Firestore
+  // Real-time bidirectional sync with Firestore via config/compliance_memos
   useEffect(() => {
     if (!isFirebaseConfigured || !db) {
       setIsLoading(false);
@@ -105,18 +105,20 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubscribe: (() => void) | undefined;
     (async () => {
       try {
-        const { collection, onSnapshot, query, orderBy } = await import("firebase/firestore");
-        const q = query(collection(db, "compliance_memos"), orderBy("createdAt", "desc"));
+        const { doc, onSnapshot, setDoc } = await import("firebase/firestore");
+        const docRef = doc(db, "config", "compliance_memos");
+        
         unsubscribe = onSnapshot(
-          q,
-          (snapshot) => {
-            const cloudMemos: ComplianceMemo[] = snapshot.docs.map((d) => ({
-              id: d.id,
-              ...d.data(),
-            })) as ComplianceMemo[];
-            
-            // If cloud has records or empty collection
-            setRawMemos(cloudMemos);
+          docRef,
+          (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              if (data && Array.isArray(data.list)) {
+                setRawMemos(data.list);
+              }
+            } else if (rawMemos.length > 0) {
+              setDoc(docRef, cleanData({ list: rawMemos, updatedAt: new Date().toISOString() }), { merge: true });
+            }
             setIsLoading(false);
           },
           (err) => {
@@ -135,6 +137,21 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  const saveMemosToCloud = async (allMemos: ComplianceMemo[]) => {
+    if (isFirebaseConfigured && db) {
+      try {
+        const { doc, setDoc } = await import("firebase/firestore");
+        await setDoc(
+          doc(db, "config", "compliance_memos"),
+          cleanData({ list: allMemos, updatedAt: new Date().toISOString() }),
+          { merge: true }
+        );
+      } catch (e) {
+        console.error("Error saving memos to cloud:", e);
+      }
+    }
+  };
+
   const addMemo = useCallback(
     async (
       memoData: Omit<ComplianceMemo, "id" | "createdAt" | "authorEmail" | "authorName">
@@ -152,18 +169,9 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         checklists: memoData.checklists || [],
       };
 
-      // Update local state immediately for instant feedback
-      setRawMemos((prev) => [newMemo, ...prev.filter((m) => m.id !== newMemo.id)]);
-
-      // Persist to Firestore for real-time team collaboration
-      if (isFirebaseConfigured && db) {
-        try {
-          const { doc, setDoc } = await import("firebase/firestore");
-          await setDoc(doc(db, "compliance_memos", newMemo.id), cleanData(newMemo));
-        } catch (e) {
-          console.error("Error saving memo to Firestore:", e);
-        }
-      }
+      const updated = [newMemo, ...rawMemos.filter((m) => m.id !== newMemo.id)];
+      setRawMemos(updated);
+      await saveMemosToCloud(updated);
 
       toast({
         title: "Mémo enregistré",
@@ -172,52 +180,36 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return newMemo;
     },
-    [user, toast]
+    [user, rawMemos, toast]
   );
 
   const updateMemo = useCallback(
     async (id: string, updates: Partial<ComplianceMemo>): Promise<void> => {
       const updatedData = { ...updates, updatedAt: new Date().toISOString() };
-      setRawMemos((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, ...updatedData } : m))
-      );
-
-      if (isFirebaseConfigured && db) {
-        try {
-          const { doc, setDoc } = await import("firebase/firestore");
-          await setDoc(doc(db, "compliance_memos", id), cleanData(updatedData), { merge: true });
-        } catch (e) {
-          console.error("Error updating memo in Firestore:", e);
-        }
-      }
+      const updated = rawMemos.map((m) => (m.id === id ? { ...m, ...updatedData } : m));
+      setRawMemos(updated);
+      await saveMemosToCloud(updated);
 
       toast({
         title: "Mémo mis à jour",
         description: "Les modifications ont été enregistrées.",
       });
     },
-    [toast]
+    [rawMemos, toast]
   );
 
   const deleteMemo = useCallback(
     async (id: string): Promise<void> => {
-      setRawMemos((prev) => prev.filter((m) => m.id !== id));
-
-      if (isFirebaseConfigured && db) {
-        try {
-          const { doc, deleteDoc } = await import("firebase/firestore");
-          await deleteDoc(doc(db, "compliance_memos", id));
-        } catch (e) {
-          console.error("Error deleting memo from Firestore:", e);
-        }
-      }
+      const updated = rawMemos.filter((m) => m.id !== id);
+      setRawMemos(updated);
+      await saveMemosToCloud(updated);
 
       toast({
         title: "Mémo supprimé",
         description: "La note a été retirée du registre.",
       });
     },
-    [toast]
+    [rawMemos, toast]
   );
 
   const toggleResolveMemo = useCallback(

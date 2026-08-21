@@ -258,23 +258,39 @@ export default function TestBookPage() {
     });
   };
 
-  const handleAddTestCase = (newTestCase: TestCase) => {
-    const updated = [newTestCase, ...testCases.filter((t) => t.id !== newTestCase.id)];
-    setTestCases(updated);
-    saveToFirestore(updated, anomalies);
+  const handleAddTestCase = (newTestCase: TestCase, associatedAnomaly?: Anomaly) => {
+    const updatedTests = [newTestCase, ...testCases.filter((t) => t.id !== newTestCase.id)];
+    let updatedAnomalies = [...anomalies];
+
+    if (associatedAnomaly) {
+      updatedAnomalies = [associatedAnomaly, ...anomalies.filter((a) => a.id !== associatedAnomaly.id)];
+      setAnomalies(updatedAnomalies);
+    }
+
+    setTestCases(updatedTests);
+    saveToFirestore(updatedTests, updatedAnomalies);
     toast({
       title: "Cas de test créé",
-      description: `Le cas ${newTestCase.id} (${newTestCase.title}) a été ajouté au cahier.`,
+      description: associatedAnomaly
+        ? `Le cas ${newTestCase.id} et l'anomalie ${associatedAnomaly.id} ont été enregistrés.`
+        : `Le cas ${newTestCase.id} (${newTestCase.title}) a été ajouté au cahier.`,
     });
   };
 
-  const handleUpdateTestCase = (updatedTestCase: TestCase) => {
-    const updated = testCases.map((t) => (t.id === updatedTestCase.id ? updatedTestCase : t));
-    setTestCases(updated);
-    saveToFirestore(updated, anomalies);
+  const handleUpdateTestCase = (updatedTestCase: TestCase, associatedAnomaly?: Anomaly) => {
+    const updatedTests = testCases.map((t) => (t.id === updatedTestCase.id ? updatedTestCase : t));
+    let updatedAnomalies = [...anomalies];
+
+    if (associatedAnomaly) {
+      updatedAnomalies = [associatedAnomaly, ...anomalies.filter((a) => a.id !== associatedAnomaly.id)];
+      setAnomalies(updatedAnomalies);
+    }
+
+    setTestCases(updatedTests);
+    saveToFirestore(updatedTests, updatedAnomalies);
     toast({
       title: "Cas de test modifié",
-      description: `Le cas ${updatedTestCase.id} a été enregistré.`,
+      description: `Le cas ${updatedTestCase.id} a été enregistré avec succès.`,
     });
   };
 
