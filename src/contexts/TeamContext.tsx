@@ -23,49 +23,52 @@ const defaultTeam: TeamMember[] = [
     {
         id: "1",
         name: "Moslem G.",
-        role: "Direction Compliance & GRC",
-        specialty: "Stratégie Réglementaire",
+        role: "COMPLIANCE OFFICER",
+        specialty: "Surveillance des transactions inhabituelle",
         status: "Online",
         expertise: ["Audit", "Anti-Corruption", "Risk Management"],
-        email: "moslem@compliancenav.com",
-        secondaryEmail: "moslem.gouia@mae.tn",
-        phone: "+33 1 23 45 67 89",
+        email: "moslem.gouia@mae.tn",
+        secondaryEmail: "moslem@compliancenav.com",
+        phone: "+216 71 000 001",
         order: 1
     },
     {
         id: "2",
-        name: "Sarah L.",
-        role: "Legal Counsel",
-        specialty: "Protection des Données",
-        status: "Online",
-        expertise: ["RGPD", "Privacy by Design", "DPO"],
-        email: "sarah@compliancenav.com",
-        phone: "+33 1 23 45 67 90",
+        name: "Basma Machatt",
+        role: "RISK OFFICER",
+        specialty: "Lutte Anti-Blanchiment",
+        status: "Away",
+        expertise: ["LCD-FT", "Due Diligence", "Sanctions"],
+        email: "basma.machatt@mae.tn",
+        secondaryEmail: "basma@compliancenav.com",
+        phone: "+216 71 000 002",
         order: 2
     },
     {
         id: "3",
-        name: "Compliance AI",
-        role: "Assistant Intelligent",
-        specialty: "Analyse Sémantique",
+        name: "Leila Kefi",
+        role: "COMPLIANCE OFFICER",
+        specialty: "contrôle et suivi des alertes",
         status: "Online",
-        expertise: ["Veille 24/7", "Matching de Preuves", "Scoring"],
-        avatarUrl: "/ai-avatar.png",
-        email: "ai@compliancenav.ai",
-        order: 0
+        expertise: ["RGPD", "Privacy By Design", "DPO"],
+        email: "leila.kefi@mae.tn",
+        secondaryEmail: "leila@compliancenav.com",
+        phone: "+216 71 000 003",
+        order: 3
     },
     {
         id: "4",
-        name: "Karim B.",
-        role: "Risk Officer",
-        specialty: "Lutte Anti-Blanchiment",
-        status: "Away",
-        expertise: ["LCB-FT", "Due Diligence", "Sanctions"],
-        email: "karim@compliancenav.com",
-        phone: "+33 1 23 45 67 91",
-        order: 3
+        name: "Compliance AI",
+        role: "ASSISTANT INTELLIGENT",
+        specialty: "Analyse Sémantique",
+        status: "Online",
+        expertise: ["Veille 24/7", "Matching De Preuves", "Scoring"],
+        avatarUrl: "/ai-avatar.png",
+        email: "ai@compliancenav.ai",
+        order: 0
     }
 ];
+
 
 interface TeamContextType {
     teamMembers: TeamMember[];

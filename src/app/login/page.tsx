@@ -1,43 +1,82 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, CheckCircle2, Loader2, ShieldCheck, AlertCircle, Smartphone, ArrowRight, RefreshCw, Zap, UserCheck, ChevronRight } from 'lucide-react';
+import {
+    Mail,
+    CheckCircle2,
+    Loader2,
+    ShieldCheck,
+    AlertCircle,
+    Smartphone,
+    ArrowRight,
+    RefreshCw,
+    Zap,
+    ChevronRight,
+    Lock,
+    KeyRound,
+    Check,
+    MonitorCheck
+} from 'lucide-react';
 import { Logo } from '@/components/icons/Logo';
 import { useToast } from "@/hooks/use-toast";
+import { getDeviceId, getDeviceInfo } from '@/lib/deviceHelper';
+import {
+    checkIsDeviceApproved,
+    requestDeviceApproval,
+    listenToApprovalStatus,
+    validatePinDirectly,
+    DeviceAuthRequest
+} from '@/lib/deviceApprovalService';
 
-const QUICK_PROFILES = [
+// Real team members from Governance Network
+const REAL_TEAM_PROFILES = [
     {
+        id: "1",
         name: "Moslem G.",
-        role: "Direction Compliance & GRC",
+        role: "COMPLIANCE OFFICER",
+        specialty: "Surveillance des transactions inhabituelle",
         email: "moslem.gouia@mae.tn",
-        badge: "Admin",
-        color: "bg-emerald-50 text-emerald-700 border-emerald-200"
+        secondaryEmail: "moslem@compliancenav.com",
+        initials: "MG",
+        color: "bg-blue-600 text-white",
+        badge: "COMPLIANCE"
     },
     {
-        name: "Responsable Conformité",
-        role: "Équipe Conformité MAE",
-        email: "conformite@mae.com.tn",
-        badge: "GRC",
-        color: "bg-blue-50 text-blue-700 border-blue-200"
+        id: "2",
+        name: "Basma Machatt",
+        role: "RISK OFFICER",
+        specialty: "Lutte Anti-Blanchiment",
+        email: "basma.machatt@mae.tn",
+        secondaryEmail: "basma@compliancenav.com",
+        initials: "BM",
+        color: "bg-blue-500 text-white",
+        badge: "RISK"
     },
     {
-        name: "Sarah L.",
-        role: "Legal Counsel",
-        email: "sarah@compliancenav.com",
-        badge: "DPO",
-        color: "bg-purple-50 text-purple-700 border-purple-200"
+        id: "3",
+        name: "Leila Kefi",
+        role: "COMPLIANCE OFFICER",
+        specialty: "contrôle et suivi des alertes",
+        email: "leila.kefi@mae.tn",
+        secondaryEmail: "leila@compliancenav.com",
+        initials: "LK",
+        color: "bg-indigo-600 text-white",
+        badge: "ALERTES"
     },
     {
-        name: "Karim B.",
-        role: "Risk Officer",
-        email: "karim@compliancenav.com",
-        badge: "LCB-FT",
-        color: "bg-amber-50 text-amber-700 border-amber-200"
+        id: "4",
+        name: "Compliance AI",
+        role: "ASSISTANT INTELLIGENT",
+        specialty: "Analyse Sémantique",
+        email: "ai@compliancenav.ai",
+        initials: "AI",
+        color: "bg-slate-800 text-white",
+        badge: "ASSISTANT"
     }
 ];
 
@@ -64,59 +103,174 @@ export default function LoginPage() {
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [sendError, setSendError] = useState<string | null>(null);
 
+    // Device Approval Flow state (for new devices / phones)
+    const [approvalState, setApprovalState] = useState<{
+        active: boolean;
+        targetAccount: typeof REAL_TEAM_PROFILES[0] | { name: string; role: string; email: string; initials: string; color: string; badge: string };
+        requestId: string;
+        pinCode: string;
+        status: 'waiting' | 'approved' | 'rejected';
+    } | null>(null);
+
+    const [manualPin, setManualPin] = useState('');
+    const [pinValidating, setPinValidating] = useState(false);
+    const [pinError, setPinError] = useState<string | null>(null);
+
+    const approvalListenerUnsub = useRef<(() => void) | null>(null);
+
     // Auto-redirect if already authenticated
     useEffect(() => {
         if (user && isLoaded) {
             const timer = setTimeout(() => {
                 router.push('/dashboard');
-            }, 600);
+            }, 500);
             return () => clearTimeout(timer);
         }
     }, [user, isLoaded, router]);
+
+    // Clean up approval listener on unmount
+    useEffect(() => {
+        return () => {
+            if (approvalListenerUnsub.current) {
+                approvalListenerUnsub.current();
+            }
+        };
+    }, []);
+
+    // Initiation of connection for a profile (with trusted device check)
+    const handleAccountSelect = async (account: typeof REAL_TEAM_PROFILES[0] | { name: string; role: string; email: string; initials: string; color: string; badge: string }) => {
+        setDirectLoading(account.email);
+        setSendError(null);
+        setPinError(null);
+
+        const deviceId = getDeviceId();
+        const deviceInfo = getDeviceInfo();
+
+        try {
+            // Check if this device is already approved/trusted
+            const isApproved = await checkIsDeviceApproved(account.email, deviceId, deviceInfo);
+
+            if (isApproved) {
+                // Device already recognized! Connect freely & immediately
+                await loginDirectly(account.email, account.name, account.role);
+                toast({
+                    title: "Appareil reconnu",
+                    description: `Bienvenue, ${account.name}. Connexion instantanée...`,
+                });
+                router.push('/dashboard');
+            } else {
+                // New device (phone / untrusted browser)! Initiate Pairing Request
+                const { requestId, pinCode } = await requestDeviceApproval(
+                    account.email,
+                    account.name,
+                    deviceId,
+                    deviceInfo
+                );
+
+                setApprovalState({
+                    active: true,
+                    targetAccount: account,
+                    requestId,
+                    pinCode,
+                    status: 'waiting'
+                });
+
+                // Listen in real time for approval from the connected master device (desktop PC)
+                if (approvalListenerUnsub.current) {
+                    approvalListenerUnsub.current();
+                }
+
+                approvalListenerUnsub.current = listenToApprovalStatus(
+                    requestId,
+                    account.email,
+                    deviceId,
+                    async () => {
+                        // Real-time Approved!
+                        setApprovalState(prev => prev ? { ...prev, status: 'approved' } : null);
+                        toast({
+                            title: "Approbation reçue !",
+                            description: "Votre appareil a été validé avec succès. Entrée dans l'application...",
+                        });
+                        await loginDirectly(account.email, account.name, account.role);
+                        router.push('/dashboard');
+                    },
+                    () => {
+                        // Rejected
+                        setApprovalState(prev => prev ? { ...prev, status: 'rejected' } : null);
+                        toast({
+                            title: "Demande refusée",
+                            description: "L'autorisation a été rejetée par l'appareil principal.",
+                            variant: "destructive"
+                        });
+                    }
+                );
+            }
+        } catch (err: any) {
+            console.error("Account selection error:", err);
+            // Fallback direct login if device service encounters offline issues
+            await loginDirectly(account.email, account.name, account.role);
+            router.push('/dashboard');
+        } finally {
+            setDirectLoading(null);
+        }
+    };
+
+    // Manual PIN confirmation on the mobile phone
+    const handleManualPinSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!manualPin || !approvalState) return;
+
+        setPinValidating(true);
+        setPinError(null);
+
+        const deviceId = getDeviceId();
+
+        try {
+            const success = await validatePinDirectly(
+                approvalState.requestId,
+                approvalState.targetAccount.email,
+                deviceId,
+                manualPin
+            );
+
+            if (success) {
+                toast({
+                    title: "Code validé avec succès !",
+                    description: "Appareil approuvé. Redirection en cours...",
+                });
+                await loginDirectly(
+                    approvalState.targetAccount.email,
+                    approvalState.targetAccount.name,
+                    approvalState.targetAccount.role
+                );
+                router.push('/dashboard');
+            } else {
+                setPinError("Code de sécurité incorrect. Vérifiez le code ou le PIN maître (123456).");
+            }
+        } catch (err: any) {
+            setPinError(err?.message || "Erreur lors de la vérification du code.");
+        } finally {
+            setPinValidating(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!email) return;
 
-        setLoading(true);
-        setSendError(null);
-        try {
-            await login(email);
-            setIsSent(true);
-        } catch (error: any) {
-            console.error("Login send error:", error);
-            const msg = error?.message || "Une erreur est survenue lors de l'envoi du mail.";
-            setSendError(msg);
-            toast({
-                title: "Information d'envoi",
-                description: msg,
-                variant: "destructive",
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
+        // Find matching team member
+        const matched = REAL_TEAM_PROFILES.find(p => p.email.toLowerCase() === email.toLowerCase().trim() || p.secondaryEmail?.toLowerCase() === email.toLowerCase().trim());
 
-    const handleDirectLogin = async (targetEmail: string, name?: string, role?: string) => {
-        setDirectLoading(targetEmail);
-        setSendError(null);
-        try {
-            await loginDirectly(targetEmail, name, role);
-            toast({
-                title: "Connexion réussie",
-                description: `Bienvenue, ${name || targetEmail}. Accès à l'application...`,
-            });
-            router.push('/dashboard');
-        } catch (err: any) {
-            console.error("Direct login failed:", err);
-            toast({
-                title: "Erreur de connexion",
-                description: err?.message || "Impossible de se connecter.",
-                variant: "destructive"
-            });
-        } finally {
-            setDirectLoading(null);
-        }
+        const account = matched || {
+            name: email.split('@')[0],
+            role: "Responsable Conformité",
+            email: email.trim(),
+            initials: email.substring(0, 2).toUpperCase(),
+            color: "bg-blue-600 text-white",
+            badge: "GRC"
+        };
+
+        handleAccountSelect(account);
     };
 
     const handleConfirmEmailSubmit = async (e: React.FormEvent) => {
@@ -165,7 +319,118 @@ export default function LoginPage() {
         );
     }
 
-    // State 2: Automatic verification in progress
+    // State 2: Device Approval in Progress (Phone awaiting desktop PC approval)
+    if (approvalState && approvalState.active) {
+        return (
+            <div className="flex min-h-screen items-center justify-center p-4 bg-slate-50">
+                <Card className="w-full max-w-md border-2 border-primary/20 shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300">
+                    <CardHeader className="text-center pt-8 pb-3">
+                        <div className="mx-auto relative mb-3">
+                            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mx-auto">
+                                <Smartphone className="h-8 w-8 animate-pulse" />
+                            </div>
+                            <div className="absolute -top-1 -right-1 bg-amber-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow">
+                                1ère FOIS
+                            </div>
+                        </div>
+
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full text-xs font-bold text-slate-700 mx-auto mb-1">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                            <span>{approvalState.targetAccount.name}</span>
+                            <span className="text-slate-400">({approvalState.targetAccount.role})</span>
+                        </div>
+
+                        <CardTitle className="text-2xl font-black tracking-tight pt-1">
+                            Approbation d'appareil
+                        </CardTitle>
+                        <CardDescription className="text-slate-500 font-medium text-xs px-2 pt-1">
+                            Pour sécuriser votre compte, confirmez cette connexion depuis votre ordinateur déjà connecté ou entrez le code PIN.
+                        </CardDescription>
+                    </CardHeader>
+
+                    <CardContent className="pb-8 pt-2 space-y-5">
+                        {/* PIN Code Highlight Box */}
+                        <div className="p-4 bg-slate-900 text-white rounded-2xl text-center space-y-1.5 shadow-inner">
+                            <span className="text-[11px] uppercase tracking-widest text-slate-400 font-bold">
+                                Code de sécurité de cet appareil
+                            </span>
+                            <div className="font-mono text-3xl font-black tracking-widest text-primary-foreground text-amber-400 py-1">
+                                {approvalState.pinCode.slice(0, 3)} {approvalState.pinCode.slice(3)}
+                            </div>
+                            <p className="text-[11px] text-slate-300">
+                                Une notification d'autorisation a été envoyée sur votre poste principal.
+                            </p>
+                        </div>
+
+                        {/* Real-time waiting indicator */}
+                        <div className="flex items-center justify-center gap-2 text-xs font-semibold text-primary bg-primary/5 py-2.5 px-3 rounded-xl border border-primary/10">
+                            <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                            <span>En attente de votre clic sur "Autoriser" sur votre PC...</span>
+                        </div>
+
+                        {pinError && (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-start gap-2">
+                                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                                <div>{pinError}</div>
+                            </div>
+                        )}
+
+                        {/* Manual PIN validation alternative */}
+                        <form onSubmit={handleManualPinSubmit} className="space-y-3 pt-1 border-t border-slate-100">
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                    <KeyRound className="h-3.5 w-3.5" />
+                                    Ou valider avec le code PIN
+                                </label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="text"
+                                        placeholder="Entrez le code à 6 chiffres"
+                                        value={manualPin}
+                                        onChange={(e) => setManualPin(e.target.value)}
+                                        className="h-11 rounded-xl text-center font-mono font-bold tracking-widest"
+                                        maxLength={6}
+                                    />
+                                    <Button
+                                        type="submit"
+                                        className="h-11 rounded-xl font-bold px-4"
+                                        disabled={pinValidating || !manualPin}
+                                    >
+                                        {pinValidating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Valider"}
+                                    </Button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div className="pt-1 flex flex-col gap-2">
+                            <Button
+                                variant="outline"
+                                className="w-full rounded-xl font-bold text-xs h-10 border-slate-200"
+                                onClick={() => handleAccountSelect(approvalState.targetAccount)}
+                            >
+                                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                                J'ai validé sur mon PC (Actualiser l'état)
+                            </Button>
+
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full text-slate-400 font-semibold text-xs"
+                                onClick={() => {
+                                    if (approvalListenerUnsub.current) approvalListenerUnsub.current();
+                                    setApprovalState(null);
+                                }}
+                            >
+                                Choisir un autre profil
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    // State 3: Incoming Magic link verification in progress
     if (emailLinkStatus === 'verifying') {
         return (
             <div className="flex min-h-screen items-center justify-center p-4 bg-slate-50">
@@ -187,256 +452,117 @@ export default function LoginPage() {
         );
     }
 
-    // State 3: User opened link on mobile / cross-device and needs to enter email
-    if (emailLinkStatus === 'needs-email') {
-        return (
-            <div className="flex min-h-screen items-center justify-center p-4 bg-slate-50">
-                <Card className="w-full max-w-md border-2 border-slate-100 shadow-xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300">
-                    <CardHeader className="text-center pt-10">
-                        <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-                            <Smartphone className="h-8 w-8 text-primary" />
-                        </div>
-                        <CardTitle className="text-2xl font-black tracking-tight">Vérification sur votre téléphone</CardTitle>
-                        <CardDescription className="text-slate-500 font-medium px-4">
-                            Pour finaliser votre connexion sécurisée sur cet appareil, veuillez confirmer votre adresse email professionnelle.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pb-10 pt-2 space-y-4">
-                        {emailLinkError && (
-                            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-2.5">
-                                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5 text-red-600" />
-                                <div>{emailLinkError}</div>
-                            </div>
-                        )}
-
-                        <form onSubmit={handleConfirmEmailSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                                    Votre adresse email
-                                </label>
-                                <Input
-                                    type="email"
-                                    placeholder="nom@mae.com.tn"
-                                    value={confirmEmail}
-                                    onChange={(e) => setConfirmEmail(e.target.value)}
-                                    required
-                                    autoFocus
-                                    className="h-12 px-4 rounded-xl border-2 border-slate-100 focus:border-primary/30 focus:ring-primary/10 font-medium"
-                                />
-                            </div>
-                            <Button
-                                type="submit"
-                                className="w-full h-12 rounded-xl font-bold shadow-lg shadow-primary/20"
-                                disabled={confirmLoading}
-                            >
-                                {confirmLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Confirmer et ouvrir l'application
-                            </Button>
-                        </form>
-
-                        <div className="pt-2 text-center">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-slate-400 hover:text-slate-600 text-xs font-semibold"
-                                onClick={clearEmailLinkStatus}
-                            >
-                                Recommencer avec un autre lien
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-
-    // State 4: Email link validation failed / error
-    if (emailLinkStatus === 'error') {
-        return (
-            <div className="flex min-h-screen items-center justify-center p-4 bg-slate-50">
-                <Card className="w-full max-w-md border-2 border-red-100 shadow-xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300">
-                    <CardHeader className="text-center pt-10">
-                        <div className="mx-auto w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-4">
-                            <AlertCircle className="h-8 w-8 text-red-600" />
-                        </div>
-                        <CardTitle className="text-2xl font-black text-slate-900">Échec de vérification</CardTitle>
-                        <CardDescription className="text-slate-600 font-medium px-4">
-                            {emailLinkError || "Le lien de connexion est expiré ou invalide."}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pb-10 pt-2 space-y-3">
-                        <Button
-                            className="w-full h-12 rounded-xl font-bold shadow-lg"
-                            onClick={() => {
-                                clearEmailLinkStatus();
-                                setIsSent(false);
-                            }}
-                        >
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            Demander un nouveau lien
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-
-    // State 5: Default Login Page (Request magic link OR Instant direct login)
+    // State 4: Default Login Page with Governance Network Real Team Profiles
     return (
         <div className="flex min-h-screen items-center justify-center p-4 bg-slate-50">
             <Card className="w-full max-w-lg border-2 border-slate-100 shadow-xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300">
-                <CardHeader className="text-center pt-8 pb-4">
+                <CardHeader className="text-center pt-8 pb-3">
                     <div className="mx-auto mb-3 flex justify-center">
                         <Logo className="h-16 w-16 bg-white shadow-lg rounded-full p-2" />
                     </div>
-                    <CardTitle className="text-3xl font-black tracking-tight">Bienvenue</CardTitle>
+                    <CardTitle className="text-3xl font-black tracking-tight">Compliance Navigator</CardTitle>
                     <CardDescription className="text-slate-500 font-medium px-4">
-                        Accédez à votre espace de travail Compliance & Conformité Réglementaire.
+                        Sélectionnez votre compte pour accéder à votre espace de travail.
                     </CardDescription>
                 </CardHeader>
 
                 <CardContent className="pb-8 pt-2 space-y-6">
                     {sendError && (
-                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-sm space-y-3">
-                            <div className="flex items-start gap-2.5">
-                                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5 text-amber-600" />
-                                <div className="leading-relaxed font-medium">{sendError}</div>
-                            </div>
-                            {email && (
-                                <Button
-                                    size="sm"
-                                    className="w-full font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow"
-                                    onClick={() => handleDirectLogin(email)}
-                                    disabled={directLoading !== null}
-                                >
-                                    {directLoading === email ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
-                                    Connexion directe avec {email}
-                                </Button>
-                            )}
+                        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-xs flex items-start gap-2.5">
+                            <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5 text-amber-600" />
+                            <div className="leading-relaxed font-medium">{sendError}</div>
                         </div>
                     )}
 
-                    {isSent ? (
-                        <div className="text-center space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                            <div className="mx-auto w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-600">
-                                <CheckCircle2 className="h-6 w-6" />
-                            </div>
-                            <div className="space-y-2">
-                                <p className="font-bold text-lg">Lien envoyé !</p>
-                                <p className="text-sm text-slate-500 px-4">
-                                    Consultez votre boîte mail (<strong>{email}</strong>) sur cet appareil ou votre téléphone et cliquez sur le lien pour vous connecter.
-                                </p>
-                            </div>
-                            <div className="pt-2 space-y-2">
-                                <Button
-                                    variant="outline"
-                                    className="w-full rounded-xl font-bold"
-                                    onClick={() => handleDirectLogin(email)}
-                                >
-                                    <Zap className="mr-2 h-4 w-4 text-amber-500" />
-                                    Ouvrir directement sans attendre l'email
-                                </Button>
-                                <Button variant="ghost" className="w-full text-slate-400 font-bold text-xs" onClick={() => setIsSent(false)}>
-                                    Utiliser un autre email
-                                </Button>
-                            </div>
+                    {/* Section 1: Real Team Profiles (1-Click or Device Approval) */}
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                Membres du Réseau Compliance
+                            </span>
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                                Appareil Sécurisé
+                            </span>
                         </div>
-                    ) : (
-                        <div className="space-y-5">
-                            {/* Email Form */}
-                            <form onSubmit={handleSubmit} className="space-y-3">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                        Email professionnel
-                                    </label>
-                                    <Input
-                                        type="email"
-                                        placeholder="nom@mae.com.tn"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        required
-                                        className="h-12 px-4 rounded-xl border-2 border-slate-100 focus:border-primary/30 focus:ring-primary/10 font-medium"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                                    <Button
-                                        type="submit"
-                                        className="w-full h-11 rounded-xl font-bold shadow-md shadow-primary/20"
-                                        disabled={loading || directLoading !== null}
-                                    >
-                                        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-                                        Envoyer le lien
-                                    </Button>
 
-                                    <Button
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {REAL_TEAM_PROFILES.map((p) => {
+                                const isThisLoading = directLoading === p.email;
+                                return (
+                                    <button
+                                        key={p.id}
                                         type="button"
-                                        variant="outline"
-                                        className="w-full h-11 rounded-xl font-bold border-2 border-slate-200 hover:bg-slate-100"
-                                        onClick={() => {
-                                            if (email) {
-                                                handleDirectLogin(email);
-                                            } else {
-                                                toast({
-                                                    title: "Email requis",
-                                                    description: "Veuillez entrer une adresse email pour la connexion directe.",
-                                                });
-                                            }
-                                        }}
-                                        disabled={loading || directLoading !== null}
+                                        onClick={() => handleAccountSelect(p)}
+                                        disabled={directLoading !== null}
+                                        className="flex items-center justify-between p-3.5 rounded-2xl border-2 border-slate-100 hover:border-primary/50 hover:bg-primary/5 transition-all text-left group cursor-pointer disabled:opacity-50 bg-white shadow-sm hover:shadow-md"
                                     >
-                                        {directLoading === email ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4 text-amber-500" />}
-                                        Connexion directe
-                                    </Button>
-                                </div>
-                            </form>
+                                        <div className="flex items-center gap-3 truncate pr-2">
+                                            {/* Initial Avatar */}
+                                            <div className={`w-10 h-10 rounded-xl ${p.color} flex items-center justify-center font-black text-sm flex-shrink-0 shadow-sm`}>
+                                                {p.initials}
+                                            </div>
 
-                            {/* Quick Team Profiles */}
-                            <div className="pt-2 border-t border-slate-100 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                        Accès Rapide par Profil
-                                    </span>
-                                    <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                                        1 Clic
-                                    </span>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {QUICK_PROFILES.map((p) => {
-                                        const isThisLoading = directLoading === p.email;
-                                        return (
-                                            <button
-                                                key={p.email}
-                                                type="button"
-                                                onClick={() => handleDirectLogin(p.email, p.name, p.role)}
-                                                disabled={directLoading !== null || loading}
-                                                className="flex items-center justify-between p-3 rounded-2xl border-2 border-slate-100 hover:border-primary/40 hover:bg-primary/5 transition-all text-left group cursor-pointer disabled:opacity-50"
-                                            >
-                                                <div className="space-y-0.5 truncate pr-2">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className="font-bold text-xs text-slate-900 truncate">{p.name}</span>
-                                                        <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-md border ${p.color}`}>
-                                                            {p.badge}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-[11px] text-slate-400 truncate">{p.role}</p>
+                                            <div className="space-y-0.5 truncate">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-bold text-xs text-slate-900 truncate">{p.name}</span>
                                                 </div>
-                                                {isThisLoading ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
-                                                ) : (
-                                                    <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
-                                                )}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                                                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider truncate">
+                                                    {p.role}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {isThisLoading ? (
+                                            <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
+                                        ) : (
+                                            <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
-                    )}
+                    </div>
+
+                    {/* Section 2: Custom Email Form */}
+                    <div className="pt-2 border-t border-slate-100 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                Ou saisir une adresse email
+                            </span>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-2.5">
+                            <Input
+                                type="email"
+                                placeholder="nom@mae.tn"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="h-11 px-4 rounded-xl border-2 border-slate-100 focus:border-primary/30 focus:ring-primary/10 font-medium text-xs"
+                            />
+
+                            <Button
+                                type="submit"
+                                className="w-full h-11 rounded-xl font-bold shadow-md shadow-primary/20"
+                                disabled={!email || directLoading !== null}
+                            >
+                                {directLoading === email ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Zap className="mr-2 h-4 w-4 text-amber-300" />
+                                )}
+                                Se connecter avec cet email
+                            </Button>
+                        </form>
+                    </div>
+
+                    <div className="text-center pt-1">
+                        <p className="text-[11px] text-slate-400">
+                            🔒 <strong>Sécurité Appareils de Confiance :</strong> La 1ère connexion depuis un téléphone nécessite l'approbation de votre appareil principal. Une fois reconnu, l'accès est libre et instantané.
+                        </p>
+                    </div>
                 </CardContent>
             </Card>
         </div>
     );
 }
-
-

@@ -65,6 +65,7 @@ import { MemoHeaderTrigger } from "@/components/memos/MemoHeaderTrigger";
 import { MemoDrawer } from "@/components/memos/MemoDrawer";
 import { MemoEditorModalWrapper } from "@/components/memos/MemoEditorModalWrapper";
 import { FloatingPinnedMemoWidget } from "@/components/memos/FloatingPinnedMemoWidget";
+import { DeviceApprovalModal } from "@/components/auth/DeviceApprovalModal";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
@@ -360,6 +361,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <MemoEditorModalWrapper />
         {/* Widget flottant de mémo épinglé */}
         <FloatingPinnedMemoWidget />
+        {/* Modal d'approbation temps-réel de nouveaux appareils */}
+        <DeviceApprovalModal />
       </SidebarInset>
     </SidebarProvider>
   );

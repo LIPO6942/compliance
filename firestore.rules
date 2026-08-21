@@ -189,5 +189,15 @@ service cloud.firestore {
     match /cahier_recette/{document=**} {
       allow read, write: if true;  // Synchronisé pour l'ensemble de l'équipe
     }
+    // ============================================
+    // DEVICE AUTHORIZATIONS - Sécurité et jumelage d'appareils
+    // ============================================
+    match /device_authorizations/{requestId} {
+      allow read, write: if true;
+    }
+    match /trusted_devices/{document=**} {
+      allow read, write: if true;
+    }
   }
 }
+
