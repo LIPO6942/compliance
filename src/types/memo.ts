@@ -39,7 +39,7 @@ export const APP_SECTIONS: AppSectionOption[] = [
   { href: "/dashboard", label: "Dashboard Général", group: "Pilotage" },
   { href: "/plan", label: "Plan d'Organisation", group: "Gouvernance" },
   { href: "/ecosystem", label: "Cartographie des Acteurs", group: "Gouvernance" },
-  { href: "/regulatory-watch", label: "Assistance Conformité IA & Veille", group: "Veille & IA" },
+  { href: "/regulatory-watch", label: "Veille Réglementaire", group: "Veille réglementaire" },
   { href: "/risk-mapping?tab=table", label: "Risques identifiés", group: "Gestion des Risques" },
   { href: "/risk-mapping?tab=dmr", label: "DMR (Dispositif Maîtrise des Risques)", group: "Gestion des Risques" },
   { href: "/risk-mapping?tab=plan-actions", label: "Plan d'actions des Risques", group: "Gestion des Risques" },
