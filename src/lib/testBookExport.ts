@@ -159,6 +159,7 @@ export async function exportTestBookExcel(
     { header: "Description de l'anomalie", key: "description", width: 50 },
     { header: "Impact métier", key: "businessImpact", width: 45 },
     { header: "Priorité", key: "priority", width: 16 },
+    { header: "Statut", key: "status", width: 16 },
     { header: "Test lié", key: "linkedTest", width: 18 }
   ];
 
@@ -171,12 +172,14 @@ export async function exportTestBookExcel(
   });
 
   anomalies.forEach((ano) => {
+    const isResolved = ano.status === "RESOLUE";
     const row = wsAno.addRow({
       id: ano.id,
       module: ano.module,
       description: ano.description,
       businessImpact: ano.businessImpact,
       priority: ano.priority,
+      status: isResolved ? "RÉSOLUE" : "OUVERTE",
       linkedTest: ano.linkedTest
     });
 
@@ -191,6 +194,16 @@ export async function exportTestBookExcel(
     } else if (ano.priority === "HAUTE") {
       prioCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFEDD5" } };
       prioCell.font = { bold: true, color: { argb: "FFC2410C" } };
+    }
+
+    const statusCell = row.getCell(6);
+    statusCell.alignment = { vertical: "middle", horizontal: "center" };
+    if (isResolved) {
+      statusCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDCFCE7" } };
+      statusCell.font = { bold: true, color: { argb: "FF15803D" } };
+    } else {
+      statusCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } };
+      statusCell.font = { bold: true, color: { argb: "FFB91C1C" } };
     }
   });
 

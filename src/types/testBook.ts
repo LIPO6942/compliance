@@ -1,5 +1,6 @@
 export type TestStatus = "OK" | "KO" | "Non encore testé";
 export type AnomalyPriority = "CRITIQUE" | "HAUTE" | "MOYENNE" | "BASSE";
+export type AnomalyStatus = "OUVERTE" | "RESOLUE" | "EN COURS";
 
 export interface TestCase {
   id: string;
@@ -19,6 +20,10 @@ export interface Anomaly {
   businessImpact: string;
   priority: AnomalyPriority;
   linkedTest: string;
+  status?: AnomalyStatus;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  resolutionComment?: string;
 }
 
 export interface TestBookMetadata {
@@ -37,6 +42,8 @@ export interface TestBookStats {
   pendingCount: number;
   criticalAnomalies: number;
   highAnomalies: number;
+  openAnomaliesCount: number;
+  resolvedAnomaliesCount: number;
   progressRate: string;
   executionRate: string;
 }

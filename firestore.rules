@@ -183,5 +183,11 @@ service cloud.firestore {
     match /compliance_memos/{memoId} {
       allow read, write: if true;  // Synchronisé pour l'ensemble des membres de l'équipe
     }
+    // ============================================
+    // CAHIER DE RECETTE - Tests et anomalies RegTools
+    // ============================================
+    match /cahier_recette/{document=**} {
+      allow read, write: if true;  // Synchronisé pour l'ensemble de l'équipe
+    }
   }
 }
