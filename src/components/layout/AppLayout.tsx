@@ -66,6 +66,7 @@ import { MemoDrawer } from "@/components/memos/MemoDrawer";
 import { MemoEditorModalWrapper } from "@/components/memos/MemoEditorModalWrapper";
 import { FloatingPinnedMemoWidget } from "@/components/memos/FloatingPinnedMemoWidget";
 import { DeviceApprovalModal } from "@/components/auth/DeviceApprovalModal";
+import { DeviceApprovalHeaderTrigger } from "@/components/auth/DeviceApprovalHeaderTrigger";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Dashboard" },
@@ -334,6 +335,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Déclencheur Autorisation d'Appareil */}
+            <DeviceApprovalHeaderTrigger />
+
             {/* Déclencheur Mémos Intelligents */}
             <MemoHeaderTrigger />
 

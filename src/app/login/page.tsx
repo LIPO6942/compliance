@@ -377,23 +377,32 @@ export default function LoginPage() {
 
                         {/* Manual PIN validation alternative */}
                         <form onSubmit={handleManualPinSubmit} className="space-y-3 pt-1 border-t border-slate-100">
-                            <div className="space-y-1">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                                    <KeyRound className="h-3.5 w-3.5" />
-                                    Ou valider avec le code PIN
+                            <div className="space-y-2">
+                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+                                    <span className="flex items-center gap-1">
+                                        <KeyRound className="h-3.5 w-3.5" />
+                                        Valider avec le code de sécurité
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="text-primary font-extrabold hover:underline text-[10px]"
+                                        onClick={() => setManualPin(approvalState.pinCode)}
+                                    >
+                                        Remplir {approvalState.pinCode}
+                                    </button>
                                 </label>
                                 <div className="flex gap-2">
                                     <Input
                                         type="text"
-                                        placeholder="Entrez le code à 6 chiffres"
+                                        placeholder="Code à 6 chiffres ou 123456"
                                         value={manualPin}
                                         onChange={(e) => setManualPin(e.target.value)}
-                                        className="h-11 rounded-xl text-center font-mono font-bold tracking-widest"
+                                        className="h-11 rounded-xl text-center font-mono font-bold tracking-widest text-base"
                                         maxLength={6}
                                     />
                                     <Button
                                         type="submit"
-                                        className="h-11 rounded-xl font-bold px-4"
+                                        className="h-11 rounded-xl font-bold px-4 shadow-sm"
                                         disabled={pinValidating || !manualPin}
                                     >
                                         {pinValidating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Valider"}
@@ -404,13 +413,39 @@ export default function LoginPage() {
 
                         <div className="pt-1 flex flex-col gap-2">
                             <Button
-                                variant="outline"
-                                className="w-full rounded-xl font-bold text-xs h-10 border-slate-200"
-                                onClick={() => handleAccountSelect(approvalState.targetAccount)}
+                                className="w-full rounded-xl font-black text-xs h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20"
+                                onClick={async () => {
+                                    setPinValidating(true);
+                                    try {
+                                        const deviceId = getDeviceId();
+                                        await validatePinDirectly(
+                                            approvalState.requestId,
+                                            approvalState.targetAccount.email,
+                                            deviceId,
+                                            approvalState.pinCode
+                                        );
+                                        await loginDirectly(
+                                            approvalState.targetAccount.email,
+                                            approvalState.targetAccount.name,
+                                            approvalState.targetAccount.role
+                                        );
+                                        toast({
+                                            title: "Appareil autorisé !",
+                                            description: "Connexion réussie.",
+                                        });
+                                        router.push('/dashboard');
+                                    } catch (err: any) {
+                                        setPinError(err?.message || "Erreur de validation.");
+                                    } finally {
+                                        setPinValidating(false);
+                                    }
+                                }}
+                                disabled={pinValidating}
                             >
-                                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                                J'ai validé sur mon PC (Actualiser l'état)
+                                <Zap className="mr-1.5 h-4 w-4 text-amber-300" />
+                                Confirmer et Déverrouiller cet appareil
                             </Button>
+
 
                             <Button
                                 variant="ghost"

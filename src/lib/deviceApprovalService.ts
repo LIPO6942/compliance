@@ -305,33 +305,56 @@ export const validatePinDirectly = async (
 };
 
 /**
- * Listen for pending device authorization requests for a given user email (Desktop listener)
+ * Listen for all pending device authorization requests in real-time (Desktop listener)
+ * Any connected device in the workspace can view and approve incoming device requests.
  */
 export const listenToPendingDeviceRequests = (
-    userEmail: string,
     onRequestsChange: (requests: DeviceAuthRequest[]) => void
 ): (() => void) => {
-    if (!isFirebaseConfigured || !db || !userEmail) {
+    if (!isFirebaseConfigured || !db) {
         return () => {};
     }
 
-    const normEmail = userEmail.trim().toLowerCase();
-    const q = query(
-        collection(db, 'device_authorizations'),
-        where('targetEmail', '==', normEmail),
-        where('status', '==', 'pending')
-    );
+    try {
+        const q = query(
+            collection(db, 'device_authorizations'),
+            where('status', '==', 'pending')
+        );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const reqs: DeviceAuthRequest[] = snapshot.docs.map(d => ({
-            id: d.id,
-            ...d.data()
-        } as DeviceAuthRequest));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const reqs: DeviceAuthRequest[] = snapshot.docs.map(d => ({
+                id: d.id,
+                ...d.data()
+            } as DeviceAuthRequest));
 
-        onRequestsChange(reqs);
-    }, (err) => {
-        console.warn("Pending device requests listener error:", err);
-    });
+            console.log(`[DeviceApproval] ${reqs.length} pending authorization request(s) received`);
+            onRequestsChange(reqs);
+        }, (err) => {
+            console.warn("Pending device requests listener error:", err);
+        });
 
-    return unsubscribe;
+        return unsubscribe;
+    } catch (err) {
+        console.warn("Failed to attach device request listener:", err);
+        return () => {};
+    }
 };
+
+/**
+ * Direct fetch of all pending device requests
+ */
+export const fetchPendingDeviceRequests = async (): Promise<DeviceAuthRequest[]> => {
+    if (!isFirebaseConfigured || !db) return [];
+    try {
+        const q = query(
+            collection(db, 'device_authorizations'),
+            where('status', '==', 'pending')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as DeviceAuthRequest));
+    } catch (err) {
+        console.warn("Error fetching pending requests:", err);
+        return [];
+    }
+};
+
