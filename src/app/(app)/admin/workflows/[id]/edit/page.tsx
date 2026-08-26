@@ -14,6 +14,8 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
 import { MermaidWorkflow, WorkflowVersion, WorkflowTask, AuditLog, WorkflowDomain } from '@/types/compliance';
 import { usePlanData } from '@/contexts/PlanDataContext';
+import { useRiskMapping } from '@/contexts/RiskMappingContext';
+import { printWorkflow } from '@/lib/workflowPrint';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -140,7 +142,41 @@ export default function WorkflowEditorPage() {
     const [addingAssignee, setAddingAssignee] = useState(false);
     const [newAssigneeForm, setNewAssigneeForm] = useState<{ userId: string; userName: string; role: string }>({ userId: '', userName: '', role: '' });
 
-    const { auditLogs, availableUsers, availableRoles, addAvailableUser, removeAvailableUser, addAvailableRole, removeAvailableRole } = usePlanData();
+    const { auditLogs, availableUsers, availableRoles, addAvailableUser, removeAvailableUser, addAvailableRole, removeAvailableRole, planData, workflowTasks } = usePlanData();
+    const { risks: allRisks } = useRiskMapping();
+
+    const handlePrint = async () => {
+        try {
+            toast({
+                title: "Impression du diagramme",
+                description: `Mise en page optimisée 1 page pour "${name || id}"...`
+            });
+
+            // Récupérer le SVG rendu dans le DOM si disponible
+            const svgEl = document.querySelector('.mermaid svg');
+            const svgHtml = svgEl ? svgEl.outerHTML : undefined;
+
+            await printWorkflow({
+                name: name || id,
+                workflowId: id,
+                domain,
+                version: activeWorkflow?.currentVersion || 1,
+                code,
+                svgHtml,
+                planData,
+                workflowTasks,
+                availableUsers,
+                allRisks
+            });
+        } catch (e) {
+            console.error("Erreur impression workflow:", e);
+            toast({
+                title: "Erreur d'impression",
+                description: "Impossible d'imprimer ce diagramme.",
+                variant: "destructive"
+            });
+        }
+    };
 
     const skipMonacoSync = useRef(false);
     const codeRef = useRef(code);
@@ -301,6 +337,9 @@ export default function WorkflowEditorPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={handlePrint} className="rounded-xl font-bold border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 shadow-sm">
+                        <LucideIcons.Printer className="h-4 w-4 mr-2" /> Imprimer (1 page)
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => handleSave('draft')} disabled={saving} className="rounded-xl">{saving ? <LucideIcons.Loader2 className="animate-spin h-4 w-4" /> : <LucideIcons.Save className="h-4 w-4 mr-2" />} Brouillon</Button>
                     <Button size="sm" onClick={() => handleSave('published')} disabled={saving} className="bg-indigo-600 text-white rounded-xl shadow-lg">{saving ? <LucideIcons.Loader2 className="animate-spin h-4 w-4" /> : <LucideIcons.CloudUpload className="h-4 w-4 mr-2" />} Publier</Button>
                 </div>
@@ -422,6 +461,9 @@ export default function WorkflowEditorPage() {
                                     <LucideIcons.Plus className="h-3 w-3 text-slate-600" />
                                 </Button>
                             </div>
+                            <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 rounded-full gap-1.5 text-[10px] font-black uppercase border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                                <LucideIcons.Printer className="h-3 w-3" /> Imprimer
+                            </Button>
                             <Button variant="outline" size="sm" onClick={() => setIsFullscreen(true)} className="h-8 rounded-full gap-2 text-[10px] font-black uppercase">
                                 <LucideIcons.Maximize2 className="h-3 w-3" /> Fullscreen
                             </Button>
@@ -445,7 +487,13 @@ export default function WorkflowEditorPage() {
                 <DialogContent className="max-w-[95vw] h-[90vh] rounded-[4rem] p-0 overflow-hidden flex flex-col border-none shadow-2xl">
                     <div className="bg-white/90 backdrop-blur-md px-10 py-6 border-b flex justify-between items-center">
                         <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-2xl bg-indigo-600 flex items-center justify-center"><LucideIcons.Workflow className="h-6 w-6 text-white" /></div><div><h2 className="text-xl font-black text-slate-800">{name}</h2><p className="text-xs text-slate-500 font-medium uppercase tracking-widest">Aperçu Haute Résolution • ID: {id}</p></div></div>
-                        <Button variant="ghost" size="icon" onClick={() => setIsFullscreen(false)} className="h-12 w-12 rounded-full hover:bg-slate-100"><LucideIcons.X className="h-6 w-6" /></Button>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={handlePrint} className="h-10 rounded-xl gap-2 font-bold text-xs border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100">
+                                <LucideIcons.Printer className="h-4 w-4" />
+                                Imprimer (1 page)
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => setIsFullscreen(false)} className="h-12 w-12 rounded-full hover:bg-slate-100"><LucideIcons.X className="h-6 w-6" /></Button>
+                        </div>
                     </div>
                     <div className="flex-1 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] overflow-hidden p-6 flex items-center justify-center">
                         <div className="w-full h-full max-w-[95%] max-h-[95%] bg-white rounded-[3rem] shadow-2xl border border-slate-100 flex items-center justify-center p-4">

@@ -8,12 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import * as LucideIcons from 'lucide-react';
 import Link from 'next/link';
-import { collection, query, getDocs, where, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { MermaidWorkflow } from '@/types/compliance';
 import { doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { printWorkflow } from '@/lib/workflowPrint';
 
 // Utilitaire pour le niveau de risque
 const riskLevelToNumber = (level: string): number => {
@@ -51,10 +52,65 @@ import {
 export default function AdminWorkflowsPage() {
     const [workflows, setWorkflows] = useState<MermaidWorkflow[]>([]);
     const [loading, setLoading] = useState(true);
-    const { planData } = usePlanData();
+    const [printingId, setPrintingId] = useState<string | null>(null);
+    const { planData, workflowTasks, availableUsers } = usePlanData();
     const { risks: allRisks } = useRiskMapping();
     const router = useRouter();
     const { toast } = useToast();
+
+    const handlePrintWorkflow = async (workflow: MermaidWorkflow) => {
+        const wfId = workflow.workflowId || workflow.id;
+        try {
+            setPrintingId(wfId);
+            toast({
+                title: "Préparation de l'impression",
+                description: `Formatage haute résolution 1 page pour "${workflow.name}"...`
+            });
+
+            let mermaidCode = '';
+
+            // 1. Récupération du code de la version active ou plus récente
+            if (db && workflow.id) {
+                const vSnap = await getDocs(query(collection(db, 'workflows', workflow.id, 'versions'), orderBy('version', 'desc'), limit(1)));
+                if (!vSnap.empty) {
+                    mermaidCode = (vSnap.docs[0].data() as any).mermaidCode;
+                }
+            }
+
+            // Code de repli si aucun n'est trouvé
+            if (!mermaidCode) {
+                mermaidCode = `graph TD\n  Start["Démarrage: ${workflow.name}"] --> Step1["Analyse & Contrôle"]\n  Step1 --> EndNode["Validation"]`;
+            }
+
+            const riskInfo = getWorkflowRiskInfo(workflow.workflowId);
+
+            await printWorkflow({
+                name: workflow.name,
+                workflowId: workflow.workflowId || workflow.id,
+                domain: workflow.domain || 'Conformité',
+                version: workflow.currentVersion || 1,
+                code: mermaidCode,
+                riskInfo: riskInfo ? {
+                    totalRisks: riskInfo.count,
+                    maxLevel: riskInfo.maxLevel,
+                    avgScore: undefined
+                } : null,
+                planData,
+                workflowTasks,
+                availableUsers,
+                allRisks
+            });
+        } catch (error) {
+            console.error("Erreur impression:", error);
+            toast({
+                title: "Erreur d'impression",
+                description: "Impossible d'imprimer ce workflow.",
+                variant: "destructive"
+            });
+        } finally {
+            setPrintingId(null);
+        }
+    };
 
     const handleDeleteAll = async () => {
         if (!db) return;
@@ -309,9 +365,23 @@ export default function AdminWorkflowsPage() {
                                                 </div>
                                             )}
                                         </CardHeader>
-                                        <CardContent className="mt-auto">
-                                            <Link href={`/admin/workflows/${w.workflowId}/edit`}>
-                                                <Button className="w-full group-hover:bg-primary/90 transition-colors" variant={activeW?.currentVersion ? "outline" : "default"}>
+                                        <CardContent className="mt-auto pt-2 flex items-center gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={() => handlePrintWorkflow(w)}
+                                                disabled={printingId === (w.workflowId || w.id)}
+                                                className="h-10 w-10 shrink-0 rounded-xl border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-600 transition-all shadow-sm"
+                                                title="Imprimer le workflow (1 page A4)"
+                                            >
+                                                {printingId === (w.workflowId || w.id) ? (
+                                                    <LucideIcons.Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                                                ) : (
+                                                    <LucideIcons.Printer className="h-4 w-4 text-slate-600 hover:text-indigo-600" />
+                                                )}
+                                            </Button>
+                                            <Link href={`/admin/workflows/${w.workflowId}/edit`} className="flex-1">
+                                                <Button className="w-full rounded-xl group-hover:bg-primary/90 transition-colors" variant={activeW?.currentVersion ? "outline" : "default"}>
                                                     <LucideIcons.Edit2 className="mr-2 h-4 w-4" />
                                                     {activeW?.currentVersion ? "Modifier le workflow" : "Configurer"}
                                                 </Button>

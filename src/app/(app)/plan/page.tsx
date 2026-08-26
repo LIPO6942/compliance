@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { PlusCircle, Edit2, Trash2, MoreVertical, Clock, Link as LinkIcon, FileText, ArrowDown, ArrowUp, ShieldAlert, Maximize2, X } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, MoreVertical, Clock, Link as LinkIcon, FileText, ArrowDown, ArrowUp, ShieldAlert, Maximize2, X, Printer } from "lucide-react";
 import { useRiskMapping } from "@/contexts/RiskMappingContext";
 import * as LucideIcons from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import ConnectorDialog from "@/components/plan/ConnectorDialog";
 import { MermaidRenderer } from "@/components/plan/MermaidRenderer";
 import { MindMapView } from "@/components/plan/MindMapView";
+import { printWorkflow } from "@/lib/workflowPrint";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 // react-hook-form and zod already imported at top
@@ -366,6 +367,81 @@ export default function PlanPage() {
     return documents.filter(doc => task.documentIds!.includes(doc.id));
   };
 
+  const handlePrintWorkflow = async (workflowId: string, name: string, code: string) => {
+    try {
+      toast({
+        title: "Impression du diagramme",
+        description: `Mise en page optimisée 1 page pour "${name}"...`,
+      });
+
+      // Récupérer le SVG rendu dans le DOM si disponible pour un rendu instantané
+      const cardEl = document.getElementById(workflowId);
+      const svgEl = cardEl?.querySelector('.mermaid svg');
+      const svgHtml = svgEl ? svgEl.outerHTML : undefined;
+
+      // Calcul des risques liés
+      const collectLinkedTasks = (tasks: any[]): any[] => {
+        let found: any[] = [];
+        tasks.forEach(t => {
+          if (t.grcWorkflowId === workflowId && t.risks && t.risks.length > 0) {
+            found.push(t);
+          }
+          if (t.branches) {
+            t.branches.forEach((b: any) => {
+              found = [...found, ...collectLinkedTasks(b.tasks)];
+            });
+          }
+        });
+        return found;
+      };
+
+      const linkedTasks = planData.flatMap((cat: any) =>
+        cat.subCategories.flatMap((sub: any) => collectLinkedTasks(sub.tasks))
+      );
+
+      const allRiskIds = [...new Set(linkedTasks.flatMap((t: any) => t.risks || []))];
+      const linkedRisks = allRisks.filter(r => allRiskIds.includes(r.id));
+
+      let maxLevel = '';
+      let maxLevelNum = 0;
+      linkedRisks.forEach(r => {
+        const lvl = r.riskLevel === 'Faible' ? 1 : r.riskLevel === 'Modéré' ? 2 : r.riskLevel === 'Élevé' ? 3 : r.riskLevel === 'Très élevé' ? 4 : 0;
+        if (lvl > maxLevelNum) {
+          maxLevelNum = lvl;
+          maxLevel = r.riskLevel;
+        }
+      });
+
+      const avgScore = linkedRisks.length > 0
+        ? Math.round((linkedRisks.reduce((sum, r) => sum + (r.riskLevel === 'Faible' ? 1 : r.riskLevel === 'Modéré' ? 2 : r.riskLevel === 'Élevé' ? 3 : r.riskLevel === 'Très élevé' ? 4 : 0), 0) / linkedRisks.length) * 10) / 10
+        : undefined;
+
+      await printWorkflow({
+        name,
+        workflowId,
+        domain: 'Conformité',
+        code,
+        svgHtml,
+        riskInfo: linkedRisks.length > 0 ? {
+          totalRisks: linkedRisks.length,
+          maxLevel,
+          avgScore
+        } : null,
+        planData,
+        workflowTasks,
+        availableUsers,
+        allRisks
+      });
+    } catch (error) {
+      console.error("Erreur lors de l'impression du workflow:", error);
+      toast({
+        title: "Erreur d'impression",
+        description: "Impossible d'imprimer le diagramme.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const displayPlanData = React.useMemo(() => {
     if (!planData) return [];
     const newPlan = JSON.parse(JSON.stringify(planData));
@@ -504,6 +580,10 @@ export default function PlanPage() {
                                           <DropdownMenuItem onClick={() => router.push(`/admin/workflows/${subCategory.id}/edit`)}>
                                             <Edit2 className="mr-2 h-4 w-4" /> Modifier le diagramme
                                           </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => handlePrintWorkflow(subCategory.id, subCategory.name, activeWorkflow.code)}>
+                                            <Printer className="mr-2 h-4 w-4 text-indigo-600" /> Imprimer le diagramme
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
                                           <DropdownMenuItem onClick={() => handleMoveWorkflow(subCategory.id, -1)}>
                                             <ArrowUp className="mr-2 h-4 w-4" /> Monter
                                           </DropdownMenuItem>
@@ -526,14 +606,26 @@ export default function PlanPage() {
                                   </div>
                                   {activeWorkflow && (
                                     <div className="py-4 relative group/diagram">
-                                      {/* Fullscreen expand button */}
-                                      <button
-                                        onClick={() => setFullscreenDiagram({ code: activeWorkflow.code, workflowId: subCategory.id, name: subCategory.name })}
-                                        className="absolute top-6 right-6 z-10 opacity-0 group-hover/diagram:opacity-100 transition-all duration-200 bg-white/90 backdrop-blur-sm border border-slate-200 shadow-lg rounded-xl h-9 w-9 flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-200 hover:scale-110"
-                                        title="Agrandir le diagramme"
-                                      >
-                                        <Maximize2 className="h-4 w-4 text-slate-500 hover:text-indigo-600" />
-                                      </button>
+                                      {/* Boutons d'actions rapides (Impression & Agrandissement) */}
+                                      <div className="absolute top-6 right-6 z-10 opacity-0 group-hover/diagram:opacity-100 transition-all duration-200 flex items-center gap-2">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handlePrintWorkflow(subCategory.id, subCategory.name, activeWorkflow.code);
+                                          }}
+                                          className="bg-white/90 backdrop-blur-sm border border-slate-200 shadow-lg rounded-xl h-9 w-9 flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-200 hover:scale-110 transition-all"
+                                          title="Imprimer le diagramme (1 page)"
+                                        >
+                                          <Printer className="h-4 w-4 text-slate-600 hover:text-indigo-600" />
+                                        </button>
+                                        <button
+                                          onClick={() => setFullscreenDiagram({ code: activeWorkflow.code, workflowId: subCategory.id, name: subCategory.name })}
+                                          className="bg-white/90 backdrop-blur-sm border border-slate-200 shadow-lg rounded-xl h-9 w-9 flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-200 hover:scale-110 transition-all"
+                                          title="Agrandir le diagramme"
+                                        >
+                                          <Maximize2 className="h-4 w-4 text-slate-500 hover:text-indigo-600" />
+                                        </button>
+                                      </div>
                                       {/* Clickable wrapper to open fullscreen */}
                                       <div
                                         className="cursor-zoom-in"
@@ -730,12 +822,23 @@ export default function PlanPage() {
                   <p className="text-[10px] text-slate-400 font-mono">{fullscreenDiagram.workflowId}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setFullscreenDiagram(null)}
-                className="h-9 w-9 rounded-xl border border-slate-200 hover:bg-slate-100 flex items-center justify-center transition-colors"
-              >
-                <X className="h-4 w-4 text-slate-500" />
-              </button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrintWorkflow(fullscreenDiagram.workflowId, fullscreenDiagram.name, fullscreenDiagram.code)}
+                  className="h-9 rounded-xl gap-2 font-bold text-xs border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 shadow-sm"
+                >
+                  <Printer className="h-4 w-4" />
+                  Imprimer (1 page)
+                </Button>
+                <button
+                  onClick={() => setFullscreenDiagram(null)}
+                  className="h-9 w-9 rounded-xl border border-slate-200 hover:bg-slate-100 flex items-center justify-center transition-colors"
+                >
+                  <X className="h-4 w-4 text-slate-500" />
+                </button>
+              </div>
             </div>
 
             {/* Diagram — fills remaining space, SVG scales to fit */}
