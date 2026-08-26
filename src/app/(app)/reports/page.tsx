@@ -558,6 +558,8 @@ export default function ReportsPage() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
   // Traçabilité consultation de rapport
   React.useEffect(() => {
     recordActivity({
