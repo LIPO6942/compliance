@@ -2,14 +2,26 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { TrainingRegistryItem, UpcomingSession, SensitizationCampaign, CompletionCriterion } from '@/types/compliance';
+import type { 
+  TrainingRegistryItem, 
+  UpcomingSession, 
+  SensitizationCampaign, 
+  CompletionCriterion,
+  TrainingReportParticipant,
+  TrainingProgramEvaluation
+} from '@/types/compliance';
 import { 
   initialMockTrainingRegistry, 
   initialMockUpcomingSessions, 
   initialMockSensitizationCampaigns 
 } from '@/data/mockTrainingData';
+import {
+  initialAnnualEvaluation,
+  initialEmptyParticipants,
+  sampleReferenceTemplate
+} from '@/data/annualTrainingReportData';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, writeBatch } from 'firebase/firestore';
+import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, writeBatch, setDoc } from 'firebase/firestore';
 import { useUser } from './UserContext';
 
 // Helper function to calculate progress for UpcomingSession
@@ -32,11 +44,15 @@ const calculateProgressFromCriteria = (criteria: CompletionCriterion[] = []) => 
 const registryCollectionName = "trainingRegistry";
 const sessionsCollectionName = "upcomingSessions";
 const campaignsCollectionName = "sensitizationCampaigns";
+const annualParticipantsCollectionName = "annualTrainingParticipants";
+const annualEvaluationDocName = "annualTrainingEvaluation";
 
 interface TrainingDataContextType {
   trainingRegistryItems: TrainingRegistryItem[];
   upcomingSessions: UpcomingSession[];
   sensitizationCampaigns: SensitizationCampaign[];
+  annualReportParticipants: TrainingReportParticipant[];
+  annualProgramEvaluation: TrainingProgramEvaluation;
   loading: boolean;
 
   addTrainingRegistryItem: (item: Omit<TrainingRegistryItem, 'id' | 'lastUpdated' | 'progress'>) => Promise<void>;
@@ -50,7 +66,17 @@ interface TrainingDataContextType {
   addSensitizationCampaign: (campaign: Omit<SensitizationCampaign, 'id' | 'progress'>) => Promise<void>;
   editSensitizationCampaign: (campaignId: string, campaignUpdate: Partial<Omit<SensitizationCampaign, 'id' | 'progress'>>) => Promise<void>;
   removeSensitizationCampaign: (campaignId: string) => Promise<void>;
+
+  // Annual Report Actions
+  addReportParticipant: (participant: Omit<TrainingReportParticipant, 'id'>) => Promise<void>;
+  editReportParticipant: (id: string, updates: Partial<Omit<TrainingReportParticipant, 'id'>>) => Promise<void>;
+  removeReportParticipant: (id: string) => Promise<void>;
+  bulkAddReportParticipants: (participants: Omit<TrainingReportParticipant, 'id'>[]) => Promise<void>;
+  updateAnnualEvaluation: (evaluation: Partial<TrainingProgramEvaluation>) => Promise<void>;
+  resetReportParticipants: () => Promise<void>;
+  loadSampleReferenceData: () => Promise<void>;
 }
+
 
 const TrainingDataContext = createContext<TrainingDataContextType | undefined>(undefined);
 
@@ -58,8 +84,52 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
   const [trainingRegistryItems, setTrainingRegistryItems] = useState<TrainingRegistryItem[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([]);
   const [sensitizationCampaigns, setSensitizationCampaigns] = useState<SensitizationCampaign[]>([]);
+  const [annualReportParticipants, setAnnualReportParticipants] = useState<TrainingReportParticipant[]>([]);
+  const [annualProgramEvaluation, setAnnualProgramEvaluation] = useState<TrainingProgramEvaluation>(initialAnnualEvaluation);
   const [loading, setLoading] = useState(true);
   const { isLoaded } = useUser();
+
+  // Local storage initialization as safe fallback
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedParticipants = localStorage.getItem('annual_training_participants');
+        if (savedParticipants) {
+          setAnnualReportParticipants(JSON.parse(savedParticipants));
+        } else {
+          setAnnualReportParticipants(initialEmptyParticipants);
+        }
+
+        const savedEval = localStorage.getItem('annual_training_evaluation');
+        if (savedEval) {
+          setAnnualProgramEvaluation(JSON.parse(savedEval));
+        }
+      } catch (e) {
+        console.error("Failed to load local training report data", e);
+      }
+    }
+  }, []);
+
+  // Save to localStorage whenever participants or evaluation changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('annual_training_participants', JSON.stringify(annualReportParticipants));
+      } catch (e) {
+        console.error("Failed to save participants to localStorage", e);
+      }
+    }
+  }, [annualReportParticipants]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('annual_training_evaluation', JSON.stringify(annualProgramEvaluation));
+      } catch (e) {
+        console.error("Failed to save evaluation to localStorage", e);
+      }
+    }
+  }, [annualProgramEvaluation]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -216,20 +286,73 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
     await deleteDoc(doc(db, campaignsCollectionName, campaignId));
   };
 
+  // Annual Report Actions
+  const addReportParticipant = async (participant: Omit<TrainingReportParticipant, 'id'>) => {
+    const newParticipant: TrainingReportParticipant = {
+      ...participant,
+      id: `part-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      participantNumber: participant.participantNumber || (annualReportParticipants.length + 1)
+    };
+    setAnnualReportParticipants(prev => [...prev, newParticipant]);
+  };
+
+  const editReportParticipant = async (id: string, updates: Partial<Omit<TrainingReportParticipant, 'id'>>) => {
+    setAnnualReportParticipants(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  };
+
+  const removeReportParticipant = async (id: string) => {
+    setAnnualReportParticipants(prev => {
+      const filtered = prev.filter(p => p.id !== id);
+      // Re-index participant numbers smoothly
+      return filtered.map((p, idx) => ({ ...p, participantNumber: idx + 1 }));
+    });
+  };
+
+  const bulkAddReportParticipants = async (newParticipants: Omit<TrainingReportParticipant, 'id'>[]) => {
+    const startIndex = annualReportParticipants.length;
+    const formatted: TrainingReportParticipant[] = newParticipants.map((p, idx) => ({
+      ...p,
+      id: `part-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+      participantNumber: startIndex + idx + 1
+    }));
+    setAnnualReportParticipants(prev => [...prev, ...formatted]);
+  };
+
+  const updateAnnualEvaluation = async (evaluationUpdate: Partial<TrainingProgramEvaluation>) => {
+    setAnnualProgramEvaluation(prev => ({
+      ...prev,
+      ...evaluationUpdate,
+    }));
+  };
+
+  const resetReportParticipants = async () => {
+    setAnnualReportParticipants([]);
+  };
+
+  const loadSampleReferenceData = async () => {
+    setAnnualReportParticipants(sampleReferenceTemplate);
+  };
+
   return (
     <TrainingDataContext.Provider value={{
       trainingRegistryItems,
       upcomingSessions,
       sensitizationCampaigns,
+      annualReportParticipants,
+      annualProgramEvaluation,
       loading,
       addTrainingRegistryItem, editTrainingRegistryItem, removeTrainingRegistryItem,
       addUpcomingSession, editUpcomingSession, removeUpcomingSession,
-      addSensitizationCampaign, editSensitizationCampaign, removeSensitizationCampaign
+      addSensitizationCampaign, editSensitizationCampaign, removeSensitizationCampaign,
+      addReportParticipant, editReportParticipant, removeReportParticipant,
+      bulkAddReportParticipants, updateAnnualEvaluation, resetReportParticipants,
+      loadSampleReferenceData
     }}>
       {children}
     </TrainingDataContext.Provider>
   );
 };
+
 
 export const useTrainingData = () => {
   const context = useContext(TrainingDataContext);

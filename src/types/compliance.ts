@@ -144,6 +144,32 @@ export interface SensitizationCampaign {
   progress?: number;
 }
 
+// Annual Training Report Structure (Rapport Annuel LAB-FT)
+export type RealizationDegree = "أنجز" | "أنجز جزئيا" | "لم ينجز";
+
+export interface TrainingReportParticipant {
+  id: string;
+  participantNumber: number;
+  participantName: string;
+  entityName: string;
+  trainer: string;
+  topic: string;
+  sessionDate: string;
+  attendance?: boolean;
+  scoreQCM?: string;
+  notes?: string;
+}
+
+export interface TrainingProgramEvaluation {
+  approvedProgram: string;
+  modules: string[];
+  realizationDegree: RealizationDegree;
+  complianceNotes: string;
+  exerciseYear: string;
+  introText?: string;
+}
+
+
 // Risk Mapping Types
 export type RiskLevel = "Faible" | "Modéré" | "Élevé" | "Très élevé";
 
