@@ -375,14 +375,21 @@ export default function PlanPage() {
       });
 
       // Récupérer le SVG rendu dans le DOM si disponible pour un rendu instantané
-      const cardEl = document.getElementById(workflowId);
-      const svgEl = cardEl?.querySelector('.mermaid svg');
+      let svgEl = document.getElementById(workflowId)?.querySelector('.mermaid svg') as SVGElement | null;
+      if (!svgEl) {
+        try {
+          svgEl = document.querySelector(`[id="${workflowId}"] .mermaid svg`) as SVGElement | null;
+        } catch (_) {}
+      }
+      if (!svgEl) {
+        svgEl = document.querySelector('.mermaid svg') as SVGElement | null;
+      }
       const svgHtml = svgEl ? svgEl.outerHTML : undefined;
 
       // Calcul des risques liés
       const collectLinkedTasks = (tasks: any[]): any[] => {
         let found: any[] = [];
-        tasks.forEach(t => {
+        (tasks || []).forEach(t => {
           if (t.grcWorkflowId === workflowId && t.risks && t.risks.length > 0) {
             found.push(t);
           }
@@ -395,12 +402,12 @@ export default function PlanPage() {
         return found;
       };
 
-      const linkedTasks = planData.flatMap((cat: any) =>
-        cat.subCategories.flatMap((sub: any) => collectLinkedTasks(sub.tasks))
+      const linkedTasks = (planData || []).flatMap((cat: any) =>
+        (cat.subCategories || []).flatMap((sub: any) => collectLinkedTasks(sub.tasks))
       );
 
       const allRiskIds = [...new Set(linkedTasks.flatMap((t: any) => t.risks || []))];
-      const linkedRisks = allRisks.filter(r => allRiskIds.includes(r.id));
+      const linkedRisks = (allRisks || []).filter(r => allRiskIds.includes(r.id));
 
       let maxLevel = '';
       let maxLevelNum = 0;
@@ -427,10 +434,10 @@ export default function PlanPage() {
           maxLevel,
           avgScore
         } : null,
-        planData,
-        workflowTasks,
-        availableUsers,
-        allRisks
+        planData: planData || [],
+        workflowTasks: workflowTasks || [],
+        availableUsers: availableUsers || [],
+        allRisks: allRisks || []
       });
     } catch (error) {
       console.error("Erreur lors de l'impression du workflow:", error);

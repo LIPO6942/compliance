@@ -818,25 +818,29 @@ export async function printWorkflow(options: WorkflowPrintOptions): Promise<void
 
         // Si nous n'avons pas le SVG mais que nous avons le code Mermaid, on effectue le rendu
         if (!svgContent && options.code) {
-            const mermaid = await ensureMermaidLoaded();
-            const annotatedCode = annotateMermaidCode(options.code, {
-                workflowId: options.workflowId,
-                planData: options.planData,
-                workflowTasks: options.workflowTasks,
-                availableUsers: options.availableUsers,
-                allRisks: options.allRisks,
-                uniqueId: 'print'
-            });
-
-            const tempId = `print_svg_${Math.random().toString(36).substring(2, 9)}`;
             try {
-                const { svg: generatedSvg } = await mermaid.render(tempId, annotatedCode);
-                svgContent = generatedSvg;
-            } catch (renderError) {
-                console.warn("Échec du rendu annoté pour l'impression, repli sur le code brut:", renderError);
-                const simpleId = `print_svg_simple_${Math.random().toString(36).substring(2, 9)}`;
-                const { svg: simpleSvg } = await mermaid.render(simpleId, options.code);
-                svgContent = simpleSvg;
+                const mermaid = await ensureMermaidLoaded();
+                const annotatedCode = annotateMermaidCode(options.code, {
+                    workflowId: options.workflowId,
+                    planData: options.planData || [],
+                    workflowTasks: options.workflowTasks || [],
+                    availableUsers: options.availableUsers || [],
+                    allRisks: options.allRisks || [],
+                    uniqueId: 'print'
+                });
+
+                const tempId = `print_svg_${Math.random().toString(36).substring(2, 9)}`;
+                try {
+                    const { svg: generatedSvg } = await mermaid.render(tempId, annotatedCode);
+                    svgContent = generatedSvg;
+                } catch (renderError) {
+                    console.warn("Échec du rendu annoté pour l'impression, repli sur le code brut:", renderError);
+                    const simpleId = `print_svg_simple_${Math.random().toString(36).substring(2, 9)}`;
+                    const { svg: simpleSvg } = await mermaid.render(simpleId, options.code);
+                    svgContent = simpleSvg;
+                }
+            } catch (loadErr) {
+                console.error("Erreur lors de la compilation Mermaid pour impression:", loadErr);
             }
         }
 
@@ -847,50 +851,48 @@ export async function printWorkflow(options: WorkflowPrintOptions): Promise<void
         const { svg: sanitizedSvg, orientation } = sanitizeSvgForPrint(svgContent);
         const fullHtml = buildWorkflowPrintHTML(options, sanitizedSvg, orientation);
 
+        // Méthode Blob URL + Iframe off-screen pour une compatibilité navigateur maximale
+        const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
+
         const iframe = document.createElement('iframe');
         iframe.style.position = 'fixed';
-        iframe.style.right = '0';
-        iframe.style.bottom = '0';
-        iframe.style.width = '0';
-        iframe.style.height = '0';
+        iframe.style.left = '-9999px';
+        iframe.style.top = '-9999px';
+        iframe.style.width = '1200px';
+        iframe.style.height = '900px';
+        iframe.style.opacity = '0';
         iframe.style.border = '0';
-        iframe.style.visibility = 'hidden';
+        iframe.style.pointerEvents = 'none';
+        iframe.src = blobUrl;
         document.body.appendChild(iframe);
 
-        const doc = iframe.contentWindow?.document;
-        if (!doc) {
-            const printWin = window.open('', '_blank');
-            if (printWin) {
-                printWin.document.open();
-                printWin.document.write(fullHtml);
-                printWin.document.close();
-                setTimeout(() => {
-                    printWin.focus();
-                    printWin.print();
-                }, 400);
-            } else {
-                window.print();
-            }
-            return;
-        }
-
-        doc.open();
-        doc.write(fullHtml);
-        doc.close();
-
-        setTimeout(() => {
-            iframe.contentWindow?.focus();
-            iframe.contentWindow?.print();
+        iframe.onload = () => {
             setTimeout(() => {
                 try {
-                    document.body.removeChild(iframe);
-                } catch (e) {
-                    // Ignorer
+                    iframe.contentWindow?.focus();
+                    iframe.contentWindow?.print();
+                } catch (printErr) {
+                    console.warn("Échec de l'impression via iframe, ouverture de la fenêtre dédiée:", printErr);
+                    const printWin = window.open(blobUrl, '_blank');
+                    if (printWin) {
+                        printWin.onload = () => {
+                            printWin.focus();
+                            printWin.print();
+                        };
+                    }
+                } finally {
+                    setTimeout(() => {
+                        try {
+                            document.body.removeChild(iframe);
+                            URL.revokeObjectURL(blobUrl);
+                        } catch (_) {}
+                    }, 60000);
                 }
-            }, 3000);
-        }, 500);
+            }, 300);
+        };
     } catch (error) {
         console.error("Erreur lors de l'impression du workflow:", error);
-        window.print();
+        throw error;
     }
 }
