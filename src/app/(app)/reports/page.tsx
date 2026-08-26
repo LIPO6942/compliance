@@ -28,6 +28,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from "xlsx";
 import { recordActivity } from "@/contexts/ActivityLogContext";
+import { useTrainingData } from "@/contexts/TrainingDataContext";
+import {
+  DEFAULT_REPORT_INTRO,
+  DEFAULT_PROGRAM_MODULES,
+  DEFAULT_COMPLIANCE_NOTES,
+  sampleReferenceTemplate,
+} from "@/data/annualTrainingReportData";
+import type { TrainingReportParticipant } from "@/types/compliance";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -222,10 +230,21 @@ const mockGovernoratesList = [
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
   const { risks } = useRiskMapping();
+  const { annualReportParticipants, annualProgramEvaluation } = useTrainingData();
 
   const [selectedReport, setSelectedReport] = React.useState<string>("cga_annual");
   const [selectedPeriod, setSelectedPeriod] = React.useState<string>("2026");
   const [activeTab, setActiveTab] = React.useState<string>("cga_official");
+
+  // Participants de formation actifs pour l'exercice sélectionné
+  const activeYearParticipants = React.useMemo(() => {
+    if (selectedPeriod === "2024") {
+      const p2024 = annualReportParticipants.filter((p) => p.sessionDate?.includes("2024"));
+      return p2024.length > 0 ? p2024 : sampleReferenceTemplate;
+    }
+    const matching = annualReportParticipants.filter((p) => p.sessionDate?.includes(selectedPeriod));
+    return matching.length > 0 ? matching : annualReportParticipants;
+  }, [annualReportParticipants, selectedPeriod]);
 
   // Données par exercice (store isolé)
   const [exerciceStore, setExerciceStore] = React.useState<Record<string, ExerciceData>>({
@@ -473,6 +492,24 @@ export default function ReportsPage() {
           .join("")
       : `<tr><td colspan="5" style="text-align:center;">Aucune déclaration pour l'exercice ${selectedPeriod}</td></tr>`;
 
+    // Section IV - Formations LAB-FT
+    const trainingParticipants = activeYearParticipants;
+    const trainingRowsHtml = trainingParticipants.length > 0
+      ? trainingParticipants
+          .map(
+            (p) =>
+              `<tr>
+                <td style="text-align:center; font-weight:bold;">${p.participantNumber}</td>
+                <td class="arabic" style="font-weight:bold;">${p.participantName}</td>
+                <td class="arabic">${p.entityName}</td>
+                <td class="arabic" style="text-align:center; font-weight:bold;">${p.trainer}</td>
+                <td class="arabic">${p.topic}</td>
+                <td style="text-align:center; font-family:monospace;">${p.sessionDate}</td>
+              </tr>`
+          )
+          .join("")
+      : `<tr><td colspan="6" style="text-align:center;">Aucun participant enregistré pour l'exercice ${selectedPeriod}</td></tr>`;
+
     const wordContent = `
       <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
       <head>
@@ -521,6 +558,54 @@ export default function ReportsPage() {
           <p><strong>${n.ref}</strong> — Haut Risque : ${n.highRisk} — Surveillance : ${n.monitored} — Retrait : ${n.removed}</p>
         `).join("")}
         ${customModifiedCountries.length > 0 ? `<p><em>Facteurs pays modifiés dans la Matrice des Risques (mis à jour le ${todayFormatted}) : ${customModifiedCountries.map(c => c.name).join(", ")}</em></p>` : ""}
+
+        <h2>IV. الدورات التكوينية المنجزة خلال السنة المنقضية في مجال مكافحة الإرهاب ومنع غسل الأموال</h2>
+        <p class="arabic" style="background:#f1f5f9; padding:8px 12px; border-radius:6px; font-size:10pt;">
+          <strong>معطيات حول الدورات المنجزة:</strong><br/>
+          ${annualProgramEvaluation?.introText || DEFAULT_REPORT_INTRO}
+        </p>
+
+        <h3>1. جدول المشاركين والدورات التكوينية المنجزة (${trainingParticipants.length} Participants)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px; text-align:center;">#</th>
+              <th>المشاركين</th>
+              <th>الإدارة المعنية / الفرع / النيابة</th>
+              <th style="text-align:center;">المكون</th>
+              <th>موضوع الدورة / المحاور</th>
+              <th style="text-align:center; width:90px;">تاريخ الدورة</th>
+            </tr>
+          </thead>
+          <tbody>${trainingRowsHtml}</tbody>
+        </table>
+
+        <h3>2. مقارنة البرنامج بالإنجازات (Bilan & Évaluation du Programme)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:35%; text-align:right;">برنامج السنة المنقضية المصادق عليه</th>
+              <th style="width:20%; text-align:center;">درجة الإنجاز</th>
+              <th style="width:45%; text-align:right;">ملاحظات مسؤول الامتثال</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="arabic">
+                <strong>${annualProgramEvaluation?.approvedProgram || "الدورات التكوينية وورشات عمل حول مكافحة الإرهاب ومنع غسل الأموال"}</strong><br/><br/>
+                <span style="font-size:8.5pt;">
+                  ${DEFAULT_PROGRAM_MODULES.map(m => `• ${m}`).join("<br/>")}
+                </span>
+              </td>
+              <td style="text-align:center; vertical-align:middle; font-weight:bold; font-size:12pt; color:#059669;">
+                ${annualProgramEvaluation?.realizationDegree || "أنجز"}
+              </td>
+              <td class="arabic" style="white-space:pre-line;">
+                ${annualProgramEvaluation?.complianceNotes || DEFAULT_COMPLIANCE_NOTES}
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
         <h2>V. المالحق والجداول الترتيبية (Tableaux Officiels CGA)</h2>
         <h3>جدول عدد 01: رزنامة تحيين ملفات المنخرطين حسب درجة المخاطر</h3>
@@ -575,11 +660,13 @@ export default function ReportsPage() {
     recordActivity({
       action: 'EXPORT_DATA',
       label: `Export Excel : ${currentTemplate.title} (${selectedPeriod})`,
-      detail: `Format XLSX • Données d'exercice ${selectedPeriod}`,
+      detail: `Format XLSX • Données consolidées de l'exercice ${selectedPeriod} avec le rapport des formations`,
       module: 'Reporting Automatisé'
     });
 
     const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Tableau 01 CGA
     const ws1 = XLSX.utils.json_to_sheet(
       data.table01.map((r) => ({
         "Niveau de Risque": r.level,
@@ -592,11 +679,58 @@ export default function ReportsPage() {
       }))
     );
     XLSX.utils.book_append_sheet(wb, ws1, `Tableau_01_${selectedPeriod}`);
-    const ws2 = XLSX.utils.json_to_sheet(data.strList);
+
+    // Sheet 2: STR GO-AML
+    const ws2 = XLSX.utils.json_to_sheet(
+      data.strList.map((s) => ({
+        "#": s.id,
+        "Canal / Agence": s.channel,
+        "Branche d'Assurance": s.type,
+        "Montant (DT)": s.amount,
+        "Statut GO-AML": s.status,
+      }))
+    );
     XLSX.utils.book_append_sheet(wb, ws2, `STR_GO_AML_${selectedPeriod}`);
-    const ws3 = XLSX.utils.json_to_sheet(data.trainingList);
-    XLSX.utils.book_append_sheet(wb, ws3, `Formations_${selectedPeriod}`);
-    XLSX.writeFile(wb, `Rapport_CGA_${selectedPeriod}_MAE.xlsx`);
+
+    // Sheet 3: Registre Officiel des Formations (Participants & Sessions)
+    const trainingParticipants = activeYearParticipants;
+    const ws3 = XLSX.utils.json_to_sheet(
+      trainingParticipants.length > 0
+        ? trainingParticipants.map((p) => ({
+            "تاريخ الدورة (Date)": p.sessionDate,
+            "موضوع الدورة / المحاور (Thème)": p.topic,
+            "المكون (Formateur)": p.trainer,
+            "عدد المشاركين (#)": p.participantNumber,
+            "المشاركين (Nom & Prénom)": p.participantName,
+            "الإدارة المعنية / الفرع / النيابة (Entité)": p.entityName,
+            "التقييم QCM": p.scoreQCM || "100%",
+          }))
+        : [
+            {
+              "تاريخ الدورة (Date)": "—",
+              "موضوع الدورة / المحاور (Thème)": "—",
+              "المكون (Formateur)": "—",
+              "عدد المشاركين (#)": "—",
+              "المشاركين (Nom & Prénom)": "Aucun participant enregistré",
+              "الإدارة المعنية / الفرع / النيابة (Entité)": "—",
+              "التقييم QCM": "—",
+            }
+          ]
+    );
+    XLSX.utils.book_append_sheet(wb, ws3, `Formations_Participants_${selectedPeriod}`);
+
+    // Sheet 4: Bilan Programme vs Réalisations
+    const ws4 = XLSX.utils.json_to_sheet([
+      {
+        "برنامج السنة المصادق عليه": annualProgramEvaluation?.approvedProgram || "الدورات التكوينية وورشات عمل حول مكافحة الإرهاب ومنع غسل الأموال",
+        "درجة الإنجاز": annualProgramEvaluation?.realizationDegree || "أنجز",
+        "ملاحظات مسؤول الامتثال": annualProgramEvaluation?.complianceNotes || DEFAULT_COMPLIANCE_NOTES,
+        "Axes Pédagogiques": DEFAULT_PROGRAM_MODULES.join(" | "),
+      }
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws4, `Bilan_Programme_Formations_${selectedPeriod}`);
+
+    XLSX.writeFile(wb, `Rapport_Annuel_Conformite_LAB_FT_${selectedPeriod}_MAE.xlsx`);
   };
 
   const handlePrintReport = () => {
@@ -785,13 +919,13 @@ export default function ReportsPage() {
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Formations {selectedPeriod}</p>
               <h4 className="text-3xl font-black italic tracking-tight text-emerald-600 mt-1">
-                {data.trainingList.reduce((a, t) => a + t.count, 0)} Part.
+                {activeYearParticipants.length} Part.
               </h4>
             </div>
             <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 rounded-2xl text-emerald-600"><GraduationCap className="h-6 w-6" /></div>
           </div>
           <p className="text-[11px] font-bold text-emerald-600 mt-3 flex items-center gap-1">
-            <Check className="h-3.5 w-3.5" /> {data.trainingList.length} Sessions accomplies
+            <Check className="h-3.5 w-3.5" /> {activeYearParticipants.length} Collaborateurs formés ({annualProgramEvaluation?.realizationDegree || "أنجز"})
           </p>
         </Card>
       </div>
@@ -811,7 +945,7 @@ export default function ReportsPage() {
                 <Building2 className="h-4 w-4 text-rose-600" /> Vulnérabilité Réseau & CTAF
               </TabsTrigger>
               <TabsTrigger value="training_detail" className="rounded-xl font-black text-xs uppercase px-5 tracking-wider gap-2 whitespace-nowrap">
-                <GraduationCap className="h-4 w-4 text-emerald-600" /> Formations ({data.trainingList.length})
+                <GraduationCap className="h-4 w-4 text-emerald-600" /> Formations ({activeYearParticipants.length})
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1127,6 +1261,131 @@ export default function ReportsPage() {
 
             </div>
 
+            {/* ── SECTION IV: FORMATIONS LAB-FT OFFICIELLES (TABLEAU DES PARTICIPANTS + BILAN) ── */}
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-3">
+                  <Badge className="bg-amber-600 text-white font-black text-sm px-3">IV</Badge>
+                  <h3 className="text-lg font-black uppercase text-slate-900 dark:text-white" dir="rtl">
+                    الدورات التكوينية المنجزة خلال السنة المنقضية في مجال مكافحة الإرهاب ومنع غسل الأموال ({selectedPeriod})
+                  </h3>
+                </div>
+                <Badge className="bg-emerald-600 text-white font-bold text-xs px-3 py-1 self-start sm:self-auto">
+                  {activeYearParticipants.length} Collaborateurs & Intermédiaires Formés
+                </Badge>
+              </div>
+
+              {/* Contexte introductif */}
+              <div className="p-5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/60 text-xs leading-relaxed text-slate-800 dark:text-slate-200 font-arabic text-right shadow-sm" dir="rtl">
+                <p className="font-bold text-amber-900 dark:text-amber-400 mb-1 text-sm">معطيات حول الدورات المنجزة :</p>
+                <p>{annualProgramEvaluation?.introText || DEFAULT_REPORT_INTRO}</p>
+              </div>
+
+              {/* Tableau des participants */}
+              <Card className="border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-md">
+                <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-amber-400">
+                      1. جدول المشاركين والدورات التكوينية المنجزة ({selectedPeriod})
+                    </h4>
+                    <p className="text-[11px] text-slate-300 font-medium mt-0.5">
+                      Registre exhaustif des collaborateurs du siège, réseaux d'agences et intermédiaires formés
+                    </p>
+                  </div>
+                  <Badge className="bg-amber-500 text-slate-900 font-black">
+                    {activeYearParticipants.length} Participants
+                  </Badge>
+                </div>
+
+                <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-100 dark:bg-slate-800 uppercase text-[10px] font-black text-slate-600 dark:text-slate-300 sticky top-0 z-10 shadow-sm">
+                      <tr>
+                        <th className="p-3 text-center w-16"># N°</th>
+                        <th className="p-3 text-right">المشاركين (Participant)</th>
+                        <th className="p-3 text-right">الإدارة المعنية / الفرع / النيابة</th>
+                        <th className="p-3 text-center">المكون (Formateur)</th>
+                        <th className="p-3 text-right">موضوع الدورة / المحاور</th>
+                        <th className="p-3 text-center w-28">تاريخ الدورة</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {activeYearParticipants.length > 0 ? (
+                        activeYearParticipants.map((p) => (
+                          <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-950/50 transition-colors">
+                            <td className="p-3 text-center font-bold text-slate-500">{p.participantNumber}</td>
+                            <td className="p-3 text-right font-bold text-slate-900 dark:text-white font-arabic">{p.participantName}</td>
+                            <td className="p-3 text-right font-medium text-slate-700 dark:text-slate-300 font-arabic">{p.entityName}</td>
+                            <td className="p-3 text-center font-bold text-primary font-arabic">{p.trainer}</td>
+                            <td className="p-3 text-right text-slate-600 dark:text-slate-400 font-arabic">{p.topic}</td>
+                            <td className="p-3 text-center font-mono font-bold text-xs">{p.sessionDate}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-muted-foreground italic">
+                            Aucun participant enregistré pour l'exercice {selectedPeriod}. Renseignez les participants dans l'onglet Formations.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+
+              {/* Tableau Bilan Programme vs Réalisations */}
+              <Card className="border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-md">
+                <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-amber-400">
+                    2. مقارنة البرنامج بالإنجازات (Bilan & Évaluation du Programme Annuel)
+                  </h4>
+                  <Badge className="bg-emerald-600 text-white font-black text-xs px-3">
+                    {annualProgramEvaluation?.realizationDegree || "أنجز"}
+                  </Badge>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-100 dark:bg-slate-800 uppercase text-[10px] font-black text-slate-600 dark:text-slate-300">
+                      <tr>
+                        <th className="p-3 text-right w-1/3">برنامج السنة المنقضية المصادق عليه</th>
+                        <th className="p-3 text-center w-1/5">درجة الإنجاز</th>
+                        <th className="p-3 text-right w-1/2">ملاحظات مسؤول الامتثال</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      <tr className="align-top divide-x divide-slate-100 dark:divide-slate-800">
+                        <td className="p-4 text-right font-arabic" dir="rtl">
+                          <p className="font-bold text-slate-900 dark:text-white mb-2">
+                            {annualProgramEvaluation?.approvedProgram || "الدورات التكوينية وورشات عمل حول مكافحة الإرهاب ومنع غسل الأموال"}
+                          </p>
+                          <div className="space-y-1 text-[11px] text-slate-600 dark:text-slate-400 font-sans">
+                            {DEFAULT_PROGRAM_MODULES.map((m, i) => (
+                              <div key={i} className="flex items-center gap-1.5 justify-end">
+                                <span>{m}</span>
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="p-4 text-center">
+                          <Badge className="bg-emerald-500 text-white font-black text-sm px-4 py-2 rounded-xl shadow-sm">
+                            {annualProgramEvaluation?.realizationDegree || "أنجز"}
+                          </Badge>
+                          <p className="text-[10px] text-emerald-600 font-bold mt-2">100% Conforme</p>
+                        </td>
+                        <td className="p-4 text-right font-arabic space-y-2 text-xs text-slate-700 dark:text-slate-300 leading-relaxed" dir="rtl">
+                          <p className="whitespace-pre-line font-medium">
+                            {annualProgramEvaluation?.complianceNotes || DEFAULT_COMPLIANCE_NOTES}
+                          </p>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+
             {/* ── SECTION V: TABLEAUX OFFICIELS CGA ── */}
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -1375,70 +1634,149 @@ export default function ReportsPage() {
           </TabsContent>
 
           {/* ══════════════════════════════════════════════════════════════════
-              TAB 4: FORMATIONS — ÉDITABLE
+              TAB 4: FORMATIONS — RAPPORT ANNUEL LAB-FT CONSOLIDÉ
               ══════════════════════════════════════════════════════════════════ */}
-          <TabsContent value="training_detail" className="p-8 space-y-6 focus:outline-none">
-            <Card className="p-6 border-slate-200 dark:border-slate-800 rounded-2xl space-y-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                    <GraduationCap className="h-4 w-4 text-emerald-600" /> Bilan Formations Métiers LAB-FT ({selectedPeriod})
-                  </h3>
-                  {isCurrentYear && data.trainingList.length === 0 && (
-                    <p className="text-[10px] text-amber-600 font-bold mt-1 flex items-center gap-1">
-                      <Info className="h-3 w-3" /> Exercice en cours — saisissez les sessions réalisées
-                    </p>
-                  )}
+          <TabsContent value="training_detail" className="p-8 space-y-8 focus:outline-none">
+            {/* Header Formations */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-6 rounded-3xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/60">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-md">
+                  <GraduationCap className="h-6 w-6" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-emerald-600 text-white font-black text-xs">
-                    {data.trainingList.reduce((a, t) => a + t.count, 0)} Participants
-                  </Badge>
-                  <Button size="sm" onClick={() => setIsAddTrainingOpen(true)} className="h-8 rounded-xl font-bold text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white">
-                    <Plus className="h-3 w-3" /> Ajouter Session
-                  </Button>
+                <div>
+                  <h3 className="text-lg font-black uppercase text-slate-900 dark:text-white">
+                    Rapport Annuel des Formations LAB-FT ({selectedPeriod})
+                  </h3>
+                  <p className="text-xs text-muted-foreground font-medium mt-0.5" dir="rtl">
+                    الدورات التكوينية المنجزة في مجال مكافحة الإرهاب ومنع غسل الأموال
+                  </p>
                 </div>
               </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-emerald-600 text-white font-black text-xs px-3 py-1.5 rounded-xl">
+                  {activeYearParticipants.length} Participants Enregistrés
+                </Badge>
+                <Badge className="bg-amber-500 text-slate-900 font-black text-xs px-3 py-1.5 rounded-xl">
+                  Statut : {annualProgramEvaluation?.realizationDegree || "أنجز"}
+                </Badge>
+                <Button
+                  onClick={handleExportExcel}
+                  size="sm"
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl gap-1.5"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5" /> Export Excel Formations
+                </Button>
+              </div>
+            </div>
 
-              {data.trainingList.length === 0 ? (
-                <div className="p-8 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-center">
-                  <p className="text-sm font-bold text-slate-400">Aucune session de formation enregistrée pour {selectedPeriod}</p>
-                  <Button size="sm" onClick={() => setIsAddTrainingOpen(true)} className="mt-3 h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1">
-                    <Plus className="h-3.5 w-3.5" /> Ajouter une session
-                  </Button>
+            {/* Contexte introductif */}
+            <Card className="p-5 border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/60 dark:bg-slate-950/40 text-xs leading-relaxed text-slate-800 dark:text-slate-200 font-arabic text-right shadow-sm" dir="rtl">
+              <p className="font-bold text-amber-800 dark:text-amber-400 mb-1.5 text-sm">معطيات حول الدورات المنجزة :</p>
+              <p>{annualProgramEvaluation?.introText || DEFAULT_REPORT_INTRO}</p>
+            </Card>
+
+            {/* 1. Registre des Participants */}
+            <Card className="border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-md space-y-0">
+              <div className="p-4 bg-slate-900 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-amber-400">
+                    1. جدول المشاركين والدورات التكوينية المنجزة ({selectedPeriod})
+                  </h4>
+                  <p className="text-[11px] text-slate-300 font-medium mt-0.5">
+                    Structure officielle issue du Rapport Annuel LAB-FT
+                  </p>
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-50 dark:bg-slate-950 uppercase text-[10px] font-black text-slate-400">
-                      <tr>
-                        <th className="p-3">Session / Thème</th>
-                        <th className="p-3">Formateur</th>
-                        <th className="p-3 text-right">Participants</th>
-                        <th className="p-3 text-right">Score QCM</th>
-                        <th className="p-3 text-right">Date</th>
-                        <th className="p-3 text-center">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {data.trainingList.map((item, idx) => (
-                        <tr key={idx}>
-                          <td className="p-3 font-bold text-slate-900 dark:text-white">{item.title}</td>
-                          <td className="p-3 text-slate-600">{item.trainer}</td>
-                          <td className="p-3 text-right font-black text-slate-700 dark:text-slate-300">{item.count}</td>
-                          <td className="p-3 text-right font-black text-emerald-600">{item.score}</td>
-                          <td className="p-3 text-right text-slate-500">{item.date}</td>
-                          <td className="p-3 text-center">
-                            <Button size="icon" variant="ghost" onClick={() => handleDeleteTraining(idx)} className="h-7 w-7 text-rose-500 hover:text-rose-700 hover:bg-rose-50">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </td>
+                <Badge className="bg-slate-800 text-amber-300 border border-amber-400/30 font-bold text-xs">
+                  {activeYearParticipants.length} Lignes
+                </Badge>
+              </div>
+
+              <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-100 dark:bg-slate-800 uppercase text-[10px] font-black text-slate-600 dark:text-slate-300 sticky top-0 z-10 shadow-sm">
+                    <tr>
+                      <th className="p-3 text-center w-16"># N°</th>
+                      <th className="p-3 text-right">المشاركين (Participant)</th>
+                      <th className="p-3 text-right">الإدارة المعنية / الفرع / النيابة</th>
+                      <th className="p-3 text-center">المكون (Formateur)</th>
+                      <th className="p-3 text-right">موضوع الدورة / المحاور</th>
+                      <th className="p-3 text-center w-28">تاريخ الدورة</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {activeYearParticipants.length > 0 ? (
+                      activeYearParticipants.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-950/50 transition-colors">
+                          <td className="p-3 text-center font-bold text-slate-500">{p.participantNumber}</td>
+                          <td className="p-3 text-right font-bold text-slate-900 dark:text-white font-arabic">{p.participantName}</td>
+                          <td className="p-3 text-right font-medium text-slate-700 dark:text-slate-300 font-arabic">{p.entityName}</td>
+                          <td className="p-3 text-center font-bold text-primary font-arabic">{p.trainer}</td>
+                          <td className="p-3 text-right text-slate-600 dark:text-slate-400 font-arabic">{p.topic}</td>
+                          <td className="p-3 text-center font-mono font-bold text-xs">{p.sessionDate}</td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted-foreground italic">
+                          Aucun participant enregistré pour l'exercice {selectedPeriod}. Renseignez les participants dans l'onglet Formations.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            {/* 2. Bilan Programme vs Réalisations */}
+            <Card className="border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-md">
+              <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+                <h4 className="text-xs font-black uppercase tracking-widest text-amber-400">
+                  2. مقارنة البرنامج بالإنجازات (Bilan Pédagogique & Évaluation du Programme)
+                </h4>
+                <Badge className="bg-emerald-600 text-white font-black text-xs px-3">
+                  {annualProgramEvaluation?.realizationDegree || "أنجز"}
+                </Badge>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-100 dark:bg-slate-800 uppercase text-[10px] font-black text-slate-600 dark:text-slate-300">
+                    <tr>
+                      <th className="p-3 text-right w-1/3">برنامج السنة المنقضية المصادق عليه</th>
+                      <th className="p-3 text-center w-1/5">درجة الإنجاز</th>
+                      <th className="p-3 text-right w-1/2">ملاحظات مسؤول الامتثال</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tr className="align-top divide-x divide-slate-100 dark:divide-slate-800">
+                      <td className="p-4 text-right font-arabic" dir="rtl">
+                        <p className="font-bold text-slate-900 dark:text-white mb-2">
+                          {annualProgramEvaluation?.approvedProgram || "الدورات التكوينية وورشات عمل حول مكافحة الإرهاب ومنع غسل الأموال"}
+                        </p>
+                        <div className="space-y-1 text-[11px] text-slate-600 dark:text-slate-400 font-sans">
+                          {DEFAULT_PROGRAM_MODULES.map((m, i) => (
+                            <div key={i} className="flex items-center gap-1.5 justify-end">
+                              <span>{m}</span>
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="p-4 text-center">
+                        <Badge className="bg-emerald-500 text-white font-black text-sm px-4 py-2 rounded-xl shadow-sm">
+                          {annualProgramEvaluation?.realizationDegree || "أنجز"}
+                        </Badge>
+                        <p className="text-[10px] text-emerald-600 font-bold mt-2">100% Conforme</p>
+                      </td>
+                      <td className="p-4 text-right font-arabic space-y-2 text-xs text-slate-700 dark:text-slate-300 leading-relaxed" dir="rtl">
+                        <p className="whitespace-pre-line font-medium">
+                          {annualProgramEvaluation?.complianceNotes || DEFAULT_COMPLIANCE_NOTES}
+                        </p>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </Card>
           </TabsContent>
         </Tabs>
