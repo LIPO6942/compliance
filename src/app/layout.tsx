@@ -36,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning className={cn(inter.variable, spaceGrotesk.variable)}>
       <body className="font-body antialiased min-h-screen flex flex-col">
-        <Script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" strategy="afterInteractive" />
+        <Script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.0/mermaid.min.js" strategy="afterInteractive" />
         <Script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js" strategy="afterInteractive" />
         <ThemeProvider>
           <ActivityLogProvider>

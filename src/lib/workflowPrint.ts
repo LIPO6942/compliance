@@ -58,10 +58,13 @@ export function ensureMermaidLoaded(): Promise<any> {
         return Promise.reject(new Error('Window is undefined'));
     }
 
-    if (window.mermaid) {
-        if (!(window.mermaid as any).__isInitialized) {
+    const initMermaid = (m: any) => {
+        const mermaidInstance = m?.default || m;
+        if (!mermaidInstance) return null;
+
+        if (!mermaidInstance.__isInitialized) {
             try {
-                window.mermaid.initialize({
+                mermaidInstance.initialize({
                     startOnLoad: false,
                     theme: 'base',
                     themeVariables: {
@@ -80,15 +83,20 @@ export function ensureMermaidLoaded(): Promise<any> {
                         padding: 10
                     }
                 });
-                window.mermaid.parseError = (err: any) => {
+                mermaidInstance.parseError = (err: any) => {
                     console.warn('Mermaid Parse Warning (Suppressed from UI):', err);
                 };
-                (window.mermaid as any).__isInitialized = true;
+                mermaidInstance.__isInitialized = true;
             } catch (e) {
                 console.error('Error initializing mermaid:', e);
             }
         }
-        return Promise.resolve(window.mermaid);
+        return mermaidInstance;
+    };
+
+    if (window.mermaid) {
+        const inst = initMermaid(window.mermaid);
+        if (inst) return Promise.resolve(inst);
     }
 
     if (mermaidPromise) {
@@ -96,63 +104,50 @@ export function ensureMermaidLoaded(): Promise<any> {
     }
 
     mermaidPromise = new Promise((resolve, reject) => {
-        let attempts = 0;
-        const maxAttempts = 150; // 15 secondes
+        const cdns = [
+            'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.0/mermaid.min.js',
+            'https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js',
+            'https://unpkg.com/mermaid@10.9.0/dist/mermaid.min.js'
+        ];
 
-        const checkInterval = setInterval(() => {
-            attempts++;
-            if (window.mermaid) {
-                clearInterval(checkInterval);
-                try {
-                    window.mermaid.initialize({
-                        startOnLoad: false,
-                        theme: 'base',
-                        themeVariables: {
-                            primaryColor: '#ffffff',
-                            primaryTextColor: '#1e293b',
-                            primaryBorderColor: '#e2e8f0',
-                            lineColor: '#94a3b8',
-                            secondaryColor: '#f8fafc',
-                            fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-                        },
-                        securityLevel: 'loose',
-                        flowchart: {
-                            htmlLabels: true,
-                            curve: 'stepAfter',
-                            useMaxWidth: false,
-                            padding: 10
-                        }
-                    });
-                    window.mermaid.parseError = (err: any) => {
-                        console.warn('Mermaid Parse Warning (Suppressed from UI):', err);
-                    };
-                    (window.mermaid as any).__isInitialized = true;
-                } catch (e) {
-                    console.error('Error initializing mermaid after poll:', e);
-                }
-                resolve(window.mermaid);
-                return;
-            }
+        let cdnIndex = 0;
 
-            if (attempts >= maxAttempts) {
-                clearInterval(checkInterval);
-                mermaidPromise = null;
-                reject(new Error('Délai d\'attente dépassé pour le chargement de Mermaid'));
-            }
-        }, 100);
-
-        // Si le script Mermaid n'est pas encore injecté, on l'injecte
-        if (typeof document !== 'undefined' && !document.querySelector('script[src*="mermaid"]')) {
+        const tryLoadScript = (url: string) => {
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+            script.src = url;
             script.async = true;
-            script.onerror = (err) => {
-                clearInterval(checkInterval);
-                mermaidPromise = null;
-                reject(new Error('Erreur de chargement du CDN Mermaid: ' + err));
+            script.onload = () => {
+                const inst = initMermaid(window.mermaid);
+                if (inst) {
+                    resolve(inst);
+                } else {
+                    tryNext();
+                }
+            };
+            script.onerror = () => {
+                tryNext();
             };
             document.head.appendChild(script);
-        }
+        };
+
+        const tryNext = () => {
+            if (window.mermaid) {
+                const inst = initMermaid(window.mermaid);
+                if (inst) {
+                    resolve(inst);
+                    return;
+                }
+            }
+
+            if (cdnIndex < cdns.length) {
+                tryLoadScript(cdns[cdnIndex++]);
+            } else {
+                mermaidPromise = null;
+                reject(new Error('Impossible de charger Mermaid depuis les sources disponibles'));
+            }
+        };
+
+        tryNext();
     });
 
     return mermaidPromise;
