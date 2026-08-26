@@ -135,7 +135,9 @@ export default function PlanPage() {
     removeTask,
     activeWorkflows,
     deleteWorkflow,
-    updateWorkflowOrder
+    updateWorkflowOrder,
+    workflowTasks,
+    availableUsers
   } = usePlanData();
   const router = useRouter();
   const { documents, loading: docsLoading } = useDocuments();
