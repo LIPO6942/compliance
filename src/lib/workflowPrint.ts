@@ -454,27 +454,6 @@ export function buildWorkflowPrintHTML(options: WorkflowPrintOptions, cleanSvg: 
       gap: 12px;
     }
 
-    .brand-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: #0f172a;
-      color: #ffffff;
-      padding: 4px 10px;
-      border-radius: 8px;
-      font-size: 11px;
-      font-weight: 900;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    .brand-badge .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #10b981;
-    }
-
     .header-title-block {
       display: flex;
       flex-direction: column;
@@ -715,43 +694,18 @@ export function buildWorkflowPrintHTML(options: WorkflowPrintOptions, cleanSvg: 
       flex: 0 0 auto;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 5px 12px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      margin-top: 5px;
-      font-size: 8px;
+      justify-content: flex-end;
+      padding: 3px 6px;
+      margin-top: 3px;
+      font-size: 8.5px;
       color: #64748b;
     }
 
-    .footer-left {
+    .footer-page-only {
       font-weight: 700;
-      color: #475569;
-    }
-
-    .footer-center {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .legend-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      font-weight: 600;
-    }
-
-    .legend-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-    }
-
-    .footer-right {
-      font-weight: 800;
-      color: #0f172a;
+      color: #64748b;
+      font-family: 'Outfit', sans-serif;
+      letter-spacing: 0.05em;
     }
   </style>
 </head>
@@ -760,10 +714,6 @@ export function buildWorkflowPrintHTML(options: WorkflowPrintOptions, cleanSvg: 
     <!-- EN-TÊTE -->
     <header class="header-bar">
       <div class="header-left">
-        <div class="brand-badge">
-          <span class="dot"></span>
-          ComplianceNav
-        </div>
         <div class="header-title-block">
           <span class="header-category">Cartographie des Processus Métiers & Plan d'Organisation</span>
           <h1 class="header-title">${name}</h1>
@@ -790,17 +740,7 @@ export function buildWorkflowPrintHTML(options: WorkflowPrintOptions, cleanSvg: 
 
     <!-- PIED DE PAGE -->
     <footer class="footer-bar">
-      <div class="footer-left">
-        Direction de la Conformité & Contrôle Interne • Document Confidentiel Interne
-      </div>
-      <div class="footer-center">
-        <span class="legend-item"><span class="legend-dot" style="background:#10b981;"></span> Terminé</span>
-        <span class="legend-item"><span class="legend-dot" style="background:#f97316;"></span> En cours</span>
-        <span class="legend-item"><span class="legend-dot" style="background:#f43f5e;"></span> Alerte</span>
-        <span class="legend-item">🛡️ Contrôle GRC</span>
-        <span class="legend-item">👤 Responsable RACI</span>
-      </div>
-      <div class="footer-right">
+      <div class="footer-page-only">
         Page 1 / 1
       </div>
     </footer>
