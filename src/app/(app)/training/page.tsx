@@ -541,7 +541,7 @@ export default function TrainingPage() {
           </div>
 
           <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight">
-            IV- الدورات التكوينية في مجال <span className="text-primary-foreground underline decoration-primary/40">مكافحة الإرهاب ومنع غسل الأموال</span>
+            الدورات التكوينية في مجال <span className="text-primary-foreground underline decoration-primary/40">مكافحة الإرهاب ومنع غسل الأموال</span>
           </h1>
           <p className="text-slate-300 text-xs lg:text-sm leading-relaxed">
             Plateforme de traçabilité et de reporting officiel : المقر الاجتماعي، الإدارات المركزية، الإدارات الجهوية، شبكة الفروع، نواب التأمين والسماسرة.

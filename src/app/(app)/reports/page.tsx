@@ -492,7 +492,7 @@ export default function ReportsPage() {
           .join("")
       : `<tr><td colspan="5" style="text-align:center;">Aucune déclaration pour l'exercice ${selectedPeriod}</td></tr>`;
 
-    // Section IV - Formations LAB-FT
+    // Section Formations LAB-FT
     const trainingParticipants = activeYearParticipants;
     const trainingRowsHtml = trainingParticipants.length > 0
       ? trainingParticipants
@@ -559,7 +559,7 @@ export default function ReportsPage() {
         `).join("")}
         ${customModifiedCountries.length > 0 ? `<p><em>Facteurs pays modifiés dans la Matrice des Risques (mis à jour le ${todayFormatted}) : ${customModifiedCountries.map(c => c.name).join(", ")}</em></p>` : ""}
 
-        <h2>IV. الدورات التكوينية المنجزة خلال السنة المنقضية في مجال مكافحة الإرهاب ومنع غسل الأموال</h2>
+        <h2>الدورات التكوينية المنجزة خلال السنة المنقضية في مجال مكافحة الإرهاب ومنع غسل الأموال</h2>
         <p class="arabic" style="background:#f1f5f9; padding:8px 12px; border-radius:6px; font-size:10pt;">
           <strong>معطيات حول الدورات المنجزة:</strong><br/>
           ${annualProgramEvaluation?.introText || DEFAULT_REPORT_INTRO}
@@ -1261,11 +1261,11 @@ export default function ReportsPage() {
 
             </div>
 
-            {/* ── SECTION IV: FORMATIONS LAB-FT OFFICIELLES (TABLEAU DES PARTICIPANTS + BILAN) ── */}
+            {/* ── SECTION FORMATIONS LAB-FT OFFICIELLES (TABLEAU DES PARTICIPANTS + BILAN) ── */}
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
                 <div className="flex items-center gap-3">
-                  <Badge className="bg-amber-600 text-white font-black text-sm px-3">IV</Badge>
+                  <Badge className="bg-amber-600 text-white font-black text-sm px-3">📚</Badge>
                   <h3 className="text-lg font-black uppercase text-slate-900 dark:text-white" dir="rtl">
                     الدورات التكوينية المنجزة خلال السنة المنقضية في مجال مكافحة الإرهاب ومنع غسل الأموال ({selectedPeriod})
                   </h3>
