@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { usePlanData } from '@/contexts/PlanDataContext';
 import { useRiskMapping } from '@/contexts/RiskMappingContext';
 import { AlertTriangle } from 'lucide-react';
-import type { RiskLevel } from '@/types/compliance';
+import { ensureMermaidLoaded, annotateMermaidCode } from '@/lib/workflowPrint';
 
 declare global {
     interface Window {
@@ -21,7 +21,6 @@ interface MermaidRendererProps {
     fitMode?: boolean;
 }
 
-// Utilitaire: niveau de risque numérique pour comparaison
 const riskLevelToNumber = (level: string): number => {
     switch (level) {
         case 'Faible': return 1;
@@ -51,7 +50,6 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
         const chartId = workflowId || '';
         if (!chartId) return null;
 
-        // Collecte récursive de toutes les tâches GRC liées à ce workflow
         const collectLinkedTasks = (tasks: any[]): any[] => {
             let found: any[] = [];
             tasks.forEach(t => {
@@ -73,13 +71,11 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
 
         if (linkedTasks.length === 0) return null;
 
-        // Collecter tous les IDs de risques uniques
         const allRiskIds = [...new Set(linkedTasks.flatMap((t: any) => t.risks || []))];
         const linkedRisks = allRisks.filter(r => allRiskIds.includes(r.id));
 
         if (linkedRisks.length === 0) return null;
 
-        // Calcul du niveau max
         let maxLevel = 0;
         let maxLevelLabel = '';
         linkedRisks.forEach(r => {
@@ -90,7 +86,6 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
             }
         });
 
-        // Score moyen (sur 4)
         const avgScore = linkedRisks.reduce((sum, r) => sum + riskLevelToNumber(r.riskLevel), 0) / linkedRisks.length;
 
         return {
@@ -102,253 +97,68 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
     }, [workflowId, planData, allRisks]);
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && window.mermaid) {
-            window.mermaid.initialize({
-                startOnLoad: false,
-                theme: 'base',
-                themeVariables: {
-                    primaryColor: '#ffffff',
-                    primaryTextColor: '#1e293b',
-                    primaryBorderColor: '#e2e8f0',
-                    lineColor: '#94a3b8',
-                    secondaryColor: '#f8fafc',
-                    fontFamily: "'Outfit', sans-serif"
-                },
-                securityLevel: 'loose',
-                flowchart: {
-                    htmlLabels: true,
-                    curve: 'stepAfter',
-                    useMaxWidth: false,
-                    padding: 10
-                },
-            });
-            // Surcharge de la gestion d'erreur pour éviter l'affichage "Syntax error" en bas de page
-            window.mermaid.parseError = (err: any) => {
-                console.error('Mermaid Parse Error (Suppressed from UI):', err);
-            };
-        }
-    }, []);
+        let isMounted = true;
 
-    useEffect(() => {
         const renderChart = async () => {
-            if (!chart || typeof window === 'undefined' || !window.mermaid) return;
+            if (!chart || typeof window === 'undefined') return;
 
             try {
                 setError(null);
-                let annotatedChart = chart;
+                const mermaid = await ensureMermaidLoaded();
+                if (!isMounted) return;
 
-                // Fonction de nettoyage ultra-stricte pour Mermaid
-                const cleanForMermaid = (str: string) => {
-                    if (!str) return '';
-                    return str.replace(/[()[\]{}]/g, ' ').replace(/["]/g, '&quot;').replace(/[']/g, '&apos;').trim();
-                };
-
-                const chartId = workflowId || chart.match(/(?:graph|flowchart)\s+(?:TD|LR|TB|BT|RL);?\s+%%ID:(\w+)/)?.[1] || '';
-
-                // Récupération de toutes les tâches GRC liées dans le plan (récursif)
-                const getGrcTasks = (tasks: any[]): any[] => {
-                    let found: any[] = [];
-                    tasks.forEach(t => {
-                        if (t.grcWorkflowId === chartId && t.grcNodeId) {
-                            found.push({
-                                taskId: t.id,
-                                nodeId: t.grcNodeId,
-                                taskName: t.name,
-                                riskIds: t.risks || [],
-                                responsibleUserName: t.raci?.responsible ?
-                                    availableUsers.find(u => u.id === t.raci.responsible)?.name || 'Anonyme' : 'Non assigné',
-                                approverUserName: t.raci?.accountable ?
-                                    availableUsers.find(u => u.id === t.raci.accountable)?.name || 'Anonyme' : null,
-                                roleRequired: 'CONTROLE GRC',
-                                status: t.completed ? 'Terminé' : 'En cours',
-                                isGrcControl: true
-                            });
-                        }
-                        if (t.branches) {
-                            t.branches.forEach((b: any) => {
-                                found = [...found, ...getGrcTasks(b.tasks)];
-                            });
-                        }
-                    });
-                    return found;
-                };
-
-                const planGrcTasks = planData.flatMap((cat: any) =>
-                    cat.subCategories.flatMap((sub: any) => {
-                        const tasks = getGrcTasks(sub.tasks);
-                        return tasks.map(t => ({ ...t, categoryId: cat.id, subCategoryId: sub.id }));
-                    })
-                );
-
-                // Fusion des tâches d'assignation et des tâches de contrôle GRC avec déduplication stricte par ID
-                const allTasksRaw = [...workflowTasks.filter(t => t.workflowId === chartId), ...planGrcTasks];
-                const uniqueTasksMap = new Map();
-                allTasksRaw.forEach(t => {
-                    const uniqueKey = t.taskId ? `${t.taskId}-${t.nodeId}` : `${t.limitId || Math.random()}-${t.nodeId}`;
-                    if (!uniqueTasksMap.has(uniqueKey)) {
-                        uniqueTasksMap.set(uniqueKey, t);
-                    }
-                });
-                const allTasksToDisplay = Array.from(uniqueTasksMap.values());
-
-                // On regroupe par nodeId pour ne pas dupliquer les boîtes mais cumuler les infos
-                const tasksByNode: Record<string, any[]> = {};
-                allTasksToDisplay.forEach(t => {
-                    if (!tasksByNode[t.nodeId]) tasksByNode[t.nodeId] = [];
-                    tasksByNode[t.nodeId].push(t);
+                const annotatedChart = annotateMermaidCode(chart, {
+                    workflowId,
+                    planData,
+                    workflowTasks,
+                    availableUsers,
+                    allRisks,
+                    uniqueId
                 });
 
-                Object.entries(tasksByNode).forEach(([nodeId, tasks]) => {
-                    const escapedId = nodeId.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
-                    const nodeRegex = new RegExp(`(${escapedId})\\s*([\\[\\(\\{\\>\\\\\/]{1,2})(.*?)([\\]\\)\\}]{1,2})`, 'g');
-
-                    // === RISQUES : Déterminer le niveau de risque le plus élevé pour ce nœud ===
-                    const nodeRiskIds = [...new Set(tasks.flatMap((t: any) => t.riskIds || []))];
-                    const nodeRisks = allRisks.filter(r => nodeRiskIds.includes(r.id));
-                    let nodeMaxRiskLevel = '';
-                    let nodeMaxRiskNum = 0;
-                    nodeRisks.forEach(r => {
-                        const lvl = riskLevelToNumber(r.riskLevel);
-                        if (lvl > nodeMaxRiskNum) {
-                            nodeMaxRiskNum = lvl;
-                            nodeMaxRiskLevel = r.riskLevel;
-                        }
-                    });
-                    const nodeRiskConfig = nodeMaxRiskLevel ? riskLevelConfig[nodeMaxRiskLevel] : null;
-
-                    // Construction du bloc HTML d'infos (cumulé si plusieurs tâches sur le même noeud)
-                    let infoHtml = `<div class='assignee-info-box'>`;
-
-                    // DÉDUPLICATION VISUELLE : On ne montre chaque responsable/approbateur qu'une seule fois par noeud
-                    const uniqueAssignees = new Map();
-                    tasks.forEach(task => {
-                        const sName = cleanForMermaid(task.responsibleUserName);
-                        const sApprover = task.approverUserName ? cleanForMermaid(task.approverUserName) : null;
-                        const sTaskName = cleanForMermaid(task.taskName);
-                        const sRole = cleanForMermaid(task.roleRequired).toUpperCase();
-                        const isGrc = task.isGrcControl;
-
-                        // Clé unique pour dédupliquer l'affichage sur ce noeud
-                        const key = `${sName}-${sApprover}-${sRole}-${isGrc}-${sTaskName}`;
-
-                        if (!uniqueAssignees.has(key)) {
-                            uniqueAssignees.set(key, { sName, sApprover, sRole, isGrc, sTaskName });
-                        }
-                    });
-
-                    // On itère sur les responsables uniques pour construire le HTML
-                    Array.from(uniqueAssignees.values()).forEach(({ sName, sApprover, sRole, isGrc, sTaskName }) => {
-                        infoHtml += `<div class='assignee-row ${isGrc ? 'grc-row' : ''}'>`;
-
-                        // Nom de la tâche liée (si GRC)
-                        if (isGrc && sTaskName) {
-                            infoHtml += `<div class='linked-task-name'>Task: ${sTaskName}</div>`;
-                        }
-
-                        // Responsable
-                        infoHtml += `<div class='assignee-group'>` +
-                            `<span class='icon'>${isGrc ? '🛡️' : '👤'}</span>` +
-                            `<span class='assignee-name'>${sName}</span>` +
-                            `<span class='assignee-role-badge'>${sRole}</span>` +
-                            `</div>`;
-
-                        // Approbateur (si présent)
-                        if (sApprover) {
-                            infoHtml += `<div class='approver-row'>` +
-                                `<span class='icon'>✅</span>` +
-                                `<span class='approver-label'>Approbateur:</span>` +
-                                `<span class='approver-name'>${sApprover}</span>` +
-                                `</div>`;
-                        }
-
-                        infoHtml += `</div>`;
-                    });
-
-                    // === BADGE DE RISQUE sur le noeud ===
-                    if (nodeRiskConfig && nodeMaxRiskLevel) {
-                        infoHtml += `<div class='risk-badge-node' style='background:${nodeRiskConfig.bg};border:1.5px solid ${nodeRiskConfig.border};color:${nodeRiskConfig.text};'>` +
-                            `<span class='risk-badge-emoji'>${nodeRiskConfig.emoji}</span>` +
-                            `<span class='risk-badge-label'>${nodeRiskConfig.label}</span>` +
-                            `<span class='risk-badge-count'>${nodeRisks.length} risque${nodeRisks.length > 1 ? 's' : ''}</span>` +
-                            `</div>`;
-                    }
-
-                    infoHtml += `</div>`;
-
-                    if (nodeRegex.test(annotatedChart)) {
-                        annotatedChart = annotatedChart.replace(nodeRegex, (match, id, open, label) => {
-                            const cleanLabel = label.split('<br')[0].split('<div')[0].replace(/^"+|"+$/g, '').trim();
-                            return `${id}${open}"<div class='node-label-main'>${cleanLabel}</div>${infoHtml}"${match.slice(-open.length)}`;
-                        });
-                    } else {
-                        if (/^[a-zA-Z0-9_\-\.]+$/.test(nodeId)) {
-                            annotatedChart += `\n${nodeId}["<div class='node-label-main'>${nodeId}</div>${infoHtml}"]`;
-                        }
-                    }
-
-                    // Statut visuel (Priorité à l'alerte, puis en cours, puis terminé)
-                    const hasAlert = tasks.some(t => t.status === 'Alerte');
-                    const allDone = tasks.every(t => t.status === 'Terminé');
-                    const anyProgress = tasks.some(t => t.status === 'En cours');
-
-                    const statusClass = hasAlert ? 'node-alert' : allDone ? 'node-done' : anyProgress ? 'node-progress' : 'node-pending';
-                    annotatedChart += `\nclass ${nodeId} ${statusClass};`;
-
-                    // Interaction: Clic pour éditer
-                    // On rend le noeud cliquable s'il a des tâches associées
-                    if (tasks.length > 0) {
-                        annotatedChart += `\nclick ${nodeId} call mermaidClick_${uniqueId}("${nodeId}") "Modifier cette étape"`;
-                    }
-                });
-
-                // Définition de la fonction globale de callback pour ce diagramme spécifique
+                // Callback global pour le clic sur les nœuds
                 const callbackName = `mermaidClick_${uniqueId}`;
                 (window as any)[callbackName] = (nodeId: string) => {
-                    const tasks = tasksByNode[nodeId];
-                    if (tasks && tasks.length > 0 && onEditTask) {
-                        // On édite la première tâche trouvée pour ce noeud
-                        // Idéalement on pourrait afficher une liste si plusieurs, mais ici on simplifie
-                        onEditTask(tasks[0]);
+                    const task = workflowTasks.find(t => t.nodeId === nodeId && t.workflowId === workflowId);
+                    if (task && onEditTask) {
+                        onEditTask(task);
                     }
                 };
 
-                // Définitions de classes Mermaid
-                annotatedChart += `\nclassDef node-done fill:#ecfdf5,stroke:#10b981,stroke-width:2px,rx:12,ry:12;`;
-                annotatedChart += `\nclassDef node-progress fill:#fff7ed,stroke:#f97316,stroke-width:2px,rx:12,ry:12;`;
-                annotatedChart += `\nclassDef node-pending fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,rx:12,ry:12;`;
-                annotatedChart += `\nclassDef node-alert fill:#fff1f2,stroke:#f43f5e,stroke-width:2px,rx:12,ry:12;`;
-
-                const id = `mermaid-svg-${Math.random().toString(36).substring(2, 9)}`;
+                const domId = `mermaid_svg_${uniqueId}_${Date.now()}`;
 
                 try {
-                    const { svg: generatedSvg } = await window.mermaid.render(id, annotatedChart);
-                    setSvg(generatedSvg);
+                    const { svg: generatedSvg } = await mermaid.render(domId, annotatedChart);
+                    if (isMounted) {
+                        setSvg(generatedSvg);
+                    }
                 } catch (renderError: any) {
-                    console.error('Mermaid core render error, attempting fallback:', renderError);
+                    console.warn('Erreur de rendu Mermaid annoté, repli sur le code brut:', renderError);
                     try {
-                        const simpleId = `mermaid-simple-${Math.random().toString(36).substring(2, 9)}`;
-                        // On force un layout 'base' plus robuste avec linear et SANS htmlLabels pour éviter tout conflit
-                        const simpleChart = `%%{init: {"flowchart": {"curve": "linear", "htmlLabels": false}} }%%\n${chart}`;
-                        console.warn("Utilisation du rendu simplifié (fallback) pour", simpleId);
-                        const { svg: simpleSvg } = await window.mermaid.render(simpleId, simpleChart);
-                        setSvg(simpleSvg);
+                        const simpleId = `mermaid_simple_${uniqueId}_${Date.now()}`;
+                        const { svg: simpleSvg } = await mermaid.render(simpleId, chart);
+                        if (isMounted) {
+                            setSvg(simpleSvg);
+                        }
                     } catch (fallbackError: any) {
-                        console.error("Échec du fallback Mermaid:", fallbackError);
-                        setError(`Erreur de rendu Mermaid: ${renderError.message}. Le code est peut-être invalide.`);
+                        console.error('Échec du fallback Mermaid:', fallbackError);
+                        if (isMounted) {
+                            setError(`Erreur de rendu Mermaid: ${renderError?.message || 'Code diagramme invalide'}`);
+                        }
                     }
                 }
             } catch (err: any) {
-                console.error('Mermaid transformation error:', err);
-                setError(err.message || 'Erreur de rendu');
+                console.error('Erreur chargement/transformation Mermaid:', err);
+                if (isMounted) {
+                    setError(err?.message || 'Erreur de chargement du diagramme');
+                }
             }
         };
 
-        const timeoutId = setTimeout(() => {
-            if (window.mermaid) renderChart();
-        }, 500);
+        renderChart();
+
         return () => {
-            clearTimeout(timeoutId);
-            // Cleanup global callback
+            isMounted = false;
             const callbackName = `mermaidClick_${uniqueId}`;
             delete (window as any)[callbackName];
         };
@@ -400,7 +210,6 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 .assignee-row:last-child { margin-bottom: 0; }
                 
                 /* Masquer les erreurs brutes injectées par Mermaid en bas de page */
-                /* Positionnement hors écran au lieu de display:none pour ne pas casser les calculs de taille lors du rendu */
                 body > div[id^="dmermaid"] { visibility: hidden !important; position: absolute !important; left: -10000px !important; top: 0 !important; }
                 body > div[id^="mermaid-error"] { display: none !important; }
                 
@@ -529,13 +338,10 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     </div>
                 )}
             </div>
-
-
         </div>
     );
 };
 
-// Animation CSS Additionnelle
 if (typeof document !== 'undefined') {
     const style = document.createElement('style');
     style.innerHTML = `@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`;

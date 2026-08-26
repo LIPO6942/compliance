@@ -43,9 +43,131 @@ const riskLevelConfig: Record<string, { emoji: string; bg: string; border: strin
 /**
  * Nettoie une chaîne de texte pour insertion sécurisée dans Mermaid
  */
-const cleanForMermaid = (str: string) => {
+export const cleanForMermaid = (str: string): string => {
     if (!str) return '';
     return str.replace(/[()[\]{}]/g, ' ').replace(/["]/g, '&quot;').replace(/[']/g, '&apos;').trim();
+};
+
+/**
+ * Charge et initialise Mermaid de façon asynchrone et résiliente
+ */
+let mermaidPromise: Promise<any> | null = null;
+
+export function ensureMermaidLoaded(): Promise<any> {
+    if (typeof window === 'undefined') {
+        return Promise.reject(new Error('Window is undefined'));
+    }
+
+    if (window.mermaid) {
+        if (!(window.mermaid as any).__isInitialized) {
+            try {
+                window.mermaid.initialize({
+                    startOnLoad: false,
+                    theme: 'base',
+                    themeVariables: {
+                        primaryColor: '#ffffff',
+                        primaryTextColor: '#1e293b',
+                        primaryBorderColor: '#e2e8f0',
+                        lineColor: '#94a3b8',
+                        secondaryColor: '#f8fafc',
+                        fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                    },
+                    securityLevel: 'loose',
+                    flowchart: {
+                        htmlLabels: true,
+                        curve: 'stepAfter',
+                        useMaxWidth: false,
+                        padding: 10
+                    }
+                });
+                window.mermaid.parseError = (err: any) => {
+                    console.warn('Mermaid Parse Warning (Suppressed from UI):', err);
+                };
+                (window.mermaid as any).__isInitialized = true;
+            } catch (e) {
+                console.error('Error initializing mermaid:', e);
+            }
+        }
+        return Promise.resolve(window.mermaid);
+    }
+
+    if (mermaidPromise) {
+        return mermaidPromise;
+    }
+
+    mermaidPromise = new Promise((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 150; // 15 secondes
+
+        const checkInterval = setInterval(() => {
+            attempts++;
+            if (window.mermaid) {
+                clearInterval(checkInterval);
+                try {
+                    window.mermaid.initialize({
+                        startOnLoad: false,
+                        theme: 'base',
+                        themeVariables: {
+                            primaryColor: '#ffffff',
+                            primaryTextColor: '#1e293b',
+                            primaryBorderColor: '#e2e8f0',
+                            lineColor: '#94a3b8',
+                            secondaryColor: '#f8fafc',
+                            fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                        },
+                        securityLevel: 'loose',
+                        flowchart: {
+                            htmlLabels: true,
+                            curve: 'stepAfter',
+                            useMaxWidth: false,
+                            padding: 10
+                        }
+                    });
+                    window.mermaid.parseError = (err: any) => {
+                        console.warn('Mermaid Parse Warning (Suppressed from UI):', err);
+                    };
+                    (window.mermaid as any).__isInitialized = true;
+                } catch (e) {
+                    console.error('Error initializing mermaid after poll:', e);
+                }
+                resolve(window.mermaid);
+                return;
+            }
+
+            if (attempts >= maxAttempts) {
+                clearInterval(checkInterval);
+                mermaidPromise = null;
+                reject(new Error('Délai d\'attente dépassé pour le chargement de Mermaid'));
+            }
+        }, 100);
+
+        // Si le script Mermaid n'est pas encore injecté, on l'injecte
+        if (typeof document !== 'undefined' && !document.querySelector('script[src*="mermaid"]')) {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+            script.async = true;
+            script.onerror = (err) => {
+                clearInterval(checkInterval);
+                mermaidPromise = null;
+                reject(new Error('Erreur de chargement du CDN Mermaid: ' + err));
+            };
+            document.head.appendChild(script);
+        }
+    });
+
+    return mermaidPromise;
+}
+
+const getShapeBrackets = (rawOpen: string): { open: string; close: string } => {
+    if (rawOpen.startsWith('[(')) return { open: '[("', close: '")]' };
+    if (rawOpen.startsWith('[[')) return { open: '[["', close: '"]]' };
+    if (rawOpen.startsWith('{{')) return { open: '{{"', close: '"}}' };
+    if (rawOpen.startsWith('((')) return { open: '(("', close: '"))' };
+    if (rawOpen.startsWith('[')) return { open: '["', close: '"]' };
+    if (rawOpen.startsWith('{')) return { open: '{"', close: '"}' };
+    if (rawOpen.startsWith('(')) return { open: '("', close: '")' };
+    if (rawOpen.startsWith('>')) return { open: '>"', close: '"]' };
+    return { open: '["', close: '"]' };
 };
 
 /**
@@ -59,9 +181,10 @@ export function annotateMermaidCode(
         workflowTasks?: any[];
         availableUsers?: any[];
         allRisks?: any[];
+        uniqueId?: string;
     }
 ): string {
-    const { workflowId, planData = [], workflowTasks = [], availableUsers = [], allRisks = [] } = options;
+    const { workflowId, planData = [], workflowTasks = [], availableUsers = [], allRisks = [], uniqueId = 'print' } = options;
     let annotatedChart = chart;
     const chartId = workflowId || chart.match(/(?:graph|flowchart)\s+(?:TD|LR|TB|BT|RL);?\s+%%ID:(\w+)/)?.[1] || '';
 
@@ -117,7 +240,7 @@ export function annotateMermaidCode(
 
     Object.entries(tasksByNode).forEach(([nodeId, tasks]) => {
         const escapedId = nodeId.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
-        const nodeRegex = new RegExp(`(${escapedId})\\s*([\\[\\(\\{\\>\\\\\/]{1,2})(.*?)([\\]\\)\\}]{1,2})`, 'g');
+        const nodeRegex = new RegExp(`\\b(${escapedId})\\s*([\\(\\[\\{\\>]{1,2})["']?(.*?)["']?([\\)\\]\\}]{1,2})`, 'g');
 
         const nodeRiskIds = [...new Set(tasks.flatMap((t: any) => t.riskIds || []))];
         const nodeRisks = allRisks.filter((r: any) => nodeRiskIds.includes(r.id));
@@ -177,9 +300,12 @@ export function annotateMermaidCode(
         infoHtml += `</div>`;
 
         if (nodeRegex.test(annotatedChart)) {
-            annotatedChart = annotatedChart.replace(nodeRegex, (match, id, open, label) => {
-                const cleanLabel = label.split('<br')[0].split('<div')[0].replace(/^"+|"+$/g, '').trim();
-                return `${id}${open}"<div class='node-label-main'>${cleanLabel}</div>${infoHtml}"${match.slice(-open.length)}`;
+            annotatedChart = annotatedChart.replace(nodeRegex, (match, id, rawOpen, rawLabel) => {
+                const { open, close } = getShapeBrackets(rawOpen);
+                const cleanLabel = cleanForMermaid(
+                    rawLabel.split('<br')[0].split('<div')[0].replace(/^["']+|["']+$/g, '').trim()
+                );
+                return `${id}${open}<div class='node-label-main'>${cleanLabel}</div>${infoHtml}${close}`;
             });
         } else {
             if (/^[a-zA-Z0-9_\-\.]+$/.test(nodeId)) {
@@ -192,6 +318,10 @@ export function annotateMermaidCode(
         const anyProgress = tasks.some((t: any) => t.status === 'En cours');
         const statusClass = hasAlert ? 'node-alert' : allDone ? 'node-done' : anyProgress ? 'node-progress' : 'node-pending';
         annotatedChart += `\nclass ${nodeId} ${statusClass};`;
+
+        if (tasks.length > 0) {
+            annotatedChart += `\nclick ${nodeId} call mermaidClick_${uniqueId}("${nodeId}") "Modifier cette étape"`;
+        }
     });
 
     annotatedChart += `\nclassDef node-done fill:#ecfdf5,stroke:#10b981,stroke-width:2px,rx:12,ry:12;`;
@@ -208,7 +338,6 @@ export function annotateMermaidCode(
 export function sanitizeSvgForPrint(rawSvg: string): { svg: string; orientation: 'landscape' | 'portrait' } {
     let clean = rawSvg.trim();
 
-    // Détection de l'orientation à partir du viewBox
     let orientation: 'landscape' | 'portrait' = 'landscape';
     const viewBoxMatch = clean.match(/viewBox=["']\s*([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s*["']/i);
 
@@ -219,7 +348,6 @@ export function sanitizeSvgForPrint(rawSvg: string): { svg: string; orientation:
             orientation = 'portrait';
         }
     } else {
-        // Tenter de déduire des attributs width / height
         const widthMatch = clean.match(/width=["']([0-9.]+)(?:px)?["']/i);
         const heightMatch = clean.match(/height=["']([0-9.]+)(?:px)?["']/i);
         if (widthMatch && heightMatch) {
@@ -232,7 +360,6 @@ export function sanitizeSvgForPrint(rawSvg: string): { svg: string; orientation:
         }
     }
 
-    // Assurer width="100%" height="100%" et preserveAspectRatio
     clean = clean.replace(/<svg\b([^>]*)>/i, (match, attrs) => {
         let newAttrs = attrs
             .replace(/\bwidth=["'][^"']*["']/gi, '')
@@ -273,7 +400,6 @@ export function buildWorkflowPrintHTML(options: WorkflowPrintOptions, cleanSvg: 
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    /* ── RESET & CONFIGURATION IMPRESSION STRICTE 1 PAGE ── */
     @page {
       size: A4 ${orientation};
       margin: 5mm 7mm;
@@ -315,7 +441,6 @@ export function buildWorkflowPrintHTML(options: WorkflowPrintOptions, cleanSvg: 
       overflow: hidden !important;
     }
 
-    /* ── EN-TÊTE PROFESSIONNEL GRC ── */
     .header-bar {
       flex: 0 0 auto;
       display: flex;
@@ -415,10 +540,9 @@ export function buildWorkflowPrintHTML(options: WorkflowPrintOptions, cleanSvg: 
       text-transform: uppercase;
     }
 
-    /* ── ZONE CENTRALE DU DIAGRAMME ── */
     .diagram-card {
       flex: 1 1 auto;
-      min-height: 0; /* Essentiel pour que le flex child réduise si besoin */
+      min-height: 0;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -451,7 +575,6 @@ export function buildWorkflowPrintHTML(options: WorkflowPrintOptions, cleanSvg: 
       margin: auto !important;
     }
 
-    /* ── STYLES SVG & MERMAID INTERNES POUR L'IMPRESSION ── */
     .node-label-main {
       font-family: 'Outfit', sans-serif;
       font-weight: 800;
@@ -593,7 +716,6 @@ export function buildWorkflowPrintHTML(options: WorkflowPrintOptions, cleanSvg: 
       stroke: #64748b !important;
     }
 
-    /* ── PIED DE PAGE ── */
     .footer-bar {
       flex: 0 0 auto;
       display: flex;
@@ -701,20 +823,25 @@ export async function printWorkflow(options: WorkflowPrintOptions): Promise<void
 
         // Si nous n'avons pas le SVG mais que nous avons le code Mermaid, on effectue le rendu
         if (!svgContent && options.code) {
-            if (typeof window !== 'undefined' && window.mermaid) {
-                const annotatedCode = annotateMermaidCode(options.code, {
-                    workflowId: options.workflowId,
-                    planData: options.planData,
-                    workflowTasks: options.workflowTasks,
-                    availableUsers: options.availableUsers,
-                    allRisks: options.allRisks
-                });
+            const mermaid = await ensureMermaidLoaded();
+            const annotatedCode = annotateMermaidCode(options.code, {
+                workflowId: options.workflowId,
+                planData: options.planData,
+                workflowTasks: options.workflowTasks,
+                availableUsers: options.availableUsers,
+                allRisks: options.allRisks,
+                uniqueId: 'print'
+            });
 
-                const tempId = `print-svg-${Math.random().toString(36).substring(2, 9)}`;
-                const { svg: generatedSvg } = await window.mermaid.render(tempId, annotatedCode);
+            const tempId = `print_svg_${Math.random().toString(36).substring(2, 9)}`;
+            try {
+                const { svg: generatedSvg } = await mermaid.render(tempId, annotatedCode);
                 svgContent = generatedSvg;
-            } else {
-                throw new Error("Mermaid n'est pas encore chargé");
+            } catch (renderError) {
+                console.warn("Échec du rendu annoté pour l'impression, repli sur le code brut:", renderError);
+                const simpleId = `print_svg_simple_${Math.random().toString(36).substring(2, 9)}`;
+                const { svg: simpleSvg } = await mermaid.render(simpleId, options.code);
+                svgContent = simpleSvg;
             }
         }
 
@@ -725,7 +852,6 @@ export async function printWorkflow(options: WorkflowPrintOptions): Promise<void
         const { svg: sanitizedSvg, orientation } = sanitizeSvgForPrint(svgContent);
         const fullHtml = buildWorkflowPrintHTML(options, sanitizedSvg, orientation);
 
-        // Utilisation d'un iframe caché pour l'impression
         const iframe = document.createElement('iframe');
         iframe.style.position = 'fixed';
         iframe.style.right = '0';
@@ -738,7 +864,6 @@ export async function printWorkflow(options: WorkflowPrintOptions): Promise<void
 
         const doc = iframe.contentWindow?.document;
         if (!doc) {
-            // Fallback popup window si l'accès à l'iframe est bloqué
             const printWin = window.open('', '_blank');
             if (printWin) {
                 printWin.document.open();
@@ -765,7 +890,7 @@ export async function printWorkflow(options: WorkflowPrintOptions): Promise<void
                 try {
                     document.body.removeChild(iframe);
                 } catch (e) {
-                    // Ignorer si déjà détaché
+                    // Ignorer
                 }
             }, 3000);
         }, 500);
