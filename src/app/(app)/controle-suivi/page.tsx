@@ -256,6 +256,18 @@ export default function ControleSuiviPage() {
     fetchHistory();
   }, []);
 
+  // Traçabilité consultation
+  useEffect(() => {
+    logAction({
+      userEmail: user?.authEmail || user?.email || '',
+      userName: user?.name || 'Utilisateur',
+      action: 'REPORT_VIEW',
+      label: `Consultation : Contrôle et Suivi (${activeTab === 'tendances' ? 'Tendances Réseau' : 'Fiches de Contrôle'})`,
+      detail: `Onglet: ${activeTab}`,
+      module: 'Contrôle et Suivi'
+    });
+  }, [activeTab]);
+
   // Compute filters
   const agenciesList = useMemo(() => {
     const list = new Set<string>();

@@ -11,6 +11,7 @@ import { doc, setDoc, onSnapshot, collection, getDocs } from "firebase/firestore
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
 import { getDeviceId, getDeviceInfo } from '@/lib/deviceHelper';
 import { setDeviceLinkedProfile, clearDeviceLinkedProfile, getDeviceLinkedProfile } from '@/lib/deviceApprovalService';
+import { recordActivity } from '@/contexts/ActivityLogContext';
 
 export interface UserProfile {
   name: string;
@@ -127,6 +128,15 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       pendingLinkRef.current = null;
       setEmailLinkStatus('success');
 
+      recordActivity({
+        action: 'LOGIN',
+        label: `Connexion par lien e-mail : ${email.trim()}`,
+        detail: `Authentification sécurisée par lien Firebase`,
+        userEmail: email.trim(),
+        userName: email.trim().split('@')[0],
+        module: 'Authentification'
+      });
+
       // Clean up URL without reload
       try {
         const cleanUrl = window.location.origin + window.location.pathname;
@@ -165,6 +175,17 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
     // Bind this profile to this device permanently for auto-login on next visit
     setDeviceLinkedProfile({ email: trimmedEmail, name: newProfile.name, role: newProfile.role || '' });
+
+    // Enregistrer l'activité de connexion
+    recordActivity({
+      action: 'LOGIN',
+      label: `Connexion : ${newProfile.name} (${newProfile.role})`,
+      detail: `Connexion utilisateur sur l'application`,
+      userEmail: newProfile.email,
+      userName: newProfile.name,
+      userRole: newProfile.role,
+      module: 'Authentification'
+    });
 
     setUser(newProfile);
     setIsLoaded(true);
@@ -440,6 +461,17 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
+    if (user) {
+      recordActivity({
+        action: 'LOGOUT',
+        label: `Déconnexion : ${user.name} (${user.role})`,
+        detail: 'Déconnexion manuelle de la session',
+        userEmail: user.authEmail || user.email,
+        userName: user.name,
+        userRole: user.role,
+        module: 'Authentification'
+      });
+    }
     if (auth) {
       try {
         await auth.signOut();

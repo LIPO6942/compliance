@@ -1808,11 +1808,19 @@ export function RiskMatrixTab() {
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
     a.download = `Matrice_des_Risques_KYC_${today}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
+
+    logAction({
+      userEmail: user?.authEmail || user?.email || '',
+      userName: user?.name || 'Utilisateur',
+      action: 'EXPORT_DATA',
+      label: 'Export Excel : Matrice des Risques KYC',
+      detail: 'Export complet des facteurs Pays, Activités, Produits et Canaux',
+      module: 'Matrice des Risques'
+    });
+
     toast({ title: "Export réussi", description: "La matrice des risques a été exportée au format Excel complet." });
   };
 
@@ -2452,6 +2460,15 @@ export function RiskMatrixTab() {
 
   const exportMatrixPDF = () => {
     try {
+      logAction({
+        userEmail: user?.authEmail || user?.email || '',
+        userName: user?.name || 'Utilisateur',
+        action: 'PRINT_REPORT',
+        label: 'Impression PDF : Matrice des Risques KYC',
+        detail: 'Impression du document certifié complet avec page de garde',
+        module: 'Matrice des Risques'
+      });
+
       const htmlContent = buildMatrixPrintHTML();
       const iframe = document.createElement("iframe");
       iframe.style.position = "fixed";

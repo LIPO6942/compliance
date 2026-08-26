@@ -16,6 +16,7 @@ import { MermaidWorkflow, WorkflowVersion, WorkflowTask, AuditLog, WorkflowDomai
 import { usePlanData } from '@/contexts/PlanDataContext';
 import { useRiskMapping } from '@/contexts/RiskMappingContext';
 import { printWorkflow } from '@/lib/workflowPrint';
+import { recordActivity } from '@/contexts/ActivityLogContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -317,8 +318,15 @@ export default function WorkflowEditorPage() {
             const vId = `v${nextV}-${Date.now()}`;
             await setDoc(doc(db, 'workflows', id, 'versions', vId), { id: vId, mermaidCode: code, version: nextV, status, createdAt: now, updatedAt: now });
             const data: Partial<MermaidWorkflow> = { workflowId: id, name, domain, currentVersion: nextV, updatedAt: now, processAssignees, ...(status === 'published' ? { activeVersionId: vId } : {}) };
-            if (!activeWorkflow) data.createdAt = now;
             await setDoc(doc(db, 'workflows', id), data, { merge: true });
+
+            recordActivity({
+                action: status === 'published' ? 'WORKFLOW_PUBLISH' : 'WORKFLOW_UPDATE',
+                label: `${status === 'published' ? 'Publication' : 'Sauvegarde'} Workflow : ${name || id} (V${nextV})`,
+                detail: `Statut: ${status} • Domaine: ${domain} • Version: ${nextV}`,
+                module: 'Processus Métiers'
+            });
+
             toast({ title: status === 'published' ? '✅ Workflow publié !' : '💾 Sauvegardé' });
             setActiveWorkflow(prev => prev ? { ...prev, ...data } as MermaidWorkflow : { ...data, id } as MermaidWorkflow);
         } catch (e) { toast({ title: 'Erreur', variant: 'destructive' }); } finally { setSaving(false); }

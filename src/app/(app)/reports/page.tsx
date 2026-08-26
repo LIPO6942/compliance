@@ -27,6 +27,7 @@ import {
 } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from "xlsx";
+import { recordActivity } from "@/contexts/ActivityLogContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -557,11 +558,25 @@ export default function ReportsPage() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  // Traçabilité consultation de rapport
+  React.useEffect(() => {
+    recordActivity({
+      action: 'REPORT_VIEW',
+      label: `Consultation : ${currentTemplate.title} (${selectedPeriod})`,
+      detail: `Exercice ${selectedPeriod} • Onglet: ${activeTab}`,
+      module: 'Reporting Automatisé'
+    });
+  }, [selectedReport, selectedPeriod, activeTab]);
 
   // ── Export Excel ───────────────────────────────────────────────────────────
   const handleExportExcel = () => {
+    recordActivity({
+      action: 'EXPORT_DATA',
+      label: `Export Excel : ${currentTemplate.title} (${selectedPeriod})`,
+      detail: `Format XLSX • Données d'exercice ${selectedPeriod}`,
+      module: 'Reporting Automatisé'
+    });
+
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.json_to_sheet(
       data.table01.map((r) => ({
@@ -580,6 +595,16 @@ export default function ReportsPage() {
     const ws3 = XLSX.utils.json_to_sheet(data.trainingList);
     XLSX.utils.book_append_sheet(wb, ws3, `Formations_${selectedPeriod}`);
     XLSX.writeFile(wb, `Rapport_CGA_${selectedPeriod}_MAE.xlsx`);
+  };
+
+  const handlePrintReport = () => {
+    recordActivity({
+      action: 'PRINT_REPORT',
+      label: `Impression : ${currentTemplate.title} (${selectedPeriod})`,
+      detail: `Exercice ${selectedPeriod}`,
+      module: 'Reporting Automatisé'
+    });
+    window.print();
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -620,7 +645,7 @@ export default function ReportsPage() {
           <Button onClick={handleExportExcel} className="h-11 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider gap-2">
             <FileSpreadsheet className="h-4 w-4" /> Export Excel (.xlsx)
           </Button>
-          <Button onClick={() => window.print()} variant="outline" className="h-11 px-5 rounded-2xl font-bold text-xs gap-2">
+          <Button onClick={handlePrintReport} variant="outline" className="h-11 px-5 rounded-2xl font-bold text-xs gap-2">
             <Printer className="h-4 w-4 text-primary" /> Imprimer / PDF
           </Button>
         </div>

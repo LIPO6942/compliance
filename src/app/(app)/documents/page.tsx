@@ -93,6 +93,14 @@ function DocumentsComponent() {
   const openDialog = (mode: "add" | "edit", data?: Document) => {
     setDialogState({ mode, data });
     if (mode === "edit" && data) {
+      logAction({
+        userEmail: user?.authEmail || user?.email || '',
+        userName: user?.name || 'Utilisateur',
+        action: 'DOCUMENT_VIEW',
+        label: `Consultation Document : ${data.name} (V${data.version})`,
+        detail: `Type: ${data.type} • Statut: ${data.status} • Propriétaire: ${data.owner || 'N/A'}`,
+        module: 'Gestion Documentaire'
+      });
       form.reset({ ...data, tags: data.tags?.join(', ') || '', url: data.url || '' });
       // Check if the existing owner matches a team member
       const isTeamMember = humanMembers.some(m => m.name === data.owner);

@@ -3,6 +3,8 @@
  * Garantit un rendu vectoriel haute définition calibré sur EXACTEMENT 1 SEULE PAGE (A4 Paysage ou Portrait auto).
  */
 
+import { recordActivity } from '@/contexts/ActivityLogContext';
+
 export interface WorkflowPrintRiskInfo {
     totalRisks?: number;
     maxLevel?: string;
@@ -806,6 +808,14 @@ export async function printWorkflow(options: WorkflowPrintOptions): Promise<void
         iframe.style.pointerEvents = 'none';
         iframe.src = blobUrl;
         document.body.appendChild(iframe);
+
+        // Traçabilité Audit & Journal d'activités
+        recordActivity({
+            action: 'PRINT_WORKFLOW',
+            label: `Impression Workflow : ${options.name}`,
+            detail: `Domaine: ${options.domain || 'Conformité'} • Version: ${options.version || 1} • 1 page A4`,
+            module: 'Processus Métiers'
+        });
 
         iframe.onload = () => {
             setTimeout(() => {

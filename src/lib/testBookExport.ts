@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { TestCase, Anomaly, TestBookMetadata, TestBookStats } from "@/types/testBook";
+import { recordActivity } from "@/contexts/ActivityLogContext";
 
 // ════════════════════════════════════════════════════════════════════════════
 // ── EXPORT EXCEL VIA EXCELJS ──
@@ -10,6 +11,14 @@ export async function exportTestBookExcel(
   metadata: TestBookMetadata,
   stats: TestBookStats
 ): Promise<void> {
+  // Traçabilité Audit & Journal d'activités
+  recordActivity({
+    action: 'EXPORT_DATA',
+    label: 'Export Excel : Cahier de Recette',
+    detail: `${testCases.length} cas de test • ${anomalies.length} anomalies • Taux: ${stats.successRate}%`,
+    module: 'Cahier de Recettes'
+  });
+
   const wb = new ExcelJS.Workbook();
   wb.creator = "MAE Assurance — Conformité";
   wb.created = new Date();
@@ -226,6 +235,14 @@ export function exportTestBookPDF(
   metadata: TestBookMetadata,
   stats: TestBookStats
 ): void {
+  // Traçabilité Audit & Journal d'activités
+  recordActivity({
+    action: 'PRINT_REPORT',
+    label: 'Impression PDF : Cahier de Recette',
+    detail: `${testCases.length} cas de test • ${anomalies.length} anomalies`,
+    module: 'Cahier de Recettes'
+  });
+
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
   const htmlContent = `<!DOCTYPE html>
