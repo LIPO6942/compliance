@@ -40,6 +40,15 @@ const getTagColorEditor = (tag: string) => {
     return TAG_COLORS_EDITOR[Math.abs(hash) % TAG_COLORS_EDITOR.length];
 };
 
+// ── Catégories réglementaires obligatoires ────────────────────────────────────────
+const WORKFLOW_CATEGORIES = ['LAB/FT', 'Veille Réglementaire'] as const;
+type WorkflowCategory = typeof WORKFLOW_CATEGORIES[number];
+
+const CATEGORY_CONFIG_EDIT: Record<WorkflowCategory, { color: string; bg: string; border: string; activeBg: string }> = {
+    'LAB/FT': { color: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-300', activeBg: 'bg-rose-50 border-rose-300 shadow-md' },
+    'Veille Réglementaire': { color: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-300', activeBg: 'bg-indigo-50 border-indigo-300 shadow-md' },
+};
+
 declare global {
     interface Window { require: any; monaco: any; }
 }
@@ -166,9 +175,11 @@ export default function WorkflowEditorPage() {
     const [existingTags, setExistingTags] = useState<string[]>([]);
     const [showTagSuggestions, setShowTagSuggestions] = useState(false);
     const tagInputRef = useRef<HTMLInputElement>(null);
+    // Catégorie obligatoire (dérivée des tags)
+    const [category, setCategory] = useState<WorkflowCategory | ''>('');
 
     const filteredTagSuggestions = existingTags.filter(
-        t => !tags.includes(t) && t.toLowerCase().includes(tagInput.toLowerCase().trim())
+        t => !tags.includes(t) && !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory) && t.toLowerCase().includes(tagInput.toLowerCase().trim())
     );
 
     const addTag = (tag: string) => {
@@ -348,7 +359,12 @@ export default function WorkflowEditorPage() {
                     setName(data.name);
                     setDomain(data.domain || 'Conformité');
                     if (data.processAssignees) setProcessAssignees(data.processAssignees);
-                    if (data.tags) setTags(data.tags);
+                    if (data.tags) {
+                        setTags(data.tags);
+                        // Détecter la catégorie obligatoire
+                        const foundCat = data.tags.find(t => WORKFLOW_CATEGORIES.includes(t as WorkflowCategory));
+                        if (foundCat) setCategory(foundCat as WorkflowCategory);
+                    }
                     const vSnap = await getDocs(query(collection(db, 'workflows', id, 'versions'), orderBy('version', 'desc'), limit(1)));
                     if (!vSnap.empty) applyCode((vSnap.docs[0].data() as WorkflowVersion).mermaidCode);
                 } else {
@@ -377,7 +393,10 @@ export default function WorkflowEditorPage() {
             const data: Partial<MermaidWorkflow> = {
                 workflowId: id, name, domain, currentVersion: nextV, updatedAt: now,
                 processAssignees,
-                tags: tags.length > 0 ? tags : [],
+                // La catégorie obligatoire est toujours incluse comme premier tag
+                tags: category
+                    ? [category, ...tags.filter(t => !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory))]
+                    : tags.length > 0 ? tags : [],
                 ...(status === 'published' ? { activeVersionId: vId } : {})
             };
             await setDoc(doc(db, 'workflows', id), data, { merge: true });
@@ -450,6 +469,37 @@ export default function WorkflowEditorPage() {
                                         </div>
                                     ))}
                                 </div>
+                            </div>
+                            {/* ── Catégorie obligatoire ────────────────────── */}
+                            <div className="space-y-3 border-t pt-4">
+                                <h3 className="font-black text-sm text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                    <LucideIcons.ShieldAlert className="h-4 w-4 text-rose-400" />
+                                    Catégorie <span className="text-rose-500 text-xs font-medium normal-case tracking-normal">(obligatoire)</span>
+                                </h3>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {WORKFLOW_CATEGORIES.map(cat => {
+                                        const cfg = CATEGORY_CONFIG_EDIT[cat];
+                                        const isSelected = category === cat;
+                                        return (
+                                            <button
+                                                key={cat}
+                                                type="button"
+                                                onClick={() => setCategory(cat)}
+                                                className={`p-3 rounded-2xl border-2 text-left transition-all flex items-center gap-2 ${
+                                                    isSelected ? cfg.activeBg : 'bg-white border-slate-200 hover:border-slate-300'
+                                                }`}
+                                            >
+                                                {cat === 'LAB/FT'
+                                                    ? <LucideIcons.ShieldAlert className={`h-4 w-4 shrink-0 ${isSelected ? cfg.color : 'text-slate-400'}`} />
+                                                    : <LucideIcons.BookOpen className={`h-4 w-4 shrink-0 ${isSelected ? cfg.color : 'text-slate-400'}`} />
+                                                }
+                                                <span className={`text-xs font-black ${isSelected ? cfg.color : 'text-slate-600'}`}>{cat}</span>
+                                                {isSelected && <LucideIcons.CheckCircle2 className={`h-3.5 w-3.5 ml-auto ${cfg.color}`} />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {!category && <p className="text-[10px] text-rose-500 font-semibold">⚠ Choisissez une catégorie avant de sauvegarder</p>}
                             </div>
                             {/* ── Tags section inside builder ─────────────────── */}
                             <div className="space-y-3 border-t pt-4">

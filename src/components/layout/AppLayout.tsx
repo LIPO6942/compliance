@@ -42,7 +42,9 @@ import {
   ClipboardList,
   FileSpreadsheet,
   Grid,
-  CheckSquare
+  CheckSquare,
+  TriangleAlert,
+  BookX,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -104,6 +106,12 @@ const navItems = [
   { href: "/regtools-diff", icon: FileSpreadsheet, label: "Rapprochement RegTools", title: "Rapprochement Clients (Tab RegTools vs NS)" },
   { href: "/cahier-recette", icon: CheckSquare, label: "Cahier de recettes", title: "Cahier de Recette — RegTools" },
   { href: "/controle-suivi", icon: ClipboardList, label: "Controle et suivi", title: "Contrôle et Suivi" },
+  {
+    href: "/non-conformite",
+    icon: BookX,
+    label: "Non-conformité Réglementaire",
+    title: "Cartographie de Non-Conformité Réglementaire",
+  },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {

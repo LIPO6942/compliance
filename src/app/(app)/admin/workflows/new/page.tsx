@@ -8,11 +8,20 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2, Play, Tag, X, Plus } from 'lucide-react';
+import { ArrowLeft, Loader2, Play, Tag, X, Plus, ShieldAlert, BookOpen } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { WorkflowDomain, MermaidWorkflow } from '@/types/compliance';
+
+// Catégories obligatoires
+const WORKFLOW_CATEGORIES = ['LAB/FT', 'Veille Réglementaire'] as const;
+type WorkflowCategory = typeof WORKFLOW_CATEGORIES[number];
+
+const CATEGORY_CONFIG: Record<WorkflowCategory, { icon: any; color: string; bg: string; border: string; desc: string }> = {
+    'LAB/FT': { icon: ShieldAlert, color: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-300', desc: 'Lutte Anti-Blanchiment et Financement du Terrorisme' },
+    'Veille Réglementaire': { icon: BookOpen, color: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-300', desc: 'Suivi et mise en conformité des nouvelles exigences' },
+};
 
 // Palette de couleurs cyclique pour les tags (même logique que la page liste)
 const TAG_COLORS = [
@@ -42,6 +51,7 @@ function NewWorkflowForm() {
     const [name, setName] = useState('');
     const [customId, setCustomId] = useState('');
     const [domain, setDomain] = useState<WorkflowDomain>(initialDomain);
+    const [category, setCategory] = useState<WorkflowCategory | ''>('');
     const [loading, setLoading] = useState(false);
 
     // ── Tags ──────────────────────────────────────────────────────────────────
@@ -106,6 +116,11 @@ function NewWorkflowForm() {
             return;
         }
 
+        if (!category) {
+            toast({ title: "Catégorie obligatoire", description: "Veuillez choisir LAB/FT ou Veille Réglementaire.", variant: "destructive" });
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -142,7 +157,8 @@ function NewWorkflowForm() {
                     currentVersion: 0,
                     createdAt: now,
                     updatedAt: now,
-                    tags: tags.length > 0 ? tags : undefined,
+                    // La catégorie obligatoire est toujours le premier tag
+                    tags: [category as WorkflowCategory, ...tags.filter(t => t !== category)],
                 };
 
                 await setDoc(docRef, newWorkflow);
@@ -168,6 +184,40 @@ function NewWorkflowForm() {
                 </CardHeader>
                 <form onSubmit={handleCreate}>
                     <CardContent className="space-y-6">
+                    {/* Catégorie obligatoire */}
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-1.5 font-bold">
+                                Catégorie <span className="text-rose-500">*</span>
+                            </Label>
+                            <div className="grid grid-cols-2 gap-3">
+                                {WORKFLOW_CATEGORIES.map(cat => {
+                                    const cfg = CATEGORY_CONFIG[cat];
+                                    const CatIcon = cfg.icon;
+                                    const isSelected = category === cat;
+                                    return (
+                                        <button
+                                            key={cat}
+                                            type="button"
+                                            onClick={() => setCategory(cat)}
+                                            className={`p-4 rounded-2xl border-2 text-left transition-all flex flex-col gap-2 ${
+                                                isSelected
+                                                    ? `${cfg.bg} ${cfg.border} shadow-md`
+                                                    : 'bg-white border-slate-200 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <CatIcon className={`h-4 w-4 ${isSelected ? cfg.color : 'text-slate-400'}`} />
+                                                <span className={`text-xs font-black ${isSelected ? cfg.color : 'text-slate-600'}`}>{cat}</span>
+                                                {isSelected && <span className="ml-auto text-xs">✓</span>}
+                                            </div>
+                                            <p className={`text-[10px] leading-relaxed ${isSelected ? cfg.color : 'text-slate-400'}`}>{cfg.desc}</p>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {!category && <p className="text-[10px] text-rose-500 font-semibold">⚠ Choisissez une catégorie obligatoire</p>}
+                        </div>
+
                         {/* Nom */}
                         <div className="space-y-2">
                             <Label htmlFor="name">Nom du processus</Label>
