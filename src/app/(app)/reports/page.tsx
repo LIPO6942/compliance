@@ -327,22 +327,12 @@ export default function ReportsPage() {
   // Pays modifiés dans la Matrice des Risques "Pays" (Onglet Pays)
   const customModifiedCountries = React.useMemo(() => resolvedCountries.filter((c) => c.isOverridden), [resolvedCountries]);
   
-  // Ventilation : affiche les pays personnalisés si existants, sinon la liste active de la Matrice des Risques
-  const allHighRisk = React.useMemo(() => resolvedCountries.filter((c) => c.risk === "RE"), [resolvedCountries]);
-  const allSurveillance = React.useMemo(() => resolvedCountries.filter((c) => c.risk === "RM"), [resolvedCountries]);
-  const allRetrait = React.useMemo(() => customModifiedCountries.filter((c) => c.risk === "RF"), [customModifiedCountries]);
+  // Ventilation uniquement des pays modifiés/édités au cours de l'exercice
+  const hautRisqueCountries = React.useMemo(() => customModifiedCountries.filter((c) => c.risk === "RE"), [customModifiedCountries]);
+  const surveillanceCountries = React.useMemo(() => customModifiedCountries.filter((c) => c.risk === "RM"), [customModifiedCountries]);
+  const retraitCountries = React.useMemo(() => customModifiedCountries.filter((c) => c.risk === "RF"), [customModifiedCountries]);
 
-  const hautRisqueCountries = React.useMemo(
-    () => (customModifiedCountries.length > 0 ? customModifiedCountries.filter((c) => c.risk === "RE") : allHighRisk),
-    [customModifiedCountries, allHighRisk]
-  );
-  const surveillanceCountries = React.useMemo(
-    () => (customModifiedCountries.length > 0 ? customModifiedCountries.filter((c) => c.risk === "RM") : allSurveillance),
-    [customModifiedCountries, allSurveillance]
-  );
-  const retraitCountries = React.useMemo(() => allRetrait, [allRetrait]);
-
-  // Notifications CTAF dynamiques directement reliées à l'onglet Pays de la Matrice des Risques
+  // Notifications CTAF dynamiques directement reliées aux modifications de la Matrice des Risques
   const ctafNotifications = React.useMemo(() => {
     const highRiskNames = hautRisqueCountries.map((c) => c.name);
     const monitoredNames = surveillanceCountries.map((c) => c.name);
@@ -351,7 +341,7 @@ export default function ReportsPage() {
       ? customModifiedCountries
           .filter((c) => c.other && c.other.trim().length > 0)
           .map((c) => `${c.name} : ${c.other}`)
-      : ["Surveillance continue des listes CTAF / GAFI et facteurs pays intégrés dans la Matrice des Risques."];
+      : ["المصفوفة المرجعية الرسمية مثبتة. لم تسجل منظومة الامتثال أي تعديل على مصفوفة المخاطر الجغرافية خلال هذا التمرين."];
 
     return [
       {
@@ -581,6 +571,7 @@ export default function ReportsPage() {
         </table>
 
         <h3>2. Suivi Continu des Notifications CTAF / GAFI (${selectedPeriod})</h3>
+        ${customModifiedCountries.length > 0 ? `
         <table>
           <thead><tr>
             <th style="width:40%; text-align:right;">البلد / المنطقة</th>
@@ -589,10 +580,7 @@ export default function ReportsPage() {
             <th style="width:20%; text-align:center; color:#16a34a;">خرج من القائمة (RF)</th>
           </tr></thead>
           <tbody>
-          ${(customModifiedCountries.length > 0
-              ? customModifiedCountries
-              : resolvedCountries.filter(c => c.risk === 'RE' || c.risk === 'RM').slice(0, 20)
-            ).map(c => `
+          ${customModifiedCountries.map(c => `
               <tr>
                 <td class="arabic" style="font-weight:bold;">${c.name}</td>
                 <td style="text-align:center;">${c.risk === 'RE' ? '<span class="re">✖ خطر مرتفع</span>' : '—'}</td>
@@ -603,13 +591,33 @@ export default function ReportsPage() {
           </tbody>
         </table>
         <p style="font-size:9pt; color:#64748b;">
-          <em>Données issues de la Matrice des Risques Pays (mises à jour le ${todayFormatted}) :
-          ${customModifiedCountries.length > 0 ? `[${customModifiedCountries.length} pays personnalisé(s) par le responsable conformité]` : `[Liste réglementaire active CTAF / GAFI intégrée]`}
-          <br/>• خطر مرتفع (RE) : ${hautRisqueCountries.length > 0 ? hautRisqueCountries.map(c=>c.name).join(', ') : 'Néant'}
-          <br/>• تحت المراقبة (RM) : ${surveillanceCountries.length > 0 ? surveillanceCountries.slice(0, 15).map(c=>c.name).join(', ') + (surveillanceCountries.length > 15 ? '...' : '') : 'Néant'}
-          ${retraitCountries.length > 0 ? `<br/>• خارج القائمة (RF) : ${retraitCountries.map(c=>c.name).join(', ')}` : ''}
+          <em>Facteurs pays modifiés dans la Matrice des Risques (mis à jour le ${todayFormatted}) :
+          ${hautRisqueCountries.length > 0 ? `خطر مرتفع (RE) : ${hautRisqueCountries.map(c=>c.name).join(', ')} | ` : ''}
+          ${surveillanceCountries.length > 0 ? `مراقبة (RM) : ${surveillanceCountries.map(c=>c.name).join(', ')} | ` : ''}
+          ${retraitCountries.length > 0 ? `خارج القائمة (RF) : ${retraitCountries.map(c=>c.name).join(', ')}` : ''}
           </em>
         </p>
+        ` : `
+        <table style="width:100%; border-collapse:collapse; margin-top:8px; margin-bottom:12px;">
+          <thead><tr>
+            <th style="width:40%; text-align:right;">عنصر المتابعة والمراقبة المستمرة</th>
+            <th style="width:20%; text-align:center; color:#ef4444;">خطر مرتفع (RE)</th>
+            <th style="width:20%; text-align:center; color:#d97706;">تحت المراقبة (RM)</th>
+            <th style="width:20%; text-align:center; color:#16a34a;">خرج من القائمة (RF)</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td class="arabic" style="font-weight:bold;">متابعة إشعارات CTAF / GAFI وتحيينات مصفوفة المخاطر</td>
+              <td style="text-align:center; color:#64748b;">لا توجد تعديلات (0)</td>
+              <td style="text-align:center; color:#64748b;">لا توجد تعديلات (0)</td>
+              <td style="text-align:center; color:#64748b;">لا توجد سحوبات (0)</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="arabic" style="background:#f8fafc; padding:8px 12px; border-radius:6px; font-size:9.5pt; border:1px solid #e2e8f0; color:#334155; line-height:1.6;">
+          <strong>ملاحظة المتابعة المستمرة :</strong> لم تسجل منظومة الامتثال بالتعاونية أي تعديل على مصفوفة المخاطر الجغرافية المعتمدة خلال هذه السنة المالية (${selectedPeriod}). يتم اعتماد المصفوفة المرجعية الرسمية المصادق عليها والمنبثقة عن إشعارات اللجنة التونسية للتحاليل المالية (CTAF) ومجموعة العمل المالي (GAFI).
+        </p>
+        `}
 
         <h2>الدورات التكوينية المنجزة خلال السنة المنقضية في مجال مكافحة الإرهاب ومنع غسل الأموال</h2>
         <p class="arabic" style="background:#f1f5f9; padding:8px 12px; border-radius:6px; font-size:10pt;">
