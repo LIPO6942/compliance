@@ -123,7 +123,11 @@ import {
   DEFAULT_REPORT_INTRO,
   DEFAULT_COMPLIANCE_NOTES,
 } from "@/data/annualTrainingReportData";
+import { getAgencyOptions } from "@/data/agencyGeography";
 import { Logo } from "@/components/icons/Logo";
+
+// Liste triée des agences/succursales issue du mapping regtools
+const AGENCY_OPTIONS = getAgencyOptions();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VALIDATION SCHEMAS
@@ -1363,20 +1367,68 @@ export default function TrainingPage() {
               <FormField
                 control={participantForm.control}
                 name="entityName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-bold">الإدارة المعنية / الفرع / النيابة</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="Ex: فرع التعاونية بسوسة 1 / الإدارة التجارية"
-                        className="h-10 rounded-xl font-semibold font-arabic"
-                        dir="rtl"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const [search, setSearch] = React.useState("");
+                  const filtered = search.trim()
+                    ? AGENCY_OPTIONS.filter((opt) =>
+                        opt.name.toLowerCase().includes(search.toLowerCase()) ||
+                        opt.type.toLowerCase().includes(search.toLowerCase())
+                      )
+                    : AGENCY_OPTIONS;
+
+                  return (
+                    <FormItem>
+                      <FormLabel className="text-xs font-bold">الإدارة المعنية / الفرع / النيابة</FormLabel>
+                      <Select
+                        onValueChange={(val) => {
+                          field.onChange(val);
+                          setSearch("");
+                        }}
+                        value={field.value || ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-10 rounded-xl font-semibold">
+                            <SelectValue placeholder="— Sélectionner une entité —" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="max-h-72">
+                          {/* Zone de recherche */}
+                          <div className="sticky top-0 bg-white dark:bg-slate-950 px-2 pb-1 pt-1 z-10">
+                            <input
+                              type="text"
+                              placeholder="Rechercher une agence..."
+                              value={search}
+                              onChange={(e) => setSearch(e.target.value)}
+                              className="w-full text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 outline-none bg-slate-50 dark:bg-slate-900 focus:ring-1 focus:ring-primary"
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          {filtered.length === 0 && (
+                            <div className="text-xs text-muted-foreground text-center py-3">Aucun résultat</div>
+                          )}
+                          {/* Groupement par type */}
+                          {["Siège", "Succursale", "Agence", "Courtier", "Agent Stagiaire"].map((type) => {
+                            const group = filtered.filter((o) => o.type === type);
+                            if (group.length === 0) return null;
+                            return (
+                              <React.Fragment key={type}>
+                                <div className="px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground bg-slate-100 dark:bg-slate-800">
+                                  {type}
+                                </div>
+                                {group.map((opt) => (
+                                  <SelectItem key={opt.code} value={opt.name} className="text-xs">
+                                    {opt.name}
+                                  </SelectItem>
+                                ))}
+                              </React.Fragment>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <div className="grid grid-cols-2 gap-4">
