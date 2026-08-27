@@ -459,7 +459,19 @@ export default function ReportsPage() {
   };
 
   // ── Export Word CGA ────────────────────────────────────────────────────────
-  const handleExportWordCGA = () => {
+  const handleExportWordCGA = async () => {
+    // Fetch logo as base64 so it renders inside the .doc file
+    let logoBase64 = '';
+    try {
+      const resp = await fetch('/mae_logo.png');
+      const blob2 = await resp.blob();
+      logoBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob2);
+      });
+    } catch (_) { logoBase64 = ''; }
+
     const dateMention = isCurrentYear
       ? `Données arrêtées à la date du jour (${todayFormatted})`
       : `Statistiques arrêtées au 31/12/${selectedPeriod}`;
@@ -519,7 +531,7 @@ export default function ReportsPage() {
         <title>Rapport Annuel CGA MAE ${selectedPeriod}</title>
         <style>
           body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #1e293b; line-height: 1.6; }
-          h1 { color: #d97706; font-size: 18pt; text-align: center; }
+          h1 { color: #d97706; font-size: 16pt; text-align: center; white-space: nowrap; }
           h2 { color: #0f172a; font-size: 13pt; border-bottom: 2px solid #d97706; padding-bottom: 4px; margin-top: 24px; }
           h3 { color: #334155; font-size: 11pt; margin-top: 16px; }
           .arabic { direction: rtl; text-align: right; }
@@ -527,15 +539,16 @@ export default function ReportsPage() {
           table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 16px; }
           th { background: #0f172a; color: #fff; padding: 7px; border: 1px solid #334155; font-size: 9pt; }
           td { padding: 7px; border: 1px solid #cbd5e1; font-size: 9pt; }
+          .re { color: #dc2626; font-weight: bold; } .rm { color: #d97706; font-weight: bold; } .rf { color: #16a34a; font-weight: bold; }
         </style>
       </head>
       <body>
         <table style="width:100%;border:none;margin-bottom:20px;">
           <tr style="border:none;">
-            <td style="border:none;width:100px;">
-              <img src="${typeof window !== 'undefined' ? window.location.origin : ''}/mae_logo.png" width="80" alt="MAE Logo" />
+            <td style="border:none;width:90px;vertical-align:middle;">
+              ${logoBase64 ? `<img src="${logoBase64}" width="70" alt="MAE" style="display:block;" />` : `<p style="font-size:10pt;font-weight:bold;color:#92400e;">MAE</p>`}
             </td>
-            <td style="border:none;text-align:center;">
+            <td style="border:none;text-align:center;vertical-align:middle;">
               <h1 style="margin:0;color:#92400e;">MUTUELLE ASSURANCE DE L'ENSEIGNEMENT (MAE)</h1>
               <p class="arabic" style="font-size:13pt;margin:6px 0;font-weight:bold;">
                 تقرير سنوي موجه للهيئة العامة للتأمين حول منظومة مكافحة الإرهاب ومنع غسل الأموال (سنة ${selectedPeriod})
@@ -556,10 +569,34 @@ export default function ReportsPage() {
         </table>
 
         <h3>2. Suivi Continu des Notifications CTAF / GAFI (${selectedPeriod})</h3>
-        ${ctafNotifications.map(n => `
-          <p><strong>${n.ref}</strong> — Haut Risque : ${n.highRisk} — Surveillance : ${n.monitored} — Retrait : ${n.removed}</p>
-        `).join("")}
-        ${customModifiedCountries.length > 0 ? `<p><em>Facteurs pays modifiés dans la Matrice des Risques (mis à jour le ${todayFormatted}) : ${customModifiedCountries.map(c => c.name).join(", ")}</em></p>` : ""}
+        <table>
+          <thead><tr>
+            <th style="width:40%; text-align:right;">البلد / المنطقة</th>
+            <th style="width:20%; text-align:center; color:#ef4444;">خطر مرتفع (RE)</th>
+            <th style="width:20%; text-align:center; color:#d97706;">تحت المراقبة (RM)</th>
+            <th style="width:20%; text-align:center; color:#16a34a;">خرج من القائمة (RF)</th>
+          </tr></thead>
+          <tbody>
+          ${customModifiedCountries.length > 0
+            ? customModifiedCountries.map(c => `
+              <tr>
+                <td class="arabic" style="font-weight:bold;">${c.name}</td>
+                <td style="text-align:center;">${c.risk === 'RE' ? '<span class="re">✖ خطر مرتفع</span>' : '—'}</td>
+                <td style="text-align:center;">${c.risk === 'RM' ? '<span class="rm">● مراقبة</span>' : '—'}</td>
+                <td style="text-align:center;">${c.risk === 'RF' ? '<span class="rf">✓ خارج القائمة</span>' : '—'}</td>
+              </tr>`).join('')
+            : `<tr><td colspan="4" style="text-align:center; font-style:italic;">Aucune modification enregistrée dans la Matrice des Risques Pays pour l'exercice ${selectedPeriod}</td></tr>`
+          }
+          </tbody>
+        </table>
+        ${customModifiedCountries.length > 0 ? `
+        <p style="font-size:9pt; color:#64748b;">
+          <em>Données mises à jour le ${todayFormatted} — ${customModifiedCountries.length} pays modifié(s) dans la Matrice des Risques Pays :
+          خطر مرتفع (RE) : ${hautRisqueCountries.length > 0 ? hautRisqueCountries.map(c=>c.name).join(', ') : 'Néant'} |
+          مراقبة (RM) : ${surveillanceCountries.length > 0 ? surveillanceCountries.map(c=>c.name).join(', ') : 'Néant'} |
+          خارج القائمة (RF) : ${retraitCountries.length > 0 ? retraitCountries.map(c=>c.name).join(', ') : 'Néant'}
+          </em>
+        </p>` : ''}
 
         <h2>الدورات التكوينية المنجزة خلال السنة المنقضية في مجال مكافحة الإرهاب ومنع غسل الأموال</h2>
         <p class="arabic" style="background:#f1f5f9; padding:8px 12px; border-radius:6px; font-size:10pt;">
@@ -609,7 +646,7 @@ export default function ReportsPage() {
           </tbody>
         </table>
 
-        <h2>V. المالحق والجداول الترتيبية (Tableaux Officiels CGA)</h2>
+        <h2>V. الملاحق والجداول الترتيبية (Tableaux Officiels CGA)</h2>
         <h3>جدول عدد 01: رزنامة تحيين ملفات المنخرطين حسب درجة المخاطر</h3>
         <table>
           <thead><tr>
