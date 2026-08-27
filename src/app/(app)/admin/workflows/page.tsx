@@ -302,9 +302,6 @@ export default function AdminWorkflowsPage() {
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${isActive ? cfg.badge : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                                         {catCounts[cat]} workflow{catCounts[cat] !== 1 ? 's' : ''}
                                     </span>
-                                    {cat === DEFAULT_CATEGORY && (
-                                        <span className="text-[9px] text-slate-400 font-medium">(inclut anciens workflows)</span>
-                                    )}
                                 </div>
                                 <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{cfg.description}</p>
                             </div>

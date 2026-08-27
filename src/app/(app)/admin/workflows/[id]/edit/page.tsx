@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import * as LucideIcons from 'lucide-react';
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, getDocs, orderBy, limit, writeBatch } from 'firebase/firestore';
 import { MermaidWorkflow, WorkflowVersion, WorkflowTask, AuditLog, WorkflowDomain } from '@/types/compliance';
 import { usePlanData } from '@/contexts/PlanDataContext';
 import { useRiskMapping } from '@/contexts/RiskMappingContext';
@@ -177,6 +177,10 @@ export default function WorkflowEditorPage() {
     const tagInputRef = useRef<HTMLInputElement>(null);
     // Catégorie obligatoire (dérivée des tags)
     const [category, setCategory] = useState<WorkflowCategory | ''>('');
+
+    // ── Editable ID state ──────────────────────────────────────────────────
+    const [editingId, setEditingId] = useState(false);
+    const [newId, setNewId] = useState('');
 
     const filteredTagSuggestions = existingTags.filter(
         t => !tags.includes(t) && !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory) && t.toLowerCase().includes(tagInput.toLowerCase().trim())
@@ -413,6 +417,43 @@ export default function WorkflowEditorPage() {
         } catch (e) { toast({ title: 'Erreur', variant: 'destructive' }); } finally { setSaving(false); }
     };
 
+    // ── Rename / migrate workflow ID ───────────────────────────────────────
+    const handleRenameId = async () => {
+        if (!db || !newId.trim() || newId.trim() === id) { setEditingId(false); return; }
+        const sanitized = newId.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '');
+        if (!sanitized) { toast({ title: 'ID invalide', variant: 'destructive' }); return; }
+
+        // Vérifier si le nouvel ID existe déjà
+        const existing = await getDoc(doc(db, 'workflows', sanitized));
+        if (existing.exists()) { toast({ title: 'ID déjà existant', description: 'Choisissez un autre identifiant.', variant: 'destructive' }); return; }
+
+        try {
+            setSaving(true);
+            // Copier le document principal
+            const currentSnap = await getDoc(doc(db, 'workflows', id));
+            if (currentSnap.exists()) {
+                const currentData = currentSnap.data();
+                await setDoc(doc(db, 'workflows', sanitized), { ...currentData, id: sanitized, workflowId: sanitized });
+            }
+            // Copier les versions
+            const versSnap = await getDocs(collection(db, 'workflows', id, 'versions'));
+            for (const vDoc of versSnap.docs) {
+                await setDoc(doc(db, 'workflows', sanitized, 'versions', vDoc.id), vDoc.data());
+            }
+            // Supprimer l'ancien
+            const delBatch = writeBatch(db);
+            versSnap.docs.forEach(vDoc => delBatch.delete(doc(db, 'workflows', id, 'versions', vDoc.id)));
+            delBatch.delete(doc(db, 'workflows', id));
+            await delBatch.commit();
+
+            toast({ title: '✅ ID modifié', description: `${id} → ${sanitized}` });
+            router.push(`/admin/workflows/${sanitized}/edit`);
+        } catch (e) {
+            console.error(e);
+            toast({ title: 'Erreur lors du renommage', variant: 'destructive' });
+        } finally { setSaving(false); setEditingId(false); }
+    };
+
     if (loading) return <div className="p-20 text-center font-bold text-slate-500 animate-pulse">Chargement...</div>;
 
     return (
@@ -422,7 +463,32 @@ export default function WorkflowEditorPage() {
                     <Link href="/admin/workflows"><Button variant="ghost" size="icon" className="rounded-full"><LucideIcons.ArrowLeft className="h-5 w-5" /></Button></Link>
                     <div>
                         <Input value={name} onChange={e => setName(e.target.value)} className="h-7 font-bold border-none px-0 focus-visible:ring-0 text-xl w-[280px] bg-transparent" />
-                        <p className="text-[10px] text-slate-400 font-mono">ID: {id} {activeWorkflow?.activeVersionId && <span className="text-emerald-500 ml-2">● PUBLIÉ V{activeWorkflow.currentVersion}</span>}</p>
+                        {/* Editable ID */}
+                        {editingId ? (
+                            <div className="flex items-center gap-1 mt-0.5">
+                                <input
+                                    autoFocus
+                                    value={newId}
+                                    onChange={e => setNewId(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') handleRenameId(); if (e.key === 'Escape') setEditingId(false); }}
+                                    className="font-mono text-[11px] text-slate-600 bg-slate-100 border border-slate-300 rounded px-2 py-0.5 w-44 outline-none focus:border-indigo-400"
+                                    placeholder={id}
+                                />
+                                <button onClick={handleRenameId} className="text-emerald-600 hover:text-emerald-700 transition-colors" title="Confirmer">
+                                    <LucideIcons.Check className="h-3.5 w-3.5" />
+                                </button>
+                                <button onClick={() => setEditingId(false)} className="text-slate-400 hover:text-slate-600 transition-colors" title="Annuler">
+                                    <LucideIcons.X className="h-3.5 w-3.5" />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <p className="text-[10px] text-slate-400 font-mono">ID: {id} {activeWorkflow?.activeVersionId && <span className="text-emerald-500 ml-1">● PUBLIÉ V{activeWorkflow.currentVersion}</span>}</p>
+                                <button onClick={() => { setNewId(id); setEditingId(true); }} className="text-slate-300 hover:text-slate-500 transition-colors" title="Modifier l'ID">
+                                    <LucideIcons.Pencil className="h-3 w-3" />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="flex items-center gap-2">

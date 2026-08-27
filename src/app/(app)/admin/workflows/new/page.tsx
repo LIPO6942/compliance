@@ -1,18 +1,17 @@
 'use client';
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Loader2, Play, Tag, X, Plus, ShieldAlert, BookOpen } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { WorkflowDomain, MermaidWorkflow } from '@/types/compliance';
+import { MermaidWorkflow } from '@/types/compliance';
 
 // Catégories obligatoires
 const WORKFLOW_CATEGORIES = ['LAB/FT', 'Veille Réglementaire'] as const;
@@ -43,14 +42,10 @@ const getTagColor = (tag: string) => {
 
 function NewWorkflowForm() {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const { toast } = useToast();
-
-    const initialDomain = (searchParams.get('domain') as WorkflowDomain) || 'Conformité';
 
     const [name, setName] = useState('');
     const [customId, setCustomId] = useState('');
-    const [domain, setDomain] = useState<WorkflowDomain>(initialDomain);
     const [category, setCategory] = useState<WorkflowCategory | ''>('');
     const [loading, setLoading] = useState(false);
 
@@ -106,8 +101,6 @@ function NewWorkflowForm() {
         }
     };
 
-    const domains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique'];
-
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -153,7 +146,6 @@ function NewWorkflowForm() {
                     id: finalId,
                     workflowId: finalId,
                     name: name.trim(),
-                    domain: domain,
                     currentVersion: 0,
                     createdAt: now,
                     updatedAt: now,
@@ -246,21 +238,6 @@ function NewWorkflowForm() {
                             <p className="text-[10px] text-muted-foreground">
                                 Uniques, minuscules, sans espaces ou caractères spéciaux (sauf - et _).
                             </p>
-                        </div>
-
-                        {/* Domaine */}
-                        <div className="space-y-2">
-                            <Label htmlFor="domain">Domaine</Label>
-                            <Select value={domain} onValueChange={(val) => setDomain(val as WorkflowDomain)}>
-                                <SelectTrigger id="domain">
-                                    <SelectValue placeholder="Sélectionnez un domaine" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {domains.map(d => (
-                                        <SelectItem key={d} value={d}>{d}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
                         </div>
 
                         {/* ── Tags ─────────────────────────────────────────────── */}
