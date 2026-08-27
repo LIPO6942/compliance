@@ -28,6 +28,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from "xlsx";
 import { recordActivity } from "@/contexts/ActivityLogContext";
+import { useUser } from "@/contexts/UserContext";
 import { useTrainingData } from "@/contexts/TrainingDataContext";
 import {
   DEFAULT_REPORT_INTRO,
@@ -229,6 +230,7 @@ const mockGovernoratesList = [
 // COMPOSANT PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
+  const { user, isLoaded } = useUser();
   const { risks } = useRiskMapping();
   const { annualReportParticipants, annualProgramEvaluation } = useTrainingData();
 
@@ -643,17 +645,30 @@ export default function ReportsPage() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    recordActivity({
+      action: 'EXPORT_DATA',
+      label: `Export Word CGA : ${currentTemplate.title} (${selectedPeriod})`,
+      detail: `Format DOC • Rapport officiel CGA exercice ${selectedPeriod}`,
+      module: 'Reporting Automatisé',
+      userEmail: user?.authEmail || user?.email,
+      userName: user?.name,
+      userRole: user?.role,
+    });
   };
 
   // Traçabilité consultation de rapport
   React.useEffect(() => {
+    if (!isLoaded || !user) return; // wait for session to resolve
     recordActivity({
       action: 'REPORT_VIEW',
       label: `Consultation : ${currentTemplate.title} (${selectedPeriod})`,
       detail: `Exercice ${selectedPeriod} • Onglet: ${activeTab}`,
-      module: 'Reporting Automatisé'
+      module: 'Reporting Automatisé',
+      userEmail: user.authEmail || user.email,
+      userName: user.name,
+      userRole: user.role,
     });
-  }, [selectedReport, selectedPeriod, activeTab]);
+  }, [selectedReport, selectedPeriod, activeTab, isLoaded, user?.email]);
 
   // ── Export Excel ───────────────────────────────────────────────────────────
   const handleExportExcel = () => {
@@ -661,7 +676,10 @@ export default function ReportsPage() {
       action: 'EXPORT_DATA',
       label: `Export Excel : ${currentTemplate.title} (${selectedPeriod})`,
       detail: `Format XLSX • Données consolidées de l'exercice ${selectedPeriod} avec le rapport des formations`,
-      module: 'Reporting Automatisé'
+      module: 'Reporting Automatisé',
+      userEmail: user?.authEmail || user?.email,
+      userName: user?.name,
+      userRole: user?.role,
     });
 
     const wb = XLSX.utils.book_new();
