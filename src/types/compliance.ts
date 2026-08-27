@@ -261,6 +261,7 @@ export interface MermaidWorkflow {
   createdAt: string;
   updatedAt: string;
   processAssignees?: { userId: string; userName: string; role: string }[];
+  tags?: string[]; // Etiquettes libres, réutilisables
 }
 
 export type WorkflowTaskStatus = "En attente" | "En cours" | "Terminé";

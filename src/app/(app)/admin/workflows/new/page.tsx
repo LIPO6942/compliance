@@ -1,24 +1,42 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Loader2, Play } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Loader2, Play, Tag, X, Plus } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { WorkflowDomain, MermaidWorkflow } from '@/types/compliance';
+
+// Palette de couleurs cyclique pour les tags (même logique que la page liste)
+const TAG_COLORS = [
+    'bg-indigo-100 text-indigo-700 border-indigo-200',
+    'bg-violet-100 text-violet-700 border-violet-200',
+    'bg-sky-100 text-sky-700 border-sky-200',
+    'bg-emerald-100 text-emerald-700 border-emerald-200',
+    'bg-amber-100 text-amber-700 border-amber-200',
+    'bg-rose-100 text-rose-700 border-rose-200',
+    'bg-teal-100 text-teal-700 border-teal-200',
+    'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
+];
+
+const getTagColor = (tag: string) => {
+    let hash = 0;
+    for (let i = 0; i < tag.length; i++) hash = (hash * 31 + tag.charCodeAt(i)) & 0xffffffff;
+    return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+};
 
 function NewWorkflowForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { toast } = useToast();
 
-    // Initial domain from URL or default
     const initialDomain = (searchParams.get('domain') as WorkflowDomain) || 'Conformité';
 
     const [name, setName] = useState('');
@@ -26,17 +44,65 @@ function NewWorkflowForm() {
     const [domain, setDomain] = useState<WorkflowDomain>(initialDomain);
     const [loading, setLoading] = useState(false);
 
+    // ── Tags ──────────────────────────────────────────────────────────────────
+    const [tags, setTags] = useState<string[]>([]);
+    const [tagInput, setTagInput] = useState('');
+    const [existingTags, setExistingTags] = useState<string[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const tagInputRef = useRef<HTMLInputElement>(null);
+
+    // Charger tous les tags existants depuis Firestore au montage
+    useEffect(() => {
+        const loadExistingTags = async () => {
+            if (!db) return;
+            try {
+                const snap = await getDocs(collection(db, 'workflows'));
+                const tagSet = new Set<string>();
+                snap.docs.forEach(d => {
+                    const data = d.data() as MermaidWorkflow;
+                    (data.tags || []).forEach(t => tagSet.add(t));
+                });
+                setExistingTags(Array.from(tagSet).sort((a, b) => a.localeCompare(b, 'fr')));
+            } catch (e) {
+                // Silently ignore
+            }
+        };
+        loadExistingTags();
+    }, []);
+
+    const filteredSuggestions = existingTags.filter(
+        t => !tags.includes(t) && t.toLowerCase().includes(tagInput.toLowerCase().trim())
+    );
+
+    const addTag = (tag: string) => {
+        const clean = tag.trim();
+        if (!clean || tags.includes(clean)) return;
+        setTags(prev => [...prev, clean]);
+        setTagInput('');
+        setShowSuggestions(false);
+        tagInputRef.current?.focus();
+    };
+
+    const removeTag = (tag: string) => setTags(prev => prev.filter(t => t !== tag));
+
+    const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addTag(tagInput);
+        } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
+            removeTag(tags[tags.length - 1]);
+        } else if (e.key === 'Escape') {
+            setShowSuggestions(false);
+        }
+    };
+
     const domains: WorkflowDomain[] = ['Conformité', 'Commercial', 'Sinistre', 'Technique'];
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!name.trim()) {
-            toast({
-                title: "Nom requis",
-                description: "Veuillez donner un nom au workflow.",
-                variant: "destructive"
-            });
+            toast({ title: "Nom requis", description: "Veuillez donner un nom au workflow.", variant: "destructive" });
             return;
         }
 
@@ -46,39 +112,23 @@ function NewWorkflowForm() {
             let finalId = customId.trim();
 
             if (finalId) {
-                // Basic sanitization: lowercase, replace spaces with dashes, remove special chars
-                // Allow alphanumeric and dashes/underscores only
                 finalId = finalId.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '');
-
-                if (finalId !== customId.trim()) {
-                    // Optionally notify user about sanitization, or just proceed
-                    // For now, we proceed with the sanitized ID
-                }
             } else {
                 finalId = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
             }
 
             if (!finalId) {
-                toast({
-                    title: "ID Invalide",
-                    description: "Impossible de générer un ID valide.",
-                    variant: "destructive"
-                });
+                toast({ title: "ID Invalide", description: "Impossible de générer un ID valide.", variant: "destructive" });
                 setLoading(false);
                 return;
             }
 
             if (db) {
-                // Check if ID exists if it was custom provided (or even if random, though unlikely)
                 const docRef = doc(db, 'workflows', finalId);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
-                    toast({
-                        title: "ID déjà existant",
-                        description: "Un workflow avec cet ID existe déjà. Veuillez en choisir un autre.",
-                        variant: "destructive"
-                    });
+                    toast({ title: "ID déjà existant", description: "Un workflow avec cet ID existe déjà. Veuillez en choisir un autre.", variant: "destructive" });
                     setLoading(false);
                     return;
                 }
@@ -92,37 +142,25 @@ function NewWorkflowForm() {
                     currentVersion: 0,
                     createdAt: now,
                     updatedAt: now,
-                    // activeVersionId is undefined initially
+                    tags: tags.length > 0 ? tags : undefined,
                 };
 
                 await setDoc(docRef, newWorkflow);
-                toast({
-                    title: "Workflow créé",
-                    description: "Redirection vers l'éditeur...",
-                });
+                toast({ title: "Workflow créé", description: "Redirection vers l'éditeur..." });
                 router.push(`/admin/workflows/${finalId}/edit`);
             } else {
-                toast({
-                    title: "Erreur",
-                    description: "Base de données non disponible.",
-                    variant: "destructive"
-                });
+                toast({ title: "Erreur", description: "Base de données non disponible.", variant: "destructive" });
                 setLoading(false);
             }
-
         } catch (error) {
             console.error('Error creating workflow:', error);
-            toast({
-                title: "Erreur",
-                description: "Impossible de créer le workflow.",
-                variant: "destructive"
-            });
+            toast({ title: "Erreur", description: "Impossible de créer le workflow.", variant: "destructive" });
             setLoading(false);
         }
     };
 
     return (
-        <div className="flex justify-center items-center h-[calc(100vh-10rem)] p-4">
+        <div className="flex justify-center items-start min-h-[calc(100vh-10rem)] p-4 pt-12">
             <Card className="w-full max-w-lg shadow-xl">
                 <CardHeader>
                     <CardTitle className="text-2xl">Nouveau Workflow</CardTitle>
@@ -130,6 +168,7 @@ function NewWorkflowForm() {
                 </CardHeader>
                 <form onSubmit={handleCreate}>
                     <CardContent className="space-y-6">
+                        {/* Nom */}
                         <div className="space-y-2">
                             <Label htmlFor="name">Nom du processus</Label>
                             <Input
@@ -141,6 +180,7 @@ function NewWorkflowForm() {
                             />
                         </div>
 
+                        {/* ID */}
                         <div className="space-y-2">
                             <Label htmlFor="customId" className="flex justify-between">
                                 Identifiant (Optionnel)
@@ -158,6 +198,7 @@ function NewWorkflowForm() {
                             </p>
                         </div>
 
+                        {/* Domaine */}
                         <div className="space-y-2">
                             <Label htmlFor="domain">Domaine</Label>
                             <Select value={domain} onValueChange={(val) => setDomain(val as WorkflowDomain)}>
@@ -171,7 +212,102 @@ function NewWorkflowForm() {
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {/* ── Tags ─────────────────────────────────────────────── */}
+                        <div className="space-y-2">
+                            <Label htmlFor="tags" className="flex items-center gap-1.5">
+                                <Tag className="h-3.5 w-3.5" />
+                                Tags
+                                <span className="text-[10px] text-muted-foreground font-normal ml-1">(Entrée ou virgule pour ajouter)</span>
+                            </Label>
+
+                            {/* Champs + badges */}
+                            <div
+                                className="min-h-[42px] flex flex-wrap gap-1.5 items-center px-3 py-2 rounded-md border border-input bg-background ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 cursor-text"
+                                onClick={() => tagInputRef.current?.focus()}
+                            >
+                                {tags.map(tag => (
+                                    <span
+                                        key={tag}
+                                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${getTagColor(tag)}`}
+                                    >
+                                        {tag}
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+                                            className="hover:opacity-70 transition-opacity"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </span>
+                                ))}
+                                <input
+                                    ref={tagInputRef}
+                                    id="tags"
+                                    type="text"
+                                    value={tagInput}
+                                    onChange={(e) => { setTagInput(e.target.value); setShowSuggestions(true); }}
+                                    onKeyDown={handleTagKeyDown}
+                                    onFocus={() => setShowSuggestions(true)}
+                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                                    placeholder={tags.length === 0 ? "KYC, LAB-FT, Conformité..." : ''}
+                                    className="flex-1 min-w-[120px] outline-none bg-transparent text-sm placeholder:text-muted-foreground"
+                                />
+                            </div>
+
+                            {/* Suggestions dropdown */}
+                            {showSuggestions && (tagInput.trim() || filteredSuggestions.length > 0) && (
+                                <div className="border rounded-xl shadow-lg bg-white dark:bg-slate-900 py-1 z-10 max-h-40 overflow-y-auto">
+                                    {tagInput.trim() && !existingTags.includes(tagInput.trim()) && (
+                                        <button
+                                            type="button"
+                                            onMouseDown={() => addTag(tagInput)}
+                                            className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 font-bold text-indigo-600"
+                                        >
+                                            <Plus className="h-3 w-3" />
+                                            Créer le tag "{tagInput.trim()}"
+                                        </button>
+                                    )}
+                                    {filteredSuggestions.length > 0 && (
+                                        <>
+                                            {tagInput.trim() && !existingTags.includes(tagInput.trim()) && (
+                                                <div className="border-t mx-2 my-1" />
+                                            )}
+                                            <p className="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Tags existants</p>
+                                            {filteredSuggestions.map(t => (
+                                                <button
+                                                    key={t}
+                                                    type="button"
+                                                    onMouseDown={() => addTag(t)}
+                                                    className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                                >
+                                                    <span className={`px-2 py-0.5 rounded-full font-bold border ${getTagColor(t)}`}>{t}</span>
+                                                </button>
+                                            ))}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Tags rapides depuis suggestions */}
+                            {existingTags.filter(t => !tags.includes(t)).length > 0 && tags.length === 0 && !tagInput && (
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                    <span className="text-[10px] text-muted-foreground self-center">Réutiliser :</span>
+                                    {existingTags.filter(t => !tags.includes(t)).slice(0, 6).map(t => (
+                                        <button
+                                            key={t}
+                                            type="button"
+                                            onClick={() => addTag(t)}
+                                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border hover:opacity-80 transition-opacity ${getTagColor(t)}`}
+                                        >
+                                            + {t}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </CardContent>
+
                     <CardFooter className="flex justify-between border-t pt-6 bg-slate-50/50 dark:bg-slate-900/20">
                         <Button type="button" variant="ghost" onClick={() => router.back()}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Annuler

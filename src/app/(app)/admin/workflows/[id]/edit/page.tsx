@@ -23,6 +23,23 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
+// ── Tag helpers ──────────────────────────────────────────────────────────────
+const TAG_COLORS_EDITOR = [
+    'bg-indigo-100 text-indigo-700 border-indigo-200',
+    'bg-violet-100 text-violet-700 border-violet-200',
+    'bg-sky-100 text-sky-700 border-sky-200',
+    'bg-emerald-100 text-emerald-700 border-emerald-200',
+    'bg-amber-100 text-amber-700 border-amber-200',
+    'bg-rose-100 text-rose-700 border-rose-200',
+    'bg-teal-100 text-teal-700 border-teal-200',
+    'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
+];
+const getTagColorEditor = (tag: string) => {
+    let hash = 0;
+    for (let i = 0; i < tag.length; i++) hash = (hash * 31 + tag.charCodeAt(i)) & 0xffffffff;
+    return TAG_COLORS_EDITOR[Math.abs(hash) % TAG_COLORS_EDITOR.length];
+};
+
 declare global {
     interface Window { require: any; monaco: any; }
 }
@@ -142,6 +159,39 @@ export default function WorkflowEditorPage() {
     const [processAssignees, setProcessAssignees] = useState<{ userId: string; userName: string; role: string }[]>([]);
     const [addingAssignee, setAddingAssignee] = useState(false);
     const [newAssigneeForm, setNewAssigneeForm] = useState<{ userId: string; userName: string; role: string }>({ userId: '', userName: '', role: '' });
+
+    // ── Tags state ───────────────────────────────────────────────────────────
+    const [tags, setTags] = useState<string[]>([]);
+    const [tagInput, setTagInput] = useState('');
+    const [existingTags, setExistingTags] = useState<string[]>([]);
+    const [showTagSuggestions, setShowTagSuggestions] = useState(false);
+    const tagInputRef = useRef<HTMLInputElement>(null);
+
+    const filteredTagSuggestions = existingTags.filter(
+        t => !tags.includes(t) && t.toLowerCase().includes(tagInput.toLowerCase().trim())
+    );
+
+    const addTag = (tag: string) => {
+        const clean = tag.trim();
+        if (!clean || tags.includes(clean)) return;
+        setTags(prev => [...prev, clean]);
+        setTagInput('');
+        setShowTagSuggestions(false);
+        tagInputRef.current?.focus();
+    };
+
+    const removeTag = (tag: string) => setTags(prev => prev.filter(t => t !== tag));
+
+    const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addTag(tagInput);
+        } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
+            removeTag(tags[tags.length - 1]);
+        } else if (e.key === 'Escape') {
+            setShowTagSuggestions(false);
+        }
+    };
 
     const { auditLogs, availableUsers, availableRoles, addAvailableUser, removeAvailableUser, addAvailableRole, removeAvailableRole, planData, workflowTasks } = usePlanData();
     const { risks: allRisks } = useRiskMapping();
@@ -298,12 +348,19 @@ export default function WorkflowEditorPage() {
                     setName(data.name);
                     setDomain(data.domain || 'Conformité');
                     if (data.processAssignees) setProcessAssignees(data.processAssignees);
+                    if (data.tags) setTags(data.tags);
                     const vSnap = await getDocs(query(collection(db, 'workflows', id, 'versions'), orderBy('version', 'desc'), limit(1)));
                     if (!vSnap.empty) applyCode((vSnap.docs[0].data() as WorkflowVersion).mermaidCode);
                 } else {
                     setName(id === 'eer' ? 'Entrée en Relation' : id === 'gel' ? 'Gel des Avoirs' : 'Monitoring');
                     setGraph(mermaidToGraph(code));
                 }
+
+                // Charger tous les tags existants pour suggestions
+                const allSnap = await getDocs(collection(db, 'workflows'));
+                const tagSet = new Set<string>();
+                allSnap.docs.forEach(d => { const dt = d.data() as MermaidWorkflow; (dt.tags || []).forEach(t => tagSet.add(t)); });
+                setExistingTags(Array.from(tagSet).sort((a, b) => a.localeCompare(b, 'fr')));
             } catch (e) { console.error(e); } finally { setLoading(false); }
         };
         load();
@@ -317,13 +374,18 @@ export default function WorkflowEditorPage() {
             const now = new Date().toISOString();
             const vId = `v${nextV}-${Date.now()}`;
             await setDoc(doc(db, 'workflows', id, 'versions', vId), { id: vId, mermaidCode: code, version: nextV, status, createdAt: now, updatedAt: now });
-            const data: Partial<MermaidWorkflow> = { workflowId: id, name, domain, currentVersion: nextV, updatedAt: now, processAssignees, ...(status === 'published' ? { activeVersionId: vId } : {}) };
+            const data: Partial<MermaidWorkflow> = {
+                workflowId: id, name, domain, currentVersion: nextV, updatedAt: now,
+                processAssignees,
+                tags: tags.length > 0 ? tags : [],
+                ...(status === 'published' ? { activeVersionId: vId } : {})
+            };
             await setDoc(doc(db, 'workflows', id), data, { merge: true });
 
             recordActivity({
                 action: status === 'published' ? 'WORKFLOW_PUBLISH' : 'WORKFLOW_UPDATE',
                 label: `${status === 'published' ? 'Publication' : 'Sauvegarde'} Workflow : ${name || id} (V${nextV})`,
-                detail: `Statut: ${status} • Domaine: ${domain} • Version: ${nextV}`,
+                detail: `Statut: ${status} • Domaine: ${domain} • Version: ${nextV}${tags.length > 0 ? ' • Tags: ' + tags.join(', ') : ''}`,
                 module: 'Processus Métiers'
             });
 
@@ -388,6 +450,69 @@ export default function WorkflowEditorPage() {
                                         </div>
                                     ))}
                                 </div>
+                            </div>
+                            {/* ── Tags section inside builder ─────────────────── */}
+                            <div className="space-y-3 border-t pt-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-black text-sm text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                        <LucideIcons.Tag className="h-4 w-4 text-indigo-400" />
+                                        Tags ({tags.length})
+                                    </h3>
+                                </div>
+
+                                {/* Tags affichés */}
+                                <div
+                                    className="min-h-[42px] flex flex-wrap gap-1.5 items-center px-3 py-2 rounded-2xl border bg-white shadow-sm focus-within:ring-2 focus-within:ring-indigo-300 cursor-text"
+                                    onClick={() => tagInputRef.current?.focus()}
+                                >
+                                    {tags.map(tag => (
+                                        <span key={tag} className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${getTagColorEditor(tag)}`}>
+                                            {tag}
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); removeTag(tag); }} className="hover:opacity-70">
+                                                <LucideIcons.X className="h-3 w-3" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                    <input
+                                        ref={tagInputRef}
+                                        type="text"
+                                        value={tagInput}
+                                        onChange={(e) => { setTagInput(e.target.value); setShowTagSuggestions(true); }}
+                                        onKeyDown={handleTagKeyDown}
+                                        onFocus={() => setShowTagSuggestions(true)}
+                                        onBlur={() => setTimeout(() => setShowTagSuggestions(false), 150)}
+                                        placeholder={tags.length === 0 ? 'KYC, LAB-FT...' : ''}
+                                        className="flex-1 min-w-[100px] outline-none bg-transparent text-xs placeholder:text-slate-300"
+                                    />
+                                </div>
+
+                                {/* Suggestions dropdown */}
+                                {showTagSuggestions && (tagInput.trim() || filteredTagSuggestions.length > 0) && (
+                                    <div className="border rounded-xl shadow-lg bg-white py-1 z-10 max-h-36 overflow-y-auto">
+                                        {tagInput.trim() && !existingTags.includes(tagInput.trim()) && (
+                                            <button type="button" onMouseDown={() => addTag(tagInput)} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center gap-2 font-bold text-indigo-600">
+                                                <LucideIcons.Plus className="h-3 w-3" /> Créer "{tagInput.trim()}"
+                                            </button>
+                                        )}
+                                        {filteredTagSuggestions.map(t => (
+                                            <button key={t} type="button" onMouseDown={() => addTag(t)} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center gap-2">
+                                                <span className={`px-2 py-0.5 rounded-full font-bold border ${getTagColorEditor(t)}`}>{t}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Quick-add existing tags */}
+                                {existingTags.filter(t => !tags.includes(t)).length > 0 && !tagInput && (
+                                    <div className="flex flex-wrap gap-1.5">
+                                        <span className="text-[10px] text-slate-400 self-center">Réutiliser :</span>
+                                        {existingTags.filter(t => !tags.includes(t)).slice(0, 5).map(t => (
+                                            <button key={t} type="button" onClick={() => addTag(t)} className={`px-2 py-0.5 rounded-full text-[10px] font-bold border hover:opacity-80 ${getTagColorEditor(t)}`}>+ {t}</button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <p className="text-[10px] text-slate-400">Entrée ou virgule pour ajouter · Backspace pour supprimer</p>
                             </div>
                         </TabsContent>
 
