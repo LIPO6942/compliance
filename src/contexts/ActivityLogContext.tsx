@@ -5,6 +5,18 @@ import { toast } from '@/hooks/use-toast';
 import { auth, db, isFirebaseConfigured } from '@/lib/firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 
+// ─── Shared user singleton ────────────────────────────────────────────────────
+// UserContext calls setActivityUser() every time the session changes so that
+// recordActivity() always knows who the real logged-in user is, even when
+// Firebase auth.currentUser hasn't resolved yet.
+let _currentActivityUser: { email: string; name: string; role: string } | null = null;
+
+export function setActivityUser(user: { email: string; name: string; role?: string } | null) {
+    _currentActivityUser = user
+        ? { email: user.email, name: user.name, role: user.role || 'Utilisateur' }
+        : null;
+}
+
 export type ActivityAction =
     // Sessions & Auth
     | 'LOGIN'
@@ -125,12 +137,21 @@ export async function recordActivity(entry: {
         let name = entry.userName || '';
         let role = entry.userRole || '';
 
-        // Try getting user from auth or localStorage if not provided
+        // Priority 1: user explicitly passed in the call
+        // Priority 2: shared singleton set by UserContext (most reliable)
+        if (!email && _currentActivityUser) {
+            email = _currentActivityUser.email;
+            name = name || _currentActivityUser.name;
+            role = role || _currentActivityUser.role;
+        }
+
+        // Priority 3: Firebase auth.currentUser
         if (!email && typeof window !== 'undefined') {
             if (auth?.currentUser?.email) {
                 email = auth.currentUser.email;
                 name = name || auth.currentUser.displayName || email;
             } else {
+                // Priority 4: localStorage fallback
                 try {
                     const saved = localStorage.getItem('compliance_saved_user');
                     if (saved) {

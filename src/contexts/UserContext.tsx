@@ -12,6 +12,7 @@ import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
 import { getDeviceId, getDeviceInfo } from '@/lib/deviceHelper';
 import { setDeviceLinkedProfile, clearDeviceLinkedProfile, getDeviceLinkedProfile } from '@/lib/deviceApprovalService';
 import { recordActivity } from '@/contexts/ActivityLogContext';
+import { setActivityUser } from '@/contexts/ActivityLogContext';
 
 export interface UserProfile {
   name: string;
@@ -188,6 +189,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     });
 
     setUser(newProfile);
+    setActivityUser({ email: newProfile.email, name: newProfile.name, role: newProfile.role });
     setIsLoaded(true);
   }, []);
 
@@ -222,10 +224,16 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           // Auto-restore with the permanently linked profile for this device
           const saved = typeof window !== 'undefined' ? window.localStorage?.getItem('compliance_saved_user') : null;
           const savedProfile = saved ? JSON.parse(saved) : null;
-          setUser(savedProfile || { name: linked.name, role: linked.role, email: linked.email });
+          const profileToSet = savedProfile || { name: linked.name, role: linked.role, email: linked.email };
+          setUser(profileToSet);
+          setActivityUser({ email: profileToSet.email, name: profileToSet.name, role: profileToSet.role });
         } else {
           const saved = typeof window !== 'undefined' ? window.localStorage?.getItem('compliance_saved_user') : null;
-          if (saved) setUser(JSON.parse(saved));
+          if (saved) {
+            const profile2 = JSON.parse(saved);
+            setUser(profile2);
+            setActivityUser({ email: profile2.email, name: profile2.name, role: profile2.role });
+          }
         }
       } catch {
         try {
@@ -295,6 +303,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                   uid: authUser.uid,
                   authEmail: authUser.email || ''
                 });
+                setActivityUser({ email: authUser.email || data.email || '', name: data.name, role: data.role });
               } else {
                 // Initialize default profile
                 let initialProfile: UserProfile = {
@@ -367,8 +376,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           if (linked) {
             const saved = typeof window !== 'undefined' ? window.localStorage?.getItem('compliance_saved_user') : null;
             const savedProfile = saved ? JSON.parse(saved) : null;
+            const restoredProfile = savedProfile || { name: linked.name, role: linked.role, email: linked.email };
             // Restore user silently — no login page shown on return visit
-            setUser(savedProfile || { name: linked.name, role: linked.role, email: linked.email });
+            setUser(restoredProfile);
+            setActivityUser({ email: restoredProfile.email, name: restoredProfile.name, role: restoredProfile.role });
             setIsLoaded(true);
             clearTimeout(safetyTimer);
             return;
@@ -379,9 +390,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         try {
           const saved = typeof window !== 'undefined' ? window.localStorage?.getItem('compliance_saved_user') : null;
           if (saved) {
-            setUser(JSON.parse(saved));
+            const localProfile = JSON.parse(saved);
+            setUser(localProfile);
+            setActivityUser({ email: localProfile.email, name: localProfile.name, role: localProfile.role });
           } else {
             setUser(null);
+            setActivityUser(null);
           }
         } catch {
           setUser(null);
@@ -483,6 +497,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     // Clear device profile binding so next visit shows the login page
     clearDeviceLinkedProfile();
     setUser(null);
+    setActivityUser(null);
     clearStoredEmailForSignIn();
     clearEmailLinkStatus();
   };
