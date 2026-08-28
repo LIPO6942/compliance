@@ -141,16 +141,18 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                             setSvg(simpleSvg);
                         }
                     } catch (fallbackError: any) {
-                        console.error('Échec du fallback Mermaid:', fallbackError);
+                        console.warn('Échec du fallback Mermaid:', fallbackError);
+                        // Do not clear the existing SVG if available
                         if (isMounted) {
-                            setError(`Erreur de rendu Mermaid: ${renderError?.message || 'Code diagramme invalide'}`);
+                            setSvg(prev => prev || '');
+                            setError(prev => prev ? prev : `Code Mermaid en cours d'édition...`);
                         }
                     }
                 }
             } catch (err: any) {
-                console.error('Erreur chargement/transformation Mermaid:', err);
+                console.warn('Erreur chargement/transformation Mermaid:', err);
                 if (isMounted) {
-                    setError(err?.message || 'Erreur de chargement du diagramme');
+                    setSvg(prev => prev || '');
                 }
             }
         };

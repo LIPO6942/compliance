@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { MermaidRenderer } from '@/components/plan/MermaidRenderer';
 import { Button } from '@/components/ui/button';
@@ -89,18 +89,16 @@ function surgicalEditLabel(code: string, nodeId: string, newLabel: string): stri
     const escId = nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const safeLabel = newLabel.replace(/"/g, "'").replace(/\n/g, '<br/>');
 
-    const re = new RegExp(
-        `(\\b${escId}\\s*(?:\\([\\(\\[\\/\\{]?|\\[[\\/\\[\\(]?|\\{\\{?))\\s*(?:"(?:[^"\\\\]|\\\\.)*"|'(?:[^'\\\\]|\\\\.)*'|[^)\\]}]+)\\s*([\\)\\/\\]\\}]+(?:\\s*:::?\\w+)?)`,
+    const nodeDefRe = new RegExp(
+        `(\\b${escId}\\s*)(\\[\\/|\\(\\(|[\\[\\(\\{])\\s*"?([^\\]\\)\\n\\r]*?)"?\\s*(\\/\\]|\\)\\)|[\\]\\)\\}])(\\s*:::?\\w+)?`,
         'g'
     );
 
-    if (re.test(code)) {
-        return code.replace(re, `$1"${safeLabel}"$2`);
-    }
-
-    const simpleRe = new RegExp(`\\b${escId}\\["?[^"\\]]*"?\\]`, 'g');
-    if (simpleRe.test(code)) {
-        return code.replace(simpleRe, `${nodeId}["${safeLabel}"]`);
+    if (nodeDefRe.test(code)) {
+        return code.replace(nodeDefRe, (match, prefix, open, oldLabel, close, cls) => {
+            const classPart = cls || '';
+            return `${nodeId}${open}"${safeLabel}"${close}${classPart}`;
+        });
     }
 
     return code;
@@ -110,27 +108,40 @@ function surgicalEditShapeAndColor(code: string, nodeId: string, newShape: NodeS
     const escId = nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const colorCls = COLOR_CLASSES[colorKey]?.class || 'blueNode';
 
-    const re = new RegExp(
-        `\\b${escId}\\s*(?:\\([\\(\\[\\/\\{]?|\\[[\\/\\[\\(]?|\\{\\{?)\\s*"?((?:[^"\\\\\\])}]|\\\\.)*?)"?\\s*([\\)\\/\\]\\}]+)(?:\\s*:::?\\w+)?`,
+    let openB = '[';
+    let closeB = ']';
+    if (newShape === 'diamond') { openB = '{'; closeB = '}'; }
+    else if (newShape === 'rounded') { openB = '('; closeB = ')'; }
+    else if (newShape === 'circle') { openB = '(('; closeB = '))'; }
+    else if (newShape === 'parallelogram') { openB = '[/'; closeB = '/]'; }
+
+    const nodeDefRe = new RegExp(
+        `(\\b${escId}\\s*)(?:\\[\\/|\\(\\(|[\\[\\(\\{])\\s*"?([^\\]\\)\\n\\r]*?)"?\\s*(?:\\/\\]|\\)\\)|[\\]\\)\\}])(?:\\s*:::?\\w+)?`,
         'g'
     );
 
     let replaced = false;
-    let newCode = code.replace(re, (_, label) => {
+    let updated = code.replace(nodeDefRe, (match, prefix, innerLabel) => {
         replaced = true;
-        const s = (label || nodeId).replace(/"/g, "'");
-        if (newShape === 'diamond') return `${nodeId}{"${s}"}:::${colorCls}`;
-        if (newShape === 'rounded') return `${nodeId}("${s}"):::${colorCls}`;
-        if (newShape === 'circle') return `${nodeId}(("${s}")):::${colorCls}`;
-        if (newShape === 'parallelogram') return `${nodeId}[/"${s}"/]:::${colorCls}`;
-        return `${nodeId}["${s}"]:::${colorCls}`;
+        const cleanTxt = innerLabel.replace(/^["']+|["']+$/g, '').trim();
+        return `${nodeId}${openB}"${cleanTxt}"${closeB}:::${colorCls}`;
     });
 
     if (!replaced) {
-        newCode = `${newCode}\n  class ${nodeId} ${colorCls};`;
+        const classLineRe = new RegExp(`^\\s*class\\s+.*\\b${escId}\\b.*$`, 'gm');
+        if (classLineRe.test(updated)) {
+            updated = updated.replace(classLineRe, `  class ${nodeId} ${colorCls};`);
+        } else {
+            const classIdx = updated.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
+            if (classIdx > -1) {
+                updated = updated.slice(0, classIdx) + `\n  class ${nodeId} ${colorCls};` + updated.slice(classIdx);
+            } else {
+                updated = `${updated}\n  class ${nodeId} ${colorCls};`;
+            }
+        }
     }
 
-    return ensureThemeClassDefs(newCode);
+    return ensureThemeClassDefs(updated);
 }
 
 function surgicalDeleteNode(code: string, nodeId: string): string {
@@ -176,8 +187,15 @@ function surgicalAddNode(code: string, newNodeId: string, label: string, shape: 
 }
 
 function surgicalConnectNodes(code: string, fromId: string, toId: string, label?: string): string {
-    const l = label ? ` -->|"${label}"| ` : ' --> ';
+    const l = label && label.trim() ? ` -->|"${label.trim()}"| ` : ' --> ';
     const edgeLine = `  ${fromId}${l}${toId}`;
+    
+    // Check if edge already exists
+    const escFrom = fromId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escTo = toId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const existingRe = new RegExp(`\\b${escFrom}\\b.*-->.*\\b${escTo}\\b`);
+    if (existingRe.test(code)) return code;
+
     const classIdx = code.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
     if (classIdx > -1) {
         return code.slice(0, classIdx) + `\n${edgeLine}` + code.slice(classIdx);
@@ -324,16 +342,6 @@ const EASY_TEMPLATES = [
   classDef blueNode fill:#f0f7ff,stroke:#0284c7,stroke-width:2px,rx:10,ry:10,color:#0369a1;
   classDef orangeNode fill:#fff7ed,stroke:#ea580c,stroke-width:2px,rx:6,ry:6,color:#c2410c;
   classDef purpleNode fill:#faf5ff,stroke:#9333ea,stroke-width:2px,rx:10,ry:10,color:#7e22ce;`
-    },
-    {
-        name: 'Flux Séquentiel Simple',
-        icon: '➡️',
-        code: `graph TD
-  A1("Début du processus"):::greenNode --> B1["Analyse et vérification"]:::blueNode
-  B1 --> C1("Clôture et validation"):::greenNode
-
-  classDef greenNode fill:#e6f4ea,stroke:#0d9488,stroke-width:2px,rx:10,ry:10,color:#0f766e;
-  classDef blueNode fill:#f0f7ff,stroke:#0284c7,stroke-width:2px,rx:10,ry:10,color:#0369a1;`
     }
 ];
 
@@ -367,9 +375,6 @@ export default function WorkflowEditorPage() {
     // Editable ID
     const [editingId, setEditingId] = useState(false);
     const [newId, setNewId] = useState('');
-
-    const { planData, workflowTasks, availableUsers } = usePlanData();
-    const { risks: allRisks } = useRiskMapping();
 
     const skipMonacoSync = useRef(false);
     const codeRef = useRef(code);
@@ -406,6 +411,12 @@ export default function WorkflowEditorPage() {
         toast({ title: 'Étape supprimée' });
     };
 
+    const handleConnectToStep = (fromId: string, toId: string, label?: string) => {
+        const updated = surgicalConnectNodes(codeRef.current, fromId, toId, label);
+        applyCode(updated);
+        toast({ title: `Liaison créée : ${fromId} ➔ ${toId}` });
+    };
+
     const handleAddConnectedStep = (fromNodeId: string, shape: NodeShape = 'rectangle', color: NodeColor = 'blue', edgeLabel?: string) => {
         const nextIdx = visualModel.nodes.length + 1;
         const nextId = `N${nextIdx}`;
@@ -421,7 +432,7 @@ export default function WorkflowEditorPage() {
         let updated = surgicalAddNode(codeRef.current, idYes, 'Suite si OUI / Validé', 'rectangle', 'blue', fromNodeId, 'Oui');
         updated = surgicalAddNode(updated, idNo, 'Action si NON / Rejet', 'rectangle', 'rose', fromNodeId, 'Non');
         applyCode(updated);
-        toast({ title: 'Branches Oui & Non créées avec succès' });
+        toast({ title: 'Branches Oui & Non créées' });
     };
 
     const handleAddNewStandaloneStep = (shape: NodeShape = 'rectangle', color: NodeColor = 'blue') => {
@@ -664,7 +675,7 @@ export default function WorkflowEditorPage() {
                         </div>
 
                         {/* ══════════════════════════════════════════════════════════
-                            TAB 1 : CONSTRUCTEUR DIRECT QUI PRÉSERVE LE DESIGN
+                            TAB 1 : CONSTRUCTEUR DIRECT
                         ══════════════════════════════════════════════════════════ */}
                         <TabsContent value="builder" className="flex-1 m-0 overflow-auto bg-slate-50/40 p-4 space-y-3">
                             <div className="flex items-center justify-between px-1">
@@ -673,7 +684,7 @@ export default function WorkflowEditorPage() {
                                         Étapes du Processus ({visualModel.nodes.filter(n => n.id !== 'title').length})
                                     </h3>
                                     <p className="text-[11px] text-slate-400">
-                                        Modifiez le texte ou ajoutez des étapes. Les couleurs et le design sont 100% conservés.
+                                        Modifiez le libellé, reliez les étapes et changez les couleurs instantanément.
                                     </p>
                                 </div>
 
@@ -697,7 +708,7 @@ export default function WorkflowEditorPage() {
 
                             {/* Node Cards List */}
                             <div className="space-y-2.5">
-                                {visualModel.nodes.filter(n => n.id !== 'title').map((node, idx) => {
+                                {visualModel.nodes.filter(n => n.id !== 'title').map((node) => {
                                     const isDecision = node.shape === 'diamond';
                                     const outgoing = visualModel.edges.filter(e => e.from === node.id);
 
@@ -722,7 +733,7 @@ export default function WorkflowEditorPage() {
                                                     placeholder="Titre de l'étape..."
                                                 />
 
-                                                {/* Color Swatch / Style Quick-Pick */}
+                                                {/* Color Swatch Picker */}
                                                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
                                                     {(['blue', 'green', 'orange', 'purple', 'rose'] as NodeColor[]).map(c => {
                                                         const cfg = COLOR_CLASSES[c];
@@ -730,6 +741,7 @@ export default function WorkflowEditorPage() {
                                                         return (
                                                             <button
                                                                 key={c}
+                                                                type="button"
                                                                 onClick={() => handleEditNodeTypeAndColor(node.id, node.shape, c)}
                                                                 className={cn(
                                                                     "h-4 w-4 rounded-full transition-transform",
@@ -753,69 +765,90 @@ export default function WorkflowEditorPage() {
                                                 </Button>
                                             </div>
 
-                                            {/* Row 2: Outgoing Links & 1-Click Connected Actions */}
-                                            <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 flex-wrap">
-                                                {/* Outgoing connections display */}
-                                                <div className="flex items-center gap-1.5 flex-wrap">
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase">Suite ➜</span>
-                                                    {outgoing.length > 0 ? (
-                                                        outgoing.map(edge => (
-                                                            <span
-                                                                key={edge.to}
-                                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200"
-                                                            >
-                                                                {edge.label && <span className="text-amber-700">[{edge.label}]</span>}
-                                                                <span>{edge.to}</span>
-                                                                <button
-                                                                    onClick={() => applyCode(surgicalRemoveEdge(codeRef.current, node.id, edge.to))}
-                                                                    className="text-slate-300 hover:text-red-500 ml-0.5"
-                                                                >
-                                                                    ×
-                                                                </button>
-                                                            </span>
-                                                        ))
-                                                    ) : (
-                                                        <span className="text-[10px] text-slate-400 italic">Aucune liaison</span>
-                                                    )}
-                                                </div>
+                                            {/* Row 2: Connections & Next Steps */}
+                                            <div className="pt-2 border-t border-slate-100 space-y-2">
+                                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
+                                                            <LucideIcons.ArrowRight className="h-3 w-3 text-indigo-500" />
+                                                            Suite du flux ➜
+                                                        </span>
 
-                                                {/* Quick Buttons: Next Step or Decision Branches */}
-                                                <div className="flex items-center gap-1.5 ml-auto">
-                                                    {isDecision ? (
-                                                        <Button
-                                                            size="sm"
-                                                            onClick={() => handleAddDecisionBranches(node.id)}
-                                                            className="h-7 text-[10px] bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold gap-1 shadow-2xs"
-                                                        >
-                                                            <LucideIcons.GitFork className="h-3 w-3" /> + Branches (Oui & Non)
-                                                        </Button>
-                                                    ) : (
+                                                        {outgoing.length > 0 ? (
+                                                            outgoing.map(edge => {
+                                                                const targetNode = visualModel.nodes.find(n => n.id === edge.to);
+                                                                return (
+                                                                    <span
+                                                                        key={edge.to}
+                                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs"
+                                                                    >
+                                                                        {edge.label && (
+                                                                            <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 text-[9px] font-black uppercase border border-amber-200">
+                                                                                {edge.label}
+                                                                            </span>
+                                                                        )}
+                                                                        <span className="truncate max-w-[130px]">
+                                                                            {targetNode ? `${edge.to} - ${targetNode.label}` : edge.to}
+                                                                        </span>
+                                                                        <button
+                                                                            onClick={() => applyCode(surgicalRemoveEdge(codeRef.current, node.id, edge.to))}
+                                                                            className="text-slate-400 hover:text-red-600 ml-1 font-bold"
+                                                                            title="Supprimer cette liaison"
+                                                                        >
+                                                                            ×
+                                                                        </button>
+                                                                    </span>
+                                                                );
+                                                            })
+                                                        ) : (
+                                                            <span className="text-[10px] text-slate-400 italic">Non relié (Fin de branche)</span>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Dropdown to connect to ANY existing step */}
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Select onValueChange={(targetId) => {
+                                                            if (targetId && targetId !== node.id) {
+                                                                handleConnectToStep(node.id, targetId);
+                                                            }
+                                                        }}>
+                                                            <SelectTrigger className="h-7 text-[11px] font-bold bg-slate-50 border-slate-200 hover:bg-slate-100 rounded-lg w-48 text-indigo-700">
+                                                                <SelectValue placeholder="🔗 Relier vers une étape..." />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {visualModel.nodes.filter(n => n.id !== 'title' && n.id !== node.id && !outgoing.some(e => e.to === n.id)).map(n => (
+                                                                    <SelectItem key={n.id} value={n.id} className="text-xs font-semibold">
+                                                                        <span className="font-mono font-bold text-slate-500 mr-1.5">[{n.id}]</span>
+                                                                        {n.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+
+                                                        {/* Quick Button: Create a brand new connected step */}
                                                         <Button
                                                             size="sm"
                                                             onClick={() => handleAddConnectedStep(node.id, 'rectangle', 'blue')}
                                                             className="h-7 text-[10px] bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 rounded-lg font-bold gap-1"
                                                         >
-                                                            <LucideIcons.Plus className="h-3 w-3" /> + Étape suivante
+                                                            <LucideIcons.Plus className="h-3 w-3" /> + Nouvelle étape
                                                         </Button>
-                                                    )}
-
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        onClick={() => handleAddConnectedStep(node.id, 'diamond', 'orange')}
-                                                        className="h-7 text-[10px] text-amber-700 hover:bg-amber-50 rounded-lg font-semibold"
-                                                    >
-                                                        + Décision
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        onClick={() => handleAddConnectedStep(node.id, 'rounded', 'green')}
-                                                        className="h-7 text-[10px] text-emerald-700 hover:bg-emerald-50 rounded-lg font-semibold"
-                                                    >
-                                                        + Fin
-                                                    </Button>
+                                                    </div>
                                                 </div>
+
+                                                {/* If Decision, quick branches button */}
+                                                {isDecision && (
+                                                    <div className="flex items-center gap-2 pt-1 border-t border-amber-100">
+                                                        <span className="text-[10px] font-bold text-amber-700 uppercase">Branches décisionnelles :</span>
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => handleAddDecisionBranches(node.id)}
+                                                            className="h-6 text-[10px] bg-amber-500 hover:bg-amber-600 text-white rounded-md font-bold gap-1 shadow-2xs"
+                                                        >
+                                                            <LucideIcons.GitFork className="h-3 w-3" /> + Générer branches "Oui" & "Non"
+                                                        </Button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     );

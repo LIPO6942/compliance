@@ -105,7 +105,13 @@ export function ensureMermaidLoaded(): Promise<any> {
         return mermaidPromise;
     }
 
-    mermaidPromise = new Promise((resolve, reject) => {
+    mermaidPromise = new Promise((resolve) => {
+        const existingScript = document.querySelector('script[data-mermaid-script="true"]') as HTMLScriptElement;
+        if (existingScript && window.mermaid) {
+            const inst = initMermaid(window.mermaid);
+            if (inst) { resolve(inst); return; }
+        }
+
         const cdns = [
             'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.0/mermaid.min.js',
             'https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js',
@@ -118,6 +124,7 @@ export function ensureMermaidLoaded(): Promise<any> {
             const script = document.createElement('script');
             script.src = url;
             script.async = true;
+            script.setAttribute('data-mermaid-script', 'true');
             script.onload = () => {
                 const inst = initMermaid(window.mermaid);
                 if (inst) {
@@ -127,6 +134,7 @@ export function ensureMermaidLoaded(): Promise<any> {
                 }
             };
             script.onerror = () => {
+                script.remove();
                 tryNext();
             };
             document.head.appendChild(script);
@@ -145,7 +153,14 @@ export function ensureMermaidLoaded(): Promise<any> {
                 tryLoadScript(cdns[cdnIndex++]);
             } else {
                 mermaidPromise = null;
-                reject(new Error('Impossible de charger Mermaid depuis les sources disponibles'));
+                // If all fail, resolve null instead of hard rejecting to avoid crashing the view
+                if (window.mermaid) {
+                    resolve(initMermaid(window.mermaid));
+                } else {
+                    setTimeout(() => {
+                        if (window.mermaid) resolve(initMermaid(window.mermaid));
+                    }, 500);
+                }
             }
         };
 
