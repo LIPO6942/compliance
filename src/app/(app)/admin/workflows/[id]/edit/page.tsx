@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation';
 import { MermaidRenderer } from '@/components/plan/MermaidRenderer';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -12,33 +11,16 @@ import * as LucideIcons from 'lucide-react';
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, collection, query, getDocs, orderBy, limit, writeBatch } from 'firebase/firestore';
-import { MermaidWorkflow, WorkflowVersion, WorkflowTask, AuditLog, WorkflowDomain } from '@/types/compliance';
+import { MermaidWorkflow, WorkflowVersion, WorkflowDomain } from '@/types/compliance';
 import { usePlanData } from '@/contexts/PlanDataContext';
 import { useRiskMapping } from '@/contexts/RiskMappingContext';
 import { printWorkflow } from '@/lib/workflowPrint';
 import { recordActivity } from '@/contexts/ActivityLogContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-
-// ── Tag helpers ──────────────────────────────────────────────────────────────
-const TAG_COLORS_EDITOR = [
-    'bg-indigo-100 text-indigo-700 border-indigo-200',
-    'bg-violet-100 text-violet-700 border-violet-200',
-    'bg-sky-100 text-sky-700 border-sky-200',
-    'bg-emerald-100 text-emerald-700 border-emerald-200',
-    'bg-amber-100 text-amber-700 border-amber-200',
-    'bg-rose-100 text-rose-700 border-rose-200',
-    'bg-teal-100 text-teal-700 border-teal-200',
-    'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
-];
-const getTagColorEditor = (tag: string) => {
-    let hash = 0;
-    for (let i = 0; i < tag.length; i++) hash = (hash * 31 + tag.charCodeAt(i)) & 0xffffffff;
-    return TAG_COLORS_EDITOR[Math.abs(hash) % TAG_COLORS_EDITOR.length];
-};
 
 // ── Catégories réglementaires obligatoires ────────────────────────────────────────
 const WORKFLOW_CATEGORIES = ['LAB/FT', 'Veille Réglementaire'] as const;
@@ -53,118 +35,210 @@ declare global {
     interface Window { require: any; monaco: any; }
 }
 
-// ─── Types for visual builder ───────────────────────────────────────────────
+// ── Types for Visual Model ──────────────────────────────────────────────────
 type NodeShape = 'rectangle' | 'rounded' | 'diamond' | 'circle' | 'parallelogram';
-interface VisualNode { id: string; label: string; shape: NodeShape; }
-interface VisualEdge { from: string; to: string; label?: string; }
-interface VisualGraph { direction: 'TD' | 'LR' | 'BT' | 'RL'; nodes: VisualNode[]; edges: VisualEdge[]; }
+type NodeColor = 'blue' | 'green' | 'orange' | 'purple' | 'rose' | 'amber';
 
-const SHAPE_CONFIG: Record<NodeShape, { label: string; short: string; color: string; bg: string; border: string; icon: string }> = {
-    rectangle: { label: 'Action standard', short: 'Action', color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-300', icon: '▭' },
-    diamond: { label: 'Décision / Question', short: 'Décision', color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-300', icon: '◇' },
-    rounded: { label: 'Début ou Fin', short: 'Début/Fin', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-300', icon: '◯' },
-    circle: { label: 'Événement', short: 'Événement', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-300', icon: '●' },
-    parallelogram: { label: 'Document / Donnée I/O', short: 'Document', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300', icon: '◸' },
-};
-
-// ── Convert VisualGraph -> Mermaid Code ─────────────────────────────────────
-function graphToMermaid(graph: VisualGraph, originalCode?: string): string {
-    const dir = graph.direction || 'TD';
-    const lines: string[] = [`graph ${dir}`];
-
-    const formatNodeDecl = (n: VisualNode) => {
-        const s = (n.label || n.id).replace(/"/g, "'");
-        if (n.shape === 'rounded') return `${n.id}("${s}")`;
-        if (n.shape === 'diamond') return `${n.id}{"${s}"}`;
-        if (n.shape === 'circle') return `${n.id}(("${s}"))`;
-        if (n.shape === 'parallelogram') return `${n.id}[/"${s}"/]`;
-        return `${n.id}["${s}"]`;
-    };
-
-    const renderedInEdge = new Set<string>();
-
-    // 1. Edges
-    graph.edges.forEach(e => {
-        const fromNode = graph.nodes.find(n => n.id === e.from);
-        const toNode = graph.nodes.find(n => n.id === e.to);
-
-        const fromStr = fromNode ? formatNodeDecl(fromNode) : e.from;
-        const toStr = toNode ? formatNodeDecl(toNode) : e.to;
-
-        renderedInEdge.add(e.from);
-        renderedInEdge.add(e.to);
-
-        if (e.label && e.label.trim()) {
-            lines.push(`  ${fromStr} -->|"${e.label.trim()}"| ${toStr}`);
-        } else {
-            lines.push(`  ${fromStr} --> ${toStr}`);
-        }
-    });
-
-    // 2. Standalone nodes
-    graph.nodes.forEach(n => {
-        if (!renderedInEdge.has(n.id)) {
-            lines.push(`  ${formatNodeDecl(n)}`);
-        }
-    });
-
-    // 3. Preserve styling if any
-    if (originalCode) {
-        const styleLines = originalCode
-            .split('\n')
-            .map(l => l.trim())
-            .filter(l => l.startsWith('classDef ') || l.startsWith('class ') || l.startsWith('style ') || l.startsWith('linkStyle '));
-        if (styleLines.length > 0) {
-            lines.push('');
-            styleLines.forEach(sl => lines.push(`  ${sl}`));
-        }
-    }
-
-    return lines.join('\n');
+interface VisualNode {
+    id: string;
+    label: string;
+    shape: NodeShape;
+    colorClass?: string;
 }
 
-// ── Convert Mermaid Code -> VisualGraph ─────────────────────────────────────
-function mermaidToGraph(code: string): VisualGraph {
-    const dir = code.match(/(?:graph|flowchart)\s+(TD|LR|BT|RL)/)?.[1] as VisualGraph['direction'] || 'TD';
+interface VisualEdge {
+    from: string;
+    to: string;
+    label?: string;
+}
+
+const COLOR_CLASSES: Record<NodeColor, { class: string; name: string; bg: string; border: string; text: string; dot: string }> = {
+    blue:   { class: 'blueNode',   name: 'Bleu (Action)',      bg: 'bg-sky-50',     border: 'border-sky-300',     text: 'text-sky-700',     dot: 'bg-sky-500' },
+    green:  { class: 'greenNode',  name: 'Vert (Début/Fin)',   bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+    orange: { class: 'orangeNode', name: 'Orange (Décision)',  bg: 'bg-amber-50',   border: 'border-amber-300',   text: 'text-amber-700',   dot: 'bg-amber-500' },
+    purple: { class: 'purpleNode', name: 'Violet (Procédure)', bg: 'bg-purple-50',  border: 'border-purple-300',  text: 'text-purple-700',  dot: 'bg-purple-500' },
+    rose:   { class: 'roseNode',   name: 'Rouge (Alerte)',     bg: 'bg-rose-50',    border: 'border-rose-300',    text: 'text-rose-700',    dot: 'bg-rose-500' },
+    amber:  { class: 'amberNode',  name: 'Jaune (I/O)',        bg: 'bg-yellow-50',  border: 'border-yellow-300',  text: 'text-yellow-700',  dot: 'bg-yellow-500' },
+};
+
+// Ensure default styling classDefs are embedded in the Mermaid code
+function ensureThemeClassDefs(rawCode: string): string {
+    let code = rawCode;
+    const defs = [
+        `classDef greenNode fill:#e6f4ea,stroke:#0d9488,stroke-width:2px,rx:10,ry:10,color:#0f766e;`,
+        `classDef blueNode fill:#f0f7ff,stroke:#0284c7,stroke-width:2px,rx:10,ry:10,color:#0369a1;`,
+        `classDef orangeNode fill:#fff7ed,stroke:#ea580c,stroke-width:2px,rx:6,ry:6,color:#c2410c;`,
+        `classDef purpleNode fill:#faf5ff,stroke:#9333ea,stroke-width:2px,rx:10,ry:10,color:#7e22ce;`,
+        `classDef roseNode fill:#fff1f2,stroke:#e11d48,stroke-width:2px,rx:10,ry:10,color:#be123c;`,
+        `classDef amberNode fill:#fefce8,stroke:#ca8a04,stroke-width:2px,rx:10,ry:10,color:#a16207;`,
+    ];
+
+    defs.forEach(def => {
+        const clsName = def.split(' ')[1];
+        if (!code.includes(`classDef ${clsName} `)) {
+            code += `\n  ${def}`;
+        }
+    });
+
+    return code;
+}
+
+// ── Surgical Mermaid Editors (Preserve ALL formatting & classes) ───────────
+
+function surgicalEditLabel(code: string, nodeId: string, newLabel: string): string {
+    const escId = nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const safeLabel = newLabel.replace(/"/g, "'").replace(/\n/g, '<br/>');
+
+    const re = new RegExp(
+        `(\\b${escId}\\s*(?:\\([\\(\\[\\/\\{]?|\\[[\\/\\[\\(]?|\\{\\{?))\\s*(?:"(?:[^"\\\\]|\\\\.)*"|'(?:[^'\\\\]|\\\\.)*'|[^)\\]}]+)\\s*([\\)\\/\\]\\}]+(?:\\s*:::?\\w+)?)`,
+        'g'
+    );
+
+    if (re.test(code)) {
+        return code.replace(re, `$1"${safeLabel}"$2`);
+    }
+
+    const simpleRe = new RegExp(`\\b${escId}\\["?[^"\\]]*"?\\]`, 'g');
+    if (simpleRe.test(code)) {
+        return code.replace(simpleRe, `${nodeId}["${safeLabel}"]`);
+    }
+
+    return code;
+}
+
+function surgicalEditShapeAndColor(code: string, nodeId: string, newShape: NodeShape, colorKey: NodeColor): string {
+    const escId = nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const colorCls = COLOR_CLASSES[colorKey]?.class || 'blueNode';
+
+    const re = new RegExp(
+        `\\b${escId}\\s*(?:\\([\\(\\[\\/\\{]?|\\[[\\/\\[\\(]?|\\{\\{?)\\s*"?((?:[^"\\\\\\])}]|\\\\.)*?)"?\\s*([\\)\\/\\]\\}]+)(?:\\s*:::?\\w+)?`,
+        'g'
+    );
+
+    let replaced = false;
+    let newCode = code.replace(re, (_, label) => {
+        replaced = true;
+        const s = (label || nodeId).replace(/"/g, "'");
+        if (newShape === 'diamond') return `${nodeId}{"${s}"}:::${colorCls}`;
+        if (newShape === 'rounded') return `${nodeId}("${s}"):::${colorCls}`;
+        if (newShape === 'circle') return `${nodeId}(("${s}")):::${colorCls}`;
+        if (newShape === 'parallelogram') return `${nodeId}[/"${s}"/]:::${colorCls}`;
+        return `${nodeId}["${s}"]:::${colorCls}`;
+    });
+
+    if (!replaced) {
+        newCode = `${newCode}\n  class ${nodeId} ${colorCls};`;
+    }
+
+    return ensureThemeClassDefs(newCode);
+}
+
+function surgicalDeleteNode(code: string, nodeId: string): string {
+    const escId = nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const lines = code.split('\n');
+    const filtered = lines.filter(line => {
+        const t = line.trim();
+        if (new RegExp(`^${escId}\\s*[\\[({]`).test(t)) return false;
+        if (new RegExp(`-->.*\\b${escId}\\b`).test(t)) return false;
+        if (new RegExp(`\\b${escId}\\b.*-->`).test(t)) return false;
+        if (new RegExp(`^class\\s+.*\\b${escId}\\b`).test(t)) return false;
+        return true;
+    });
+    return filtered.join('\n');
+}
+
+function surgicalAddNode(code: string, newNodeId: string, label: string, shape: NodeShape, colorKey: NodeColor, fromNodeId?: string, edgeLabel?: string): string {
+    const safeLabel = (label || newNodeId).replace(/"/g, "'").replace(/\n/g, '<br/>');
+    const colorCls = COLOR_CLASSES[colorKey]?.class || (shape === 'diamond' ? 'orangeNode' : shape === 'rounded' ? 'greenNode' : 'blueNode');
+
+    let nodeDef = `${newNodeId}["${safeLabel}"]:::${colorCls}`;
+    if (shape === 'diamond') nodeDef = `${newNodeId}{"${safeLabel}"}:::${colorCls}`;
+    else if (shape === 'rounded') nodeDef = `${newNodeId}("${safeLabel}"):::${colorCls}`;
+
+    let updatedCode = ensureThemeClassDefs(code);
+
+    if (fromNodeId) {
+        const l = edgeLabel ? ` -->|"${edgeLabel}"| ` : ' --> ';
+        const edgeLine = `  ${fromNodeId}${l}${nodeDef}`;
+        const classIdx = updatedCode.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
+        if (classIdx > -1) {
+            return updatedCode.slice(0, classIdx) + `\n${edgeLine}` + updatedCode.slice(classIdx);
+        }
+        return updatedCode + `\n${edgeLine}`;
+    } else {
+        const declLine = `  ${nodeDef}`;
+        const classIdx = updatedCode.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
+        if (classIdx > -1) {
+            return updatedCode.slice(0, classIdx) + `\n${declLine}` + updatedCode.slice(classIdx);
+        }
+        return updatedCode + `\n${declLine}`;
+    }
+}
+
+function surgicalConnectNodes(code: string, fromId: string, toId: string, label?: string): string {
+    const l = label ? ` -->|"${label}"| ` : ' --> ';
+    const edgeLine = `  ${fromId}${l}${toId}`;
+    const classIdx = code.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
+    if (classIdx > -1) {
+        return code.slice(0, classIdx) + `\n${edgeLine}` + code.slice(classIdx);
+    }
+    return code + `\n${edgeLine}`;
+}
+
+function surgicalRemoveEdge(code: string, fromId: string, toId: string): string {
+    const escFrom = fromId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escTo = toId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const lines = code.split('\n');
+    const filtered = lines.filter(line => {
+        const t = line.trim();
+        const re = new RegExp(`\\b${escFrom}\\b.*-->.*\\b${escTo}\\b`);
+        return !re.test(t);
+    });
+    return filtered.join('\n');
+}
+
+// ── Parse Mermaid Code into Visual Elements ────────────────────────────────
+function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] } {
     const nodes: VisualNode[] = [];
     const edges: VisualEdge[] = [];
-
     const RESERVED = new Set(['graph', 'flowchart', 'TD', 'LR', 'BT', 'RL', 'subgraph', 'end', 'classDef', 'class', 'style', 'linkStyle', 'click']);
 
     const cleanLabel = (raw: string) =>
         raw.replace(/<br\s*\/?>/gi, ' ').replace(/\\n/g, ' ').replace(/<[^>]+>/g, '').replace(/^["']|["']$/g, '').trim();
 
-    const addNode = (id: string, label: string, shape: NodeShape) => {
+    const addNode = (id: string, label: string, shape: NodeShape, colorClass?: string) => {
         if (RESERVED.has(id)) return;
         const existing = nodes.find(n => n.id === id);
         if (existing) {
             if (label && label !== id) existing.label = cleanLabel(label);
             existing.shape = shape;
+            if (colorClass) existing.colorClass = colorClass;
             return;
         }
-        nodes.push({ id, label: cleanLabel(label) || id, shape });
+        nodes.push({ id, label: cleanLabel(label) || id, shape, colorClass });
     };
 
-    const patterns: { re: RegExp; shape: NodeShape }[] = [
-        { re: /\b([A-Za-z0-9_\-\.]+)\(\(\s*"((?:[^"\\]|\\.)*)"\s*\)\)/g, shape: 'circle' },
-        { re: /\b([A-Za-z0-9_\-\.]+)\(\(\s*([^)]+)\s*\)\)/g, shape: 'circle' },
-        { re: /\b([A-Za-z0-9_\-\.]+)\{\s*"((?:[^"\\]|\\.)*)"\s*\}/g, shape: 'diamond' },
-        { re: /\b([A-Za-z0-9_\-\.]+)\{\s*([^}]+)\s*\}/g, shape: 'diamond' },
-        { re: /\b([A-Za-z0-9_\-\.]+)\[\/\s*"((?:[^"\\]|\\.)*?)"\s*\/\]/g, shape: 'parallelogram' },
-        { re: /\b([A-Za-z0-9_\-\.]+)\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g, shape: 'rounded' },
-        { re: /\b([A-Za-z0-9_\-\.]+)\(\s*([^)]+)\s*\)/g, shape: 'rounded' },
-        { re: /\b([A-Za-z0-9_\-\.]+)\[\s*"((?:[^"\\]|\\.)*)"\s*\]/g, shape: 'rectangle' },
-        { re: /\b([A-Za-z0-9_\-\.]+)\[\s*([^\]]+)\s*\]/g, shape: 'rectangle' },
-    ];
+    // Scan node definitions with optional :::class
+    const nodeRe = /\b([A-Za-z0-9_\-\.]+)\s*(?:(\(\(\s*"?((?:[^"\\]|\\.)*?)"?\s*\)\))|(\{\s*"?((?:[^"\\]|\\.)*?)"?\s*\})|(\[\/\s*"?((?:[^"\\]|\\.)*?)"?\s*\/\])|(\(\s*"?((?:[^"\\]|\\.)*?)"?\s*\))|(\[\s*"?((?:[^"\\]|\\.)*?)"?\s*\]))(?:\s*:::?([a-zA-Z0-9_\-]+))?/g;
+    let nm: RegExpExecArray | null;
+    while ((nm = nodeRe.exec(code)) !== null) {
+        const id = nm[1];
+        let shape: NodeShape = 'rectangle';
+        let label = id;
 
-    patterns.forEach(({ re, shape }) => {
-        const clone = new RegExp(re.source, re.flags);
-        let m: RegExpExecArray | null;
-        while ((m = clone.exec(code)) !== null) { addNode(m[1], m[2] ?? m[1], shape); }
-    });
+        if (nm[2]) { shape = 'circle'; label = nm[3]; }
+        else if (nm[4]) { shape = 'diamond'; label = nm[5]; }
+        else if (nm[6]) { shape = 'parallelogram'; label = nm[7]; }
+        else if (nm[8]) { shape = 'rounded'; label = nm[9]; }
+        else if (nm[10]) { shape = 'rectangle'; label = nm[11]; }
 
-    const nodePart = String.raw`([A-Za-z0-9_\-\.]+)(?:\s*(?:\[\/?[^\]]*\]|\{[^}]*\}|\([^)]*\)))?`;
-    const edgeRe = new RegExp(`${nodePart}\\s*--?>+\\s*(?:\\|([^|\\n]*)\\|)?\\s*${nodePart}`, 'g');
+        const colorClass = nm[12];
+        addNode(id, label, shape, colorClass);
+    }
+
+    // Scan edges
+    const nodePart = String.raw`([A-Za-z0-9_\-\.]+)`;
+    const edgeRe = new RegExp(`${nodePart}[^\n\\->]*--?>+\\s*(?:\\|([^|\\n]*)\\|)?\\s*${nodePart}`, 'g');
     let em: RegExpExecArray | null;
     while ((em = edgeRe.exec(code)) !== null) {
         const from = em[1];
@@ -175,42 +249,91 @@ function mermaidToGraph(code: string): VisualGraph {
         addNode(from, from, 'rectangle');
         addNode(to, to, 'rectangle');
     }
-    return { direction: dir, nodes, edges: edges.filter((e, i, arr) => arr.findIndex(x => x.from === e.from && x.to === e.to && x.label === e.label) === i) };
-}
 
-function genNextId(graph: VisualGraph): string {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    let idx = graph.nodes.length;
-    let id = '';
-    do { id = idx < 26 ? letters[idx] : `N${idx + 1}`; idx++; } while (graph.nodes.find(n => n.id === id));
-    return id;
+    // Scan explicit class assignments (class nodeId blueNode)
+    const classAssignRe = /^class\s+([A-Za-z0-9_\-\.,\s]+)\s+([A-Za-z0-9_\-]+)/gm;
+    let cm: RegExpExecArray | null;
+    while ((cm = classAssignRe.exec(code)) !== null) {
+        const assignedIds = cm[1].split(',').map(s => s.trim());
+        const cls = cm[2];
+        assignedIds.forEach(targetId => {
+            const node = nodes.find(n => n.id === targetId);
+            if (node) node.colorClass = cls;
+        });
+    }
+
+    return { nodes, edges };
 }
 
 // ── Modèles de processus prêts à l'emploi ──────────────────────────────────
-const WORKFLOW_TEMPLATES = [
+const EASY_TEMPLATES = [
     {
-        name: 'Flux Séquentiel (3 étapes)',
-        icon: '➡️',
-        description: 'Début ➔ Traitement ➔ Validation finale',
-        code: `graph TD\n  A("1. Réception de la demande") --> B["2. Analyse & Traitement du dossier"]\n  B --> C("3. Validation & Clôture")`
-    },
-    {
-        name: 'Flux avec Décision (Oui / Non)',
-        icon: '🔀',
-        description: 'Question avec branches Oui (accord) et Non (rejet)',
-        code: `graph TD\n  A("Réception demande") --> B{"Critères conformes ?"}\n  B -->|"Oui"| C["Validation & Exécution"]\n  B -->|"Non"| D["Notification de rejet"]\n  C --> E("Fin du processus")\n  D --> E`
-    },
-    {
-        name: 'Vérification KYC & Sanctions (LAB/FT)',
-        icon: '🛡️',
-        description: 'Collecte, criblage listes et vigilance renforcée',
-        code: `graph TD\n  A("Collecte pièces KYC") --> B["Criblage listes sanctions & PPE"]\n  B --> C{"Client à risque élevé ?"}\n  C -->|"Oui"| D["Dossier Vigilance Renforcée & Avis Délégué"]\n  C -->|"Non"| E["Entrée en relation standard"]\n  D --> F("Archivage & Monitoring continu")\n  E --> F`
-    },
-    {
-        name: 'Veille & Mise en Conformité',
+        name: 'Veille Réglementaire Complète (Colorée)',
         icon: '📖',
-        description: 'Analyse nouvelle circulaire et mise à jour procédures',
-        code: `graph TD\n  A("Publication texte réglementaire") --> B["Analyse d'impact opérationnel"]\n  B --> C{"Impact sur procédures internes ?"}\n  C -->|"Oui"| D["Mise à jour procédures & Formation réseau"]\n  C -->|"Non"| E["Archivage de veille réglementaire"]\n  D --> F("Rapport semestriel Direction")\n  E --> F`
+        code: `graph TD
+  title["<div style='font-size:16px;font-weight:bold;padding:4px 8px;'>VEILLE REGLEMENTAIRE</div>"]:::titleClass
+  S1["Identification Nouvelle Loi<br/>ou Circulaire"]:::greenNode
+  A1["Analyse du Texte<br/>et de la Portee"]:::blueNode
+  B1{"Applicable?"}:::orangeNode
+  C1["Evaluation de l Impact<br/>sur les activites"]:::purpleNode
+  D1["Revision du Manuel<br/>de Procedures"]:::purpleNode
+  E1["Mise a jour des Formulaires<br/>et Contrats"]:::purpleNode
+  F1["Demande d evolution<br/>aux equipes IT"]:::purpleNode
+  G1["Planification des Formations"]:::purpleNode
+  H1["FIN : Loi integree<br/>dans les operations"]:::greenNode
+  J1["FIN : Simple veille<br/>et archivage"]:::greenNode
+
+  title --> S1
+  S1 --> A1
+  A1 --> B1
+  B1 -->|Non| J1
+  B1 -->|Oui| C1
+  C1 --> D1
+  D1 --> E1
+  E1 --> F1
+  F1 --> G1
+  G1 --> H1
+
+  classDef titleClass fill:#ffffff,stroke:none,font-weight:bold;
+  classDef greenNode fill:#e6f4ea,stroke:#0d9488,stroke-width:2px,rx:10,ry:10,color:#0f766e;
+  classDef blueNode fill:#f0f7ff,stroke:#0284c7,stroke-width:2px,rx:10,ry:10,color:#0369a1;
+  classDef orangeNode fill:#fff7ed,stroke:#ea580c,stroke-width:2px,rx:6,ry:6,color:#c2410c;
+  classDef purpleNode fill:#faf5ff,stroke:#9333ea,stroke-width:2px,rx:10,ry:10,color:#7e22ce;`
+    },
+    {
+        name: 'Entrée en Relation & KYC (LAB/FT)',
+        icon: '🛡️',
+        code: `graph TD
+  A1("1. Réception dossier d'adhésion"):::greenNode
+  B1["2. Collecte des justificatifs KYC"]:::blueNode
+  C1["3. Criblage listes sanctions (RegTools)"]:::blueNode
+  D1{"4. Risque élevé ou PPE ?"}:::orangeNode
+  E1["5. Dossier Vigilance Renforcée & Validation"]:::purpleNode
+  F1["6. Entrée en relation standard"]:::blueNode
+  G1("7. Validation finale & Monitoring"):::greenNode
+
+  A1 --> B1
+  B1 --> C1
+  C1 --> D1
+  D1 -->|Oui| E1
+  D1 -->|Non| F1
+  E1 --> G1
+  F1 --> G1
+
+  classDef greenNode fill:#e6f4ea,stroke:#0d9488,stroke-width:2px,rx:10,ry:10,color:#0f766e;
+  classDef blueNode fill:#f0f7ff,stroke:#0284c7,stroke-width:2px,rx:10,ry:10,color:#0369a1;
+  classDef orangeNode fill:#fff7ed,stroke:#ea580c,stroke-width:2px,rx:6,ry:6,color:#c2410c;
+  classDef purpleNode fill:#faf5ff,stroke:#9333ea,stroke-width:2px,rx:10,ry:10,color:#7e22ce;`
+    },
+    {
+        name: 'Flux Séquentiel Simple',
+        icon: '➡️',
+        code: `graph TD
+  A1("Début du processus"):::greenNode --> B1["Analyse et vérification"]:::blueNode
+  B1 --> C1("Clôture et validation"):::greenNode
+
+  classDef greenNode fill:#e6f4ea,stroke:#0d9488,stroke-width:2px,rx:10,ry:10,color:#0f766e;
+  classDef blueNode fill:#f0f7ff,stroke:#0284c7,stroke-width:2px,rx:10,ry:10,color:#0369a1;`
     }
 ];
 
@@ -222,7 +345,7 @@ export default function WorkflowEditorPage() {
     const editorRef = useRef<any>(null);
     const monacoContainerRef = useRef<HTMLDivElement>(null);
 
-    const [code, setCode] = useState<string>('graph TD\n  A["Début"] --> B{"Décision"}\n  B -->|"Oui"| C["Fin"]\n  B -->|"Non"| D["Action"]');
+    const [code, setCode] = useState<string>(EASY_TEMPLATES[0].code);
     const [name, setName] = useState<string>('');
     const [domain, setDomain] = useState<WorkflowDomain>('Conformité');
     const [loading, setLoading] = useState(true);
@@ -231,256 +354,84 @@ export default function WorkflowEditorPage() {
     const [isMonacoReady, setIsMonacoReady] = useState(false);
     const [activeTab, setActiveTab] = useState('builder');
 
-    const [graph, setGraph] = useState<VisualGraph>({ direction: 'TD', nodes: [], edges: [] });
-    const [searchQuery, setSearchQuery] = useState('');
+    // Visual model parsed from current code
+    const [visualModel, setVisualModel] = useState<{ nodes: VisualNode[]; edges: VisualEdge[] }>({ nodes: [], edges: [] });
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [zoom, setZoom] = useState(0.3);
 
-    // New link inline helper state
-    const [linkingFromId, setLinkingFromId] = useState<string | null>(null);
-    const [linkingTargetId, setLinkingTargetId] = useState<string>('');
-    const [linkingLabel, setLinkingLabel] = useState<string>('');
-
-    const [processAssignees, setProcessAssignees] = useState<{ userId: string; userName: string; role: string }[]>([]);
-    const [addingAssignee, setAddingAssignee] = useState(false);
-    const [newAssigneeForm, setNewAssigneeForm] = useState<{ userId: string; userName: string; role: string }>({ userId: '', userName: '', role: '' });
-
-    // ── Tags state ───────────────────────────────────────────────────────────
+    // Tags & Category
     const [tags, setTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
-    const [existingTags, setExistingTags] = useState<string[]>([]);
-    const [showTagSuggestions, setShowTagSuggestions] = useState(false);
-    const tagInputRef = useRef<HTMLInputElement>(null);
-    // Catégorie obligatoire
     const [category, setCategory] = useState<WorkflowCategory | ''>('LAB/FT');
 
-    // ── Editable ID state ──────────────────────────────────────────────────
+    // Editable ID
     const [editingId, setEditingId] = useState(false);
     const [newId, setNewId] = useState('');
 
-    const { auditLogs, availableUsers, availableRoles, planData, workflowTasks } = usePlanData();
+    const { planData, workflowTasks, availableUsers } = usePlanData();
     const { risks: allRisks } = useRiskMapping();
 
     const skipMonacoSync = useRef(false);
     const codeRef = useRef(code);
     useEffect(() => { codeRef.current = code; }, [code]);
 
+    // Apply Code safely
     const applyCode = useCallback((newCode: string) => {
-        codeRef.current = newCode;
-        setCode(newCode);
-        setGraph(mermaidToGraph(newCode));
-        if (editorRef.current && editorRef.current.getValue() !== newCode) {
+        const enriched = ensureThemeClassDefs(newCode);
+        codeRef.current = enriched;
+        setCode(enriched);
+        setVisualModel(parseMermaid(enriched));
+
+        if (editorRef.current && editorRef.current.getValue() !== enriched) {
             skipMonacoSync.current = true;
-            editorRef.current.setValue(newCode);
+            editorRef.current.setValue(enriched);
         }
     }, []);
 
-    // ── Simple Visual Builder Operations ───────────────────────────────────
+    // ── Direct Surgical Modifications ──────────────────────────────────────
 
-    // Update node label directly
-    const handleUpdateNodeLabel = (nodeId: string, newLabel: string) => {
-        setGraph(prev => {
-            const updatedNodes = prev.nodes.map(n => n.id === nodeId ? { ...n, label: newLabel } : n);
-            const newG = { ...prev, nodes: updatedNodes };
-            applyCode(graphToMermaid(newG, codeRef.current));
-            return newG;
-        });
+    const handleEditNodeText = (nodeId: string, newText: string) => {
+        const updated = surgicalEditLabel(codeRef.current, nodeId, newText);
+        applyCode(updated);
     };
 
-    // Update node shape directly
-    const handleUpdateNodeShape = (nodeId: string, newShape: NodeShape) => {
-        setGraph(prev => {
-            const updatedNodes = prev.nodes.map(n => n.id === nodeId ? { ...n, shape: newShape } : n);
-            const newG = { ...prev, nodes: updatedNodes };
-            applyCode(graphToMermaid(newG, codeRef.current));
-            return newG;
-        });
+    const handleEditNodeTypeAndColor = (nodeId: string, shape: NodeShape, color: NodeColor) => {
+        const updated = surgicalEditShapeAndColor(codeRef.current, nodeId, shape, color);
+        applyCode(updated);
     };
 
-    // Add a quick new standalone step
-    const handleAddStandaloneStep = (shape: NodeShape = 'rectangle', defaultLabel?: string) => {
-        const nextId = genNextId(graph);
-        const label = defaultLabel || (shape === 'diamond' ? 'Condition / Critère ?' : shape === 'rounded' ? 'Étape' : 'Nouvelle action');
-        const newNode: VisualNode = { id: nextId, label, shape };
-        const newG: VisualGraph = { ...graph, nodes: [...graph.nodes, newNode] };
-        applyCode(graphToMermaid(newG, codeRef.current));
+    const handleDeleteNode = (nodeId: string) => {
+        const updated = surgicalDeleteNode(codeRef.current, nodeId);
+        applyCode(updated);
+        toast({ title: 'Étape supprimée' });
+    };
+
+    const handleAddConnectedStep = (fromNodeId: string, shape: NodeShape = 'rectangle', color: NodeColor = 'blue', edgeLabel?: string) => {
+        const nextIdx = visualModel.nodes.length + 1;
+        const nextId = `N${nextIdx}`;
+        const defaultLabel = shape === 'diamond' ? 'Condition / Décision ?' : `Nouvelle étape ${nextIdx}`;
+        const updated = surgicalAddNode(codeRef.current, nextId, defaultLabel, shape, color, fromNodeId, edgeLabel);
+        applyCode(updated);
         toast({ title: `Étape ${nextId} ajoutée` });
     };
 
-    // ➕ 1-Click: Add connected next step from a node
-    const handleAddNextStep = (fromNodeId: string, defaultLabel = 'Étape suivante', edgeLabel?: string, shape: NodeShape = 'rectangle') => {
-        const nextId = genNextId(graph);
-        const newNode: VisualNode = { id: nextId, label: defaultLabel, shape };
-        const newEdge: VisualEdge = { from: fromNodeId, to: nextId, label: edgeLabel };
-        const newG: VisualGraph = {
-            ...graph,
-            nodes: [...graph.nodes, newNode],
-            edges: [...graph.edges, newEdge]
-        };
-        applyCode(graphToMermaid(newG, codeRef.current));
-        toast({ title: `Étape ${nextId} créée et connectée` });
-    };
-
-    // ➕ 1-Click for Decisions: Add both "Oui" and "Non" branches
     const handleAddDecisionBranches = (fromNodeId: string) => {
-        const idYes = genNextId(graph);
-        const dummyGraph1: VisualGraph = { ...graph, nodes: [...graph.nodes, { id: idYes, label: '', shape: 'rectangle' }] };
-        const idNo = genNextId(dummyGraph1);
-
-        const nodeYes: VisualNode = { id: idYes, label: 'Action si OUI / Validé', shape: 'rectangle' };
-        const nodeNo: VisualNode = { id: idNo, label: 'Action si NON / Rejeté', shape: 'rectangle' };
-        const edgeYes: VisualEdge = { from: fromNodeId, to: idYes, label: 'Oui' };
-        const edgeNo: VisualEdge = { from: fromNodeId, to: idNo, label: 'Non' };
-
-        const newG: VisualGraph = {
-            ...graph,
-            nodes: [...graph.nodes, nodeYes, nodeNo],
-            edges: [...graph.edges, edgeYes, edgeNo]
-        };
-        applyCode(graphToMermaid(newG, codeRef.current));
-        toast({ title: `2 branches (Oui & Non) créées pour ${fromNodeId}` });
+        const idYes = `Y_${Date.now().toString().slice(-4)}`;
+        const idNo = `N_${Date.now().toString().slice(-4)}`;
+        let updated = surgicalAddNode(codeRef.current, idYes, 'Suite si OUI / Validé', 'rectangle', 'blue', fromNodeId, 'Oui');
+        updated = surgicalAddNode(updated, idNo, 'Action si NON / Rejet', 'rectangle', 'rose', fromNodeId, 'Non');
+        applyCode(updated);
+        toast({ title: 'Branches Oui & Non créées avec succès' });
     };
 
-    // Connect node to existing node
-    const handleConnectToExisting = (fromId: string, toId: string, label?: string) => {
-        if (!fromId || !toId || fromId === toId) return;
-        const exists = graph.edges.some(e => e.from === fromId && e.to === toId);
-        if (exists) {
-            toast({ title: 'Ce lien existe déjà', variant: 'destructive' });
-            return;
-        }
-        const newEdge: VisualEdge = { from: fromId, to: toId, label: label?.trim() || undefined };
-        const newG: VisualGraph = { ...graph, edges: [...graph.edges, newEdge] };
-        applyCode(graphToMermaid(newG, codeRef.current));
-        setLinkingFromId(null);
-        setLinkingTargetId('');
-        setLinkingLabel('');
-        toast({ title: 'Lien créé' });
+    const handleAddNewStandaloneStep = (shape: NodeShape = 'rectangle', color: NodeColor = 'blue') => {
+        const nextIdx = visualModel.nodes.length + 1;
+        const nextId = `N${nextIdx}`;
+        const label = shape === 'diamond' ? 'Décision ?' : shape === 'rounded' ? 'Début/Fin' : `Étape ${nextIdx}`;
+        const updated = surgicalAddNode(codeRef.current, nextId, label, shape, color);
+        applyCode(updated);
+        toast({ title: `Étape ${nextId} ajoutée` });
     };
-
-    // Remove an edge
-    const handleRemoveEdge = (fromId: string, toId: string) => {
-        const newEdges = graph.edges.filter(e => !(e.from === fromId && e.to === toId));
-        const newG: VisualGraph = { ...graph, edges: newEdges };
-        applyCode(graphToMermaid(newG, codeRef.current));
-        toast({ title: 'Lien supprimé' });
-    };
-
-    // Delete a node and all connected edges
-    const handleDeleteNode = (nodeId: string) => {
-        const newNodes = graph.nodes.filter(n => n.id !== nodeId);
-        const newEdges = graph.edges.filter(e => e.from !== nodeId && e.to !== nodeId);
-        const newG: VisualGraph = { ...graph, nodes: newNodes, edges: newEdges };
-        applyCode(graphToMermaid(newG, codeRef.current));
-        toast({ title: `Étape ${nodeId} supprimée` });
-    };
-
-    // Change orientation (TD vs LR)
-    const handleToggleDirection = (dir: 'TD' | 'LR') => {
-        const newG: VisualGraph = { ...graph, direction: dir };
-        applyCode(graphToMermaid(newG, codeRef.current));
-        toast({ title: `Orientation : ${dir === 'TD' ? 'Verticale' : 'Horizontale'}` });
-    };
-
-    // Apply a pre-made template
-    const handleApplyTemplate = (templateCode: string, templateName: string) => {
-        applyCode(templateCode);
-        toast({ title: `Modèle appliqué : ${templateName}` });
-    };
-
-    // ── Tag helpers ────────────────────────────────────────────────────────
-    const filteredTagSuggestions = existingTags.filter(
-        t => !tags.includes(t) && !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory) && t.toLowerCase().includes(tagInput.toLowerCase().trim())
-    );
-
-    const addTag = (tag: string) => {
-        const clean = tag.trim();
-        if (!clean || tags.includes(clean)) return;
-        setTags(prev => [...prev, clean]);
-        setTagInput('');
-        setShowTagSuggestions(false);
-        tagInputRef.current?.focus();
-    };
-
-    const removeTag = (tag: string) => setTags(prev => prev.filter(t => t !== tag));
-
-    const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' || e.key === ',') {
-            e.preventDefault();
-            addTag(tagInput);
-        } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
-            removeTag(tags[tags.length - 1]);
-        } else if (e.key === 'Escape') {
-            setShowTagSuggestions(false);
-        }
-    };
-
-    // ── Monaco initialization ──────────────────────────────────────────────
-    const initMonaco = useCallback(() => {
-        if (typeof window === 'undefined' || !monacoContainerRef.current || editorRef.current) return;
-
-        const setup = () => {
-            if (!monacoContainerRef.current || editorRef.current) return;
-
-            try {
-                if (!window.monaco.languages.getLanguages().some((l: any) => l.id === 'mermaid')) {
-                    window.monaco.languages.register({ id: 'mermaid' });
-                }
-            } catch (e) { console.error('Error registering mermaid language', e); }
-
-            editorRef.current = window.monaco.editor.create(monacoContainerRef.current, {
-                value: codeRef.current,
-                language: 'mermaid',
-                theme: 'vs-dark',
-                minimap: { enabled: false },
-                fontSize: 14,
-                automaticLayout: true,
-                padding: { top: 10 }
-            });
-
-            editorRef.current.onDidChangeModelContent(() => {
-                if (skipMonacoSync.current) {
-                    skipMonacoSync.current = false;
-                    return;
-                }
-                const newVal = editorRef.current.getValue();
-                setCode(newVal);
-                setGraph(mermaidToGraph(newVal));
-            });
-            setIsMonacoReady(true);
-        };
-
-        if (window.monaco) {
-            setup();
-        } else if (window.require) {
-            window.require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
-            window.require(['vs/editor/editor.main'], () => {
-                setup();
-            });
-        }
-    }, []);
-
-    useEffect(() => {
-        if (activeTab === 'editor') {
-            const timer = setTimeout(initMonaco, 100);
-            return () => clearTimeout(timer);
-        } else {
-            if (editorRef.current) {
-                editorRef.current.dispose();
-                editorRef.current = null;
-                setIsMonacoReady(false);
-            }
-        }
-    }, [activeTab, initMonaco]);
-
-    useEffect(() => {
-        return () => {
-            if (editorRef.current) {
-                editorRef.current.dispose();
-                editorRef.current = null;
-            }
-        };
-    }, []);
 
     // ── Load workflow from Firestore ───────────────────────────────────────
     useEffect(() => {
@@ -494,30 +445,31 @@ export default function WorkflowEditorPage() {
                     setActiveWorkflow({ ...data, id: snap.id });
                     setName(data.name);
                     setDomain(data.domain || 'Conformité');
-                    if (data.processAssignees) setProcessAssignees(data.processAssignees);
                     if (data.tags) {
                         setTags(data.tags);
                         const foundCat = data.tags.find(t => WORKFLOW_CATEGORIES.includes(t as WorkflowCategory));
                         if (foundCat) setCategory(foundCat as WorkflowCategory);
                     }
                     const vSnap = await getDocs(query(collection(db, 'workflows', id, 'versions'), orderBy('version', 'desc'), limit(1)));
-                    if (!vSnap.empty) applyCode((vSnap.docs[0].data() as WorkflowVersion).mermaidCode);
+                    if (!vSnap.empty) {
+                        applyCode((vSnap.docs[0].data() as WorkflowVersion).mermaidCode);
+                    } else {
+                        applyCode(EASY_TEMPLATES[0].code);
+                    }
                 } else {
-                    setName(id === 'eer' ? 'Entrée en Relation' : id === 'gel' ? 'Gel des Avoirs' : 'Processus Métier');
-                    applyCode(code);
+                    setName(id === 'vr001' ? 'VEILLE REGLEMENTAIRE' : id === 'eer' ? 'Entrée en Relation' : 'Processus Métier');
+                    applyCode(EASY_TEMPLATES[0].code);
                 }
-
-                // Charger suggestions de tags
-                const allSnap = await getDocs(collection(db, 'workflows'));
-                const tagSet = new Set<string>();
-                allSnap.docs.forEach(d => { const dt = d.data() as MermaidWorkflow; (dt.tags || []).forEach(t => tagSet.add(t)); });
-                setExistingTags(Array.from(tagSet).sort((a, b) => a.localeCompare(b, 'fr')));
-            } catch (e) { console.error(e); } finally { setLoading(false); }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
         };
         load();
-    }, [id]);
+    }, [id, applyCode]);
 
-    // ── Save / Publish Workflow ────────────────────────────────────────────
+    // ── Save / Publish ──────────────────────────────────────────────────────
     const handleSave = async (status: 'draft' | 'published') => {
         if (!id || !db) return;
         setSaving(true);
@@ -528,10 +480,7 @@ export default function WorkflowEditorPage() {
             await setDoc(doc(db, 'workflows', id, 'versions', vId), { id: vId, mermaidCode: code, version: nextV, status, createdAt: now, updatedAt: now });
             const data: Partial<MermaidWorkflow> = {
                 workflowId: id, name, domain, currentVersion: nextV, updatedAt: now,
-                processAssignees,
-                tags: category
-                    ? [category, ...tags.filter(t => !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory))]
-                    : tags.length > 0 ? tags : [],
+                tags: category ? [category, ...tags.filter(t => !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory))] : tags,
                 ...(status === 'published' ? { activeVersionId: vId } : {})
             };
             await setDoc(doc(db, 'workflows', id), data, { merge: true });
@@ -545,118 +494,87 @@ export default function WorkflowEditorPage() {
 
             toast({ title: status === 'published' ? '✅ Workflow publié !' : '💾 Sauvegardé' });
             setActiveWorkflow(prev => prev ? { ...prev, ...data } as MermaidWorkflow : { ...data, id } as MermaidWorkflow);
-        } catch (e) { toast({ title: 'Erreur', variant: 'destructive' }); } finally { setSaving(false); }
+        } catch (e) {
+            toast({ title: 'Erreur lors de la sauvegarde', variant: 'destructive' });
+        } finally {
+            setSaving(false);
+        }
     };
 
-    // ── Rename / migrate workflow ID ───────────────────────────────────────
+    // ── Rename ID ───────────────────────────────────────────────────────────
     const handleRenameId = async () => {
         if (!db || !newId.trim() || newId.trim() === id) { setEditingId(false); return; }
         const sanitized = newId.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '');
         if (!sanitized) { toast({ title: 'ID invalide', variant: 'destructive' }); return; }
 
         const existing = await getDoc(doc(db, 'workflows', sanitized));
-        if (existing.exists()) { toast({ title: 'ID déjà existant', description: 'Choisissez un autre identifiant.', variant: 'destructive' }); return; }
+        if (existing.exists()) { toast({ title: 'ID déjà existant', variant: 'destructive' }); return; }
 
         try {
             setSaving(true);
             const now = new Date().toISOString();
             const currentSnap = await getDoc(doc(db, 'workflows', id));
             const currentData = currentSnap.exists() ? currentSnap.data() : {
-                id: sanitized,
-                workflowId: sanitized,
-                name: name || sanitized,
-                domain: domain || 'Conformité',
-                currentVersion: activeWorkflow?.currentVersion || 1,
-                createdAt: now,
-                updatedAt: now,
-                tags: category ? [category, ...tags.filter(t => !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory))] : tags,
-                processAssignees
+                id: sanitized, workflowId: sanitized, name: name || sanitized, domain, currentVersion: 1, createdAt: now, updatedAt: now,
+                tags: category ? [category, ...tags.filter(t => !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory))] : tags
             };
 
-            await setDoc(doc(db, 'workflows', sanitized), {
-                ...currentData,
-                id: sanitized,
-                workflowId: sanitized,
-                name: name || currentData.name || sanitized,
-                updatedAt: now
-            });
-
+            await setDoc(doc(db, 'workflows', sanitized), { ...currentData, id: sanitized, workflowId: sanitized, name: name || sanitized, updatedAt: now });
             const versSnap = await getDocs(collection(db, 'workflows', id, 'versions'));
-            if (!versSnap.empty) {
-                for (const vDoc of versSnap.docs) {
-                    await setDoc(doc(db, 'workflows', sanitized, 'versions', vDoc.id), vDoc.data());
-                }
-            } else {
-                const vId = `v1-${Date.now()}`;
-                await setDoc(doc(db, 'workflows', sanitized, 'versions', vId), {
-                    id: vId,
-                    mermaidCode: code,
-                    version: activeWorkflow?.currentVersion || 1,
-                    status: 'published',
-                    createdAt: now,
-                    updatedAt: now
-                });
+            for (const vDoc of versSnap.docs) {
+                await setDoc(doc(db, 'workflows', sanitized, 'versions', vDoc.id), vDoc.data());
             }
-
             const delBatch = writeBatch(db);
-            if (!versSnap.empty) {
-                versSnap.docs.forEach(vDoc => delBatch.delete(doc(db, 'workflows', id, 'versions', vDoc.id)));
-            }
-            if (currentSnap.exists()) {
-                delBatch.delete(doc(db, 'workflows', id));
-            }
+            versSnap.docs.forEach(vDoc => delBatch.delete(doc(db, 'workflows', id, 'versions', vDoc.id)));
+            if (currentSnap.exists()) delBatch.delete(doc(db, 'workflows', id));
             await delBatch.commit();
 
-            recordActivity({
-                action: 'WORKFLOW_UPDATE',
-                label: `Renommage ID Workflow : ${id} → ${sanitized}`,
-                detail: `Ancien ID: ${id} • Nouvel ID: ${sanitized} • Nom: ${name || sanitized}`,
-                module: 'Processus Métiers'
-            });
-
-            toast({ title: '✅ ID modifié avec succès', description: `${id} → ${sanitized}` });
+            toast({ title: '✅ ID modifié', description: `${id} → ${sanitized}` });
             router.push(`/admin/workflows/${sanitized}/edit`);
         } catch (e) {
-            console.error('Erreur rename workflow:', e);
-            toast({ title: 'Erreur lors du renommage', description: String(e), variant: 'destructive' });
+            toast({ title: 'Erreur lors du renommage', variant: 'destructive' });
         } finally { setSaving(false); setEditingId(false); }
     };
 
-    const handlePrint = async () => {
-        try {
-            toast({ title: "Impression du diagramme", description: `Mise en page optimisée 1 page...` });
-            const svgEl = document.querySelector('.mermaid svg');
-            const svgHtml = svgEl ? svgEl.outerHTML : undefined;
-            await printWorkflow({
-                name: name || id,
-                workflowId: id,
-                domain,
-                version: activeWorkflow?.currentVersion || 1,
-                code,
-                svgHtml,
-                planData,
-                workflowTasks,
-                availableUsers,
-                allRisks
+    // Monaco Setup
+    const initMonaco = useCallback(() => {
+        if (typeof window === 'undefined' || !monacoContainerRef.current || editorRef.current) return;
+        const setup = () => {
+            if (!monacoContainerRef.current || editorRef.current) return;
+            editorRef.current = window.monaco.editor.create(monacoContainerRef.current, {
+                value: codeRef.current, language: 'mermaid', theme: 'vs-dark', minimap: { enabled: false }, fontSize: 13, automaticLayout: true, padding: { top: 10 }
             });
-        } catch (e) {
-            toast({ title: "Erreur d'impression", variant: "destructive" });
+            editorRef.current.onDidChangeModelContent(() => {
+                if (skipMonacoSync.current) { skipMonacoSync.current = false; return; }
+                const newVal = editorRef.current.getValue();
+                applyCode(newVal);
+            });
+            setIsMonacoReady(true);
+        };
+        if (window.monaco) setup();
+        else if (window.require) {
+            window.require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+            window.require(['vs/editor/editor.main'], () => setup());
         }
-    };
+    }, [applyCode]);
 
-    // Filtered nodes for search
-    const filteredNodes = useMemo(() => {
-        if (!searchQuery.trim()) return graph.nodes;
-        const q = searchQuery.toLowerCase();
-        return graph.nodes.filter(n => n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q));
-    }, [graph.nodes, searchQuery]);
+    useEffect(() => {
+        if (activeTab === 'editor') {
+            const timer = setTimeout(initMonaco, 100);
+            return () => clearTimeout(timer);
+        } else if (editorRef.current) {
+            editorRef.current.dispose();
+            editorRef.current = null;
+            setIsMonacoReady(false);
+        }
+    }, [activeTab, initMonaco]);
 
     if (loading) return <div className="p-20 text-center font-bold text-slate-500 animate-pulse">Chargement de l'éditeur...</div>;
 
     return (
         <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-100/50">
-            {/* ── Top App Bar ────────────────────────────────────────────── */}
-            <div className="border-b bg-white px-6 py-3 flex justify-between items-center shrink-0 z-20 shadow-sm">
+            {/* ── Top Header Bar ──────────────────────────────────────────── */}
+            <div className="border-b bg-white px-6 py-3 flex justify-between items-center shrink-0 z-20 shadow-xs">
                 <div className="flex items-center gap-4">
                     <Link href="/admin/workflows">
                         <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100">
@@ -667,10 +585,9 @@ export default function WorkflowEditorPage() {
                         <Input
                             value={name}
                             onChange={e => setName(e.target.value)}
-                            className="h-8 font-extrabold border-none px-0 focus-visible:ring-0 text-xl w-[320px] bg-transparent text-slate-900"
-                            placeholder="Nom du workflow..."
+                            className="h-8 font-black border-none px-0 focus-visible:ring-0 text-xl w-[320px] bg-transparent text-slate-900"
+                            placeholder="Nom du processus..."
                         />
-                        {/* Editable ID */}
                         {editingId ? (
                             <div className="flex items-center gap-1 mt-0.5">
                                 <input
@@ -678,25 +595,19 @@ export default function WorkflowEditorPage() {
                                     value={newId}
                                     onChange={e => setNewId(e.target.value)}
                                     onKeyDown={e => { if (e.key === 'Enter') handleRenameId(); if (e.key === 'Escape') setEditingId(false); }}
-                                    className="font-mono text-xs text-slate-700 bg-slate-100 border border-slate-300 rounded-md px-2 py-0.5 w-48 outline-none focus:border-indigo-500"
+                                    className="font-mono text-xs text-slate-700 bg-slate-100 border border-slate-300 rounded px-2 py-0.5 w-44 outline-none"
                                     placeholder={id}
                                 />
-                                <button onClick={handleRenameId} className="text-emerald-600 hover:text-emerald-700 p-1" title="Confirmer">
-                                    <LucideIcons.Check className="h-4 w-4" />
-                                </button>
-                                <button onClick={() => setEditingId(false)} className="text-slate-400 hover:text-slate-600 p-1" title="Annuler">
-                                    <LucideIcons.X className="h-4 w-4" />
-                                </button>
+                                <button onClick={handleRenameId} className="text-emerald-600 p-1"><LucideIcons.Check className="h-4 w-4" /></button>
+                                <button onClick={() => setEditingId(false)} className="text-slate-400 p-1"><LucideIcons.X className="h-4 w-4" /></button>
                             </div>
                         ) : (
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 <p className="text-[11px] text-slate-400 font-mono">
                                     ID: <span className="font-semibold text-slate-600">{id}</span>
-                                    {activeWorkflow?.activeVersionId && (
-                                        <span className="text-emerald-600 font-bold ml-2">● V{activeWorkflow.currentVersion} ACTIF</span>
-                                    )}
+                                    {activeWorkflow?.activeVersionId && <span className="text-emerald-600 font-bold ml-2">● V{activeWorkflow.currentVersion} ACTIF</span>}
                                 </p>
-                                <button onClick={() => { setNewId(id); setEditingId(true); }} className="text-slate-300 hover:text-indigo-600 transition-colors p-0.5" title="Modifier l'ID">
+                                <button onClick={() => { setNewId(id); setEditingId(true); }} className="text-slate-300 hover:text-indigo-600 p-0.5" title="Modifier l'ID">
                                     <LucideIcons.Pencil className="h-3 w-3" />
                                 </button>
                             </div>
@@ -705,9 +616,6 @@ export default function WorkflowEditorPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={handlePrint} className="rounded-xl font-bold border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100">
-                        <LucideIcons.Printer className="h-4 w-4 mr-1.5" /> Imprimer (1 page)
-                    </Button>
                     <Button variant="outline" size="sm" onClick={() => handleSave('draft')} disabled={saving} className="rounded-xl font-bold">
                         {saving ? <LucideIcons.Loader2 className="animate-spin h-4 w-4" /> : <LucideIcons.Save className="h-4 w-4 mr-1.5" />}
                         Brouillon
@@ -719,391 +627,211 @@ export default function WorkflowEditorPage() {
                 </div>
             </div>
 
-            {/* ── Main Split View ────────────────────────────────────────── */}
+            {/* ── Split Layout ────────────────────────────────────────────── */}
             <div className="flex-1 flex overflow-hidden">
-                {/* ── Left Control Panel (50%) ─────────────────────────────── */}
-                <div className="w-[52%] border-r flex flex-col bg-white">
+                {/* ── Left Controls Area (50%) ─────────────────────────────── */}
+                <div className="w-[50%] border-r flex flex-col bg-white">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
                         <div className="shrink-0 bg-slate-50 border-b px-4 flex items-center justify-between h-12">
-                            <TabsList className="bg-slate-200/60 p-0.5 rounded-xl">
+                            <TabsList className="bg-slate-200/70 p-0.5 rounded-xl">
                                 <TabsTrigger value="builder" className="text-xs font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
                                     🛠️ Constructeur Simple
-                                </TabsTrigger>
-                                <TabsTrigger value="editor" className="text-xs font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                    💻 Code Mermaid
                                 </TabsTrigger>
                                 <TabsTrigger value="settings" className="text-xs font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
                                     🏷️ Catégorie & Tags
                                 </TabsTrigger>
-                                <TabsTrigger value="assignments" className="text-xs font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                    👥 Responsables
-                                </TabsTrigger>
-                                <TabsTrigger value="audit" className="text-xs font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                    📜 Audit
+                                <TabsTrigger value="editor" className="text-xs font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                                    💻 Code Mermaid Direct
                                 </TabsTrigger>
                             </TabsList>
 
-                            {activeTab === 'builder' && (
-                                <div className="flex items-center gap-1 text-xs">
-                                    <span className="text-slate-400 text-[10px] uppercase font-bold mr-1">Sens :</span>
-                                    <Button
-                                        size="sm"
-                                        variant={graph.direction === 'TD' ? 'default' : 'ghost'}
-                                        onClick={() => handleToggleDirection('TD')}
-                                        className="h-7 px-2 text-[10px] font-bold rounded-md"
-                                    >
-                                        ⬇ Vertical
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant={graph.direction === 'LR' ? 'default' : 'ghost'}
-                                        onClick={() => handleToggleDirection('LR')}
-                                        className="h-7 px-2 text-[10px] font-bold rounded-md"
-                                    >
-                                        ➡ Horizontal
-                                    </Button>
-                                </div>
-                            )}
+                            {/* Modèles prêts à l'emploi */}
+                            <Select onValueChange={(val) => {
+                                const t = EASY_TEMPLATES.find(t => t.name === val);
+                                if (t) applyCode(t.code);
+                            }}>
+                                <SelectTrigger className="h-7 text-[11px] font-bold bg-white border-slate-200 rounded-lg w-44">
+                                    <SelectValue placeholder="✨ Modèles complets..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {EASY_TEMPLATES.map(t => (
+                                        <SelectItem key={t.name} value={t.name} className="text-xs font-semibold">
+                                            <span className="mr-1.5">{t.icon}</span> {t.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {/* ══════════════════════════════════════════════════════════
-                            TAB 1 : NOUVEAU CONSTRUCTEUR ULTRA-SIMPLE
+                            TAB 1 : CONSTRUCTEUR DIRECT QUI PRÉSERVE LE DESIGN
                         ══════════════════════════════════════════════════════════ */}
-                        <TabsContent value="builder" className="flex-1 m-0 overflow-auto bg-slate-50/50 p-4 space-y-4">
-                            
-                            {/* ── Quick Add Bar ──────────────────────────────── */}
-                            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                                        <LucideIcons.PlusCircle className="h-3.5 w-3.5 text-indigo-500" />
-                                        Ajouter une nouvelle étape au flux :
-                                    </span>
-
-                                    {/* Modèles de démarrage */}
-                                    <Select onValueChange={(val) => {
-                                        const t = WORKFLOW_TEMPLATES.find(t => t.name === val);
-                                        if (t) handleApplyTemplate(t.code, t.name);
-                                    }}>
-                                        <SelectTrigger className="h-7 text-[11px] font-bold bg-slate-50 border-slate-200 rounded-lg w-44">
-                                            <SelectValue placeholder="✨ Modèles de flux..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {WORKFLOW_TEMPLATES.map(t => (
-                                                <SelectItem key={t.name} value={t.name} className="text-xs font-semibold">
-                                                    <span className="mr-1.5">{t.icon}</span> {t.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                        <TabsContent value="builder" className="flex-1 m-0 overflow-auto bg-slate-50/40 p-4 space-y-3">
+                            <div className="flex items-center justify-between px-1">
+                                <div>
+                                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                                        Étapes du Processus ({visualModel.nodes.filter(n => n.id !== 'title').length})
+                                    </h3>
+                                    <p className="text-[11px] text-slate-400">
+                                        Modifiez le texte ou ajoutez des étapes. Les couleurs et le design sont 100% conservés.
+                                    </p>
                                 </div>
 
-                                <div className="grid grid-cols-4 gap-2">
+                                <div className="flex items-center gap-1.5">
                                     <Button
-                                        onClick={() => handleAddStandaloneStep('rectangle')}
-                                        className="bg-slate-800 hover:bg-slate-900 text-white rounded-xl h-10 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
+                                        size="sm"
+                                        onClick={() => handleAddNewStandaloneStep('rectangle', 'blue')}
+                                        className="h-7 text-[11px] font-bold bg-sky-600 hover:bg-sky-700 text-white rounded-lg shadow-2xs"
                                     >
-                                        <span className="text-sm">▭</span> + Action
+                                        + Action
                                     </Button>
                                     <Button
-                                        onClick={() => handleAddStandaloneStep('diamond')}
-                                        className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl h-10 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
+                                        size="sm"
+                                        onClick={() => handleAddNewStandaloneStep('diamond', 'orange')}
+                                        className="h-7 text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-2xs"
                                     >
-                                        <span className="text-sm">◇</span> + Décision
-                                    </Button>
-                                    <Button
-                                        onClick={() => handleAddStandaloneStep('rounded')}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-10 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
-                                    >
-                                        <span className="text-sm">◯</span> + Début/Fin
-                                    </Button>
-                                    <Button
-                                        onClick={() => handleAddStandaloneStep('parallelogram')}
-                                        className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl h-10 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
-                                    >
-                                        <span className="text-sm">◸</span> + Document
+                                        + Décision
                                     </Button>
                                 </div>
                             </div>
 
-                            {/* ── Search & Counter ──────────────────────────── */}
-                            <div className="flex items-center justify-between gap-3 px-1">
-                                <div className="relative flex-1">
-                                    <LucideIcons.Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                                    <Input
-                                        value={searchQuery}
-                                        onChange={e => setSearchQuery(e.target.value)}
-                                        placeholder="Filtrer les étapes..."
-                                        className="h-8 pl-8 text-xs rounded-xl bg-white border-slate-200"
-                                    />
-                                    {searchQuery && (
-                                        <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600">
-                                            <LucideIcons.X className="h-3.5 w-3.5" />
-                                        </button>
-                                    )}
-                                </div>
-                                <span className="text-[11px] font-bold text-slate-500 shrink-0 bg-white px-3 py-1.5 rounded-xl border border-slate-200">
-                                    {graph.nodes.length} étape{graph.nodes.length > 1 ? 's' : ''} • {graph.edges.length} lien{graph.edges.length > 1 ? 's' : ''}
-                                </span>
-                            </div>
-
-                            {/* ── Interactive Process Step Cards ────────────── */}
-                            <div className="space-y-3">
-                                {filteredNodes.map((node, index) => {
-                                    const shapeCfg = SHAPE_CONFIG[node.shape] || SHAPE_CONFIG.rectangle;
-                                    const outgoingEdges = graph.edges.filter(e => e.from === node.id);
-                                    const isLinking = linkingFromId === node.id;
+                            {/* Node Cards List */}
+                            <div className="space-y-2.5">
+                                {visualModel.nodes.filter(n => n.id !== 'title').map((node, idx) => {
+                                    const isDecision = node.shape === 'diamond';
+                                    const outgoing = visualModel.edges.filter(e => e.from === node.id);
 
                                     return (
                                         <div
                                             key={node.id}
                                             className={cn(
-                                                "p-4 rounded-2xl border bg-white shadow-sm transition-all hover:shadow-md space-y-3 relative group",
-                                                node.shape === 'diamond' ? 'border-violet-200' : 'border-slate-200'
+                                                "p-3.5 rounded-2xl border bg-white shadow-2xs transition-all space-y-2.5",
+                                                isDecision ? "border-amber-200 bg-amber-50/10" : "border-slate-200"
                                             )}
                                         >
-                                            {/* Card Top Row: Step Identifier, Shape Selector & Delete */}
-                                            <div className="flex items-center justify-between gap-2">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <span className="font-mono text-xs font-black px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border">
-                                                        #{index + 1} ({node.id})
-                                                    </span>
+                                            {/* Row 1: ID, Text Input & Color/Shape Picker */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono text-xs font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-700 shrink-0 border border-slate-200">
+                                                    {node.id}
+                                                </span>
 
-                                                    {/* Quick Shape Switcher */}
-                                                    <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border">
-                                                        {(Object.keys(SHAPE_CONFIG) as NodeShape[]).map(s => {
-                                                            const isCur = node.shape === s;
-                                                            const cfg = SHAPE_CONFIG[s];
-                                                            return (
-                                                                <button
-                                                                    key={s}
-                                                                    onClick={() => handleUpdateNodeShape(node.id, s)}
-                                                                    className={cn(
-                                                                        "px-2 py-0.5 text-[10px] font-bold rounded-md transition-all flex items-center gap-1",
-                                                                        isCur ? "bg-white shadow-sm font-black " + cfg.color : "text-slate-400 hover:text-slate-600"
-                                                                    )}
-                                                                    title={cfg.label}
-                                                                >
-                                                                    <span>{cfg.icon}</span>
-                                                                    <span className="hidden sm:inline">{cfg.short}</span>
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
+                                                <Input
+                                                    value={node.label}
+                                                    onChange={e => handleEditNodeText(node.id, e.target.value)}
+                                                    className="h-9 text-xs font-bold rounded-xl bg-slate-50/70 border-slate-200 focus:bg-white flex-1 text-slate-800"
+                                                    placeholder="Titre de l'étape..."
+                                                />
+
+                                                {/* Color Swatch / Style Quick-Pick */}
+                                                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
+                                                    {(['blue', 'green', 'orange', 'purple', 'rose'] as NodeColor[]).map(c => {
+                                                        const cfg = COLOR_CLASSES[c];
+                                                        const isCur = node.colorClass === cfg.class;
+                                                        return (
+                                                            <button
+                                                                key={c}
+                                                                onClick={() => handleEditNodeTypeAndColor(node.id, node.shape, c)}
+                                                                className={cn(
+                                                                    "h-4 w-4 rounded-full transition-transform",
+                                                                    cfg.dot,
+                                                                    isCur ? "ring-2 ring-offset-1 ring-slate-800 scale-110" : "opacity-60 hover:opacity-100"
+                                                                )}
+                                                                title={cfg.name}
+                                                            />
+                                                        );
+                                                    })}
                                                 </div>
 
                                                 <Button
                                                     size="icon"
                                                     variant="ghost"
                                                     onClick={() => handleDeleteNode(node.id)}
-                                                    className="h-7 w-7 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    className="h-8 w-8 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg shrink-0"
                                                     title="Supprimer cette étape"
                                                 >
                                                     <LucideIcons.Trash2 className="h-3.5 w-3.5" />
                                                 </Button>
                                             </div>
 
-                                            {/* Inline Label Editing */}
-                                            <div>
-                                                <Label className="text-[9px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                                                    Texte de l'étape :
-                                                </Label>
-                                                <Input
-                                                    value={node.label}
-                                                    onChange={e => handleUpdateNodeLabel(node.id, e.target.value)}
-                                                    className="h-10 text-sm font-bold bg-slate-50/70 border-slate-200 focus:bg-white rounded-xl transition-all"
-                                                    placeholder="Ex: Analyse du dossier par l'officier..."
-                                                />
-                                            </div>
-
-                                            {/* ── Outgoing Links Section ────────────────── */}
-                                            <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-100 space-y-2">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
-                                                        <LucideIcons.ArrowRight className="h-3 w-3 text-indigo-400" />
-                                                        Vers quelle étape suivante ?
-                                                    </span>
-
-                                                    {!isLinking && (
-                                                        <button
-                                                            onClick={() => { setLinkingFromId(node.id); setLinkingTargetId(''); setLinkingLabel(''); }}
-                                                            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5"
-                                                        >
-                                                            <LucideIcons.Plus className="h-3 w-3" /> Lier à existant...
-                                                        </button>
+                                            {/* Row 2: Outgoing Links & 1-Click Connected Actions */}
+                                            <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 flex-wrap">
+                                                {/* Outgoing connections display */}
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <span className="text-[10px] text-slate-400 font-bold uppercase">Suite ➜</span>
+                                                    {outgoing.length > 0 ? (
+                                                        outgoing.map(edge => (
+                                                            <span
+                                                                key={edge.to}
+                                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200"
+                                                            >
+                                                                {edge.label && <span className="text-amber-700">[{edge.label}]</span>}
+                                                                <span>{edge.to}</span>
+                                                                <button
+                                                                    onClick={() => applyCode(surgicalRemoveEdge(codeRef.current, node.id, edge.to))}
+                                                                    className="text-slate-300 hover:text-red-500 ml-0.5"
+                                                                >
+                                                                    ×
+                                                                </button>
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-[10px] text-slate-400 italic">Aucune liaison</span>
                                                     )}
                                                 </div>
 
-                                                {/* Existing Outgoing Links List */}
-                                                {outgoingEdges.length > 0 ? (
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {outgoingEdges.map(edge => {
-                                                            const targetNode = graph.nodes.find(n => n.id === edge.to);
-                                                            return (
-                                                                <span
-                                                                    key={edge.to}
-                                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-white border border-indigo-100 shadow-2xs text-slate-700"
-                                                                >
-                                                                    <LucideIcons.CornerDownRight className="h-3 w-3 text-indigo-500 shrink-0" />
-                                                                    <span className="truncate max-w-[140px]">
-                                                                        {targetNode ? targetNode.label : edge.to}
-                                                                    </span>
-                                                                    {edge.label && (
-                                                                        <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase border border-indigo-200">
-                                                                            {edge.label}
-                                                                        </span>
-                                                                    )}
-                                                                    <button
-                                                                        onClick={() => handleRemoveEdge(node.id, edge.to)}
-                                                                        className="text-slate-300 hover:text-red-500 ml-0.5"
-                                                                        title="Supprimer ce lien"
-                                                                    >
-                                                                        <LucideIcons.X className="h-3 w-3" />
-                                                                    </button>
-                                                                </span>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-[10px] text-slate-400 italic">Aucune étape suivante connectée.</p>
-                                                )}
-
-                                                {/* Inline Linking Tool (when opened) */}
-                                                {isLinking && (
-                                                    <div className="p-2.5 bg-white border border-indigo-200 rounded-xl space-y-2 mt-1 shadow-xs">
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            <div>
-                                                                <Label className="text-[9px] font-black uppercase text-slate-400">Étape Cible *</Label>
-                                                                <Select value={linkingTargetId} onValueChange={setLinkingTargetId}>
-                                                                    <SelectTrigger className="h-8 text-xs font-bold rounded-lg">
-                                                                        <SelectValue placeholder="Choisir..." />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        {graph.nodes.filter(n => n.id !== node.id && !outgoingEdges.some(e => e.to === n.id)).map(n => (
-                                                                            <SelectItem key={n.id} value={n.id} className="text-xs font-semibold">
-                                                                                {n.id} - {n.label}
-                                                                            </SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            </div>
-                                                            <div>
-                                                                <Label className="text-[9px] font-black uppercase text-slate-400">Condition (Optionnel)</Label>
-                                                                <Input
-                                                                    placeholder="Ex: Si validé, Oui..."
-                                                                    value={linkingLabel}
-                                                                    onChange={e => setLinkingLabel(e.target.value)}
-                                                                    className="h-8 text-xs rounded-lg"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex justify-end gap-1.5 pt-1">
-                                                            <Button size="sm" variant="ghost" onClick={() => setLinkingFromId(null)} className="h-7 text-xs rounded-lg">
-                                                                Annuler
-                                                            </Button>
-                                                            <Button
-                                                                size="sm"
-                                                                disabled={!linkingTargetId}
-                                                                onClick={() => handleConnectToExisting(node.id, linkingTargetId, linkingLabel)}
-                                                                className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold"
-                                                            >
-                                                                Confirmer le lien
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* ── 1-Click Quick Creation Actions ─────────── */}
-                                            <div className="flex items-center gap-2 pt-1 border-t border-slate-100 flex-wrap">
-                                                {node.shape === 'diamond' ? (
-                                                    <>
+                                                {/* Quick Buttons: Next Step or Decision Branches */}
+                                                <div className="flex items-center gap-1.5 ml-auto">
+                                                    {isDecision ? (
                                                         <Button
                                                             size="sm"
-                                                            onClick={() => handleAddNextStep(node.id, 'Action si OUI', 'Oui', 'rectangle')}
-                                                            className="h-8 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-xl font-bold gap-1"
+                                                            onClick={() => handleAddDecisionBranches(node.id)}
+                                                            className="h-7 text-[10px] bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold gap-1 shadow-2xs"
                                                         >
-                                                            <LucideIcons.Plus className="h-3 w-3" /> Branche "Oui"
+                                                            <LucideIcons.GitFork className="h-3 w-3" /> + Branches (Oui & Non)
                                                         </Button>
+                                                    ) : (
                                                         <Button
                                                             size="sm"
-                                                            onClick={() => handleAddNextStep(node.id, 'Action si NON', 'Non', 'rectangle')}
-                                                            className="h-8 text-xs bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 rounded-xl font-bold gap-1"
+                                                            onClick={() => handleAddConnectedStep(node.id, 'rectangle', 'blue')}
+                                                            className="h-7 text-[10px] bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 rounded-lg font-bold gap-1"
                                                         >
-                                                            <LucideIcons.Plus className="h-3 w-3" /> Branche "Non"
+                                                            <LucideIcons.Plus className="h-3 w-3" /> + Étape suivante
                                                         </Button>
-                                                    </>
-                                                ) : (
+                                                    )}
+
                                                     <Button
                                                         size="sm"
-                                                        onClick={() => handleAddNextStep(node.id, 'Nouvelle étape', undefined, 'rectangle')}
-                                                        className="h-8 text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded-xl font-bold gap-1 shadow-2xs"
+                                                        variant="ghost"
+                                                        onClick={() => handleAddConnectedStep(node.id, 'diamond', 'orange')}
+                                                        className="h-7 text-[10px] text-amber-700 hover:bg-amber-50 rounded-lg font-semibold"
                                                     >
-                                                        <LucideIcons.Plus className="h-3.5 w-3.5" /> ➕ Étape suivante
+                                                        + Décision
                                                     </Button>
-                                                )}
-
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() => handleAddNextStep(node.id, 'Question / Décision ?', undefined, 'diamond')}
-                                                    className="h-8 text-xs text-violet-600 hover:bg-violet-50 rounded-xl font-semibold gap-1 ml-auto"
-                                                >
-                                                    <LucideIcons.HelpCircle className="h-3 w-3" /> + Décision
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() => handleAddNextStep(node.id, 'Fin du processus', undefined, 'rounded')}
-                                                    className="h-8 text-xs text-blue-600 hover:bg-blue-50 rounded-xl font-semibold gap-1"
-                                                >
-                                                    <LucideIcons.CheckCircle className="h-3 w-3" /> + Fin
-                                                </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => handleAddConnectedStep(node.id, 'rounded', 'green')}
+                                                        className="h-7 text-[10px] text-emerald-700 hover:bg-emerald-50 rounded-lg font-semibold"
+                                                    >
+                                                        + Fin
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </div>
                                     );
                                 })}
-
-                                {filteredNodes.length === 0 && (
-                                    <div className="text-center py-12 bg-white rounded-2xl border border-dashed text-slate-400 space-y-3">
-                                        <LucideIcons.Workflow className="h-10 w-10 mx-auto opacity-30 text-indigo-500" />
-                                        <p className="font-semibold text-sm">Aucune étape trouvée.</p>
-                                        <Button
-                                            onClick={() => handleAddStandaloneStep('rounded', 'Début du processus')}
-                                            className="bg-indigo-600 text-white rounded-xl text-xs font-bold"
-                                        >
-                                            + Créer la première étape
-                                        </Button>
-                                    </div>
-                                )}
                             </div>
                         </TabsContent>
 
                         {/* ══════════════════════════════════════════════════════════
-                            TAB 2 : ÉDITEUR MONACO (POUR EXPERTS)
+                            TAB 2 : CATÉGORIE & TAGS
                         ══════════════════════════════════════════════════════════ */}
-                        <TabsContent value="editor" className="flex-1 m-0 p-0 overflow-hidden bg-[#1e1e1e]">
-                            <div className="h-full flex flex-col">
-                                <div className="bg-[#252526] px-4 py-2 text-[10px] uppercase font-bold text-emerald-400 border-b border-black flex justify-between">
-                                    <span>Monaco Editor (Mermaid Direct)</span>
-                                    <span>● Synchronisation Bidirectionnelle</span>
-                                </div>
-                                <div className="flex-1 min-h-0" ref={monacoContainerRef} />
-                            </div>
-                        </TabsContent>
-
-                        {/* ══════════════════════════════════════════════════════════
-                            TAB 3 : CATÉGORIE OBLIGATOIRE & TAGS
-                        ══════════════════════════════════════════════════════════ */}
-                        <TabsContent value="settings" className="flex-1 m-0 overflow-auto p-6 space-y-6 bg-slate-50/50">
-                            {/* Catégorie obligatoire */}
+                        <TabsContent value="settings" className="flex-1 m-0 overflow-auto p-6 space-y-5 bg-slate-50/50">
                             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
                                 <h3 className="font-black text-sm text-slate-800 uppercase tracking-widest flex items-center gap-2">
                                     <LucideIcons.ShieldAlert className="h-4 w-4 text-rose-500" />
-                                    Catégorie Réglementaire <span className="text-rose-500 text-xs font-bold normal-case">*</span>
+                                    Catégorie Réglementaire Obligatoire
                                 </h3>
-                                <p className="text-xs text-slate-500">
-                                    Chaque processus doit appartenir à <strong>LAB/FT</strong> ou <strong>Veille Réglementaire</strong>.
-                                </p>
                                 <div className="grid grid-cols-2 gap-3 pt-1">
                                     {WORKFLOW_CATEGORIES.map(cat => {
                                         const cfg = CATEGORY_CONFIG_EDIT[cat];
@@ -1129,114 +857,54 @@ export default function WorkflowEditorPage() {
                                 </div>
                             </div>
 
-                            {/* Tags supplémentaires */}
                             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
                                 <h3 className="font-black text-sm text-slate-800 uppercase tracking-widest flex items-center gap-2">
                                     <LucideIcons.Tag className="h-4 w-4 text-indigo-500" />
-                                    Tags libres ({tags.filter(t => !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory)).length})
+                                    Tags libres
                                 </h3>
-
-                                <div
-                                    className="min-h-[44px] flex flex-wrap gap-1.5 items-center px-3 py-2 rounded-xl border bg-slate-50/50 shadow-inner focus-within:ring-2 focus-within:ring-indigo-300 cursor-text"
-                                    onClick={() => tagInputRef.current?.focus()}
-                                >
+                                <div className="min-h-[44px] flex flex-wrap gap-1.5 items-center px-3 py-2 rounded-xl border bg-slate-50/50">
                                     {tags.filter(t => !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory)).map(tag => (
-                                        <span key={tag} className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${getTagColorEditor(tag)}`}>
+                                        <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-indigo-50 text-indigo-700 border-indigo-200">
                                             {tag}
-                                            <button type="button" onClick={(e) => { e.stopPropagation(); removeTag(tag); }} className="hover:opacity-70">
+                                            <button type="button" onClick={() => setTags(prev => prev.filter(t => t !== tag))}>
                                                 <LucideIcons.X className="h-3 w-3" />
                                             </button>
                                         </span>
                                     ))}
                                     <input
-                                        ref={tagInputRef}
-                                        type="text"
                                         value={tagInput}
-                                        onChange={(e) => { setTagInput(e.target.value); setShowTagSuggestions(true); }}
-                                        onKeyDown={handleTagKeyDown}
-                                        onFocus={() => setShowTagSuggestions(true)}
-                                        onBlur={() => setTimeout(() => setShowTagSuggestions(false), 150)}
-                                        placeholder={tags.length <= 1 ? 'Ajouter un tag libre (KYC, DDC...)' : ''}
+                                        onChange={e => setTagInput(e.target.value)}
+                                        onKeyDown={e => {
+                                            if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
+                                                e.preventDefault();
+                                                const clean = tagInput.trim();
+                                                if (!tags.includes(clean)) setTags(prev => [...prev, clean]);
+                                                setTagInput('');
+                                            }
+                                        }}
+                                        placeholder="Taper un tag + Entrée..."
                                         className="flex-1 min-w-[120px] outline-none bg-transparent text-xs placeholder:text-slate-400"
                                     />
                                 </div>
-
-                                {showTagSuggestions && (tagInput.trim() || filteredTagSuggestions.length > 0) && (
-                                    <div className="border rounded-xl shadow-lg bg-white py-1 z-10 max-h-36 overflow-y-auto">
-                                        {tagInput.trim() && !existingTags.includes(tagInput.trim()) && (
-                                            <button type="button" onMouseDown={() => addTag(tagInput)} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center gap-2 font-bold text-indigo-600">
-                                                <LucideIcons.Plus className="h-3 w-3" /> Créer "{tagInput.trim()}"
-                                            </button>
-                                        )}
-                                        {filteredTagSuggestions.map(t => (
-                                            <button key={t} type="button" onMouseDown={() => addTag(t)} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center gap-2">
-                                                <span className={`px-2 py-0.5 rounded-full font-bold border ${getTagColorEditor(t)}`}>{t}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {existingTags.filter(t => !tags.includes(t) && !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory)).length > 0 && !tagInput && (
-                                    <div className="flex flex-wrap gap-1.5 pt-1">
-                                        <span className="text-[10px] text-slate-400 self-center">Réutiliser :</span>
-                                        {existingTags.filter(t => !tags.includes(t) && !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory)).slice(0, 6).map(t => (
-                                            <button key={t} type="button" onClick={() => addTag(t)} className={`px-2 py-0.5 rounded-full text-[10px] font-bold border hover:opacity-80 ${getTagColorEditor(t)}`}>+ {t}</button>
-                                        ))}
-                                    </div>
-                                )}
                             </div>
                         </TabsContent>
 
                         {/* ══════════════════════════════════════════════════════════
-                            TAB 4 : RESPONSABLES DU PROCESSUS
+                            TAB 3 : MONACO CODE MERMAID DIRECT
                         ══════════════════════════════════════════════════════════ */}
-                        <TabsContent value="assignments" className="flex-1 m-0 overflow-auto p-6 space-y-6">
-                            <div className="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
-                                <LucideIcons.Users className="h-20 w-20 absolute -right-4 -bottom-4 opacity-10" />
-                                <h3 className="font-black text-lg mb-1">Responsables du Processus</h3>
-                                <p className="text-xs text-indigo-100 font-medium">Assignez les garants de l&apos;exécution de ce workflow complet.</p>
-                            </div>
-                            <div className="space-y-4">
-                                {processAssignees.map((a, idx) => (
-                                    <div key={idx} className="flex items-center gap-4 p-5 bg-white border rounded-3xl shadow-sm hover:shadow-md transition-shadow">
-                                        <div className="h-12 w-12 rounded-2xl bg-indigo-100 text-indigo-700 font-black text-lg flex items-center justify-center shrink-0">{a.userName[0]}</div>
-                                        <div className="flex-1">
-                                            <p className="font-black text-slate-800">{a.userName}</p>
-                                            <span className="inline-block mt-1 px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-xl uppercase tracking-widest">{a.role}</span>
-                                        </div>
-                                        <Button size="icon" variant="ghost" className="h-10 w-10 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-xl" onClick={() => setProcessAssignees(prev => prev.filter((_, i) => i !== idx))}><LucideIcons.Trash2 className="h-5 w-5" /></Button>
-                                    </div>
-                                ))}
-                                {addingAssignee ? (
-                                    <div className="p-6 bg-slate-100 border-2 border-dashed border-indigo-200 rounded-3xl space-y-4">
-                                        <div className="grid gap-4">
-                                            <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-500">Choisir une personne</Label><Select onValueChange={v => { const u = availableUsers.find(u => u.id === v); if (u) setNewAssigneeForm(f => ({ ...f, userId: v, userName: u.name })); }}><SelectTrigger className="rounded-2xl h-11"><SelectValue placeholder="Sélectionner..." /></SelectTrigger><SelectContent>{availableUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent></Select></div>
-                                            <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-500">Rôle (Libre)</Label><Input value={newAssigneeForm.role} onChange={e => setNewAssigneeForm(f => ({ ...f, role: e.target.value }))} className="rounded-2xl h-11" placeholder="Ex: Compliance Officer" /></div>
-                                        </div>
-                                        <div className="flex gap-2 pt-2"><Button className="flex-1 bg-indigo-600 text-white rounded-2xl h-11 font-black" onClick={() => { if (!newAssigneeForm.userId) return; setProcessAssignees(prev => [...prev, { userId: newAssigneeForm.userId, userName: newAssigneeForm.userName, role: newAssigneeForm.role || 'Responsable' }]); setAddingAssignee(false); setNewAssigneeForm({ userId: '', userName: '', role: '' }); }}>Confirmer</Button><Button variant="outline" className="rounded-2xl h-11" onClick={() => setAddingAssignee(false)}>Annuler</Button></div>
-                                    </div>
-                                ) : (
-                                    <Button onClick={() => setAddingAssignee(true)} className="w-full h-16 rounded-3xl border-2 border-dashed border-slate-300 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-bold flex gap-3"><LucideIcons.UserPlus className="h-5 w-5" /> Ajouter un responsable</Button>
-                                )}
-                            </div>
-                        </TabsContent>
-
-                        {/* ══════════════════════════════════════════════════════════
-                            TAB 5 : AUDIT LOGS
-                        ══════════════════════════════════════════════════════════ */}
-                        <TabsContent value="audit" className="flex-1 m-0 p-6 overflow-auto">
-                            <h3 className="font-black text-slate-700 uppercase tracking-widest mb-6 border-b pb-2">Historique d&apos;Audit</h3>
-                            <div className="space-y-6 pl-4 border-l-2 border-slate-100 relative">
-                                {auditLogs.filter(l => l.workflowId === id).map(log => (
-                                    <div key={log.id} className="relative pl-6"><div className="absolute -left-[35px] top-1 h-3 w-3 rounded-full border-2 border-white bg-indigo-500 shadow-sm" /><p className="text-[10px] text-slate-400 font-mono mb-1">{new Date(log.timestamp).toLocaleString()}</p><p className="text-sm font-black text-slate-800">{log.action}</p><p className="text-xs text-slate-500 mt-1">{log.details}</p></div>
-                                ))}
-                                {auditLogs.filter(l => l.workflowId === id).length === 0 && <div className="text-center py-10 text-slate-300 font-medium italic">Aucun log enregistré</div>}
+                        <TabsContent value="editor" className="flex-1 m-0 p-0 overflow-hidden bg-[#1e1e1e]">
+                            <div className="h-full flex flex-col">
+                                <div className="bg-[#252526] px-4 py-2 text-[10px] uppercase font-bold text-emerald-400 border-b border-black flex justify-between">
+                                    <span>Code Mermaid Direct</span>
+                                    <span>● Synchronisation Temps Réel</span>
+                                </div>
+                                <div className="flex-1 min-h-0" ref={monacoContainerRef} />
                             </div>
                         </TabsContent>
                     </Tabs>
                 </div>
 
-                {/* ── Right Panel: Live Visualizer (48%) ───────────────────── */}
+                {/* ── Right Panel: Live Visualizer (50%) ───────────────────── */}
                 <div className="flex-1 flex flex-col bg-slate-100/70 relative group overflow-hidden">
                     <div className="bg-white px-6 py-3 border-b flex justify-between items-center shrink-0 shadow-2xs">
                         <div className="flex items-center gap-2">
@@ -1298,14 +966,9 @@ export default function WorkflowEditorPage() {
                                 <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Aperçu Haute Résolution • ID: {id}</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={handlePrint} className="h-9 rounded-xl gap-1.5 font-bold text-xs border-indigo-200 bg-indigo-50 text-indigo-700">
-                                <LucideIcons.Printer className="h-3.5 w-3.5" /> Imprimer
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => setIsFullscreen(false)} className="h-9 w-9 rounded-full">
-                                <LucideIcons.X className="h-5 w-5" />
-                            </Button>
-                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => setIsFullscreen(false)} className="h-9 w-9 rounded-full">
+                            <LucideIcons.X className="h-5 w-5" />
+                        </Button>
                     </div>
                     <div className="flex-1 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] overflow-hidden p-6 flex items-center justify-center">
                         <div className="w-full h-full max-w-[95%] max-h-[95%] bg-white rounded-2xl shadow-xl border border-slate-100 flex items-center justify-center p-4">
