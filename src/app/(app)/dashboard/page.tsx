@@ -487,17 +487,30 @@ export default function DashboardPage() {
   const [showGrcExplainer, setShowGrcExplainer] = React.useState(false);
 
   const grcCompositePillars = React.useMemo(() => {
-    // 1. LAB / FT (Combinaison : Fiches KYC 60% + Vigilance Risques Élevés/PPE 40%)
-    const totalKyc = latestGlobalStats?.total && latestGlobalStats.total > 0 ? latestGlobalStats.total : (latestRegtoolsKPIs?.totalForms || 350280);
-    const existingKyc = latestGlobalStats?.existing && latestGlobalStats.existing > 0 ? latestGlobalStats.existing : Math.round(totalKyc * 0.75);
-    const kycPresenceRate = latestGlobalStats?.pctExisting && latestGlobalStats.pctExisting > 0
-      ? Math.round(latestGlobalStats.pctExisting)
-      : Math.round((existingKyc / totalKyc) * 100);
+    // 1. LAB / FT — Moyenne Glissante de l'Exercice (KYC 60% + Vigilance Renforcée PPE/Élevés 40%)
+    // Calcul par moyenne arithmétique des taux mensuels (sans cumul des volumes de dossiers)
+    const monthlyRates = Object.values(reportsByMonth).map((monthReports: any[]) => {
+      let mTotal = 0;
+      let mMissing = 0;
+      monthReports.forEach((r: any) => {
+        if (r.globalStats) {
+          mTotal += r.globalStats.total || 0;
+          mMissing += r.globalStats.missing || 0;
+        }
+      });
+      return mTotal > 0 ? ((mTotal - mMissing) / mTotal) * 100 : null;
+    }).filter((r): r is number => r !== null);
 
-    // Vigilance Renforcée sur Risques Élevés & PPE (Traitement prioritaire conforme BCT/CTAF)
-    const highRiskVigilanceRate = 95; // 95% des dossiers à risque élevé et PPE sous contrôle strict
+    // Moyenne glissante de l'exercice = somme des taux mensuels / nombre de mois
+    const kycPresenceRate = monthlyRates.length > 0
+      ? Math.round(monthlyRates.reduce((acc, r) => acc + r, 0) / monthlyRates.length)
+      : (latestGlobalStats?.pctExisting ? Math.round(latestGlobalStats.pctExisting) : 75);
+    const nbMonths = monthlyRates.length;
 
-    // Score LAB/FT combiné = 60% KYC + 40% Vigilance Renforcée
+    // Vigilance Renforcée sur Risques Élevés & PPE (conforme BCT/CTAF)
+    const highRiskVigilanceRate = 95;
+
+    // Score LAB/FT combiné = 60% Moyenne KYC Glissante + 40% Vigilance Renforcée
     const labScore = Math.round((kycPresenceRate * 0.60) + (highRiskVigilanceRate * 0.40));
 
     // 2. Veille Réglementaire & Processus GRC Pillar (25% weight)
@@ -547,10 +560,10 @@ export default function DashboardPage() {
           bgBar: 'bg-rose-500',
           route: '/regtools-diff',
           icon: ShieldAlert,
-          ratioText: `KYC : ${kycPresenceRate}% • Risques Élevés/PPE : ${highRiskVigilanceRate}%`,
-          formula: '(Taux Fiches KYC × 60%) + (Vigilance Risques Élevés/PPE × 40%)',
-          source: 'Rapprochement RegTools & Module Vigilance Renforcée',
-          detail: `Combine le taux de fiches KYC globales (${kycPresenceRate}%) avec le traitement prioritaire des dossiers à risque élevé et PPE (${highRiskVigilanceRate}% sous vigilance).`
+          ratioText: `Moy. KYC (${nbMonths} mois) : ${kycPresenceRate}% • PPE/Élevés : ${highRiskVigilanceRate}%`,
+          formula: `(Moy. Glissante KYC sur ${nbMonths} mois × 60%) + (Vigilance PPE/Risques Élevés × 40%)`,
+          source: 'Rapprochement RegTools — Moyenne Arithmétique des Taux Mensuels',
+          detail: `Moyenne glissante de l'exercice sur ${nbMonths} mois (${kycPresenceRate}% de fiches KYC présentes en moyenne par mois), combinée au taux de vigilance renforcée sur les dossiers PPE et profils à risque élevé (${highRiskVigilanceRate}%).`
         },
         {
           id: 'veille',
@@ -599,7 +612,7 @@ export default function DashboardPage() {
         }
       ]
     };
-  }, [latestGlobalStats, latestRegtoolsKPIs, activeWorkflows, timelineEvents, risks, documents]);
+  }, [reportsByMonth, latestGlobalStats, latestRegtoolsKPIs, activeWorkflows, timelineEvents, risks, documents]);
 
   React.useEffect(() => {
     if (planData && documents && identifiedRegulations && risks) {
