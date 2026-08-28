@@ -61,6 +61,17 @@ const COLOR_CLASSES: Record<NodeColor, { class: string; name: string; bg: string
     amber:  { class: 'amberNode',  name: 'Jaune (I/O)',        bg: 'bg-yellow-50',  border: 'border-yellow-300',  text: 'text-yellow-700',  dot: 'bg-yellow-500' },
 };
 
+function normalizeColorClass(cls?: string): string {
+    if (!cls) return 'blueNode';
+    const lower = cls.toLowerCase();
+    if (lower.includes('startend') || lower.includes('green') || lower.includes('success')) return 'greenNode';
+    if (lower.includes('decision') || lower.includes('orange') || lower.includes('warning')) return 'orangeNode';
+    if (lower.includes('action') || lower.includes('blue') || lower.includes('info')) return 'blueNode';
+    if (lower.includes('process') || lower.includes('purple')) return 'purpleNode';
+    if (lower.includes('alert') || lower.includes('rose') || lower.includes('red') || lower.includes('danger')) return 'roseNode';
+    return cls;
+}
+
 // Ensure default styling classDefs are embedded in the Mermaid code
 function ensureThemeClassDefs(rawCode: string): string {
     let code = rawCode;
@@ -71,6 +82,11 @@ function ensureThemeClassDefs(rawCode: string): string {
         `classDef purpleNode fill:#faf5ff,stroke:#9333ea,stroke-width:2px,rx:10,ry:10,color:#7e22ce;`,
         `classDef roseNode fill:#fff1f2,stroke:#e11d48,stroke-width:2px,rx:10,ry:10,color:#be123c;`,
         `classDef amberNode fill:#fefce8,stroke:#ca8a04,stroke-width:2px,rx:10,ry:10,color:#a16207;`,
+        // Compatibility aliases with legacy templates
+        `classDef startend fill:#e6f4ea,stroke:#0d9488,stroke-width:2px,rx:10,ry:10,color:#0f766e;`,
+        `classDef action fill:#f0f7ff,stroke:#0284c7,stroke-width:2px,rx:10,ry:10,color:#0369a1;`,
+        `classDef decision fill:#fff7ed,stroke:#ea580c,stroke-width:2px,rx:6,ry:6,color:#c2410c;`,
+        `classDef process fill:#faf5ff,stroke:#9333ea,stroke-width:2px,rx:10,ry:10,color:#7e22ce;`,
     ];
 
     defs.forEach(def => {
@@ -83,12 +99,192 @@ function ensureThemeClassDefs(rawCode: string): string {
     return code;
 }
 
-// ── Surgical Mermaid Editors (Preserve ALL formatting & classes) ───────────
+// ── Node Definition Parser for an individual part ──────────────────────────
+function parseNodeDefinition(part: string): { id: string; label: string; shape: NodeShape; colorClass?: string } | null {
+    const trimmed = part.trim();
+    if (!trimmed) return null;
+
+    // Strip class annotation if present: :::className or ::className
+    let classCleaned = trimmed;
+    let colorClass: string | undefined;
+    const classMatch = classCleaned.match(/(?:::|:::)([a-zA-Z0-9_\-]+)$/);
+    if (classMatch) {
+        colorClass = normalizeColorClass(classMatch[1]);
+        classCleaned = classCleaned.slice(0, classMatch.index).trim();
+    }
+
+    // Match leading node ID
+    const idMatch = classCleaned.match(/^([a-zA-Z0-9_\-\.]+)/);
+    if (!idMatch) return null;
+    const id = idMatch[1];
+
+    const RESERVED_WORDS = new Set([
+        'graph', 'flowchart', 'subgraph', 'end', 'direction', 'classDef', 'class',
+        'style', 'linkStyle', 'click', 'TB', 'TD', 'LR', 'RL', 'BT', '--', '==', '..',
+        'Oui', 'Non', 'OUI', 'NON', 'yes', 'no', 'true', 'false', 'ou'
+    ]);
+    if (RESERVED_WORDS.has(id)) return null;
+
+    const rest = classCleaned.slice(id.length).trim();
+    if (!rest) {
+        return { id, label: id, shape: 'rectangle', colorClass };
+    }
+
+    let shape: NodeShape = 'rectangle';
+    let rawLabel = rest;
+
+    if (rest.startsWith('((') && rest.endsWith('))')) {
+        shape = 'circle';
+        rawLabel = rest.slice(2, -2);
+    } else if (rest.startsWith('{') && rest.endsWith('}')) {
+        shape = 'diamond';
+        rawLabel = rest.slice(1, -1);
+    } else if (rest.startsWith('[/') && rest.endsWith('/]')) {
+        shape = 'parallelogram';
+        rawLabel = rest.slice(2, -2);
+    } else if (rest.startsWith('(') && rest.endsWith(')')) {
+        shape = 'rounded';
+        rawLabel = rest.slice(1, -1);
+    } else if (rest.startsWith('[') && rest.endsWith(']')) {
+        shape = 'rectangle';
+        rawLabel = rest.slice(1, -1);
+    }
+
+    const cleanLabel = rawLabel
+        .replace(/^["']+|["']+$/g, '')
+        .replace(/<br\s*\/?>/gi, ' ')
+        .replace(/\\n/g, ' ')
+        .replace(/<[^>]+>/g, '')
+        .trim();
+
+    return {
+        id,
+        label: cleanLabel || id,
+        shape,
+        colorClass
+    };
+}
+
+// ── Parse Mermaid Code with Zero Phantom Nodes and Flow Ordering ──────────
+function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] } {
+    const rawNodesMap = new Map<string, VisualNode>();
+    const edges: VisualEdge[] = [];
+
+    const addOrUpdateNode = (n: { id: string; label: string; shape: NodeShape; colorClass?: string }) => {
+        if (!n.id || n.id === 'title') return;
+        const existing = rawNodesMap.get(n.id);
+        if (existing) {
+            if (n.label && n.label !== n.id) existing.label = n.label;
+            if (n.shape) existing.shape = n.shape;
+            if (n.colorClass) existing.colorClass = n.colorClass;
+        } else {
+            rawNodesMap.set(n.id, {
+                id: n.id,
+                label: n.label || n.id,
+                shape: n.shape || 'rectangle',
+                colorClass: n.colorClass || (n.shape === 'diamond' ? 'orangeNode' : n.shape === 'rounded' ? 'greenNode' : 'blueNode')
+            });
+        }
+    };
+
+    const edgePattern = /(?:-->\|([^|\n]+)\||--\s+([^\->\n]+?)\s+-->|-->|-\.->|==>)/;
+
+    const lines = code.split('\n');
+    lines.forEach(rawLine => {
+        const line = rawLine.trim();
+        // Skip comments, subgraphs, direction, styling
+        if (!line || line.startsWith('%%') || line.startsWith('subgraph') || line === 'end' ||
+            line.startsWith('direction') || line.startsWith('classDef') || line.startsWith('style') ||
+            line.startsWith('linkStyle') || line.startsWith('click')) {
+            return;
+        }
+
+        // Handle explicit class assignments: class A1,B1 blueNode
+        if (line.startsWith('class ')) {
+            const m = line.match(/^class\s+([A-Za-z0-9_\-\.,\s]+)\s+([A-Za-z0-9_\-]+)/);
+            if (m) {
+                const targets = m[1].split(',').map(s => s.trim());
+                const cls = normalizeColorClass(m[2]);
+                targets.forEach(tId => {
+                    const node = rawNodesMap.get(tId);
+                    if (node) node.colorClass = cls;
+                });
+            }
+            return;
+        }
+
+        // Check for edge
+        const edgeMatch = line.match(edgePattern);
+        if (edgeMatch && edgeMatch.index !== undefined) {
+            const edgeIndex = edgeMatch.index;
+            const edgeLength = edgeMatch[0].length;
+            const leftStr = line.slice(0, edgeIndex).trim();
+            const rightStr = line.slice(edgeIndex + edgeLength).trim();
+
+            let edgeLabel: string | undefined = undefined;
+            if (edgeMatch[1]) edgeLabel = edgeMatch[1].trim();
+            else if (edgeMatch[2]) edgeLabel = edgeMatch[2].trim();
+
+            const fromNode = parseNodeDefinition(leftStr);
+            const toNode = parseNodeDefinition(rightStr);
+
+            if (fromNode) addOrUpdateNode(fromNode);
+            if (toNode) addOrUpdateNode(toNode);
+
+            if (fromNode && toNode) {
+                if (!edges.some(e => e.from === fromNode.id && e.to === toNode.id)) {
+                    edges.push({ from: fromNode.id, to: toNode.id, label: edgeLabel });
+                }
+            }
+        } else {
+            // Single node definition
+            const node = parseNodeDefinition(line);
+            if (node) addOrUpdateNode(node);
+        }
+    });
+
+    const allNodes = Array.from(rawNodesMap.values());
+
+    // Topological / Flow-ordered sorting so cards appear top-to-bottom as in diagram
+    const inDegree = new Map<string, number>();
+    allNodes.forEach(n => inDegree.set(n.id, 0));
+    edges.forEach(e => {
+        inDegree.set(e.to, (inDegree.get(e.to) || 0) + 1);
+    });
+
+    const roots = allNodes.filter(n => (inDegree.get(n.id) || 0) === 0);
+    const visited = new Set<string>();
+    const sortedNodes: VisualNode[] = [];
+
+    const queue = [...roots];
+    while (queue.length > 0) {
+        const curr = queue.shift()!;
+        if (!visited.has(curr.id)) {
+            visited.add(curr.id);
+            sortedNodes.push(curr);
+            edges.filter(e => e.from === curr.id).forEach(e => {
+                const targetNode = rawNodesMap.get(e.to);
+                if (targetNode && !visited.has(targetNode.id)) {
+                    queue.push(targetNode);
+                }
+            });
+        }
+    }
+
+    allNodes.forEach(n => {
+        if (!visited.has(n.id)) sortedNodes.push(n);
+    });
+
+    return { nodes: sortedNodes, edges };
+}
+
+// ── Surgical Mermaid Editors ───────────────────────────────────────────────
 
 function surgicalEditLabel(code: string, nodeId: string, newLabel: string): string {
     const escId = nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const safeLabel = newLabel.replace(/"/g, "'").replace(/\n/g, '<br/>');
 
+    // Match nodeId with its bracket and optional :::class
     const nodeDefRe = new RegExp(
         `(\\b${escId}\\s*)(\\[\\/|\\(\\(|[\\[\\(\\{])\\s*"?([^\\]\\)\\n\\r]*?)"?\\s*(\\/\\]|\\)\\)|[\\]\\)\\}])(\\s*:::?\\w+)?`,
         'g'
@@ -158,7 +354,6 @@ function surgicalDeleteNode(code: string, nodeId: string): string {
     return filtered.join('\n');
 }
 
-// ➕ Inserts a new node neatly in the vertical flow between fromId and toId (replaces bypass)
 function surgicalInsertBetween(
     code: string,
     fromNodeId: string,
@@ -224,104 +419,6 @@ function surgicalRemoveEdge(code: string, fromId: string, toId: string): string 
         return !re.test(t);
     });
     return filtered.join('\n');
-}
-
-// ── Parse Mermaid Code with Topological / Execution Flow Sorting ────────────
-function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] } {
-    const rawNodes: VisualNode[] = [];
-    const edges: VisualEdge[] = [];
-    const RESERVED = new Set(['graph', 'flowchart', 'TD', 'LR', 'BT', 'RL', 'subgraph', 'end', 'classDef', 'class', 'style', 'linkStyle', 'click']);
-
-    const cleanLabel = (raw: string) =>
-        raw.replace(/<br\s*\/?>/gi, ' ').replace(/\\n/g, ' ').replace(/<[^>]+>/g, '').replace(/^["']|["']$/g, '').trim();
-
-    const addNode = (id: string, label: string, shape: NodeShape, colorClass?: string) => {
-        if (RESERVED.has(id)) return;
-        const existing = rawNodes.find(n => n.id === id);
-        if (existing) {
-            if (label && label !== id) existing.label = cleanLabel(label);
-            existing.shape = shape;
-            if (colorClass) existing.colorClass = colorClass;
-            return;
-        }
-        rawNodes.push({ id, label: cleanLabel(label) || id, shape, colorClass });
-    };
-
-    // Scan node definitions with optional :::class
-    const nodeRe = /\b([A-Za-z0-9_\-\.]+)\s*(?:(\(\(\s*"?((?:[^"\\]|\\.)*?)"?\s*\)\))|(\{\s*"?((?:[^"\\]|\\.)*?)"?\s*\})|(\[\/\s*"?((?:[^"\\]|\\.)*?)"?\s*\/\])|(\(\s*"?((?:[^"\\]|\\.)*?)"?\s*\))|(\[\s*"?((?:[^"\\]|\\.)*?)"?\s*\]))(?:\s*:::?([a-zA-Z0-9_\-]+))?/g;
-    let nm: RegExpExecArray | null;
-    while ((nm = nodeRe.exec(code)) !== null) {
-        const id = nm[1];
-        let shape: NodeShape = 'rectangle';
-        let label = id;
-
-        if (nm[2]) { shape = 'circle'; label = nm[3]; }
-        else if (nm[4]) { shape = 'diamond'; label = nm[5]; }
-        else if (nm[6]) { shape = 'parallelogram'; label = nm[7]; }
-        else if (nm[8]) { shape = 'rounded'; label = nm[9]; }
-        else if (nm[10]) { shape = 'rectangle'; label = nm[11]; }
-
-        const colorClass = nm[12];
-        addNode(id, label, shape, colorClass);
-    }
-
-    // Scan edges
-    const nodePart = String.raw`([A-Za-z0-9_\-\.]+)`;
-    const edgeRe = new RegExp(`${nodePart}[^\n\\->]*--?>+\\s*(?:\\|([^|\\n]*)\\|)?\\s*${nodePart}`, 'g');
-    let em: RegExpExecArray | null;
-    while ((em = edgeRe.exec(code)) !== null) {
-        const from = em[1];
-        const label = em[2]?.replace(/"/g, '').trim() || undefined;
-        const to = em[3];
-        if (RESERVED.has(from) || RESERVED.has(to)) continue;
-        if (!edges.find(e => e.from === from && e.to === to)) { edges.push({ from, to, label }); }
-        addNode(from, from, 'rectangle');
-        addNode(to, to, 'rectangle');
-    }
-
-    // Scan explicit class assignments
-    const classAssignRe = /^class\s+([A-Za-z0-9_\-\.,\s]+)\s+([A-Za-z0-9_\-]+)/gm;
-    let cm: RegExpExecArray | null;
-    while ((cm = classAssignRe.exec(code)) !== null) {
-        const assignedIds = cm[1].split(',').map(s => s.trim());
-        const cls = cm[2];
-        assignedIds.forEach(targetId => {
-            const node = rawNodes.find(n => n.id === targetId);
-            if (node) node.colorClass = cls;
-        });
-    }
-
-    // Topological / Flow-ordered sorting so cards appear top-to-bottom as in diagram
-    const inDegree = new Map<string, number>();
-    rawNodes.forEach(n => inDegree.set(n.id, 0));
-    edges.forEach(e => {
-        inDegree.set(e.to, (inDegree.get(e.to) || 0) + 1);
-    });
-
-    const roots = rawNodes.filter(n => (inDegree.get(n.id) || 0) === 0);
-    const visited = new Set<string>();
-    const sortedNodes: VisualNode[] = [];
-
-    const queue = [...roots];
-    while (queue.length > 0) {
-        const curr = queue.shift()!;
-        if (!visited.has(curr.id)) {
-            visited.add(curr.id);
-            sortedNodes.push(curr);
-            edges.filter(e => e.from === curr.id).forEach(e => {
-                const targetNode = rawNodes.find(n => n.id === e.to);
-                if (targetNode && !visited.has(targetNode.id)) {
-                    queue.push(targetNode);
-                }
-            });
-        }
-    }
-
-    rawNodes.forEach(n => {
-        if (!visited.has(n.id)) sortedNodes.push(n);
-    });
-
-    return { nodes: sortedNodes, edges };
 }
 
 // ── Modèles de processus prêts à l'emploi ──────────────────────────────────
@@ -458,7 +555,6 @@ export default function WorkflowEditorPage() {
         toast({ title: `Liaison créée : ${fromId} ➔ ${toId}` });
     };
 
-    // Inserts an aligned next step between fromNode and its current target (keeps vertical alignment!)
     const handleInsertNextStep = (fromNodeId: string, shape: NodeShape = 'rectangle', color: NodeColor = 'blue') => {
         const outgoing = visualModel.edges.filter(e => e.from === fromNodeId);
         const primaryTarget = outgoing.length === 1 ? outgoing[0].to : undefined;
@@ -469,11 +565,10 @@ export default function WorkflowEditorPage() {
         toast({ title: `Étape insérée dans l'alignement vertical` });
     };
 
-    // Clean bypass / align shortcut link (removes direct fromNode -> targetNode if intermediate exists)
     const handleCleanBypassLink = (fromId: string, bypassTargetId: string) => {
         const updated = surgicalRemoveEdge(codeRef.current, fromId, bypassTargetId);
         applyCode(updated);
-        toast({ title: 'Flux réaligné verticalement (raccourci direct supprimé)' });
+        toast({ title: 'Flux réaligné verticalement' });
     };
 
     const handleAddDecisionBranches = (fromNodeId: string) => {
@@ -716,27 +811,25 @@ export default function WorkflowEditorPage() {
                         </div>
 
                         {/* ══════════════════════════════════════════════════════════
-                            TAB 1 : CONSTRUCTEUR DIRECT
+                            TAB 1 : CONSTRUCTEUR DIRECT (ZERO GHOST NODES)
                         ══════════════════════════════════════════════════════════ */}
                         <TabsContent value="builder" className="flex-1 m-0 overflow-auto bg-slate-50/40 p-4 space-y-3">
                             <div className="flex items-center justify-between px-1">
                                 <div>
                                     <h3 className="text-xs font-black uppercase tracking-wider text-slate-700">
-                                        Étapes du Processus ({visualModel.nodes.filter(n => n.id !== 'title').length})
+                                        Étapes du Processus ({visualModel.nodes.length})
                                     </h3>
                                     <p className="text-[11px] text-slate-400">
-                                        Modifiez le libellé, reliez les étapes et changez les couleurs instantanément.
+                                        Étapes triées du début à la fin. Modifiez le libellé ou la couleur directement.
                                     </p>
                                 </div>
                             </div>
 
-                            {/* Node Cards List (Ordered chronologically in natural flow) */}
+                            {/* Node Cards List (Strictly ordered, zero phantom nodes) */}
                             <div className="space-y-2.5">
-                                {visualModel.nodes.filter(n => n.id !== 'title').map((node, nodeIdx) => {
+                                {visualModel.nodes.map((node, nodeIdx) => {
                                     const isDecision = node.shape === 'diamond';
                                     const outgoing = visualModel.edges.filter(e => e.from === node.id);
-
-                                    // Detect if there's a bypass loop (e.g. node connects to both an intermediate and its target)
                                     const hasBypass = outgoing.length >= 2;
 
                                     return (
@@ -747,7 +840,7 @@ export default function WorkflowEditorPage() {
                                                 isDecision ? "border-amber-200 bg-amber-50/10" : "border-slate-200"
                                             )}
                                         >
-                                            {/* Row 1: ID, Text Input & Color/Shape Picker */}
+                                            {/* Row 1: Index, ID, Text Input & Color Picker */}
                                             <div className="flex items-center gap-2">
                                                 <span className="font-mono text-xs font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-700 shrink-0 border border-slate-200">
                                                     #{nodeIdx + 1} ({node.id})
@@ -832,7 +925,7 @@ export default function WorkflowEditorPage() {
                                                         )}
                                                     </div>
 
-                                                    {/* Dropdown to connect to ANY existing step */}
+                                                    {/* Actions: Connect to Existing or Insert Aligned Next Step */}
                                                     <div className="flex items-center gap-1.5">
                                                         <Select onValueChange={(targetId) => {
                                                             if (targetId && targetId !== node.id) {
@@ -843,7 +936,7 @@ export default function WorkflowEditorPage() {
                                                                 <SelectValue placeholder="🔗 Relier vers étape..." />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                {visualModel.nodes.filter(n => n.id !== 'title' && n.id !== node.id && !outgoing.some(e => e.to === n.id)).map(n => (
+                                                                {visualModel.nodes.filter(n => n.id !== node.id && !outgoing.some(e => e.to === n.id)).map(n => (
                                                                     <SelectItem key={n.id} value={n.id} className="text-xs font-semibold">
                                                                         <span className="font-mono font-bold text-slate-500 mr-1.5">[{n.id}]</span>
                                                                         {n.label}
@@ -852,7 +945,6 @@ export default function WorkflowEditorPage() {
                                                             </SelectContent>
                                                         </Select>
 
-                                                        {/* Button: Insert aligned next step directly in vertical flow */}
                                                         <Button
                                                             size="sm"
                                                             onClick={() => handleInsertNextStep(node.id, 'rectangle', 'blue')}
@@ -867,7 +959,7 @@ export default function WorkflowEditorPage() {
                                                 {/* Notice to clean accidental bypass loops */}
                                                 {hasBypass && !isDecision && (
                                                     <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between text-xs text-amber-800">
-                                                        <span>⚠️ Cette étape a plusieurs liaisons sortantes (ce qui crée un embranchement sur le côté).</span>
+                                                        <span>⚠️ Plusieurs liaisons sortantes détectées.</span>
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
