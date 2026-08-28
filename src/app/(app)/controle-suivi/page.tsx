@@ -535,21 +535,27 @@ export default function ControleSuiviPage() {
     });
   }, [filteredHistoryForTrends, allDelegations]);
 
-  // ── Nouveaux Entrants : Détection différentielle M vs M-1 (Méthode 2) ──
-  // Pour chaque mois M, on compare les IDs de polices/clients présents dans M
-  // avec ceux du mois M-1 : tout ID absent en M-1 et présent en M = Nouvel Entrant
+  // ── Variation Nette du Portefeuille M vs M-1 (données réelles disponibles) ──
+  // NOTE MÉTHODOLOGIQUE : Les données RegTools sont des arrêtés mensuels agrégés (totaux par agence).
+  // Sans les IDs individuels de polices, il est IMPOSSIBLE d'identifier formellement un "Nouvel Entrant".
+  // Ce qu'on mesure ici est la VARIATION NETTE = Total(M) - Total(M-1), qui est le bilan net des
+  // nouvelles souscriptions MOINS les résiliations / expiration / décès du mois.
+  // Pour une vraie identification des nouveaux entrants : importer les fichiers NS/Vie dans RegTools-Diff
+  // et comparer les IDs de polices entre deux mois consécutifs.
   const nouveauxEntrantsData = useMemo(() => {
     if (filteredHistoryForTrends.length < 2) return [];
 
     const results: {
       monthLabel: string;
       monthKey: string;
-      newEntrants: number;
-      newEntrantsWithKyc: number;
-      newEntrantsWithoutKyc: number;
-      totalPortfolio: number;
-      kycRateNewEntrants: number;
       deltaPortfolio: number;
+      totalPortfolio: number;
+      prevTotalPortfolio: number;
+      deltaMissing: number;
+      currMissing: number;
+      currPctExisting: number;
+      prevPctExisting: number;
+      deltaPct: number;
     }[] = [];
 
     for (let i = 1; i < filteredHistoryForTrends.length; i++) {
@@ -559,44 +565,28 @@ export default function ControleSuiviPage() {
       const currTotal = curr.globalStats?.total || 0;
       const prevTotal = prev.globalStats?.total || 0;
       const currMissing = curr.globalStats?.missing || 0;
-
-      // ΔPortefeuille = Total(M) - Total(M-1)
-      // Si positif => entrées nettes > sorties nettes
-      const deltaPortfolio = currTotal - prevTotal;
-
-      // Estimation des Nouveaux Entrants :
-      // On part de l'hypothèse que le portefeuille stable (récurrent) = min(curr, prev)
-      // Les nouveaux entrants bruts ≈ max(0, deltaPortfolio) + sorties*taux_renouvellement
-      // Approximation pratique basée sur les agencyStats (nouveaux agences, nouveaux codes...)
-      // En l'absence d'IDs individuels, on utilise la variation nette positive comme proxy
-      const newEntrantsEstimated = Math.max(0, deltaPortfolio);
-
-      // Taux de KYC sur les nouveaux entrants :
-      // On compare la variation de missing entre M et M-1 par rapport au delta de portefeuille
       const prevMissing = prev.globalStats?.missing || 0;
-      const deltaMissing = currMissing - prevMissing;
-      // Si le portefeuille augmente mais les manquants augmentent peu => bonne couverture KYC des entrants
-      const newEntrantsWithoutKyc = newEntrantsEstimated > 0
-        ? Math.max(0, Math.min(newEntrantsEstimated, deltaMissing))
-        : 0;
-      const newEntrantsWithKyc = newEntrantsEstimated - newEntrantsWithoutKyc;
-      const kycRateNewEntrants = newEntrantsEstimated > 0
-        ? Math.round((newEntrantsWithKyc / newEntrantsEstimated) * 100)
-        : 100; // Si delta = 0, pas de nouveaux entrants => taux 100% par convention
+      const currExisting = currTotal - currMissing;
+      const prevExisting = prevTotal - prevMissing;
+
+      const currPctExisting = currTotal > 0 ? parseFloat(((currExisting / currTotal) * 100).toFixed(1)) : 0;
+      const prevPctExisting = prevTotal > 0 ? parseFloat(((prevExisting / prevTotal) * 100).toFixed(1)) : 0;
 
       results.push({
         monthLabel: curr.monthLabel || curr.monthKey,
         monthKey: curr.monthKey,
-        newEntrants: newEntrantsEstimated,
-        newEntrantsWithKyc,
-        newEntrantsWithoutKyc,
+        deltaPortfolio: currTotal - prevTotal,
         totalPortfolio: currTotal,
-        kycRateNewEntrants,
-        deltaPortfolio
+        prevTotalPortfolio: prevTotal,
+        deltaMissing: currMissing - prevMissing,
+        currMissing,
+        currPctExisting,
+        prevPctExisting,
+        deltaPct: parseFloat((currPctExisting - prevPctExisting).toFixed(1))
       });
     }
 
-    return results.reverse(); // Plus récent en premier
+    return results.reverse();
   }, [filteredHistoryForTrends]);
 
   // Selected agency history up to limit month
@@ -809,9 +799,9 @@ export default function ControleSuiviPage() {
           )}
         >
           <Users className="h-4 w-4" />
-          Nouveaux Entrants KYC
+          Variation Nette du Portefeuille
           {nouveauxEntrantsData.length > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
               {nouveauxEntrantsData.length} mois
             </span>
           )}
@@ -820,19 +810,26 @@ export default function ControleSuiviPage() {
 
       {activeTab === "entrants" && (
         <div className="space-y-6">
-          {/* Header explicatif */}
-          <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40 rounded-2xl p-5">
+          {/* Encadré méthodologique honnête */}
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40 rounded-2xl p-5">
             <div className="flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/40">
-                <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex-shrink-0">
+                <Info className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
-              <div>
-                <h3 className="text-sm font-black text-emerald-900 dark:text-emerald-100">Méthode de Détection : Différentiel $M$ vs $M-1$</h3>
-                <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1 leading-relaxed">
-                  Les nouveaux entrants sont identifiés en comparant le volume du portefeuille entre deux arrêtés mensuels consécutifs.
-                  La variation nette positive <strong>ΔPortefeuille = Total(M) − Total(M-1)</strong> représente les entrées brutes nettes (nouveaux clients − résiliés).
-                  Le taux KYC des entrants mesure si ces nouveaux clients disposent d'une fiche KYC complète dès leur souscription.
+              <div className="space-y-2">
+                <h3 className="text-sm font-black text-amber-900 dark:text-amber-100">Cadre méthodologique — Ce que ces données mesurent réellement</h3>
+                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                  <strong>Ce tableau affiche la variation nette du portefeuille</strong> : <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">ΔPortefeuille = Total(M) − Total(M-1)</code>.
+                  Il ne s'agit <strong>pas</strong> du nombre réel de nouveaux clients, mais du <strong>bilan net</strong> entre les souscriptions et les résiliations/expiration du mois.
                 </p>
+                <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400 mt-2">
+                  <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Pour identifier les vrais nouveaux entrants</strong> (par N° de police ou CIN), importez deux extractions mensuelles consécutives
+                    dans <strong>Rapprochement RegTools</strong> et comparez les identifiants ligne par ligne.
+                    Le système détectera automatiquement les polices présentes en M mais absentes en M-1.
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -846,7 +843,7 @@ export default function ControleSuiviPage() {
             <div className="text-center py-16 text-slate-400">
               <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
               <p className="text-sm font-semibold">Données insuffisantes</p>
-              <p className="text-xs mt-1">Il faut au minimum 2 mois d'historique RegTools pour calculer les nouveaux entrants.</p>
+              <p className="text-xs mt-1">Il faut au minimum 2 mois d'historique RegTools pour afficher les variations de portefeuille.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -855,7 +852,7 @@ export default function ControleSuiviPage() {
                   key={row.monthKey}
                   className="bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-5 shadow-sm"
                 >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 flex-wrap">
                     {/* Mois label */}
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
@@ -865,77 +862,82 @@ export default function ControleSuiviPage() {
                         <p className="text-sm font-black text-slate-900 dark:text-white">{row.monthLabel}</p>
                         <p className="text-[10px] text-slate-400">
                           Portefeuille actif : {row.totalPortfolio.toLocaleString('fr-FR')} dossiers
+                          {row.prevTotalPortfolio > 0 && ` (vs ${row.prevTotalPortfolio.toLocaleString('fr-FR')} mois préc.)`}
                         </p>
                       </div>
                     </div>
 
-                    {/* Delta Portefeuille */}
+                    {/* ΔPortefeuille */}
                     <div className="text-center px-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Δ Portefeuille</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Δ Variation Nette</p>
                       <p className={cn(
                         "text-2xl font-black",
                         row.deltaPortfolio > 0 ? "text-emerald-500" : row.deltaPortfolio < 0 ? "text-rose-500" : "text-slate-400"
                       )}>
                         {row.deltaPortfolio > 0 ? "+" : ""}{row.deltaPortfolio.toLocaleString('fr-FR')}
                       </p>
-                      <p className="text-[10px] text-slate-400">vs mois précédent</p>
+                      <p className="text-[10px] text-slate-400">contrats nets (M − M-1)</p>
                     </div>
 
-                    {/* Nouveaux Entrants estimés */}
+                    {/* Δ Fiches Manquantes */}
                     <div className="text-center px-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nouveaux Entrants (nets)</p>
-                      <p className="text-2xl font-black text-blue-500">
-                        {row.newEntrants.toLocaleString('fr-FR')}
-                      </p>
-                      <p className="text-[10px] text-slate-400">entrées nettes estimées</p>
-                    </div>
-
-                    {/* KYC des nouveaux entrants */}
-                    <div className="text-center px-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Taux KYC Entrants</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Δ Fiches Manquantes</p>
                       <p className={cn(
                         "text-2xl font-black",
-                        row.kycRateNewEntrants >= 90 ? "text-emerald-500" : row.kycRateNewEntrants >= 70 ? "text-amber-500" : "text-rose-500"
+                        row.deltaMissing < 0 ? "text-emerald-500" : row.deltaMissing > 0 ? "text-rose-500" : "text-slate-400"
                       )}>
-                        {row.newEntrants === 0 ? "—" : `${row.kycRateNewEntrants}%`}
+                        {row.deltaMissing > 0 ? "+" : ""}{row.deltaMissing.toLocaleString('fr-FR')}
                       </p>
                       <p className="text-[10px] text-slate-400">
-                        {row.newEntrants === 0 ? "Pas de nouveaux" : `${row.newEntrantsWithKyc} avec fiche / ${row.newEntrantsWithoutKyc} sans`}
+                        {row.deltaMissing < 0 ? "↓ Assainissement en cours" : row.deltaMissing > 0 ? "↑ Fiches absentes en hausse" : "Stable"}
                       </p>
                     </div>
 
-                    {/* Badge KYC */}
+                    {/* Taux KYC Global du mois */}
+                    <div className="text-center px-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Taux KYC (M)</p>
+                      <p className={cn(
+                        "text-2xl font-black",
+                        row.currPctExisting >= 90 ? "text-emerald-500" : row.currPctExisting >= 70 ? "text-amber-500" : "text-rose-500"
+                      )}>
+                        {row.currPctExisting}%
+                      </p>
+                      <p className={cn(
+                        "text-[10px] font-bold",
+                        row.deltaPct > 0 ? "text-emerald-500" : row.deltaPct < 0 ? "text-rose-500" : "text-slate-400"
+                      )}>
+                        {row.deltaPct > 0 ? `↑ +${row.deltaPct}%` : row.deltaPct < 0 ? `↓ ${row.deltaPct}%` : "= Stable"} vs M-1
+                      </p>
+                    </div>
+
+                    {/* Badge tendance */}
                     <div className="flex-shrink-0">
-                      {row.newEntrants === 0 ? (
-                        <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">Stable</span>
-                      ) : row.kycRateNewEntrants >= 90 ? (
-                        <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">✓ KYC Conforme</span>
-                      ) : row.kycRateNewEntrants >= 70 ? (
-                        <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">⚠ KYC Partiel</span>
+                      {row.deltaPct > 0 ? (
+                        <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">↑ KYC s'améliore</span>
+                      ) : row.deltaPct < 0 ? (
+                        <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">↓ KYC se dégrade</span>
                       ) : (
-                        <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">✗ KYC Manquant</span>
+                        <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">= Stable</span>
                       )}
                     </div>
                   </div>
 
-                  {/* Barre de progression KYC entrants */}
-                  {row.newEntrants > 0 && (
-                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <div className="flex justify-between text-[10px] text-slate-400 mb-1.5">
-                        <span>Couverture KYC des nouveaux entrants du mois</span>
-                        <span className="font-bold">{row.kycRateNewEntrants}%</span>
-                      </div>
-                      <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className={cn(
-                            "h-full rounded-full transition-all duration-700",
-                            row.kycRateNewEntrants >= 90 ? "bg-emerald-500" : row.kycRateNewEntrants >= 70 ? "bg-amber-500" : "bg-rose-500"
-                          )}
-                          style={{ width: `${row.kycRateNewEntrants}%` }}
-                        />
-                      </div>
+                  {/* Barre taux KYC du mois */}
+                  <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex justify-between text-[10px] text-slate-400 mb-1.5">
+                      <span>Fiches KYC présentes sur le portefeuille actif du mois</span>
+                      <span className="font-bold">{row.currPctExisting}% — {(row.totalPortfolio - row.currMissing).toLocaleString('fr-FR')} / {row.totalPortfolio.toLocaleString('fr-FR')}</span>
                     </div>
-                  )}
+                    <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all duration-700",
+                          row.currPctExisting >= 90 ? "bg-emerald-500" : row.currPctExisting >= 70 ? "bg-amber-500" : "bg-rose-500"
+                        )}
+                        style={{ width: `${row.currPctExisting}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
