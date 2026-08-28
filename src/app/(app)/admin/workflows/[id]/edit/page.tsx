@@ -158,31 +158,42 @@ function surgicalDeleteNode(code: string, nodeId: string): string {
     return filtered.join('\n');
 }
 
-function surgicalAddNode(code: string, newNodeId: string, label: string, shape: NodeShape, colorKey: NodeColor, fromNodeId?: string, edgeLabel?: string): string {
-    const safeLabel = (label || newNodeId).replace(/"/g, "'").replace(/\n/g, '<br/>');
+// ➕ Inserts a new node neatly in the vertical flow between fromId and toId (replaces bypass)
+function surgicalInsertBetween(
+    code: string,
+    fromNodeId: string,
+    toNodeId: string | undefined,
+    label: string,
+    shape: NodeShape = 'rectangle',
+    colorKey: NodeColor = 'blue'
+): string {
+    const count = (code.match(/\bN\d+\b/g)?.length || 0) + 1;
+    const nextId = `N${count}_${Date.now().toString().slice(-3)}`;
+    const safeLabel = (label || `Étape ${count}`).replace(/"/g, "'").replace(/\n/g, '<br/>');
     const colorCls = COLOR_CLASSES[colorKey]?.class || (shape === 'diamond' ? 'orangeNode' : shape === 'rounded' ? 'greenNode' : 'blueNode');
 
-    let nodeDef = `${newNodeId}["${safeLabel}"]:::${colorCls}`;
-    if (shape === 'diamond') nodeDef = `${newNodeId}{"${safeLabel}"}:::${colorCls}`;
-    else if (shape === 'rounded') nodeDef = `${newNodeId}("${safeLabel}"):::${colorCls}`;
+    let nodeDef = `${nextId}["${safeLabel}"]:::${colorCls}`;
+    if (shape === 'diamond') nodeDef = `${nextId}{"${safeLabel}"}:::${colorCls}`;
+    else if (shape === 'rounded') nodeDef = `${nextId}("${safeLabel}"):::${colorCls}`;
 
     let updatedCode = ensureThemeClassDefs(code);
 
-    if (fromNodeId) {
-        const l = edgeLabel ? ` -->|"${edgeLabel}"| ` : ' --> ';
-        const edgeLine = `  ${fromNodeId}${l}${nodeDef}`;
+    if (toNodeId) {
+        // Remove direct bypass edge fromNodeId --> toNodeId so flow stays in a clean straight vertical line
+        updatedCode = surgicalRemoveEdge(updatedCode, fromNodeId, toNodeId);
+        const newEdges = `  ${fromNodeId} --> ${nodeDef}\n  ${nextId} --> ${toNodeId}`;
         const classIdx = updatedCode.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
         if (classIdx > -1) {
-            return updatedCode.slice(0, classIdx) + `\n${edgeLine}` + updatedCode.slice(classIdx);
+            return updatedCode.slice(0, classIdx) + `\n${newEdges}` + updatedCode.slice(classIdx);
         }
-        return updatedCode + `\n${edgeLine}`;
+        return updatedCode + `\n${newEdges}`;
     } else {
-        const declLine = `  ${nodeDef}`;
+        const newEdge = `  ${fromNodeId} --> ${nodeDef}`;
         const classIdx = updatedCode.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
         if (classIdx > -1) {
-            return updatedCode.slice(0, classIdx) + `\n${declLine}` + updatedCode.slice(classIdx);
+            return updatedCode.slice(0, classIdx) + `\n${newEdge}` + updatedCode.slice(classIdx);
         }
-        return updatedCode + `\n${declLine}`;
+        return updatedCode + `\n${newEdge}`;
     }
 }
 
@@ -215,9 +226,9 @@ function surgicalRemoveEdge(code: string, fromId: string, toId: string): string 
     return filtered.join('\n');
 }
 
-// ── Parse Mermaid Code into Visual Elements ────────────────────────────────
+// ── Parse Mermaid Code with Topological / Execution Flow Sorting ────────────
 function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] } {
-    const nodes: VisualNode[] = [];
+    const rawNodes: VisualNode[] = [];
     const edges: VisualEdge[] = [];
     const RESERVED = new Set(['graph', 'flowchart', 'TD', 'LR', 'BT', 'RL', 'subgraph', 'end', 'classDef', 'class', 'style', 'linkStyle', 'click']);
 
@@ -226,14 +237,14 @@ function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] 
 
     const addNode = (id: string, label: string, shape: NodeShape, colorClass?: string) => {
         if (RESERVED.has(id)) return;
-        const existing = nodes.find(n => n.id === id);
+        const existing = rawNodes.find(n => n.id === id);
         if (existing) {
             if (label && label !== id) existing.label = cleanLabel(label);
             existing.shape = shape;
             if (colorClass) existing.colorClass = colorClass;
             return;
         }
-        nodes.push({ id, label: cleanLabel(label) || id, shape, colorClass });
+        rawNodes.push({ id, label: cleanLabel(label) || id, shape, colorClass });
     };
 
     // Scan node definitions with optional :::class
@@ -268,19 +279,49 @@ function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] 
         addNode(to, to, 'rectangle');
     }
 
-    // Scan explicit class assignments (class nodeId blueNode)
+    // Scan explicit class assignments
     const classAssignRe = /^class\s+([A-Za-z0-9_\-\.,\s]+)\s+([A-Za-z0-9_\-]+)/gm;
     let cm: RegExpExecArray | null;
     while ((cm = classAssignRe.exec(code)) !== null) {
         const assignedIds = cm[1].split(',').map(s => s.trim());
         const cls = cm[2];
         assignedIds.forEach(targetId => {
-            const node = nodes.find(n => n.id === targetId);
+            const node = rawNodes.find(n => n.id === targetId);
             if (node) node.colorClass = cls;
         });
     }
 
-    return { nodes, edges };
+    // Topological / Flow-ordered sorting so cards appear top-to-bottom as in diagram
+    const inDegree = new Map<string, number>();
+    rawNodes.forEach(n => inDegree.set(n.id, 0));
+    edges.forEach(e => {
+        inDegree.set(e.to, (inDegree.get(e.to) || 0) + 1);
+    });
+
+    const roots = rawNodes.filter(n => (inDegree.get(n.id) || 0) === 0);
+    const visited = new Set<string>();
+    const sortedNodes: VisualNode[] = [];
+
+    const queue = [...roots];
+    while (queue.length > 0) {
+        const curr = queue.shift()!;
+        if (!visited.has(curr.id)) {
+            visited.add(curr.id);
+            sortedNodes.push(curr);
+            edges.filter(e => e.from === curr.id).forEach(e => {
+                const targetNode = rawNodes.find(n => n.id === e.to);
+                if (targetNode && !visited.has(targetNode.id)) {
+                    queue.push(targetNode);
+                }
+            });
+        }
+    }
+
+    rawNodes.forEach(n => {
+        if (!visited.has(n.id)) sortedNodes.push(n);
+    });
+
+    return { nodes: sortedNodes, edges };
 }
 
 // ── Modèles de processus prêts à l'emploi ──────────────────────────────────
@@ -417,31 +458,31 @@ export default function WorkflowEditorPage() {
         toast({ title: `Liaison créée : ${fromId} ➔ ${toId}` });
     };
 
-    const handleAddConnectedStep = (fromNodeId: string, shape: NodeShape = 'rectangle', color: NodeColor = 'blue', edgeLabel?: string) => {
-        const nextIdx = visualModel.nodes.length + 1;
-        const nextId = `N${nextIdx}`;
-        const defaultLabel = shape === 'diamond' ? 'Condition / Décision ?' : `Nouvelle étape ${nextIdx}`;
-        const updated = surgicalAddNode(codeRef.current, nextId, defaultLabel, shape, color, fromNodeId, edgeLabel);
+    // Inserts an aligned next step between fromNode and its current target (keeps vertical alignment!)
+    const handleInsertNextStep = (fromNodeId: string, shape: NodeShape = 'rectangle', color: NodeColor = 'blue') => {
+        const outgoing = visualModel.edges.filter(e => e.from === fromNodeId);
+        const primaryTarget = outgoing.length === 1 ? outgoing[0].to : undefined;
+        const defaultLabel = shape === 'diamond' ? 'Condition / Décision ?' : 'Nouvelle étape';
+        
+        const updated = surgicalInsertBetween(codeRef.current, fromNodeId, primaryTarget, defaultLabel, shape, color);
         applyCode(updated);
-        toast({ title: `Étape ${nextId} ajoutée` });
+        toast({ title: `Étape insérée dans l'alignement vertical` });
+    };
+
+    // Clean bypass / align shortcut link (removes direct fromNode -> targetNode if intermediate exists)
+    const handleCleanBypassLink = (fromId: string, bypassTargetId: string) => {
+        const updated = surgicalRemoveEdge(codeRef.current, fromId, bypassTargetId);
+        applyCode(updated);
+        toast({ title: 'Flux réaligné verticalement (raccourci direct supprimé)' });
     };
 
     const handleAddDecisionBranches = (fromNodeId: string) => {
         const idYes = `Y_${Date.now().toString().slice(-4)}`;
         const idNo = `N_${Date.now().toString().slice(-4)}`;
-        let updated = surgicalAddNode(codeRef.current, idYes, 'Suite si OUI / Validé', 'rectangle', 'blue', fromNodeId, 'Oui');
-        updated = surgicalAddNode(updated, idNo, 'Action si NON / Rejet', 'rectangle', 'rose', fromNodeId, 'Non');
+        let updated = surgicalConnectNodes(codeRef.current, fromNodeId, `${idYes}["Suite si OUI"]:::blueNode`, 'Oui');
+        updated = surgicalConnectNodes(updated, fromNodeId, `${idNo}["Action si NON"]:::roseNode`, 'Non');
         applyCode(updated);
         toast({ title: 'Branches Oui & Non créées' });
-    };
-
-    const handleAddNewStandaloneStep = (shape: NodeShape = 'rectangle', color: NodeColor = 'blue') => {
-        const nextIdx = visualModel.nodes.length + 1;
-        const nextId = `N${nextIdx}`;
-        const label = shape === 'diamond' ? 'Décision ?' : shape === 'rounded' ? 'Début/Fin' : `Étape ${nextIdx}`;
-        const updated = surgicalAddNode(codeRef.current, nextId, label, shape, color);
-        applyCode(updated);
-        toast({ title: `Étape ${nextId} ajoutée` });
     };
 
     // ── Load workflow from Firestore ───────────────────────────────────────
@@ -687,30 +728,16 @@ export default function WorkflowEditorPage() {
                                         Modifiez le libellé, reliez les étapes et changez les couleurs instantanément.
                                     </p>
                                 </div>
-
-                                <div className="flex items-center gap-1.5">
-                                    <Button
-                                        size="sm"
-                                        onClick={() => handleAddNewStandaloneStep('rectangle', 'blue')}
-                                        className="h-7 text-[11px] font-bold bg-sky-600 hover:bg-sky-700 text-white rounded-lg shadow-2xs"
-                                    >
-                                        + Action
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        onClick={() => handleAddNewStandaloneStep('diamond', 'orange')}
-                                        className="h-7 text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-2xs"
-                                    >
-                                        + Décision
-                                    </Button>
-                                </div>
                             </div>
 
-                            {/* Node Cards List */}
+                            {/* Node Cards List (Ordered chronologically in natural flow) */}
                             <div className="space-y-2.5">
-                                {visualModel.nodes.filter(n => n.id !== 'title').map((node) => {
+                                {visualModel.nodes.filter(n => n.id !== 'title').map((node, nodeIdx) => {
                                     const isDecision = node.shape === 'diamond';
                                     const outgoing = visualModel.edges.filter(e => e.from === node.id);
+
+                                    // Detect if there's a bypass loop (e.g. node connects to both an intermediate and its target)
+                                    const hasBypass = outgoing.length >= 2;
 
                                     return (
                                         <div
@@ -723,7 +750,7 @@ export default function WorkflowEditorPage() {
                                             {/* Row 1: ID, Text Input & Color/Shape Picker */}
                                             <div className="flex items-center gap-2">
                                                 <span className="font-mono text-xs font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-700 shrink-0 border border-slate-200">
-                                                    {node.id}
+                                                    #{nodeIdx + 1} ({node.id})
                                                 </span>
 
                                                 <Input
@@ -812,8 +839,8 @@ export default function WorkflowEditorPage() {
                                                                 handleConnectToStep(node.id, targetId);
                                                             }
                                                         }}>
-                                                            <SelectTrigger className="h-7 text-[11px] font-bold bg-slate-50 border-slate-200 hover:bg-slate-100 rounded-lg w-48 text-indigo-700">
-                                                                <SelectValue placeholder="🔗 Relier vers une étape..." />
+                                                            <SelectTrigger className="h-7 text-[11px] font-bold bg-slate-50 border-slate-200 hover:bg-slate-100 rounded-lg w-44 text-indigo-700">
+                                                                <SelectValue placeholder="🔗 Relier vers étape..." />
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 {visualModel.nodes.filter(n => n.id !== 'title' && n.id !== node.id && !outgoing.some(e => e.to === n.id)).map(n => (
@@ -825,16 +852,32 @@ export default function WorkflowEditorPage() {
                                                             </SelectContent>
                                                         </Select>
 
-                                                        {/* Quick Button: Create a brand new connected step */}
+                                                        {/* Button: Insert aligned next step directly in vertical flow */}
                                                         <Button
                                                             size="sm"
-                                                            onClick={() => handleAddConnectedStep(node.id, 'rectangle', 'blue')}
-                                                            className="h-7 text-[10px] bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 rounded-lg font-bold gap-1"
+                                                            onClick={() => handleInsertNextStep(node.id, 'rectangle', 'blue')}
+                                                            className="h-7 text-[10px] bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 rounded-lg font-bold gap-1 shadow-2xs"
+                                                            title="Insère une étape dans l'alignement vertical"
                                                         >
-                                                            <LucideIcons.Plus className="h-3 w-3" /> + Nouvelle étape
+                                                            <LucideIcons.Plus className="h-3 w-3" /> + Insérer étape après
                                                         </Button>
                                                     </div>
                                                 </div>
+
+                                                {/* Notice to clean accidental bypass loops */}
+                                                {hasBypass && !isDecision && (
+                                                    <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between text-xs text-amber-800">
+                                                        <span>⚠️ Cette étape a plusieurs liaisons sortantes (ce qui crée un embranchement sur le côté).</span>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => handleCleanBypassLink(node.id, outgoing[outgoing.length - 1].to)}
+                                                            className="h-6 text-[10px] bg-white border-amber-300 font-bold"
+                                                        >
+                                                            Aligner en colonne unique
+                                                        </Button>
+                                                    </div>
+                                                )}
 
                                                 {/* If Decision, quick branches button */}
                                                 {isDecision && (
