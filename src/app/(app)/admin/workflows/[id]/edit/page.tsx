@@ -141,6 +141,7 @@ function genId(graph: VisualGraph): string {
 }
 
 export default function WorkflowEditorPage() {
+    const router = useRouter();
     const params = useParams();
     const id = params?.id as string;
     const { toast } = useToast();
@@ -429,28 +430,69 @@ export default function WorkflowEditorPage() {
 
         try {
             setSaving(true);
+            const now = new Date().toISOString();
             // Copier le document principal
             const currentSnap = await getDoc(doc(db, 'workflows', id));
-            if (currentSnap.exists()) {
-                const currentData = currentSnap.data();
-                await setDoc(doc(db, 'workflows', sanitized), { ...currentData, id: sanitized, workflowId: sanitized });
-            }
+            const currentData = currentSnap.exists() ? currentSnap.data() : {
+                id: sanitized,
+                workflowId: sanitized,
+                name: name || sanitized,
+                domain: domain || 'Conformité',
+                currentVersion: activeWorkflow?.currentVersion || 1,
+                createdAt: now,
+                updatedAt: now,
+                tags: category ? [category, ...tags.filter(t => !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory))] : tags,
+                processAssignees
+            };
+            
+            await setDoc(doc(db, 'workflows', sanitized), {
+                ...currentData,
+                id: sanitized,
+                workflowId: sanitized,
+                name: name || currentData.name || sanitized,
+                updatedAt: now
+            });
+
             // Copier les versions
             const versSnap = await getDocs(collection(db, 'workflows', id, 'versions'));
-            for (const vDoc of versSnap.docs) {
-                await setDoc(doc(db, 'workflows', sanitized, 'versions', vDoc.id), vDoc.data());
+            if (!versSnap.empty) {
+                for (const vDoc of versSnap.docs) {
+                    await setDoc(doc(db, 'workflows', sanitized, 'versions', vDoc.id), vDoc.data());
+                }
+            } else {
+                const vId = `v1-${Date.now()}`;
+                await setDoc(doc(db, 'workflows', sanitized, 'versions', vId), {
+                    id: vId,
+                    mermaidCode: code,
+                    version: activeWorkflow?.currentVersion || 1,
+                    status: 'published',
+                    createdAt: now,
+                    updatedAt: now
+                });
             }
-            // Supprimer l'ancien
+
+            // Supprimer l'ancien document et ses sous-collections
             const delBatch = writeBatch(db);
-            versSnap.docs.forEach(vDoc => delBatch.delete(doc(db, 'workflows', id, 'versions', vDoc.id)));
-            delBatch.delete(doc(db, 'workflows', id));
+            if (!versSnap.empty) {
+                versSnap.docs.forEach(vDoc => delBatch.delete(doc(db, 'workflows', id, 'versions', vDoc.id)));
+            }
+            if (currentSnap.exists()) {
+                delBatch.delete(doc(db, 'workflows', id));
+            }
             await delBatch.commit();
 
-            toast({ title: '✅ ID modifié', description: `${id} → ${sanitized}` });
+            recordActivity({
+                action: 'WORKFLOW_UPDATE',
+                label: `Renommage ID Workflow : ${id} → ${sanitized}`,
+                detail: `Ancien ID: ${id} • Nouvel ID: ${sanitized} • Nom: ${name || sanitized}`,
+                module: 'Processus Métiers'
+            });
+
+            toast({ title: '✅ ID modifié avec succès', description: `${id} → ${sanitized}` });
             router.push(`/admin/workflows/${sanitized}/edit`);
         } catch (e) {
-            console.error(e);
-            toast({ title: 'Erreur lors du renommage', variant: 'destructive' });
+            console.error('Erreur rename workflow:', e);
+            toast({ title: 'Erreur lors du renommage', description: String(e), variant: 'destructive' });
         } finally { setSaving(false); setEditingId(false); }
     };
 
