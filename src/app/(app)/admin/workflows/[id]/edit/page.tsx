@@ -82,7 +82,6 @@ function ensureThemeClassDefs(rawCode: string): string {
         `classDef purpleNode fill:#faf5ff,stroke:#9333ea,stroke-width:2px,rx:10,ry:10,color:#7e22ce;`,
         `classDef roseNode fill:#fff1f2,stroke:#e11d48,stroke-width:2px,rx:10,ry:10,color:#be123c;`,
         `classDef amberNode fill:#fefce8,stroke:#ca8a04,stroke-width:2px,rx:10,ry:10,color:#a16207;`,
-        // Compatibility aliases with legacy templates
         `classDef startend fill:#e6f4ea,stroke:#0d9488,stroke-width:2px,rx:10,ry:10,color:#0f766e;`,
         `classDef action fill:#f0f7ff,stroke:#0284c7,stroke-width:2px,rx:10,ry:10,color:#0369a1;`,
         `classDef decision fill:#fff7ed,stroke:#ea580c,stroke-width:2px,rx:6,ry:6,color:#c2410c;`,
@@ -104,7 +103,6 @@ function parseNodeDefinition(part: string): { id: string; label: string; shape: 
     const trimmed = part.trim();
     if (!trimmed) return null;
 
-    // Strip class annotation if present: :::className or ::className
     let classCleaned = trimmed;
     let colorClass: string | undefined;
     const classMatch = classCleaned.match(/(?:::|:::)([a-zA-Z0-9_\-]+)$/);
@@ -113,7 +111,6 @@ function parseNodeDefinition(part: string): { id: string; label: string; shape: 
         classCleaned = classCleaned.slice(0, classMatch.index).trim();
     }
 
-    // Match leading node ID
     const idMatch = classCleaned.match(/^([a-zA-Z0-9_\-\.]+)/);
     if (!idMatch) return null;
     const id = idMatch[1];
@@ -175,7 +172,7 @@ function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] 
         const existing = rawNodesMap.get(n.id);
         if (existing) {
             if (n.label && n.label !== n.id) existing.label = n.label;
-            if (n.shape) existing.shape = n.shape;
+            if (n.shape && n.shape !== 'rectangle') existing.shape = n.shape;
             if (n.colorClass) existing.colorClass = n.colorClass;
         } else {
             rawNodesMap.set(n.id, {
@@ -192,14 +189,12 @@ function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] 
     const lines = code.split('\n');
     lines.forEach(rawLine => {
         const line = rawLine.trim();
-        // Skip comments, subgraphs, direction, styling
         if (!line || line.startsWith('%%') || line.startsWith('subgraph') || line === 'end' ||
             line.startsWith('direction') || line.startsWith('classDef') || line.startsWith('style') ||
             line.startsWith('linkStyle') || line.startsWith('click')) {
             return;
         }
 
-        // Handle explicit class assignments: class A1,B1 blueNode
         if (line.startsWith('class ')) {
             const m = line.match(/^class\s+([A-Za-z0-9_\-\.,\s]+)\s+([A-Za-z0-9_\-]+)/);
             if (m) {
@@ -213,7 +208,6 @@ function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] 
             return;
         }
 
-        // Check for edge
         const edgeMatch = line.match(edgePattern);
         if (edgeMatch && edgeMatch.index !== undefined) {
             const edgeIndex = edgeMatch.index;
@@ -237,7 +231,6 @@ function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] 
                 }
             }
         } else {
-            // Single node definition
             const node = parseNodeDefinition(line);
             if (node) addOrUpdateNode(node);
         }
@@ -278,13 +271,12 @@ function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] 
     return { nodes: sortedNodes, edges };
 }
 
-// ── Surgical Mermaid Editors ───────────────────────────────────────────────
+// ── Surgical Mermaid Editors (Preserve ALL Node Definitions and Formatting) ─
 
 function surgicalEditLabel(code: string, nodeId: string, newLabel: string): string {
     const escId = nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const safeLabel = newLabel.replace(/"/g, "'").replace(/\n/g, '<br/>');
 
-    // Match nodeId with its bracket and optional :::class
     const nodeDefRe = new RegExp(
         `(\\b${escId}\\s*)(\\[\\/|\\(\\(|[\\[\\(\\{])\\s*"?([^\\]\\)\\n\\r]*?)"?\\s*(\\/\\]|\\)\\)|[\\]\\)\\}])(\\s*:::?\\w+)?`,
         'g'
@@ -354,6 +346,7 @@ function surgicalDeleteNode(code: string, nodeId: string): string {
     return filtered.join('\n');
 }
 
+// ➕ Inserts a node cleanly between fromNode and toNode WITHOUT deleting toNode's shape or label!
 function surgicalInsertBetween(
     code: string,
     fromNodeId: string,
@@ -374,7 +367,34 @@ function surgicalInsertBetween(
     let updatedCode = ensureThemeClassDefs(code);
 
     if (toNodeId) {
-        // Remove direct bypass edge fromNodeId --> toNodeId so flow stays in a clean straight vertical line
+        const escFrom = fromNodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escTo = toNodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        // Look for exact edge line: [fromDef] [-->] [toDef]
+        const lines = updatedCode.split('\n');
+        let edgeReplaced = false;
+
+        const newLines = lines.map(line => {
+            if (edgeReplaced) return line;
+            const t = line.trim();
+            // Matches: fromNodeId ... --> ... toNodeId ...
+            const edgeLineRe = new RegExp(`^(\\s*\\b${escFrom}\\b[^\n\\->]*?)\\s*(-->|==>|-\\.\\->)\\s*(\\b${escTo}\\b[^\n]*)$`);
+            const m = t.match(edgeLineRe);
+            if (m) {
+                edgeReplaced = true;
+                const leftDef = m[1].trim();
+                const arrow = m[2];
+                const rightDef = m[3].trim(); // PRESERVES B1{Applicable ?}:::decision IN FULL!
+                return `  ${leftDef} ${arrow} ${nodeDef}\n  ${nextId} --> ${rightDef}`;
+            }
+            return line;
+        });
+
+        if (edgeReplaced) {
+            return newLines.join('\n');
+        }
+
+        // Fallback if not matched on a single line
         updatedCode = surgicalRemoveEdge(updatedCode, fromNodeId, toNodeId);
         const newEdges = `  ${fromNodeId} --> ${nodeDef}\n  ${nextId} --> ${toNodeId}`;
         const classIdx = updatedCode.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
@@ -412,13 +432,31 @@ function surgicalConnectNodes(code: string, fromId: string, toId: string, label?
 function surgicalRemoveEdge(code: string, fromId: string, toId: string): string {
     const escFrom = fromId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const escTo = toId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     const lines = code.split('\n');
-    const filtered = lines.filter(line => {
+    const result: string[] = [];
+
+    lines.forEach(line => {
         const t = line.trim();
-        const re = new RegExp(`\\b${escFrom}\\b.*-->.*\\b${escTo}\\b`);
-        return !re.test(t);
+        const re = new RegExp(`^(\\s*\\b${escFrom}\\b[^\n\\->]*?)\\s*(-->|==>|-\\.\\->|--\\s+[^\n\\->]+?\\s+-->)\\s*(\\b${escTo}\\b[^\n]*)$`);
+        const m = t.match(re);
+        if (m) {
+            const leftPart = m[1].trim();
+            const rightPart = m[3].trim();
+            // Preserve right part definition if it had brackets/classes
+            if (/[\[\(\{\/]/.test(rightPart)) {
+                result.push(`  ${rightPart}`);
+            }
+            // Preserve left part definition if it had brackets/classes
+            if (/[\[\(\{\/]/.test(leftPart)) {
+                result.push(`  ${leftPart}`);
+            }
+        } else {
+            result.push(line);
+        }
     });
-    return filtered.join('\n');
+
+    return result.join('\n');
 }
 
 // ── Modèles de processus prêts à l'emploi ──────────────────────────────────
@@ -811,7 +849,7 @@ export default function WorkflowEditorPage() {
                         </div>
 
                         {/* ══════════════════════════════════════════════════════════
-                            TAB 1 : CONSTRUCTEUR DIRECT (ZERO GHOST NODES)
+                            TAB 1 : CONSTRUCTEUR DIRECT (STRICT PRESERVATION)
                         ══════════════════════════════════════════════════════════ */}
                         <TabsContent value="builder" className="flex-1 m-0 overflow-auto bg-slate-50/40 p-4 space-y-3">
                             <div className="flex items-center justify-between px-1">
