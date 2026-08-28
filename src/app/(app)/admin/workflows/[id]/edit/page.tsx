@@ -72,6 +72,15 @@ function normalizeColorClass(cls?: string): string {
     return cls;
 }
 
+// Generate clean short sequential node IDs (N1, N2, N3...)
+function getNextSimpleNodeId(code: string): string {
+    let num = 1;
+    while (new RegExp(`\\bN${num}\\b`).test(code)) {
+        num++;
+    }
+    return `N${num}`;
+}
+
 // Ensure default styling classDefs are embedded in the Mermaid code
 function ensureThemeClassDefs(rawCode: string): string {
     let code = rawCode;
@@ -332,18 +341,80 @@ function surgicalEditShapeAndColor(code: string, nodeId: string, newShape: NodeS
     return ensureThemeClassDefs(updated);
 }
 
+// 🗑️ Bridges predecessors directly to successors and preserves target definitions!
 function surgicalDeleteNode(code: string, nodeId: string): string {
     const escId = nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const lines = code.split('\n');
-    const filtered = lines.filter(line => {
+
+    const incoming: { leftDef: string; arrow: string }[] = [];
+    const outgoing: { rightDef: string; arrow: string }[] = [];
+    const otherLines: string[] = [];
+
+    lines.forEach(line => {
         const t = line.trim();
-        if (new RegExp(`^${escId}\\s*[\\[({]`).test(t)) return false;
-        if (new RegExp(`-->.*\\b${escId}\\b`).test(t)) return false;
-        if (new RegExp(`\\b${escId}\\b.*-->`).test(t)) return false;
-        if (new RegExp(`^class\\s+.*\\b${escId}\\b`).test(t)) return false;
-        return true;
+        if (!t || t.startsWith('%%') || t.startsWith('classDef') || t.startsWith('style') || t.startsWith('linkStyle')) {
+            otherLines.push(line);
+            return;
+        }
+
+        // Skip direct class assignment for deleted node
+        if (new RegExp(`^class\\s+.*\\b${escId}\\b`).test(t)) {
+            return;
+        }
+
+        // Skip standalone declaration of deleted node
+        if (new RegExp(`^${escId}\\s*[\\[\\(\\{]`).test(t)) {
+            return;
+        }
+
+        // Incoming edge to deleted node: e.g. A1 --> N1
+        const inMatch = t.match(new RegExp(`^(.*?)\\s*(-->|==>|-\\.\\->|--\\s+[^\n\\->]+?\\s+-->)\\s*\\b${escId}\\b(?:[\\[\\(\\{][^\n]*?)?(?:\\s*:::?\\w+)?$`));
+        if (inMatch) {
+            incoming.push({ leftDef: inMatch[1].trim(), arrow: inMatch[2] });
+            return;
+        }
+
+        // Outgoing edge from deleted node: e.g. N1 --> B1{Applicable ?}:::decision
+        const outMatch = t.match(new RegExp(`^\\b${escId}\\b(?:[\\[\\(\\{][^\n]*?)?(?:\\s*:::?\\w+)?\\s*(-->|==>|-\\.\\->|--\\s+[^\n\\->]+?\\s+-->)\\s*(.+)$`));
+        if (outMatch) {
+            outgoing.push({ arrow: outMatch[1], rightDef: outMatch[2].trim() });
+            return;
+        }
+
+        if (new RegExp(`\\b${escId}\\b`).test(t)) {
+            return;
+        }
+
+        otherLines.push(line);
     });
-    return filtered.join('\n');
+
+    const bridgedLines: string[] = [];
+    if (incoming.length > 0 && outgoing.length > 0) {
+        // Bridge each predecessor directly to each successor preserving full definition
+        incoming.forEach(inc => {
+            outgoing.forEach(out => {
+                bridgedLines.push(`  ${inc.leftDef} --> ${out.rightDef}`);
+            });
+        });
+    } else if (outgoing.length > 0) {
+        // If deleted node was root, keep successors declarations
+        outgoing.forEach(out => {
+            if (/[\[\(\{\/]/.test(out.rightDef)) {
+                bridgedLines.push(`  ${out.rightDef}`);
+            }
+        });
+    }
+
+    const resultText = otherLines.join('\n');
+    if (bridgedLines.length > 0) {
+        const classIdx = resultText.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
+        if (classIdx > -1) {
+            return resultText.slice(0, classIdx) + `\n${bridgedLines.join('\n')}` + resultText.slice(classIdx);
+        }
+        return resultText + `\n${bridgedLines.join('\n')}`;
+    }
+
+    return resultText;
 }
 
 // ➕ Inserts a node cleanly between fromNode and toNode WITHOUT deleting toNode's shape or label!
@@ -355,9 +426,8 @@ function surgicalInsertBetween(
     shape: NodeShape = 'rectangle',
     colorKey: NodeColor = 'blue'
 ): string {
-    const count = (code.match(/\bN\d+\b/g)?.length || 0) + 1;
-    const nextId = `N${count}_${Date.now().toString().slice(-3)}`;
-    const safeLabel = (label || `Étape ${count}`).replace(/"/g, "'").replace(/\n/g, '<br/>');
+    const nextId = getNextSimpleNodeId(code); // Clean simple ID: N1, N2, N3...
+    const safeLabel = (label || `Étape ${nextId}`).replace(/"/g, "'").replace(/\n/g, '<br/>');
     const colorCls = COLOR_CLASSES[colorKey]?.class || (shape === 'diamond' ? 'orangeNode' : shape === 'rounded' ? 'greenNode' : 'blueNode');
 
     let nodeDef = `${nextId}["${safeLabel}"]:::${colorCls}`;
@@ -370,7 +440,6 @@ function surgicalInsertBetween(
         const escFrom = fromNodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const escTo = toNodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-        // Look for exact edge line: [fromDef] [-->] [toDef]
         const lines = updatedCode.split('\n');
         let edgeReplaced = false;
 
@@ -394,8 +463,7 @@ function surgicalInsertBetween(
             return newLines.join('\n');
         }
 
-        // Fallback if not matched on a single line
-        updatedCode = surgicalRemoveEdge(updatedCode, fromNodeId, toNodeId);
+        // Fallback
         const newEdges = `  ${fromNodeId} --> ${nodeDef}\n  ${nextId} --> ${toNodeId}`;
         const classIdx = updatedCode.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
         if (classIdx > -1) {
@@ -443,11 +511,9 @@ function surgicalRemoveEdge(code: string, fromId: string, toId: string): string 
         if (m) {
             const leftPart = m[1].trim();
             const rightPart = m[3].trim();
-            // Preserve right part definition if it had brackets/classes
             if (/[\[\(\{\/]/.test(rightPart)) {
                 result.push(`  ${rightPart}`);
             }
-            // Preserve left part definition if it had brackets/classes
             if (/[\[\(\{\/]/.test(leftPart)) {
                 result.push(`  ${leftPart}`);
             }
@@ -581,10 +647,11 @@ export default function WorkflowEditorPage() {
         applyCode(updated);
     };
 
+    // 🗑️ Seamless deletion that bridges predecessor to successor
     const handleDeleteNode = (nodeId: string) => {
         const updated = surgicalDeleteNode(codeRef.current, nodeId);
         applyCode(updated);
-        toast({ title: 'Étape supprimée' });
+        toast({ title: 'Étape supprimée et flux raccordé' });
     };
 
     const handleConnectToStep = (fromId: string, toId: string, label?: string) => {
@@ -610,9 +677,9 @@ export default function WorkflowEditorPage() {
     };
 
     const handleAddDecisionBranches = (fromNodeId: string) => {
-        const idYes = `Y_${Date.now().toString().slice(-4)}`;
-        const idNo = `N_${Date.now().toString().slice(-4)}`;
+        const idYes = getNextSimpleNodeId(codeRef.current);
         let updated = surgicalConnectNodes(codeRef.current, fromNodeId, `${idYes}["Suite si OUI"]:::blueNode`, 'Oui');
+        const idNo = getNextSimpleNodeId(updated);
         updated = surgicalConnectNodes(updated, fromNodeId, `${idNo}["Action si NON"]:::roseNode`, 'Non');
         applyCode(updated);
         toast({ title: 'Branches Oui & Non créées' });
@@ -849,7 +916,7 @@ export default function WorkflowEditorPage() {
                         </div>
 
                         {/* ══════════════════════════════════════════════════════════
-                            TAB 1 : CONSTRUCTEUR DIRECT (STRICT PRESERVATION)
+                            TAB 1 : CONSTRUCTEUR DIRECT (CLEAN SHORT IDS & RESILIENT)
                         ══════════════════════════════════════════════════════════ */}
                         <TabsContent value="builder" className="flex-1 m-0 overflow-auto bg-slate-50/40 p-4 space-y-3">
                             <div className="flex items-center justify-between px-1">
@@ -863,7 +930,7 @@ export default function WorkflowEditorPage() {
                                 </div>
                             </div>
 
-                            {/* Node Cards List (Strictly ordered, zero phantom nodes) */}
+                            {/* Node Cards List */}
                             <div className="space-y-2.5">
                                 {visualModel.nodes.map((node, nodeIdx) => {
                                     const isDecision = node.shape === 'diamond';
