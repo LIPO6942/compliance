@@ -123,4 +123,9 @@
     animation: blink-soft 2s ease-in-out infinite;
     border-color: #ef4444 !important;
   }
+
+  /* Suppress any stray Mermaid error elements */
+  #dmermaid, [id^="dmermaid"], svg[aria-roledescription="error"], .mermaid-error {
+    display: none !important;
+  }
 }
