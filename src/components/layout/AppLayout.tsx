@@ -468,7 +468,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </Sidebar>
 
       {/* ── Main Inset ──────────────────────────────────────────────── */}
-      <SidebarInset className="flex flex-col">
+      <SidebarInset className="flex flex-col min-w-0 overflow-x-hidden">
         {!isFirebaseConfigured && (
           <div className="bg-destructive text-destructive-foreground text-center p-2.5 text-sm font-semibold flex items-center justify-center gap-2 z-50 shadow-lg">
             <AlertTriangle className="h-5 w-5" />
@@ -477,14 +477,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         )}
 
         {/* ── Sticky Top Header ────────────────────────────────────────── */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-white/70 dark:bg-slate-900/70 backdrop-blur-md px-4 sm:px-6 md:px-8 border-slate-200/60 dark:border-slate-800/60">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-white/70 dark:bg-slate-900/70 backdrop-blur-md px-3 sm:px-6 md:px-8 border-slate-200/60 dark:border-slate-800/60 min-w-0 overflow-hidden">
           <div className="flex items-center gap-4">
             <SidebarTrigger className="hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all" />
             <div className="flex flex-col">
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 leading-none mb-1">
                 Gouvernance & Conformité
               </span>
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">
+              <h1 className="text-base sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none truncate max-w-[150px] sm:max-w-none">
                 {pageTitle}
               </h1>
             </div>
@@ -514,7 +514,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* ── Page Children Content ──────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6 md:p-8 min-w-0">
           {children}
         </main>
 
