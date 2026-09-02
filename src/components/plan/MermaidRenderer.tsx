@@ -42,6 +42,8 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
     const uniqueId = useMemo(() => Math.random().toString(36).substring(7), []);
     const [svg, setSvg] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [retryCount, setRetryCount] = useState<number>(0);
     const { workflowTasks, planData, availableUsers } = usePlanData();
     const { risks: allRisks } = useRiskMapping();
 
@@ -100,12 +102,21 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
         let isMounted = true;
 
         const renderChart = async () => {
-            if (!chart || typeof window === 'undefined') return;
+            if (!chart || typeof window === 'undefined') {
+                setLoading(false);
+                return;
+            }
 
             try {
+                setLoading(true);
                 setError(null);
+
                 const mermaid = await ensureMermaidLoaded();
                 if (!isMounted) return;
+
+                if (!mermaid) {
+                    throw new Error("Le moteur Mermaid n'a pas pu être initialisé.");
+                }
 
                 const annotatedChart = annotateMermaidCode(chart, {
                     workflowId,
@@ -131,52 +142,69 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     const { svg: generatedSvg } = await mermaid.render(domId, annotatedChart);
                     if (isMounted) {
                         setSvg(generatedSvg);
+                        setError(null);
                     }
                 } catch (renderError: any) {
-                    console.warn('Erreur de rendu Mermaid annoté, repli sur le code brut:', renderError);
+                    console.warn('Erreur de rendu Mermaid annoté, tentative avec le code brut:', renderError);
                     try {
                         const simpleId = `mermaid_simple_${uniqueId}_${Date.now()}`;
                         const { svg: simpleSvg } = await mermaid.render(simpleId, chart);
                         if (isMounted) {
                             setSvg(simpleSvg);
+                            setError(null);
                         }
                     } catch (fallbackError: any) {
-                        console.warn('Échec du fallback Mermaid:', fallbackError);
-                        // Do not clear the existing SVG if available
+                        console.warn('Échec du rendu Mermaid:', fallbackError);
                         if (isMounted) {
-                            setSvg(prev => prev || '');
-                            setError(prev => prev ? prev : `Code Mermaid en cours d'édition...`);
+                            const cleanMsg = (fallbackError?.message || renderError?.message || 'Erreur de syntaxe Mermaid')
+                                .replace(/<[^>]*>?/gm, '');
+                            setError(`Syntaxe du diagramme en cours d'édition ou non reconnue : ${cleanMsg}`);
                         }
                     }
                 }
             } catch (err: any) {
-                console.warn('Erreur chargement/transformation Mermaid:', err);
+                console.error('Erreur chargement/transformation Mermaid:', err);
                 if (isMounted) {
-                    setSvg(prev => prev || '');
+                    setError(err?.message || "Impossible de charger le moteur Mermaid. Vérifiez votre connexion Internet.");
+                }
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
                 }
             }
         };
 
-        renderChart();
+        const timeout = setTimeout(renderChart, 50);
 
         return () => {
             isMounted = false;
+            clearTimeout(timeout);
             const callbackName = `mermaidClick_${uniqueId}`;
             delete (window as any)[callbackName];
         };
-    }, [chart, workflowTasks, workflowId, planData, availableUsers, allRisks, onEditTask, uniqueId]);
+    }, [chart, workflowTasks, workflowId, planData, availableUsers, allRisks, onEditTask, uniqueId, retryCount]);
 
-    if (error) {
+    if (error && !svg) {
         return (
-            <div className="w-full flex items-center justify-center p-8">
-                <div className="max-w-md w-full bg-rose-50 border border-rose-100 rounded-[2.5rem] p-8 flex flex-col items-center text-center gap-4 shadow-xl">
-                    <div className="h-12 w-12 bg-rose-100 rounded-full flex items-center justify-center text-rose-500">
+            <div className="w-full h-full flex items-center justify-center p-6">
+                <div className="max-w-lg w-full bg-rose-50/90 backdrop-blur-md border border-rose-200 rounded-3xl p-6 flex flex-col items-center text-center gap-4 shadow-xl">
+                    <div className="h-12 w-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 shadow-inner">
                         <AlertTriangle className="h-6 w-6" />
                     </div>
-                    <div className="space-y-2">
-                        <h3 className="text-lg font-bold text-rose-900">Erreur de diagramme</h3>
-                        <p className="text-[10px] text-rose-700 font-mono bg-white/60 p-4 rounded-2xl border border-rose-200/50 text-left overflow-auto max-h-[120px]">{error}</p>
+                    <div className="space-y-1 w-full">
+                        <h3 className="text-base font-black text-rose-900">Affichage du diagramme</h3>
+                        <p className="text-xs text-rose-700/80">Le flux n&apos;a pas pu être généré automatiquement.</p>
+                        <div className="text-[11px] text-rose-800 font-mono bg-white/80 p-3 rounded-xl border border-rose-200/60 text-left overflow-auto max-h-[100px] mt-2 select-all">
+                            {error}
+                        </div>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => setRetryCount(r => r + 1)}
+                        className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition-all active:scale-95 flex items-center gap-2"
+                    >
+                        <span>🔄</span> Réessayer le chargement
+                    </button>
                 </div>
             </div>
         );

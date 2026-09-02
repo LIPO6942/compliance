@@ -60,13 +60,13 @@ export function ensureMermaidLoaded(): Promise<any> {
         return Promise.reject(new Error('Window is undefined'));
     }
 
-    const initMermaid = (m: any) => {
-        const mermaidInstance = m?.default || m;
-        if (!mermaidInstance) return null;
+    const initMermaidInstance = (rawMermaid: any) => {
+        const m = rawMermaid?.default || rawMermaid;
+        if (!m) return null;
 
-        if (!mermaidInstance.__isInitialized) {
-            try {
-                mermaidInstance.initialize({
+        try {
+            if (!m.__isInitialized) {
+                m.initialize({
                     startOnLoad: false,
                     theme: 'base',
                     themeVariables: {
@@ -85,86 +85,151 @@ export function ensureMermaidLoaded(): Promise<any> {
                         padding: 10
                     }
                 });
-                mermaidInstance.parseError = (err: any) => {
-                    console.warn('Mermaid Parse Warning (Suppressed from UI):', err);
-                };
-                mermaidInstance.__isInitialized = true;
-            } catch (e) {
-                console.error('Error initializing mermaid:', e);
+                if (typeof m.parseError === 'function') {
+                    m.parseError = (err: any) => {
+                        console.warn('Mermaid Parse Warning:', err);
+                    };
+                }
+                m.__isInitialized = true;
             }
+        } catch (initErr) {
+            console.warn('Mermaid initialization warning:', initErr);
         }
-        return mermaidInstance;
+
+        // Standardize render API wrapper across Mermaid 9 and 10+
+        const standardized = {
+            ...m,
+            raw: m,
+            render: async (id: string, text: string): Promise<{ svg: string }> => {
+                // Mermaid 10+ standard async render
+                if (typeof m.render === 'function') {
+                    try {
+                        const result = await m.render(id, text);
+                        return typeof result === 'string' ? { svg: result } : result;
+                    } catch (renderErr) {
+                        if (typeof document !== 'undefined') {
+                            const errDivs = document.querySelectorAll(`[id^="d${id}"], [id^="mermaid-error"]`);
+                            errDivs.forEach(el => el.remove());
+                        }
+                        throw renderErr;
+                    }
+                }
+                // Mermaid 9 fallback API
+                if (m.mermaidAPI && typeof m.mermaidAPI.render === 'function') {
+                    return new Promise<{ svg: string }>((res, rej) => {
+                        try {
+                            m.mermaidAPI.render(id, text, (svgCode: string) => {
+                                res({ svg: svgCode });
+                            });
+                        } catch (e) {
+                            rej(e);
+                        }
+                    });
+                }
+                throw new Error('Fonction de rendu Mermaid non disponible');
+            }
+        };
+
+        (window as any).mermaid = standardized;
+        return standardized;
     };
 
-    if (window.mermaid) {
-        const inst = initMermaid(window.mermaid);
-        if (inst) return Promise.resolve(inst);
+    if ((window as any).mermaid && ((window as any).mermaid.render || (window as any).mermaid.mermaidAPI)) {
+        return Promise.resolve(initMermaidInstance((window as any).mermaid));
     }
 
     if (mermaidPromise) {
         return mermaidPromise;
     }
 
-    mermaidPromise = new Promise((resolve) => {
-        const existingScript = document.querySelector('script[data-mermaid-script="true"]') as HTMLScriptElement;
-        if (existingScript && window.mermaid) {
-            const inst = initMermaid(window.mermaid);
-            if (inst) { resolve(inst); return; }
-        }
+    mermaidPromise = new Promise(async (resolve, reject) => {
+        let isDone = false;
 
-        const cdns = [
-            'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.0/mermaid.min.js',
-            'https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js',
-            'https://unpkg.com/mermaid@10.9.0/dist/mermaid.min.js'
+        const timeoutTimer = setTimeout(() => {
+            if (!isDone) {
+                isDone = true;
+                mermaidPromise = null;
+                reject(new Error("Délai d'attente dépassé lors du chargement de Mermaid (timeout 8s)."));
+            }
+        }, 8000);
+
+        const succeed = (instance: any) => {
+            if (!isDone) {
+                isDone = true;
+                clearTimeout(timeoutTimer);
+                resolve(instance);
+            }
+        };
+
+        // Stratégie 1: Import dynamique ESM (recommandé pour Mermaid 10+)
+        const esmUrls = [
+            'https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.esm.min.mjs',
+            'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.0/mermaid.esm.min.mjs',
+            'https://esm.sh/mermaid@10.9.0',
+            'https://unpkg.com/mermaid@10.9.0/dist/mermaid.esm.min.mjs'
         ];
 
-        let cdnIndex = 0;
+        for (const url of esmUrls) {
+            try {
+                // Utilisation de new Function pour éviter l'analyse statique du bundler
+                const dynamicImport = new Function('modulePath', 'return import(modulePath)');
+                const module = await dynamicImport(url);
+                const inst = initMermaidInstance(module);
+                if (inst) {
+                    succeed(inst);
+                    return;
+                }
+            } catch {
+                // Essai du CDN suivant
+            }
+        }
 
-        const tryLoadScript = (url: string) => {
+        // Stratégie 2: Injection script UMD classique (fallback résilient)
+        const umdUrls = [
+            'https://cdnjs.cloudflare.com/ajax/libs/mermaid/9.4.3/mermaid.min.js',
+            'https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js',
+            'https://unpkg.com/mermaid@9.4.3/dist/mermaid.min.js'
+        ];
+
+        let umdIndex = 0;
+        const tryNextUmd = () => {
+            if (isDone) return;
+            if (umdIndex >= umdUrls.length) {
+                mermaidPromise = null;
+                if (!isDone) {
+                    isDone = true;
+                    clearTimeout(timeoutTimer);
+                    reject(new Error('Impossible de charger le moteur Mermaid depuis les réseaux CDN.'));
+                }
+                return;
+            }
+
+            const scriptUrl = umdUrls[umdIndex++];
             const script = document.createElement('script');
-            script.src = url;
+            script.src = scriptUrl;
             script.async = true;
             script.setAttribute('data-mermaid-script', 'true');
+
             script.onload = () => {
-                const inst = initMermaid(window.mermaid);
-                if (inst) {
-                    resolve(inst);
-                } else {
-                    tryNext();
+                if ((window as any).mermaid) {
+                    const inst = initMermaidInstance((window as any).mermaid);
+                    if (inst) {
+                        succeed(inst);
+                        return;
+                    }
                 }
+                tryNextUmd();
             };
+
             script.onerror = () => {
                 script.remove();
-                tryNext();
+                tryNextUmd();
             };
+
             document.head.appendChild(script);
         };
 
-        const tryNext = () => {
-            if (window.mermaid) {
-                const inst = initMermaid(window.mermaid);
-                if (inst) {
-                    resolve(inst);
-                    return;
-                }
-            }
-
-            if (cdnIndex < cdns.length) {
-                tryLoadScript(cdns[cdnIndex++]);
-            } else {
-                mermaidPromise = null;
-                // If all fail, resolve null instead of hard rejecting to avoid crashing the view
-                if (window.mermaid) {
-                    resolve(initMermaid(window.mermaid));
-                } else {
-                    setTimeout(() => {
-                        if (window.mermaid) resolve(initMermaid(window.mermaid));
-                    }, 500);
-                }
-            }
-        };
-
-        tryNext();
+        tryNextUmd();
     });
 
     return mermaidPromise;
@@ -311,15 +376,18 @@ export function annotateMermaidCode(
         }
         infoHtml += `</div>`;
 
-        if (nodeRegex.test(annotatedChart)) {
-            annotatedChart = annotatedChart.replace(nodeRegex, (match, id, rawOpen, rawLabel) => {
-                const { open, close } = getShapeBrackets(rawOpen);
-                const cleanLabel = cleanForMermaid(
-                    rawLabel.split('<br')[0].split('<div')[0].replace(/^["']+|["']+$/g, '').trim()
-                );
-                return `${id}${open}<div class='node-label-main'>${cleanLabel}</div>${infoHtml}${close}`;
-            });
-        } else {
+        let matched = false;
+        const replaceRegex = new RegExp(`\\b(${escapedId})\\s*([\\(\\[\\{\\>]{1,2})["']?(.*?)["']?([\\)\\]\\}]{1,2})`, 'g');
+        annotatedChart = annotatedChart.replace(replaceRegex, (match, id, rawOpen, rawLabel) => {
+            matched = true;
+            const { open, close } = getShapeBrackets(rawOpen);
+            const cleanLabel = cleanForMermaid(
+                rawLabel.split('<br')[0].split('<div')[0].replace(/^["']+|["']+$/g, '').trim()
+            );
+            return `${id}${open}<div class='node-label-main'>${cleanLabel || id}</div>${infoHtml}${close}`;
+        });
+
+        if (!matched && !annotatedChart.includes(nodeId)) {
             if (/^[a-zA-Z0-9_\-\.]+$/.test(nodeId)) {
                 annotatedChart += `\n${nodeId}["<div class='node-label-main'>${nodeId}</div>${infoHtml}"]`;
             }
