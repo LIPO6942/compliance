@@ -124,8 +124,8 @@
     border-color: #ef4444 !important;
   }
 
-  /* Suppress any stray Mermaid error elements */
-  #dmermaid, [id^="dmermaid"], svg[aria-roledescription="error"], .mermaid-error {
+  /* Suppress any stray Mermaid raw error SVGs */
+  svg[aria-roledescription="error"], .mermaid-error {
     display: none !important;
   }
 }

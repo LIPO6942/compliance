@@ -136,7 +136,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     }
                 };
 
-                const domId = `mermaid_svg_${uniqueId}_${Date.now()}`;
+                const domId = `flow_svg_${uniqueId}_${Date.now()}`;
 
                 try {
                     const { svg: generatedSvg } = await mermaid.render(domId, annotatedChart);
@@ -147,7 +147,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 } catch (renderError: any) {
                     console.warn('Erreur de rendu Mermaid annoté, tentative avec le code brut:', renderError);
                     try {
-                        const simpleId = `mermaid_simple_${uniqueId}_${Date.now()}`;
+                        const simpleId = `flow_simple_${uniqueId}_${Date.now()}`;
                         const { svg: simpleSvg } = await mermaid.render(simpleId, chart);
                         if (isMounted) {
                             setSvg(simpleSvg);
@@ -239,9 +239,8 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 .assignee-row { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 6px; }
                 .assignee-row:last-child { margin-bottom: 0; }
                 
-                /* Masquer les erreurs brutes injectées par Mermaid en bas de page */
-                body > div[id^="dmermaid"] { visibility: hidden !important; position: absolute !important; left: -10000px !important; top: 0 !important; }
-                body > div[id^="mermaid-error"] { display: none !important; }
+                /* Masquer uniquement les erreurs SVG brutes sans casser les conteneurs d'évaluation */
+                svg[aria-roledescription="error"] { display: none !important; }
                 
                 .grc-row { border-top: 1px dashed rgba(0,0,0,0.1); margin-top: 4px; padding-top: 4px; }
 
