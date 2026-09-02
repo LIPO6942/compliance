@@ -38,7 +38,7 @@ import { RegulatoryListsModal } from './RegulatoryListsModal';
 import { EditRegulatoryTextModal } from './EditRegulatoryTextModal';
 import ExcelJS from 'exceljs';
 
-const STORAGE_KEY = 'mae_regulatory_watch_register_v2026_src_aligned';
+const STORAGE_KEY = 'mae_regulatory_watch_register_v2026_realigned_clean';
 
 export function RegulatoryWatchRegister() {
   const { toast } = useToast();
