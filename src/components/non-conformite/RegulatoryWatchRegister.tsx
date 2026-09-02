@@ -7,6 +7,7 @@ import {
   Printer,
   PlusCircle,
   Download,
+  Upload,
   RotateCcw,
   SlidersHorizontal,
   FileText,
@@ -131,14 +132,99 @@ export function RegulatoryWatchRegister() {
     }
   };
 
-  // Export to professional Excel
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Import from Excel file
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer);
+
+      const ws = wb.getWorksheet('Registre Veille Réglementaire') || wb.worksheets[0];
+      if (!ws) {
+        throw new Error('Feuille de calcul introuvable dans le fichier Excel.');
+      }
+
+      const importedItems: RegulatoryWatchItem[] = [];
+
+      ws.eachRow((row, rowNumber) => {
+        // Skip banner & header rows
+        if (rowNumber <= 4) return;
+
+        const values = row.values as any[];
+        if (!values || values.length < 2) return;
+
+        // Column mapping according to exact 23 columns
+        const idVal = Number(values[1]) || (importedItems.length + 1);
+        const refVal = values[5] ? String(values[5]).trim() : '';
+
+        if (!refVal && !values[2]) return;
+
+        importedItems.push({
+          id: idVal,
+          domaine: values[2] ? String(values[2]).trim() : 'Assurance',
+          sousDomaine: values[3] ? String(values[3]).trim() : '',
+          typeTexte: values[4] ? String(values[4]).trim() : 'Règlement',
+          referenceTexte: refVal || String(values[2]),
+          dateTexte: values[6] ? String(values[6]).trim() : '',
+          autorite: values[7] ? String(values[7]).trim() : '',
+          objet: values[8] ? String(values[8]).trim() : '',
+          articlesCles: values[9] ? String(values[9]).trim() : '',
+          processus: values[10] ? String(values[10]).trim() : '',
+          obligation: values[11] ? String(values[11]).trim() : '',
+          responsable: values[12] ? String(values[12]).trim() : '',
+          controleConformite: values[13] ? String(values[13]).trim() : '',
+          frequence: values[14] ? String(values[14]).trim() : '',
+          preuve: values[15] ? String(values[15]).trim() : '',
+          etatConformite: (values[16] ? String(values[16]).trim() : 'À déterminer') as ComplianceState,
+          applicabilite: 'Oui',
+          ecartConstat: values[17] ? String(values[17]).trim() : '',
+          actionCorrective: values[18] ? String(values[18]).trim() : '',
+          responsableAction: values[19] ? String(values[19]).trim() : '',
+          echeance: values[20] ? String(values[20]).trim() : '',
+          statutAction: (values[21] ? String(values[21]).trim() : 'Non démarrée') as ActionStatus,
+          source: values[22] ? String(values[22]).trim() : '',
+          observations: values[23] ? String(values[23]).trim() : '',
+        });
+      });
+
+      if (importedItems.length > 0) {
+        saveItems(importedItems);
+        toast({
+          title: 'Importation Excel réussie',
+          description: `${importedItems.length} textes réglementaires importés avec la colonne Source et Observations.`,
+        });
+      } else {
+        toast({
+          title: 'Aucune donnée importée',
+          description: 'Le fichier Excel ne contient pas de lignes de données conformes.',
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('Error importing Excel:', err);
+      toast({
+        title: "Erreur d'importation",
+        description: "Impossible d'importer le fichier Excel. Vérifiez la structure des colonnes.",
+        variant: 'destructive',
+      });
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  // Export to professional Excel strictly matching the 23 columns
   const handleExportExcel = async () => {
     try {
       const wb = new ExcelJS.Workbook();
       wb.creator = 'MAE Assurances - Compliance Navigator';
       wb.created = new Date();
 
-      // Sheet 1: Registre complet
+      // Sheet 1: Registre complet (23 colonnes)
       const ws = wb.addWorksheet('Registre Veille Réglementaire');
 
       // Title Banner
@@ -157,7 +243,7 @@ export function RegulatoryWatchRegister() {
       subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
       ws.getRow(2).height = 20;
 
-      // Table Headers
+      // Exact 23 Table Headers
       const headers = [
         'N°',
         'Domaine',
@@ -175,12 +261,12 @@ export function RegulatoryWatchRegister() {
         'Fréquence',
         'Preuve / justificatif attendu',
         'État de conformité',
-        'Applicabilité',
         'Écart / constat',
         'Action corrective',
         'Responsable action',
         'Échéance',
         'Statut action',
+        'Source',
         'Observations',
       ];
 
@@ -191,43 +277,43 @@ export function RegulatoryWatchRegister() {
       headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
       headerRow.height = 28;
 
-      // Column widths
+      // Exact 23 Column widths
       ws.columns = [
-        { width: 6 },
-        { width: 26 },
-        { width: 22 },
-        { width: 16 },
-        { width: 45 },
-        { width: 12 },
-        { width: 24 },
-        { width: 35 },
-        { width: 38 },
-        { width: 26 },
-        { width: 35 },
-        { width: 24 },
-        { width: 32 },
-        { width: 22 },
-        { width: 30 },
-        { width: 20 },
-        { width: 14 },
-        { width: 25 },
-        { width: 35 },
-        { width: 22 },
-        { width: 14 },
-        { width: 18 },
-        { width: 35 },
+        { width: 6 },   // 1. N°
+        { width: 26 },  // 2. Domaine
+        { width: 22 },  // 3. Sous-domaine
+        { width: 16 },  // 4. Type de texte
+        { width: 45 },  // 5. Référence du texte
+        { width: 14 },  // 6. Date
+        { width: 24 },  // 7. Autorité émettrice
+        { width: 35 },  // 8. Objet / intitulé
+        { width: 38 },  // 9. Articles / dispositions clés
+        { width: 26 },  // 10. Processus / activité concerné
+        { width: 35 },  // 11. Obligation / exigence à contrôler
+        { width: 24 },  // 12. Responsable
+        { width: 32 },  // 13. Contrôle de conformité
+        { width: 22 },  // 14. Fréquence
+        { width: 30 },  // 15. Preuve / justificatif attendu
+        { width: 20 },  // 16. État de conformité
+        { width: 25 },  // 17. Écart / constat
+        { width: 35 },  // 18. Action corrective
+        { width: 22 },  // 19. Responsable action
+        { width: 14 },  // 20. Échéance
+        { width: 18 },  // 21. Statut action
+        { width: 38 },  // 22. Source
+        { width: 38 },  // 23. Observations
       ];
 
-      // Add Data Rows
+      // Add Data Rows matching 23 columns
       items.forEach((item, idx) => {
         const row = ws.addRow([
           item.id,
-          item.domaine,
+          item.domaine || '',
           item.sousDomaine || '',
-          item.typeTexte,
-          item.referenceTexte,
+          item.typeTexte || '',
+          item.referenceTexte || '',
           item.dateTexte || '',
-          item.autorite,
+          item.autorite || '',
           item.objet || '',
           item.articlesCles || '',
           item.processus || '',
@@ -236,13 +322,13 @@ export function RegulatoryWatchRegister() {
           item.controleConformite || '',
           item.frequence || '',
           item.preuve || '',
-          item.etatConformite,
-          item.applicabilite || 'Oui',
+          item.etatConformite || 'À déterminer',
           item.ecartConstat || '',
           item.actionCorrective || '',
           item.responsableAction || '',
           item.echeance || '',
           item.statutAction || '',
+          item.source || '',
           item.observations || '',
         ]);
 
@@ -364,6 +450,13 @@ export function RegulatoryWatchRegister() {
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 w-full lg:w-auto shrink-0">
             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImportExcel}
+                accept=".xlsx, .xls"
+                className="hidden"
+              />
               <Button
                 onClick={handleExportExcel}
                 variant="outline"
@@ -372,6 +465,15 @@ export function RegulatoryWatchRegister() {
               >
                 <Download className="h-3.5 w-3.5" />
                 Export Excel
+              </Button>
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                variant="outline"
+                size="sm"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 hover:border-white/40 text-xs font-bold rounded-xl gap-1.5 backdrop-blur-sm flex-1 sm:flex-initial"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Importer Excel
               </Button>
               <Button
                 onClick={() => window.print()}
