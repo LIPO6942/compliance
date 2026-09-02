@@ -80,9 +80,9 @@ export function ensureMermaidLoaded(): Promise<any> {
                     securityLevel: 'loose',
                     flowchart: {
                         htmlLabels: true,
-                        curve: 'stepAfter',
+                        curve: 'basis',
                         useMaxWidth: false,
-                        padding: 10
+                        padding: 12
                     }
                 });
                 if (typeof m.parseError === 'function') {
@@ -106,12 +106,34 @@ export function ensureMermaidLoaded(): Promise<any> {
                     try {
                         const result = await m.render(id, text);
                         return typeof result === 'string' ? { svg: result } : result;
-                    } catch (renderErr) {
+                    } catch (renderErr: any) {
                         if (typeof document !== 'undefined') {
                             const errDivs = document.querySelectorAll(`[id^="d${id}"], [id^="mermaid-error"]`);
                             errDivs.forEach(el => el.remove());
                         }
-                        throw renderErr;
+
+                        // Fallback de calcul de courbe : si erreur de positionnement, bascule sur curve: 'linear'
+                        try {
+                            m.initialize({
+                                startOnLoad: false,
+                                theme: 'base',
+                                securityLevel: 'loose',
+                                flowchart: {
+                                    htmlLabels: true,
+                                    curve: 'linear',
+                                    useMaxWidth: false,
+                                    padding: 12
+                                }
+                            });
+                            const retryResult = await m.render(`${id}_linear`, text);
+                            return typeof retryResult === 'string' ? { svg: retryResult } : retryResult;
+                        } catch {
+                            if (typeof document !== 'undefined') {
+                                const errDivs = document.querySelectorAll(`[id^="d${id}"], [id^="mermaid-error"]`);
+                                errDivs.forEach(el => el.remove());
+                            }
+                            throw renderErr;
+                        }
                     }
                 }
                 // Mermaid 9 fallback API
