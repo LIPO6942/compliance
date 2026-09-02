@@ -529,6 +529,15 @@ export function RegulatoryRegisterTable({
                                     </p>
                                   </div>
 
+                                  {item.source && (
+                                    <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
+                                      <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 block">Source :</span>
+                                      <p className="text-slate-700 dark:text-slate-300 font-medium text-[11px] leading-snug mt-0.5">
+                                        {item.source}
+                                      </p>
+                                    </div>
+                                  )}
+
                                   {item.observations && (
                                     <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
                                       <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block">Observations :</span>
