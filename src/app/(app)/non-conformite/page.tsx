@@ -43,6 +43,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import ExcelJS from 'exceljs';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { RegulatoryWatchRegister } from '@/components/non-conformite/RegulatoryWatchRegister';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface RegulatoryRisk {
@@ -197,6 +199,33 @@ const getCellColor = (prob: number, impact: number) => {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function NonConformitePage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const tabParam = searchParams.get('tab');
+
+  const [mainTab, setMainTab] = useState<'cartographie' | 'registre-veille'>(() => {
+    if (tabParam === 'registre-veille' || tabParam === 'veille' || tabParam === 'registre-veille-conformite') {
+      return 'registre-veille';
+    }
+    return 'cartographie';
+  });
+
+  React.useEffect(() => {
+    if (tabParam === 'registre-veille' || tabParam === 'veille' || tabParam === 'registre-veille-conformite') {
+      setMainTab('registre-veille');
+    } else if (tabParam === 'cartographie') {
+      setMainTab('cartographie');
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (tab: 'cartographie' | 'registre-veille') => {
+    setMainTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', tab);
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
   const [risks, setRisks] = useState<RegulatoryRisk[]>(initialRisks);
   const [activeTab, setActiveTab] = useState<'registre' | 'matrice' | 'analyse'>('registre');
   const [filterLevel, setFilterLevel] = useState<string>('all');
@@ -484,9 +513,53 @@ export default function NonConformitePage() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-8 max-w-7xl mx-auto pb-12">
-        {/* ── Hero Banner ──────────────────────────────────────────────────── */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-rose-950 to-slate-900 p-6 sm:p-8 shadow-2xl text-white">
+      <div className="space-y-6 max-w-7xl mx-auto pb-12">
+        {/* ── Top Level Sub-Navigation Switcher ────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl w-full sm:w-auto">
+            <button
+              onClick={() => handleTabChange('cartographie')}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all flex-1 sm:flex-initial justify-center',
+                mainTab === 'cartographie'
+                  ? 'bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-300 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              )}
+            >
+              <BookX className="h-4 w-4 text-rose-500" />
+              <span>Cartographie des Risques Non-Conformité</span>
+            </button>
+            <button
+              onClick={() => handleTabChange('registre-veille')}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all flex-1 sm:flex-initial justify-center',
+                mainTab === 'registre-veille'
+                  ? 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              )}
+            >
+              <ShieldCheck className="h-4 w-4 text-indigo-500" />
+              <span>Registre Veille Réglementaire _conformite</span>
+              <Badge className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-300/40 text-[10px] font-bold px-1.5 py-0 hidden sm:inline-flex">
+                37 Textes
+              </Badge>
+            </button>
+          </div>
+
+          <div className="hidden lg:flex items-center gap-2 text-xs font-medium text-slate-500 pr-2">
+            <Building2 className="h-3.5 w-3.5 text-slate-400" />
+            <span>MAE Assurances</span>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <span className="font-mono text-[11px] text-slate-400">Ref 2026</span>
+          </div>
+        </div>
+
+        {mainTab === 'registre-veille' ? (
+          <RegulatoryWatchRegister />
+        ) : (
+          <div className="space-y-8">
+            {/* ── Hero Banner ──────────────────────────────────────────────────── */}
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-rose-950 to-slate-900 p-6 sm:p-8 shadow-2xl text-white">
           <div className="pointer-events-none absolute -top-16 -right-16 h-72 w-72 rounded-full bg-rose-500/15 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-10 -left-10 h-60 w-60 rounded-full bg-orange-500/10 blur-3xl" />
 
@@ -1389,6 +1462,8 @@ export default function NonConformitePage() {
             </form>
           </DialogContent>
         </Dialog>
+          </div>
+        )}
       </div>
     </TooltipProvider>
   );

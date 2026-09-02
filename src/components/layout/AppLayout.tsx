@@ -226,12 +226,16 @@ const navItems: NavItem[] = [
     href: "/non-conformite",
     icon: BookX,
     label: "Non-conformité Réglementaire",
-    title: "Cartographie de Non-Conformité Réglementaire",
+    title: "Non-Conformité Réglementaire",
     iconColor: "text-rose-500 dark:text-rose-400",
     iconBg: "bg-rose-500/10 dark:bg-rose-500/20",
     activeBg: "bg-rose-500/15 dark:bg-rose-500/25",
     activeBorder: "border-rose-500/40",
     activeText: "text-rose-700 dark:text-rose-300 font-bold",
+    subItems: [
+      { href: "/non-conformite?tab=cartographie", icon: BookX, label: "Cartographie des Risques" },
+      { href: "/non-conformite?tab=registre-veille", icon: ShieldCheck, label: "Registre Veille Réglementaire" },
+    ],
   },
 ];
 
@@ -344,7 +348,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                           const isSubActive = pathname === subItem.href.split('?')[0] && (
                             !subItem.href.includes('?tab=') || 
                             currentTab === subItem.href.split('?tab=')[1] ||
-                            (subItem.href.includes('?tab=table') && !currentTab)
+                            (subItem.href.includes('?tab=table') && !currentTab) ||
+                            (subItem.href.includes('?tab=cartographie') && (!currentTab || currentTab === 'cartographie'))
                           );
                           const SubIcon = subItem.icon;
                           
@@ -357,7 +362,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                     ? "bg-orange-500/15 text-orange-700 dark:text-orange-300 font-bold" 
                                     : subItem.label === "Plan d'actions"
                                       ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 font-bold"
-                                      : "bg-slate-200/70 dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
+                                      : subItem.label === "Registre Veille Réglementaire"
+                                        ? "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-bold"
+                                        : subItem.label === "Cartographie des Risques"
+                                          ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 font-bold"
+                                          : "bg-slate-200/70 dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
                                   : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-slate-800/40"
                               )}>
                                 <Link href={subItem.href} className="flex items-center gap-2 w-full">
@@ -368,7 +377,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                         ? "text-orange-600"
                                         : subItem.label === "Plan d'actions"
                                           ? "text-blue-600"
-                                          : "text-slate-900 dark:text-white"
+                                          : subItem.label === "Registre Veille Réglementaire"
+                                            ? "text-indigo-600"
+                                            : subItem.label === "Cartographie des Risques"
+                                              ? "text-rose-600"
+                                              : "text-slate-900 dark:text-white"
                                       : "text-slate-400"
                                   )} />
                                   <span className="truncate">{subItem.label}</span>
