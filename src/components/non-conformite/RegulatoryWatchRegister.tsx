@@ -322,7 +322,7 @@ export function RegulatoryWatchRegister() {
           item.controleConformite || '',
           item.frequence || '',
           item.preuve || '',
-          item.etatConformite || 'À déterminer',
+          item.etatConformite || '',
           item.ecartConstat || '',
           item.actionCorrective || '',
           item.responsableAction || '',

@@ -28,7 +28,7 @@ export function RegulatoryRegisterStats({ items, onSelectStatusFilter }: Regulat
   const enCours = items.filter((i) => i.etatConformite === 'En cours de mise en conformité').length;
   const partiellement = items.filter((i) => i.etatConformite === 'Partiellement conforme').length;
   const nonConformes = items.filter((i) => i.etatConformite === 'Non conforme').length;
-  const aDeterminer = items.filter((i) => i.etatConformite === 'À déterminer').length;
+  const aDeterminer = items.filter((i) => i.etatConformite === 'À déterminer' || !i.etatConformite).length;
   const nonApplicables = items.filter((i) => i.etatConformite === 'Non applicable').length;
   const actionsEnRetard = items.filter((i) => i.statutAction === 'En retard').length;
 
