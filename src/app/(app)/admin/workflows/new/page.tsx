@@ -146,6 +146,7 @@ function NewWorkflowForm() {
                     id: finalId,
                     workflowId: finalId,
                     name: name.trim(),
+                    mermaidCode: 'graph TD\n  A["Début"] --> B["Fin"]',
                     currentVersion: 0,
                     createdAt: now,
                     updatedAt: now,

@@ -134,18 +134,24 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       // console.log(`[PlanData] Workflows snapshot size: ${snapshot.size}`);
       for (const workflowDoc of snapshot.docs) {
         const data = workflowDoc.data() as any;
-        // console.log(`[PlanData] Workflow ${workflowDoc.id} data:`, data);
+        const wfKey = data.workflowId || workflowDoc.id;
 
-        if (data.activeVersionId) {
-          // console.log(`[PlanData] Fetching active version ${data.activeVersionId} for ${workflowDoc.id}`);
+        // Priorité 1 : mermaidCode direct sur le document racine (instantané et collaboratif)
+        if (data.mermaidCode) {
+          workflows[wfKey] = {
+            code: data.mermaidCode,
+            name: data.name || wfKey,
+            order: data.order
+          };
+        } else if (data.activeVersionId) {
+          // Priorité 2 : fallback via la version sous-collection pour rétrocompatibilité
           try {
             const vRef = doc(db as any, 'workflows', workflowDoc.id, 'versions', data.activeVersionId);
             const vSnap = await getDoc(vRef);
             if (vSnap.exists()) {
-              // console.log(`[PlanData] Version found for ${workflowDoc.id}`);
-              workflows[data.workflowId] = {
+              workflows[wfKey] = {
                 code: vSnap.data().mermaidCode,
-                name: data.name || data.workflowId,
+                name: data.name || wfKey,
                 order: data.order
               };
             } else {
@@ -154,11 +160,8 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
           } catch (e) {
             console.error(`[PlanData] Error fetching version for ${workflowDoc.id}:`, e);
           }
-        } else {
-          // console.log(`[PlanData] Workflow ${workflowDoc.id} has no activeVersionId`);
         }
       }
-      // console.log(`[PlanData] Final active workflows:`, Object.keys(workflows));
       setActiveWorkflows(workflows);
     });
 

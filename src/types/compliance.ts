@@ -256,6 +256,7 @@ export interface MermaidWorkflow {
   name: string;
   workflowId: string; // e.g., 'eer', 'gel'
   domain?: WorkflowDomain; // Added for grouping
+  mermaidCode?: string; // Code Mermaid officiel synchronisé directement
   activeVersionId?: string;
   currentVersion: number;
   createdAt: string;

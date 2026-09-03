@@ -165,10 +165,20 @@ export default function AdminWorkflowsPage() {
         const wfId = w.workflowId || w.id;
         try {
             setPrintingId(wfId);
-            let code = `graph TD\n  A["${w.name}"] --> B["Fin"]`;
-            if (db && w.id) {
-                const vs = await getDocs(query(collection(db, 'workflows', w.id, 'versions'), orderBy('version', 'desc'), limit(1)));
-                if (!vs.empty) code = (vs.docs[0].data() as any).mermaidCode;
+            let code = w.mermaidCode || `graph TD\n  A["${w.name}"] --> B["Fin"]`;
+            if (!w.mermaidCode && db && w.id) {
+                if (w.activeVersionId) {
+                    try {
+                        const vDoc = await getDoc(doc(db, 'workflows', w.id, 'versions', w.activeVersionId));
+                        if (vDoc.exists() && vDoc.data()?.mermaidCode) {
+                            code = vDoc.data().mermaidCode;
+                        }
+                    } catch (_) {}
+                }
+                if (code.includes('A["Début"]') || code.includes(`A["${w.name}"]`)) {
+                    const vs = await getDocs(query(collection(db, 'workflows', w.id, 'versions'), orderBy('version', 'desc'), limit(1)));
+                    if (!vs.empty && vs.docs[0].data()?.mermaidCode) code = vs.docs[0].data().mermaidCode;
+                }
             }
             const ri = getWorkflowRiskInfo(w.workflowId);
             await printWorkflow({ name: w.name, workflowId: wfId, domain: w.domain || 'Conformité', version: w.currentVersion || 1, code, riskInfo: ri ? { totalRisks: ri.count, maxLevel: ri.maxLevel, avgScore: undefined } : null, planData, workflowTasks, availableUsers, allRisks });
@@ -183,12 +193,20 @@ export default function AdminWorkflowsPage() {
             const batch = writeBatch(db);
             const now = new Date().toISOString();
             for (const w of workflows) {
-                let code = `graph TD\n  A["Début"] --> B["Fin"]`;
-                const vs = await getDocs(query(collection(db, 'workflows', w.id, 'versions'), orderBy('version', 'desc'), limit(1)));
-                if (!vs.empty) code = (vs.docs[0].data() as any).mermaidCode || code;
+                let code = w.mermaidCode || `graph TD\n  A["Début"] --> B["Fin"]`;
+                if (!w.mermaidCode && w.activeVersionId) {
+                    try {
+                        const vDoc = await getDoc(doc(db, 'workflows', w.id, 'versions', w.activeVersionId));
+                        if (vDoc.exists() && vDoc.data()?.mermaidCode) code = vDoc.data().mermaidCode;
+                    } catch (_) {}
+                }
+                if (!w.mermaidCode) {
+                    const vs = await getDocs(query(collection(db, 'workflows', w.id, 'versions'), orderBy('version', 'desc'), limit(1)));
+                    if (!vs.empty) code = (vs.docs[0].data() as any).mermaidCode || code;
+                }
                 const vId = `v1-baseline-${Date.now()}-${w.id.slice(0, 6)}`;
                 batch.set(doc(db, 'workflows', w.id, 'versions', vId), { id: vId, mermaidCode: code, version: 1, status: 'published', createdAt: now, updatedAt: now });
-                batch.update(doc(db, 'workflows', w.id), { currentVersion: 1, activeVersionId: vId, updatedAt: now });
+                batch.update(doc(db, 'workflows', w.id), { currentVersion: 1, activeVersionId: vId, mermaidCode: code, updatedAt: now });
             }
             await batch.commit();
             setWorkflows(prev => prev.map(w => ({ ...w, currentVersion: 1 })));

@@ -687,55 +687,162 @@ export default function WorkflowEditorPage() {
 
     // ── Load workflow from Firestore ───────────────────────────────────────
     useEffect(() => {
+        let isMounted = true;
         const load = async () => {
-            if (!id || !db) return;
+            if (!id) return;
+            setLoading(true);
+
+            // 1. Pré-chargement rapide depuis localStorage (si disponible)
+            let cachedCode: string | null = null;
+            if (typeof window !== 'undefined') {
+                try {
+                    cachedCode = localStorage.getItem(`workflow_code_${id}`);
+                } catch (_) {}
+            }
+
+            if (!db) {
+                if (cachedCode && isMounted) applyCode(cachedCode);
+                if (isMounted) setLoading(false);
+                return;
+            }
+
             try {
-                setLoading(true);
                 const snap = await getDoc(doc(db, 'workflows', id));
-                if (snap.exists()) {
+                if (snap.exists() && isMounted) {
                     const data = snap.data() as MermaidWorkflow;
                     setActiveWorkflow({ ...data, id: snap.id });
-                    setName(data.name);
+                    setName(data.name || id);
                     setDomain(data.domain || 'Conformité');
                     if (data.tags) {
                         setTags(data.tags);
                         const foundCat = data.tags.find(t => WORKFLOW_CATEGORIES.includes(t as WorkflowCategory));
                         if (foundCat) setCategory(foundCat as WorkflowCategory);
                     }
-                    const vSnap = await getDocs(query(collection(db, 'workflows', id, 'versions'), orderBy('version', 'desc'), limit(1)));
-                    if (!vSnap.empty) {
-                        applyCode((vSnap.docs[0].data() as WorkflowVersion).mermaidCode);
+
+                    // Priorité 1 : mermaidCode directement présent sur le document racine (temps réel collaboratif)
+                    let loadedCode = data.mermaidCode || '';
+
+                    // Priorité 2 : Version publiée active via activeVersionId
+                    if (!loadedCode && data.activeVersionId) {
+                        try {
+                            const vSnap = await getDoc(doc(db, 'workflows', id, 'versions', data.activeVersionId));
+                            if (vSnap.exists() && vSnap.data()?.mermaidCode) {
+                                loadedCode = (vSnap.data() as WorkflowVersion).mermaidCode;
+                            }
+                        } catch (err) {
+                            console.warn('[WorkflowEditor] Erreur chargement activeVersionId:', err);
+                        }
+                    }
+
+                    // Priorité 3 : Dernier document par updatedAt dans la sous-collection versions
+                    if (!loadedCode) {
+                        try {
+                            const vSnap = await getDocs(query(collection(db, 'workflows', id, 'versions'), orderBy('updatedAt', 'desc'), limit(1)));
+                            if (!vSnap.empty && vSnap.docs[0].data()?.mermaidCode) {
+                                loadedCode = (vSnap.docs[0].data() as WorkflowVersion).mermaidCode;
+                            }
+                        } catch (err) {
+                            console.warn('[WorkflowEditor] Erreur query updatedAt versions:', err);
+                        }
+                    }
+
+                    // Priorité 4 : Dernier document par version dans la sous-collection versions
+                    if (!loadedCode) {
+                        try {
+                            const vSnap = await getDocs(query(collection(db, 'workflows', id, 'versions'), orderBy('version', 'desc'), limit(1)));
+                            if (!vSnap.empty && vSnap.docs[0].data()?.mermaidCode) {
+                                loadedCode = (vSnap.docs[0].data() as WorkflowVersion).mermaidCode;
+                            }
+                        } catch (err) {
+                            console.warn('[WorkflowEditor] Erreur query version desc:', err);
+                        }
+                    }
+
+                    if (loadedCode) {
+                        applyCode(loadedCode);
+                        if (typeof window !== 'undefined') {
+                            try { localStorage.setItem(`workflow_code_${id}`, loadedCode); } catch (_) {}
+                        }
+                    } else if (cachedCode) {
+                        applyCode(cachedCode);
                     } else {
                         applyCode(EASY_TEMPLATES[0].code);
                     }
-                } else {
-                    setName(id === 'vr001' ? 'VEILLE REGLEMENTAIRE' : id === 'eer' ? 'Entrée en Relation' : 'Processus Métier');
-                    applyCode(EASY_TEMPLATES[0].code);
+                } else if (isMounted) {
+                    if (cachedCode) {
+                        applyCode(cachedCode);
+                    } else {
+                        setName(id === 'vr001' ? 'VEILLE REGLEMENTAIRE' : id === 'eer' ? 'Entrée en Relation' : 'Processus Métier');
+                        applyCode(EASY_TEMPLATES[0].code);
+                    }
                 }
             } catch (e) {
-                console.error(e);
+                console.error('[WorkflowEditor] Erreur chargement Firestore:', e);
+                if (cachedCode && isMounted) {
+                    applyCode(cachedCode);
+                }
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
+
         load();
+        return () => { isMounted = false; };
     }, [id, applyCode]);
 
     // ── Save / Publish ──────────────────────────────────────────────────────
     const handleSave = async (status: 'draft' | 'published') => {
-        if (!id || !db) return;
+        if (!id) return;
         setSaving(true);
         try {
-            const nextV = (activeWorkflow?.currentVersion || 0) + 1;
+            const currentCode = codeRef.current || code;
+            const currentV = typeof activeWorkflow?.currentVersion === 'number'
+                ? activeWorkflow.currentVersion
+                : parseInt(String(activeWorkflow?.currentVersion || 0), 10) || 0;
+            const nextV = currentV + 1;
             const now = new Date().toISOString();
             const vId = `v${nextV}-${Date.now()}`;
-            await setDoc(doc(db, 'workflows', id, 'versions', vId), { id: vId, mermaidCode: code, version: nextV, status, createdAt: now, updatedAt: now });
+
+            const updatedTags = category
+                ? [category, ...tags.filter(t => !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory))]
+                : tags;
+
+            // Données complètes du workflow racine enregistrées dans Firestore
             const data: Partial<MermaidWorkflow> = {
-                workflowId: id, name, domain, currentVersion: nextV, updatedAt: now,
-                tags: category ? [category, ...tags.filter(t => !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory))] : tags,
+                id,
+                workflowId: id,
+                name: (name || id).trim(),
+                domain: domain || 'Conformité',
+                mermaidCode: currentCode, // CRITICAL: Persistance directe sur le document pour tous les utilisateurs
+                currentVersion: nextV,
+                updatedAt: now,
+                tags: updatedTags,
                 ...(status === 'published' ? { activeVersionId: vId } : {})
             };
-            await setDoc(doc(db, 'workflows', id), data, { merge: true });
+
+            // 1. Sauvegarde dans Firestore (partage collaboratif en temps réel)
+            if (db) {
+                // Historique de version dans la sous-collection
+                await setDoc(doc(db, 'workflows', id, 'versions', vId), {
+                    id: vId,
+                    mermaidCode: currentCode,
+                    version: nextV,
+                    status,
+                    createdAt: now,
+                    updatedAt: now
+                });
+
+                // Document principal mis à jour
+                await setDoc(doc(db, 'workflows', id), data, { merge: true });
+            }
+
+            // 2. Cache local de résilience (localStorage)
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.setItem(`workflow_code_${id}`, currentCode);
+                    localStorage.setItem(`workflow_data_${id}`, JSON.stringify(data));
+                } catch (_) {}
+            }
 
             recordActivity({
                 action: status === 'published' ? 'WORKFLOW_PUBLISH' : 'WORKFLOW_UPDATE',
@@ -747,7 +854,8 @@ export default function WorkflowEditorPage() {
             toast({ title: status === 'published' ? '✅ Workflow publié !' : '💾 Sauvegardé' });
             setActiveWorkflow(prev => prev ? { ...prev, ...data } as MermaidWorkflow : { ...data, id } as MermaidWorkflow);
         } catch (e) {
-            toast({ title: 'Erreur lors de la sauvegarde', variant: 'destructive' });
+            console.error('[WorkflowEditor] Erreur lors de la sauvegarde:', e);
+            toast({ title: 'Erreur lors de la sauvegarde', description: 'Vérifiez la connexion réseau.', variant: 'destructive' });
         } finally {
             setSaving(false);
         }
@@ -771,7 +879,15 @@ export default function WorkflowEditorPage() {
                 tags: category ? [category, ...tags.filter(t => !WORKFLOW_CATEGORIES.includes(t as WorkflowCategory))] : tags
             };
 
-            await setDoc(doc(db, 'workflows', sanitized), { ...currentData, id: sanitized, workflowId: sanitized, name: name || sanitized, updatedAt: now });
+            const currentCode = codeRef.current || code;
+            await setDoc(doc(db, 'workflows', sanitized), {
+                ...currentData,
+                id: sanitized,
+                workflowId: sanitized,
+                name: name || sanitized,
+                mermaidCode: currentCode,
+                updatedAt: now
+            });
             const versSnap = await getDocs(collection(db, 'workflows', id, 'versions'));
             for (const vDoc of versSnap.docs) {
                 await setDoc(doc(db, 'workflows', sanitized, 'versions', vDoc.id), vDoc.data());
@@ -780,6 +896,13 @@ export default function WorkflowEditorPage() {
             versSnap.docs.forEach(vDoc => delBatch.delete(doc(db, 'workflows', id, 'versions', vDoc.id)));
             if (currentSnap.exists()) delBatch.delete(doc(db, 'workflows', id));
             await delBatch.commit();
+
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.setItem(`workflow_code_${sanitized}`, currentCode);
+                    localStorage.removeItem(`workflow_code_${id}`);
+                } catch (_) {}
+            }
 
             toast({ title: '✅ ID modifié', description: `${id} → ${sanitized}` });
             router.push(`/admin/workflows/${sanitized}/edit`);
