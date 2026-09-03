@@ -11,14 +11,14 @@ import * as LucideIcons from 'lucide-react';
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, collection, query, getDocs, orderBy, limit, writeBatch } from 'firebase/firestore';
-import { MermaidWorkflow, WorkflowVersion, WorkflowDomain } from '@/types/compliance';
+import { MermaidWorkflow, WorkflowVersion, WorkflowDomain, WorkflowTaskStatus } from '@/types/compliance';
 import { usePlanData } from '@/contexts/PlanDataContext';
 import { useRiskMapping } from '@/contexts/RiskMappingContext';
 import { printWorkflow } from '@/lib/workflowPrint';
 import { recordActivity } from '@/contexts/ActivityLogContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
@@ -622,6 +622,129 @@ export default function WorkflowEditorPage() {
     const codeRef = useRef(code);
     useEffect(() => { codeRef.current = code; }, [code]);
 
+    // ── Contexte Plan & Tâches (Responsables des étapes) ─────────────────────
+    const {
+        workflowTasks,
+        availableUsers,
+        availableRoles,
+        assignTask,
+        unassignTask,
+        planData,
+    } = usePlanData();
+
+    // ── Modal Gestion Assignation Responsable ─────────────────────────────────
+    const [assigneeModalOpen, setAssigneeModalOpen] = useState(false);
+    const [assigneeTargetNode, setAssigneeTargetNode] = useState<{ id: string; label: string } | null>(null);
+    const [assigneeSelectedUserId, setAssigneeSelectedUserId] = useState<string>('');
+    const [assigneeCustomName, setAssigneeCustomName] = useState<string>('');
+    const [assigneeRole, setAssigneeRole] = useState<string>('ADMIN');
+    const [assigneeStatus, setAssigneeStatus] = useState<WorkflowTaskStatus>('En cours');
+    const [assigneeLoading, setAssigneeLoading] = useState(false);
+
+    // Trouver le responsable actuel d'une étape
+    const getNodeAssignee = useCallback((nodeId: string) => {
+        // 1. Chercher dans workflowTasks (priorité absolue)
+        const wt = workflowTasks.find(t => t.workflowId === id && t.nodeId === nodeId);
+        if (wt) {
+            return {
+                type: 'workflowTask' as const,
+                name: wt.responsibleUserName || 'Utilisateur',
+                role: wt.roleRequired || 'ADMIN',
+                status: wt.status || 'En cours',
+                userId: wt.responsibleUserId || '',
+                taskId: wt.id,
+            };
+        }
+        // 2. Chercher dans les tâches GRC du plan d'organisation
+        if (planData && id) {
+            for (const cat of planData) {
+                for (const sub of cat.subCategories || []) {
+                    for (const t of sub.tasks || []) {
+                        if (t.grcWorkflowId === id && t.grcNodeId === nodeId) {
+                            const userName = t.raci?.responsible
+                                ? availableUsers.find(u => u.id === t.raci.responsible)?.name || 'Anonyme'
+                                : 'Non assigné';
+                            return {
+                                type: 'grcTask' as const,
+                                name: userName,
+                                role: 'CONTROLE GRC',
+                                status: t.completed ? 'Terminé' : 'En cours',
+                                userId: t.raci?.responsible || '',
+                                taskId: t.id,
+                            };
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }, [workflowTasks, planData, availableUsers, id]);
+
+    const handleOpenAssigneeModal = (node: { id: string; label: string }) => {
+        setAssigneeTargetNode(node);
+        const existing = getNodeAssignee(node.id);
+        if (existing) {
+            setAssigneeSelectedUserId(existing.userId || '');
+            setAssigneeCustomName(existing.name);
+            setAssigneeRole(existing.role || 'ADMIN');
+            setAssigneeStatus((existing.status as WorkflowTaskStatus) || 'En cours');
+        } else {
+            setAssigneeSelectedUserId('');
+            setAssigneeCustomName('');
+            setAssigneeRole('ADMIN');
+            setAssigneeStatus('En cours');
+        }
+        setAssigneeModalOpen(true);
+    };
+
+    const handleSaveAssignee = async () => {
+        if (!assigneeTargetNode || !id) return;
+        setAssigneeLoading(true);
+        try {
+            const effectiveName = assigneeCustomName.trim() ||
+                (assigneeSelectedUserId && availableUsers.find(u => u.id === assigneeSelectedUserId)?.name) ||
+                'Utilisateur';
+            const effectiveUserId = assigneeSelectedUserId || `user-${Date.now()}`;
+            const effectiveRole = assigneeRole.trim().toUpperCase() || 'ADMIN';
+
+            await assignTask({
+                workflowId: id,
+                nodeId: assigneeTargetNode.id,
+                taskName: assigneeTargetNode.label || assigneeTargetNode.id,
+                responsibleUserId: effectiveUserId,
+                responsibleUserName: effectiveName,
+                roleRequired: effectiveRole,
+                status: assigneeStatus,
+            });
+
+            toast({
+                title: '✅ Responsable enregistré',
+                description: `Étape ${assigneeTargetNode.id} assignée à ${effectiveName} (${effectiveRole})`,
+            });
+            setAssigneeModalOpen(false);
+        } catch (err) {
+            console.error('Erreur assignation:', err);
+            toast({ title: 'Erreur', description: "Impossible d'assigner le responsable", variant: 'destructive' });
+        } finally {
+            setAssigneeLoading(false);
+        }
+    };
+
+    const handleRemoveAssignee = async (nodeId: string) => {
+        if (!id) return;
+        try {
+            await unassignTask(id, nodeId);
+            toast({
+                title: '✅ Responsable retiré',
+                description: `L'assignation de l'étape ${nodeId} a été retirée avec succès.`,
+            });
+            if (assigneeModalOpen) setAssigneeModalOpen(false);
+        } catch (err) {
+            console.error('Erreur retrait responsable:', err);
+            toast({ title: 'Erreur', description: 'Impossible de retirer le responsable', variant: 'destructive' });
+        }
+    };
+
     // Apply Code safely
     const applyCode = useCallback((newCode: string) => {
         const enriched = ensureThemeClassDefs(newCode);
@@ -1113,6 +1236,68 @@ export default function WorkflowEditorPage() {
                                                 </Button>
                                             </div>
 
+                                            {/* Row 1.5: Assignee / Responsable display & quick actions */}
+                                            {(() => {
+                                                const assignee = getNodeAssignee(node.id);
+                                                if (assignee) {
+                                                    return (
+                                                        <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                <span className="text-slate-500 text-xs shrink-0 flex items-center gap-1 font-medium">
+                                                                    <LucideIcons.User className="h-3.5 w-3.5 text-indigo-600" />
+                                                                    Responsable :
+                                                                </span>
+                                                                <span className="font-black text-xs text-slate-800 truncate">
+                                                                    {assignee.name}
+                                                                </span>
+                                                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                                                                    {assignee.role}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 shrink-0">
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    type="button"
+                                                                    onClick={() => handleOpenAssigneeModal(node)}
+                                                                    className="h-7 px-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg gap-1"
+                                                                    title="Modifier le responsable ou le rôle"
+                                                                >
+                                                                    <LucideIcons.Pencil className="h-3 w-3" />
+                                                                    Modifier
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    type="button"
+                                                                    onClick={() => handleRemoveAssignee(node.id)}
+                                                                    className="h-7 px-2 text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg gap-1"
+                                                                    title="Retirer le nom du responsable de cette étape"
+                                                                >
+                                                                    <LucideIcons.UserX className="h-3 w-3" />
+                                                                    Retirer
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return (
+                                                    <div className="flex items-center justify-between px-3 py-1 rounded-xl bg-slate-50/50 border border-dashed border-slate-200 text-slate-400">
+                                                        <span className="text-[11px] italic">Aucun responsable assigné</span>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            type="button"
+                                                            onClick={() => handleOpenAssigneeModal(node)}
+                                                            className="h-6 px-2 text-[11px] font-bold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg gap-1"
+                                                        >
+                                                            <LucideIcons.UserPlus className="h-3 w-3" />
+                                                            Assigner un responsable
+                                                        </Button>
+                                                    </div>
+                                                );
+                                            })()}
+
                                             {/* Row 2: Connections & Next Steps */}
                                             <div className="pt-2 border-t border-slate-100 space-y-2">
                                                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1342,7 +1527,19 @@ export default function WorkflowEditorPage() {
                     <div className="flex-1 relative bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:20px_20px] p-4 overflow-hidden">
                         <div className="absolute inset-4 bg-white/95 backdrop-blur-xl rounded-3xl shadow-xl border border-slate-200/80 flex flex-col overflow-auto">
                             <div className="min-w-full min-h-full p-8 flex items-center justify-center">
-                                <MermaidRenderer chart={code} workflowId={id} zoom={zoom} />
+                                <MermaidRenderer
+                                    chart={code}
+                                    workflowId={id}
+                                    zoom={zoom}
+                                    onNodeClick={(nodeId) => {
+                                        const found = visualModel.nodes.find(n => n.id === nodeId);
+                                        if (found) handleOpenAssigneeModal(found);
+                                    }}
+                                    onEditTask={(task) => {
+                                        const found = visualModel.nodes.find(n => n.id === task.nodeId);
+                                        if (found) handleOpenAssigneeModal(found);
+                                    }}
+                                />
                             </div>
                         </div>
                     </div>
@@ -1368,9 +1565,160 @@ export default function WorkflowEditorPage() {
                     </div>
                     <div className="flex-1 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] overflow-hidden p-6 flex items-center justify-center">
                         <div className="w-full h-full max-w-[95%] max-h-[95%] bg-white rounded-2xl shadow-xl border border-slate-100 flex items-center justify-center p-4">
-                            <MermaidRenderer chart={code} workflowId={id} fitMode={true} />
+                            <MermaidRenderer
+                                chart={code}
+                                workflowId={id}
+                                fitMode={true}
+                                onNodeClick={(nodeId) => {
+                                    const found = visualModel.nodes.find(n => n.id === nodeId);
+                                    if (found) handleOpenAssigneeModal(found);
+                                }}
+                                onEditTask={(task) => {
+                                    const found = visualModel.nodes.find(n => n.id === task.nodeId);
+                                    if (found) handleOpenAssigneeModal(found);
+                                }}
+                            />
                         </div>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── MODAL ASSIGNER / MODIFIER / RETIRER LE RESPONSABLE DE L'ÉTAPE ── */}
+            <Dialog open={assigneeModalOpen} onOpenChange={setAssigneeModalOpen}>
+                <DialogContent className="max-w-md rounded-3xl p-6 bg-white shadow-2xl border border-slate-100">
+                    <DialogHeader className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0">
+                                <LucideIcons.UserCheck className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-base font-black text-slate-800">
+                                    Responsable de l&apos;étape
+                                </DialogTitle>
+                                <DialogDescription className="text-xs text-slate-500 font-medium">
+                                    Étape <span className="font-bold text-indigo-600">[{assigneeTargetNode?.id}]</span> : {assigneeTargetNode?.label}
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-3">
+                        {/* Option 1: Choisir parmi les utilisateurs existants */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-bold text-slate-700">Sélectionner un membre de l&apos;équipe</Label>
+                            <Select
+                                value={assigneeSelectedUserId}
+                                onValueChange={(val) => {
+                                    setAssigneeSelectedUserId(val);
+                                    if (val && val !== 'custom') {
+                                        const user = availableUsers.find(u => u.id === val);
+                                        if (user) {
+                                            setAssigneeCustomName(user.name);
+                                            if (user.role) setAssigneeRole(user.role);
+                                        }
+                                    }
+                                }}
+                            >
+                                <SelectTrigger className="h-9 rounded-xl text-xs font-semibold bg-slate-50 border-slate-200">
+                                    <SelectValue placeholder="Choisir un utilisateur..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="custom" className="text-xs font-bold text-indigo-600">
+                                        ✏️ Saisie libre (nom personnalisé)
+                                    </SelectItem>
+                                    {availableUsers.map(u => (
+                                        <SelectItem key={u.id} value={u.id} className="text-xs font-medium">
+                                            👤 {u.name} {u.role ? `(${u.role})` : ''}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Option 2: Nom affiché sur le diagramme (modifiable librement) */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-bold text-slate-700">Nom du responsable affiché sur le diagramme</Label>
+                            <Input
+                                value={assigneeCustomName}
+                                onChange={e => setAssigneeCustomName(e.target.value)}
+                                placeholder="Ex: Moslem Gouia, Responsable Conformité..."
+                                className="h-9 rounded-xl text-xs font-semibold bg-slate-50 border-slate-200 focus:bg-white text-slate-800"
+                            />
+                            <p className="text-[10px] text-slate-400">
+                                Vous pouvez modifier le libellé du nom à tout moment.
+                            </p>
+                        </div>
+
+                        {/* Rôle et Statut */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-slate-700">Rôle / Badge</Label>
+                                <Input
+                                    value={assigneeRole}
+                                    onChange={e => setAssigneeRole(e.target.value)}
+                                    placeholder="Ex: ADMIN, ANALYSTE..."
+                                    className="h-9 rounded-xl text-xs font-semibold bg-slate-50 border-slate-200 uppercase"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-slate-700">Statut</Label>
+                                <Select
+                                    value={assigneeStatus}
+                                    onValueChange={(val) => setAssigneeStatus(val as WorkflowTaskStatus)}
+                                >
+                                    <SelectTrigger className="h-9 rounded-xl text-xs font-semibold bg-slate-50 border-slate-200">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="En attente" className="text-xs">⏳ En attente</SelectItem>
+                                        <SelectItem value="En cours" className="text-xs">🔄 En cours</SelectItem>
+                                        <SelectItem value="Terminé" className="text-xs">✅ Terminé</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex items-center justify-between sm:justify-between pt-2 border-t border-slate-100 gap-2">
+                        {assigneeTargetNode && getNodeAssignee(assigneeTargetNode.id) ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveAssignee(assigneeTargetNode.id)}
+                                className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl gap-1.5"
+                                title="Supprime le badge utilisateur de cette étape"
+                            >
+                                <LucideIcons.UserX className="h-3.5 w-3.5" />
+                                Retirer le nom
+                            </Button>
+                        ) : (
+                            <div />
+                        )}
+
+                        <div className="flex items-center gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setAssigneeModalOpen(false)}
+                                className="text-xs font-bold rounded-xl"
+                            >
+                                Annuler
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                disabled={assigneeLoading || !assigneeCustomName.trim()}
+                                onClick={handleSaveAssignee}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md gap-1.5"
+                            >
+                                {assigneeLoading ? <LucideIcons.Loader2 className="animate-spin h-3.5 w-3.5" /> : <LucideIcons.Check className="h-3.5 w-3.5" />}
+                                Enregistrer
+                            </Button>
+                        </div>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

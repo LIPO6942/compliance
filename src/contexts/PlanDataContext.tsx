@@ -40,6 +40,8 @@ interface PlanDataContextType {
   addAvailableRole: (role: Omit<AvailableRole, 'id' | 'createdAt'>) => Promise<void>;
   deleteWorkflow: (workflowId: string) => Promise<void>;
   updateWorkflowOrder: (workflowId: string, order: number) => Promise<void>;
+  unassignTask: (workflowId: string, nodeId: string) => Promise<void>;
+  deleteWorkflowTask: (taskId: string) => Promise<void>;
 }
 
 const PlanDataContext = createContext<PlanDataContextType | undefined>(undefined);
@@ -417,19 +419,92 @@ export const PlanDataProvider = ({ children }: { children: ReactNode }) => {
       assignTask: async (task) => {
         if (!db) return;
         // Utilisation d'un ID déterministe pour éviter les doublons par noeud et workflow
-        const taskId = `task-${task.workflowId}-${task.nodeId.replace(/\s+/g, '_')}`;
+        const safeNodeId = task.nodeId.replace(/\s+/g, '_');
+        const taskId = `task-${task.workflowId}-${safeNodeId}`;
         const newTask: WorkflowTask = {
           ...task,
           id: taskId,
           assignedAt: new Date().toISOString(),
         };
         await setDoc(doc(db, 'tasks', taskId), newTask, { merge: true });
+        setWorkflowTasks(prev => {
+          const filtered = prev.filter(t => !(t.workflowId === task.workflowId && t.nodeId === task.nodeId));
+          return [...filtered, newTask];
+        });
         await addAuditLog({
           taskId: taskId,
           workflowId: task.workflowId,
           action: 'Assigned',
           details: `Tâche "${task.taskName}" assignée à ${task.responsibleUserName} (${task.roleRequired})`,
         });
+      },
+      unassignTask: async (workflowId: string, nodeId: string) => {
+        if (!db) return;
+        const safeNodeId = nodeId.replace(/\s+/g, '_');
+        const deterministicId = `task-${workflowId}-${safeNodeId}`;
+
+        const normNodeId = nodeId.trim().toLowerCase();
+        const matchingTasks = workflowTasks.filter(t => t.workflowId === workflowId && (t.nodeId === nodeId || (t.nodeId && t.nodeId.trim().toLowerCase() === normNodeId)));
+        const taskIdsToDelete = Array.from(new Set([
+          deterministicId,
+          `task-${workflowId}-${nodeId}`,
+          `task-${workflowId}-${normNodeId}`,
+          ...matchingTasks.map(t => t.id)
+        ]));
+
+        for (const tid of taskIdsToDelete) {
+          try {
+            await deleteDoc(doc(db, 'tasks', tid));
+          } catch (e) {
+            console.warn('Erreur suppression tâche workflow:', tid, e);
+          }
+        }
+
+        // 2. Dissocier également toute tâche GRC dans planData qui pointerait vers cette étape
+        let planModified = false;
+        const newPlanData = planData.map(cat => ({
+          ...cat,
+          subCategories: cat.subCategories.map(sub => ({
+            ...sub,
+            tasks: sub.tasks.map(t => {
+              if (t.grcWorkflowId === workflowId && t.grcNodeId === nodeId) {
+                planModified = true;
+                const copy = { ...t };
+                delete copy.grcWorkflowId;
+                delete copy.grcNodeId;
+                return copy;
+              }
+              return t;
+            })
+          }))
+        }));
+
+        if (planModified) {
+          try {
+            await updatePlanInFirestore(newPlanData);
+          } catch (e) {
+            console.warn('Erreur mise à jour planData unassign:', e);
+          }
+        }
+
+        // 3. Mise à jour immédiate de l'état local pour réactivité instantanée
+        setWorkflowTasks(prev => prev.filter(t => !(t.workflowId === workflowId && t.nodeId === nodeId)));
+
+        await addAuditLog({
+          taskId: deterministicId,
+          workflowId,
+          action: 'Unassigned',
+          details: `Responsable retiré pour l'étape "${nodeId}" du workflow ${workflowId}`,
+        });
+      },
+      deleteWorkflowTask: async (taskId: string) => {
+        if (!db) return;
+        try {
+          await deleteDoc(doc(db, 'tasks', taskId));
+          setWorkflowTasks(prev => prev.filter(t => t.id !== taskId));
+        } catch (e) {
+          console.warn('Erreur suppression taskId:', taskId, e);
+        }
       },
       updateTaskStatus: async (taskId, status) => {
         if (!db) return;
