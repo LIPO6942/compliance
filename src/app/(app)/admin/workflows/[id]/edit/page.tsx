@@ -44,12 +44,70 @@ interface VisualNode {
     label: string;
     shape: NodeShape;
     colorClass?: string;
+    entity?: string;
 }
 
 interface VisualEdge {
     from: string;
     to: string;
     label?: string;
+}
+
+// ── Rotation du Diagramme à 90° (TD ➔ LR ➔ BT ➔ RL) ──────────────────────────
+type DiagramOrientation = 'TD' | 'LR' | 'BT' | 'RL';
+
+const ROTATION_CYCLE: Record<DiagramOrientation, DiagramOrientation> = {
+    TD: 'LR',
+    LR: 'BT',
+    BT: 'RL',
+    RL: 'TD',
+};
+
+const ORIENTATION_CONFIG: Record<DiagramOrientation, { label: string; angle: string; desc: string }> = {
+    TD: { label: 'Haut ➔ Bas', angle: '0°', desc: 'Vertical classique' },
+    LR: { label: 'Gauche ➔ Droite', angle: '90°', desc: 'Horizontal classique' },
+    BT: { label: 'Bas ➔ Haut', angle: '180°', desc: 'Vertical inversé' },
+    RL: { label: 'Droite ➔ Gauche', angle: '270°', desc: 'Horizontal inversé' },
+};
+
+function detectDiagramOrientation(codeText: string): DiagramOrientation {
+    const match = codeText.match(/^(?:\s*%%\s*.*\n)*\s*(?:graph|flowchart)\s+(TD|TB|LR|BT|RL)/im);
+    if (match) {
+        const dir = match[1].toUpperCase();
+        return dir === 'TB' ? 'TD' : (dir as DiagramOrientation);
+    }
+    return 'TD';
+}
+
+function rotateMermaidOrientation(codeText: string): { newCode: string; newOrientation: DiagramOrientation } {
+    const current = detectDiagramOrientation(codeText);
+    const next = ROTATION_CYCLE[current] || 'LR';
+
+    const rootRegex = /^((?:\s*%%\s*.*\n)*\s*(?:graph|flowchart))\s+(TD|TB|LR|BT|RL)(\b[^\n]*)/im;
+    if (rootRegex.test(codeText)) {
+        const newCode = codeText.replace(rootRegex, (match, prefix, oldDir, rest) => {
+            return `${prefix} ${next}${rest}`;
+        });
+        return { newCode, newOrientation: next };
+    }
+
+    const bareRegex = /^((?:\s*%%\s*.*\n)*\s*(?:graph|flowchart))(\s*[;\n])/im;
+    if (bareRegex.test(codeText)) {
+        const newCode = codeText.replace(bareRegex, `$1 ${next}$2`);
+        return { newCode, newOrientation: next };
+    }
+
+    return { newCode: `graph ${next}\n${codeText}`, newOrientation: next };
+}
+
+// ── Construction du libellé avec l'entité en petit caractère ───────────────
+function buildNodeLabelWithEntity(label: string, entity?: string): string {
+    const cleanLabel = (label || '').replace(/"/g, "'").replace(/\n/g, '<br/>').trim();
+    if (!entity || !entity.trim()) {
+        return cleanLabel;
+    }
+    const cleanEntity = entity.trim().replace(/^[\(\[]|[\)\]]$/g, '').replace(/"/g, "'").trim();
+    return `${cleanLabel} <small class='node-entity' style='font-size:10px;font-weight:700;color:#4f46e5;background:#eef2ff;border:1px solid #c7d2fe;padding:0.5px 5px;border-radius:4px;margin-left:6px;display:inline-block;vertical-align:middle;'>(${cleanEntity})</small>`;
 }
 
 const COLOR_CLASSES: Record<NodeColor, { class: string; name: string; bg: string; border: string; text: string; dot: string }> = {
@@ -108,7 +166,7 @@ function ensureThemeClassDefs(rawCode: string): string {
 }
 
 // ── Node Definition Parser for an individual part ──────────────────────────
-function parseNodeDefinition(part: string): { id: string; label: string; shape: NodeShape; colorClass?: string } | null {
+function parseNodeDefinition(part: string): { id: string; label: string; shape: NodeShape; colorClass?: string; entity?: string } | null {
     const trimmed = part.trim();
     if (!trimmed) return null;
 
@@ -156,6 +214,22 @@ function parseNodeDefinition(part: string): { id: string; label: string; shape: 
         rawLabel = rest.slice(1, -1);
     }
 
+    // ── Détection et extraction de l'entité (saisie libre) ──────────────
+    let entity: string | undefined = undefined;
+    const entityHtmlMatch = rawLabel.match(/<(?:small|span)[^>]*class=['"][^'"]*node-entity[^'"]*['"][^>]*>\s*\(?([^<)]+)\)?\s*<\/(?:small|span)>/i)
+        || rawLabel.match(/<(?:small|span)[^>]*>\s*\(?([^<)]+)\)?\s*<\/(?:small|span)>/i);
+
+    if (entityHtmlMatch) {
+        entity = entityHtmlMatch[1].trim();
+        rawLabel = rawLabel.replace(/<(?:small|span)[^>]*>.*?<\/(?:small|span)>/gi, '');
+    } else {
+        const entTextMatch = rawLabel.match(/\((?:Entité\s*:\s*|Entite\s*:\s*)([^)]+)\)/i);
+        if (entTextMatch) {
+            entity = entTextMatch[1].trim();
+            rawLabel = rawLabel.replace(/\((?:Entité\s*:\s*|Entite\s*:\s*)[^)]+\)/gi, '');
+        }
+    }
+
     const cleanLabel = rawLabel
         .replace(/^["']+|["']+$/g, '')
         .replace(/<br\s*\/?>/gi, ' ')
@@ -167,7 +241,8 @@ function parseNodeDefinition(part: string): { id: string; label: string; shape: 
         id,
         label: cleanLabel || id,
         shape,
-        colorClass
+        colorClass,
+        entity
     };
 }
 
@@ -176,19 +251,21 @@ function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] 
     const rawNodesMap = new Map<string, VisualNode>();
     const edges: VisualEdge[] = [];
 
-    const addOrUpdateNode = (n: { id: string; label: string; shape: NodeShape; colorClass?: string }) => {
+    const addOrUpdateNode = (n: { id: string; label: string; shape: NodeShape; colorClass?: string; entity?: string }) => {
         if (!n.id || n.id === 'title') return;
         const existing = rawNodesMap.get(n.id);
         if (existing) {
             if (n.label && n.label !== n.id) existing.label = n.label;
             if (n.shape && n.shape !== 'rectangle') existing.shape = n.shape;
             if (n.colorClass) existing.colorClass = n.colorClass;
+            if (n.entity !== undefined) existing.entity = n.entity;
         } else {
             rawNodesMap.set(n.id, {
                 id: n.id,
                 label: n.label || n.id,
                 shape: n.shape || 'rectangle',
-                colorClass: n.colorClass || (n.shape === 'diamond' ? 'orangeNode' : n.shape === 'rounded' ? 'greenNode' : 'blueNode')
+                colorClass: n.colorClass || (n.shape === 'diamond' ? 'orangeNode' : n.shape === 'rounded' ? 'greenNode' : 'blueNode'),
+                entity: n.entity
             });
         }
     };
@@ -282,9 +359,9 @@ function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] 
 
 // ── Surgical Mermaid Editors (Preserve ALL Node Definitions and Formatting) ─
 
-function surgicalEditLabel(code: string, nodeId: string, newLabel: string): string {
+function surgicalEditLabelAndEntity(code: string, nodeId: string, newLabel: string, newEntity?: string): string {
     const escId = nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const safeLabel = newLabel.replace(/"/g, "'").replace(/\n/g, '<br/>');
+    const safeFullLabel = buildNodeLabelWithEntity(newLabel, newEntity);
 
     const nodeDefRe = new RegExp(
         `(\\b${escId}\\s*)(\\[\\/|\\(\\(|[\\[\\(\\{])\\s*"?([^\\]\\)\\n\\r]*?)"?\\s*(\\/\\]|\\)\\)|[\\]\\)\\}])(\\s*:::?\\w+)?`,
@@ -294,11 +371,15 @@ function surgicalEditLabel(code: string, nodeId: string, newLabel: string): stri
     if (nodeDefRe.test(code)) {
         return code.replace(nodeDefRe, (match, prefix, open, oldLabel, close, cls) => {
             const classPart = cls || '';
-            return `${nodeId}${open}"${safeLabel}"${close}${classPart}`;
+            return `${nodeId}${open}"${safeFullLabel}"${close}${classPart}`;
         });
     }
 
     return code;
+}
+
+function surgicalEditLabel(code: string, nodeId: string, newLabel: string): string {
+    return surgicalEditLabelAndEntity(code, nodeId, newLabel);
 }
 
 function surgicalEditShapeAndColor(code: string, nodeId: string, newShape: NodeShape, colorKey: NodeColor): string {
@@ -632,14 +713,27 @@ export default function WorkflowEditorPage() {
         planData,
     } = usePlanData();
 
-    // ── Modal Gestion Assignation Responsable ─────────────────────────────────
+    // ── Modal Gestion Assignation Responsable & Entité ───────────────────────
     const [assigneeModalOpen, setAssigneeModalOpen] = useState(false);
-    const [assigneeTargetNode, setAssigneeTargetNode] = useState<{ id: string; label: string } | null>(null);
+    const [assigneeTargetNode, setAssigneeTargetNode] = useState<{ id: string; label: string; entity?: string } | null>(null);
     const [assigneeSelectedUserId, setAssigneeSelectedUserId] = useState<string>('');
     const [assigneeCustomName, setAssigneeCustomName] = useState<string>('');
+    const [assigneeEntity, setAssigneeEntity] = useState<string>('');
     const [assigneeRole, setAssigneeRole] = useState<string>('ADMIN');
     const [assigneeStatus, setAssigneeStatus] = useState<WorkflowTaskStatus>('En cours');
     const [assigneeLoading, setAssigneeLoading] = useState(false);
+
+    // Orientation actuelle du diagramme Mermaid
+    const currentOrientation = detectDiagramOrientation(code);
+
+    const handleRotateDiagram = () => {
+        const { newCode, newOrientation } = rotateMermaidOrientation(codeRef.current);
+        applyCode(newCode);
+        toast({
+            title: '🔄 Diagramme tourné de 90°',
+            description: `Nouvelle orientation : ${ORIENTATION_CONFIG[newOrientation]?.label} (${newOrientation} - ${ORIENTATION_CONFIG[newOrientation]?.angle})`,
+        });
+    };
 
     // Trouver le responsable actuel d'une étape
     const getNodeAssignee = useCallback((nodeId: string) => {
@@ -680,8 +774,9 @@ export default function WorkflowEditorPage() {
         return null;
     }, [workflowTasks, planData, availableUsers, id]);
 
-    const handleOpenAssigneeModal = (node: { id: string; label: string }) => {
+    const handleOpenAssigneeModal = (node: { id: string; label: string; entity?: string }) => {
         setAssigneeTargetNode(node);
+        setAssigneeEntity(node.entity || '');
         const existing = getNodeAssignee(node.id);
         if (existing) {
             setAssigneeSelectedUserId(existing.userId || '');
@@ -697,10 +792,50 @@ export default function WorkflowEditorPage() {
         setAssigneeModalOpen(true);
     };
 
+    // Édition d'entité en saisie libre et synchronisation automatique dans les tags
+    const handleEditNodeEntity = (nodeId: string, newEntity: string) => {
+        const node = visualModel.nodes.find(n => n.id === nodeId);
+        const currentLabel = node?.label || nodeId;
+        const updated = surgicalEditLabelAndEntity(codeRef.current, nodeId, currentLabel, newEntity);
+        applyCode(updated);
+
+        // Ajout automatique aux tags du workflow
+        const cleanEntity = newEntity.trim().replace(/^[\(\[]|[\)\]]$/g, '').trim();
+        if (cleanEntity) {
+            setTags(prev => prev.includes(cleanEntity) ? prev : [...prev, cleanEntity]);
+        }
+    };
+
+    // Synchronisation automatique de toute entité présente dans les nœuds vers les tags
+    useEffect(() => {
+        if (visualModel.nodes.length > 0) {
+            const entities = visualModel.nodes
+                .map(n => n.entity?.trim())
+                .filter((e): e is string => !!e && e.length > 0);
+            if (entities.length > 0) {
+                setTags(prev => {
+                    const newTags = [...prev];
+                    let changed = false;
+                    entities.forEach(ent => {
+                        const clean = ent.replace(/^[\(\[]|[\)\]]$/g, '').trim();
+                        if (clean && !newTags.includes(clean)) {
+                            newTags.push(clean);
+                            changed = true;
+                        }
+                    });
+                    return changed ? newTags : prev;
+                });
+            }
+        }
+    }, [visualModel.nodes]);
+
     const handleSaveAssignee = async () => {
         if (!assigneeTargetNode || !id) return;
         setAssigneeLoading(true);
         try {
+            // Mettre à jour l'entité si saisie/modifiée dans la modale
+            handleEditNodeEntity(assigneeTargetNode.id, assigneeEntity);
+
             const effectiveName = assigneeCustomName.trim() ||
                 (assigneeSelectedUserId && availableUsers.find(u => u.id === assigneeSelectedUserId)?.name) ||
                 'Utilisateur';
@@ -718,7 +853,7 @@ export default function WorkflowEditorPage() {
             });
 
             toast({
-                title: '✅ Responsable enregistré',
+                title: '✅ Responsable et entité enregistrés',
                 description: `Étape ${assigneeTargetNode.id} assignée à ${effectiveName} (${effectiveRole})`,
             });
             setAssigneeModalOpen(false);
@@ -761,7 +896,8 @@ export default function WorkflowEditorPage() {
     // ── Direct Surgical Modifications ──────────────────────────────────────
 
     const handleEditNodeText = (nodeId: string, newText: string) => {
-        const updated = surgicalEditLabel(codeRef.current, nodeId, newText);
+        const node = visualModel.nodes.find(n => n.id === nodeId);
+        const updated = surgicalEditLabelAndEntity(codeRef.current, nodeId, newText, node?.entity);
         applyCode(updated);
     };
 
@@ -1143,22 +1279,21 @@ export default function WorkflowEditorPage() {
                                 </TabsTrigger>
                             </TabsList>
 
-                            {/* Modèles prêts à l'emploi */}
-                            <Select onValueChange={(val) => {
-                                const t = EASY_TEMPLATES.find(t => t.name === val);
-                                if (t) applyCode(t.code);
-                            }}>
-                                <SelectTrigger className="h-7 text-[11px] font-bold bg-white border-slate-200 rounded-lg w-44">
-                                    <SelectValue placeholder="✨ Modèles complets..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {EASY_TEMPLATES.map(t => (
-                                        <SelectItem key={t.name} value={t.name} className="text-xs font-semibold">
-                                            <span className="mr-1.5">{t.icon}</span> {t.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            {/* Bouton Tourner le diagramme à 90° à chaque clic (remplace "Modèles complets...") */}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleRotateDiagram}
+                                className="h-8 px-3 text-xs font-bold bg-white hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 text-slate-700 border-slate-200 rounded-xl shadow-2xs gap-2 transition-all active:scale-95"
+                                title={`Pivoter l'orientation du diagramme de 90° (Actuel : ${ORIENTATION_CONFIG[currentOrientation]?.label} - ${ORIENTATION_CONFIG[currentOrientation]?.angle})`}
+                            >
+                                <LucideIcons.RotateCw className="h-3.5 w-3.5 text-indigo-600 transition-transform active:rotate-90" />
+                                <span>Tourner 90°</span>
+                                <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    {currentOrientation} ({ORIENTATION_CONFIG[currentOrientation]?.angle})
+                                </span>
+                            </Button>
                         </div>
 
                         {/* ══════════════════════════════════════════════════════════
@@ -1171,7 +1306,7 @@ export default function WorkflowEditorPage() {
                                         Étapes du Processus ({visualModel.nodes.length})
                                     </h3>
                                     <p className="text-[11px] text-slate-400">
-                                        Étapes triées du début à la fin. Modifiez le libellé ou la couleur directement.
+                                        Étapes triées du début à la fin. Modifiez le libellé, l&apos;entité ou la couleur directement.
                                     </p>
                                 </div>
                             </div>
@@ -1204,6 +1339,17 @@ export default function WorkflowEditorPage() {
                                                     placeholder="Titre de l'étape..."
                                                 />
 
+                                                {/* Badge discret si entité assignée */}
+                                                {node.entity && (
+                                                    <span
+                                                        className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0"
+                                                        title={`Entité : ${node.entity}`}
+                                                    >
+                                                        <LucideIcons.Building2 className="h-3 w-3 text-indigo-600" />
+                                                        <span className="truncate max-w-[120px]">{node.entity}</span>
+                                                    </span>
+                                                )}
+
                                                 {/* Color Swatch Picker */}
                                                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
                                                     {(['blue', 'green', 'orange', 'purple', 'rose'] as NodeColor[]).map(c => {
@@ -1234,6 +1380,33 @@ export default function WorkflowEditorPage() {
                                                 >
                                                     <LucideIcons.Trash2 className="h-3.5 w-3.5" />
                                                 </Button>
+                                            </div>
+
+                                            {/* Row 1.2: Entité assignée (saisie libre) - s'affiche en petit caractère à côté de l'étape */}
+                                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                                                <span className="text-slate-600 text-xs shrink-0 flex items-center gap-1.5 font-bold">
+                                                    <LucideIcons.Building2 className="h-3.5 w-3.5 text-indigo-600" />
+                                                    Entité :
+                                                </span>
+                                                <Input
+                                                    value={node.entity || ''}
+                                                    onChange={e => handleEditNodeEntity(node.id, e.target.value)}
+                                                    placeholder="Saisie libre (ex: Direction Conformité, Front Office, DG...)"
+                                                    className="h-7 text-xs font-semibold rounded-lg bg-white border-slate-200 focus:border-indigo-400 focus:bg-white flex-1 text-slate-800 placeholder:text-slate-400 shadow-2xs"
+                                                />
+                                                {node.entity && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleEditNodeEntity(node.id, '')}
+                                                        className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"
+                                                        title="Retirer l'entité"
+                                                    >
+                                                        <LucideIcons.X className="h-3.5 w-3.5" />
+                                                    </button>
+                                                )}
+                                                <span className="text-[10px] text-slate-400 italic hidden sm:inline shrink-0">
+                                                    (en petit sur le diagramme &amp; ajouté aux tags)
+                                                </span>
                                             </div>
 
                                             {/* Row 1.5: Assignee / Responsable display & quick actions */}
@@ -1514,6 +1687,16 @@ export default function WorkflowEditorPage() {
                                     <LucideIcons.Plus className="h-3 w-3 text-slate-600" />
                                 </Button>
                             </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleRotateDiagram}
+                                className="h-8 rounded-xl gap-1.5 text-xs font-bold text-slate-700 hover:text-indigo-700 hover:bg-indigo-50"
+                                title={`Tourner le diagramme à 90° (Actuel : ${ORIENTATION_CONFIG[currentOrientation]?.label})`}
+                            >
+                                <LucideIcons.RotateCw className="h-3.5 w-3.5 text-indigo-600" />
+                                <span className="hidden sm:inline">Tourner 90°</span> ({currentOrientation})
+                            </Button>
                             <Button variant="outline" size="sm" onClick={() => setIsFullscreen(true)} className="h-8 rounded-xl gap-1.5 text-xs font-bold">
                                 <LucideIcons.Maximize2 className="h-3.5 w-3.5" /> Plein écran
                             </Button>
@@ -1593,7 +1776,7 @@ export default function WorkflowEditorPage() {
                             </div>
                             <div>
                                 <DialogTitle className="text-base font-black text-slate-800">
-                                    Responsable de l&apos;étape
+                                    Responsable et Entité de l&apos;étape
                                 </DialogTitle>
                                 <DialogDescription className="text-xs text-slate-500 font-medium">
                                     Étape <span className="font-bold text-indigo-600">[{assigneeTargetNode?.id}]</span> : {assigneeTargetNode?.label}
@@ -1646,6 +1829,23 @@ export default function WorkflowEditorPage() {
                             />
                             <p className="text-[10px] text-slate-400">
                                 Vous pouvez modifier le libellé du nom à tout moment.
+                            </p>
+                        </div>
+
+                        {/* Option 2.5: Entité assignée (saisie libre) */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                <LucideIcons.Building2 className="h-3.5 w-3.5 text-indigo-600" />
+                                Entité assignée (saisie libre)
+                            </Label>
+                            <Input
+                                value={assigneeEntity}
+                                onChange={e => setAssigneeEntity(e.target.value)}
+                                placeholder="Ex: Direction Juridique, Front Office, Direction Conformité, DG..."
+                                className="h-9 rounded-xl text-xs font-semibold bg-slate-50 border-slate-200 focus:bg-white text-slate-800"
+                            />
+                            <p className="text-[10px] text-slate-400">
+                                S&apos;affiche en petit caractère à côté de l&apos;étape sur le diagramme et est ajoutée automatiquement aux tags du process.
                             </p>
                         </div>
 

@@ -403,10 +403,25 @@ export function annotateMermaidCode(
         annotatedChart = annotatedChart.replace(replaceRegex, (match, id, rawOpen, rawLabel) => {
             matched = true;
             const { open, close } = getShapeBrackets(rawOpen);
+
+            // Détection et extraction de l'entité (saisie libre)
+            const entityMatch = rawLabel.match(/<(?:small|span)[^>]*class=['"][^'"]*node-entity[^'"]*['"][^>]*>\s*\(?([^<)]+)\)?\s*<\/(?:small|span)>/i)
+                || rawLabel.match(/<(?:small|span)[^>]*>\s*\(?([^<)]+)\)?\s*<\/(?:small|span)>/i)
+                || rawLabel.match(/\((?:Entité\s*:\s*|Entite\s*:\s*)([^)]+)\)/i);
+            const entity = entityMatch ? entityMatch[1].trim() : null;
+            const baseLabel = rawLabel
+                .replace(/<(?:small|span)[^>]*>.*?<\/(?:small|span)>/gi, '')
+                .replace(/\((?:Entité\s*:\s*|Entite\s*:\s*)[^)]+\)/gi, '');
+
             const cleanLabel = cleanForMermaid(
-                rawLabel.split('<br')[0].split('<div')[0].replace(/^["']+|["']+$/g, '').trim()
+                baseLabel.split('<br')[0].split('<div')[0].replace(/^["']+|["']+$/g, '').trim()
             );
-            return `${id}${open}<div class='node-label-main'>${cleanLabel || id}</div>${infoHtml}${close}`;
+
+            const entityHtml = entity
+                ? ` <span class='node-entity-badge' style='font-size:9.5px;font-weight:700;color:#4f46e5;margin-left:4px;'>(${cleanForMermaid(entity)})</span>`
+                : '';
+
+            return `${id}${open}<div class='node-label-main'>${cleanLabel || id}${entityHtml}</div>${infoHtml}${close}`;
         });
 
         if (!matched && !annotatedChart.includes(nodeId)) {
@@ -663,6 +678,20 @@ export function buildWorkflowPrintHTML(options: WorkflowPrintOptions, cleanSvg: 
       color: #0f172a;
       margin-bottom: 2px;
       text-align: center;
+    }
+
+    .node-entity, .node-entity-badge {
+      font-family: 'Outfit', sans-serif;
+      font-size: 9.5px !important;
+      font-weight: 700 !important;
+      color: #4f46e5 !important;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      padding: 0.5px 5px;
+      border-radius: 4px;
+      margin-left: 4px !important;
+      display: inline-block !important;
+      vertical-align: middle !important;
     }
 
     .assignee-info-box {

@@ -235,6 +235,20 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 
                 /* Styles des noeuds HTML injectés */
                 .node-label-main { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 13px; color: #1e293b; margin-bottom: 4px; }
+                .node-entity, .node-entity-badge { 
+                    font-family: 'Outfit', sans-serif; 
+                    font-size: 10px !important; 
+                    font-weight: 700 !important; 
+                    color: #4f46e5 !important; 
+                    background: #eef2ff;
+                    border: 1px solid #c7d2fe;
+                    padding: 1px 6px;
+                    border-radius: 6px;
+                    margin-left: 6px !important; 
+                    display: inline-block !important; 
+                    vertical-align: middle !important;
+                    letter-spacing: normal !important;
+                }
                 .assignee-info-box { margin-top: 8px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 6px; text-align: center; width: 100%; }
                 .assignee-row { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 6px; }
                 .assignee-row:last-child { margin-bottom: 0; }

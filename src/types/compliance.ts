@@ -263,6 +263,7 @@ export interface MermaidWorkflow {
   updatedAt: string;
   processAssignees?: { userId: string; userName: string; role: string }[];
   tags?: string[]; // Etiquettes libres, réutilisables
+  stepEntities?: Record<string, string>; // Entités assignées aux nœuds (saisie libre)
 }
 
 export type WorkflowTaskStatus = "En attente" | "En cours" | "Terminé";
@@ -276,6 +277,7 @@ export interface WorkflowTask {
   responsibleUserName?: string;
   roleRequired: string;
   status: WorkflowTaskStatus;
+  entity?: string; // Entité assignée à l'étape (saisie libre)
   assignedAt: string;
   completedAt?: string;
 }
