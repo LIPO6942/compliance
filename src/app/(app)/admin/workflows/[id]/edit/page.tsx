@@ -235,6 +235,7 @@ function parseNodeDefinition(part: string): { id: string; label: string; shape: 
         .replace(/<br\s*\/?>/gi, ' ')
         .replace(/\\n/g, ' ')
         .replace(/<[^>]+>/g, '')
+        .replace(/["'\)]+$/g, '')
         .trim();
 
     return {
@@ -357,29 +358,63 @@ function parseMermaid(code: string): { nodes: VisualNode[]; edges: VisualEdge[] 
     return { nodes: sortedNodes, edges };
 }
 
-// ── Surgical Mermaid Editors (Preserve ALL Node Definitions and Formatting) ─
-
-function surgicalEditLabelAndEntity(code: string, nodeId: string, newLabel: string, newEntity?: string): string {
-    const escId = nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const safeFullLabel = buildNodeLabelWithEntity(newLabel, newEntity);
-
-    const nodeDefRe = new RegExp(
-        `(\\b${escId}\\s*)(\\[\\/|\\(\\(|[\\[\\(\\{])\\s*"?([^\\]\\)\\n\\r]*?)"?\\s*(\\/\\]|\\)\\)|[\\]\\)\\}])(\\s*:::?\\w+)?`,
-        'g'
-    );
-
-    if (nodeDefRe.test(code)) {
-        return code.replace(nodeDefRe, (match, prefix, open, oldLabel, close, cls) => {
-            const classPart = cls || '';
-            return `${nodeId}${open}"${safeFullLabel}"${close}${classPart}`;
-        });
-    }
-
-    return code;
+// ── Nettoyage des libellés et extraction sécurisée ────────────────────────
+function cleanCorruptedLabels(rawCode: string): string {
+    if (!rawCode) return rawCode;
+    let clean = rawCode;
+    // Supprime les balises HTML résiduelles injectées précédemment
+    clean = clean.replace(/<small[^>]*>.*?<\/small>/gi, '');
+    clean = clean.replace(/<span[^>]*>.*?<\/span>/gi, '');
+    // Répare les guillemets et parenthèses accidentels en fin de chaîne: ex: "Titre ")" -> "Titre"
+    clean = clean.replace(/"([^"\n\r]*?)\s*["'\)]+\s*"/g, '"$1"');
+    return clean;
 }
 
+function extractEntitiesFromCode(codeText: string): Record<string, string> {
+    const map: Record<string, string> = {};
+    if (!codeText) return map;
+    const lines = codeText.split('\n');
+    lines.forEach(line => {
+        const idMatch = line.trim().match(/^([a-zA-Z0-9_\-\.]+)/);
+        if (idMatch) {
+            const entMatch = line.match(/<(?:small|span)[^>]*class=['"][^'"]*node-entity[^'"]*['"][^>]*>\s*\(?([^<)]+)\)?\s*<\/(?:small|span)>/i)
+                || line.match(/\((?:Entité\s*:\s*|Entite\s*:\s*)([^)]+)\)/i);
+            if (entMatch) {
+                map[idMatch[1]] = entMatch[1].trim();
+            }
+        }
+    });
+    return map;
+}
+
+// ── Modificateurs chirurgicaux Mermaid (Sécurisés ligne par ligne) ─────────
+
 function surgicalEditLabel(code: string, nodeId: string, newLabel: string): string {
-    return surgicalEditLabelAndEntity(code, nodeId, newLabel);
+    const escId = nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const cleanLabel = newLabel
+        .replace(/"/g, "'")
+        .replace(/\n/g, '<br/>')
+        .replace(/<[^>]+>/g, '')
+        .replace(/["'\)]+$/g, '')
+        .trim();
+
+    const lines = code.split('\n');
+    let replaced = false;
+    const updated = lines.map(line => {
+        if (replaced) return line;
+        const re = new RegExp(`^(\\s*\\b${escId}\\s*)([\\(\\[\\{\\/]{1,2})("?)(.*?)\\3([\\)\\]\\}\\/]{1,2})(\\s*:::?\\w+)?$`);
+        const m = line.match(re);
+        if (m) {
+            replaced = true;
+            const prefix = m[1];
+            const open = m[2];
+            const close = m[5];
+            const cls = m[6] || '';
+            return `${prefix}${open}"${cleanLabel}"${close}${cls}`;
+        }
+        return line;
+    });
+    return updated.join('\n');
 }
 
 function surgicalEditShapeAndColor(code: string, nodeId: string, newShape: NodeShape, colorKey: NodeColor): string {
@@ -393,33 +428,22 @@ function surgicalEditShapeAndColor(code: string, nodeId: string, newShape: NodeS
     else if (newShape === 'circle') { openB = '(('; closeB = '))'; }
     else if (newShape === 'parallelogram') { openB = '[/'; closeB = '/]'; }
 
-    const nodeDefRe = new RegExp(
-        `(\\b${escId}\\s*)(?:\\[\\/|\\(\\(|[\\[\\(\\{])\\s*"?([^\\]\\)\\n\\r]*?)"?\\s*(?:\\/\\]|\\)\\)|[\\]\\)\\}])(?:\\s*:::?\\w+)?`,
-        'g'
-    );
-
+    const lines = code.split('\n');
     let replaced = false;
-    let updated = code.replace(nodeDefRe, (match, prefix, innerLabel) => {
-        replaced = true;
-        const cleanTxt = innerLabel.replace(/^["']+|["']+$/g, '').trim();
-        return `${nodeId}${openB}"${cleanTxt}"${closeB}:::${colorCls}`;
+    const updated = lines.map(line => {
+        if (replaced) return line;
+        const re = new RegExp(`^(\\s*\\b${escId}\\s*)([\\(\\[\\{\\/]{1,2})("?)(.*?)\\3([\\)\\]\\}\\/]{1,2})(?:\\s*:::?\\w+)?$`);
+        const m = line.match(re);
+        if (m) {
+            replaced = true;
+            const prefix = m[1];
+            const innerLabel = m[4].replace(/^["']+|["']+$/g, '').replace(/["'\)]+$/g, '').trim();
+            return `${prefix}${openB}"${innerLabel}"${closeB}:::${colorCls}`;
+        }
+        return line;
     });
 
-    if (!replaced) {
-        const classLineRe = new RegExp(`^\\s*class\\s+.*\\b${escId}\\b.*$`, 'gm');
-        if (classLineRe.test(updated)) {
-            updated = updated.replace(classLineRe, `  class ${nodeId} ${colorCls};`);
-        } else {
-            const classIdx = updated.search(/\n[ \t]*(classDef|class |style |linkStyle )/);
-            if (classIdx > -1) {
-                updated = updated.slice(0, classIdx) + `\n  class ${nodeId} ${colorCls};` + updated.slice(classIdx);
-            } else {
-                updated = `${updated}\n  class ${nodeId} ${colorCls};`;
-            }
-        }
-    }
-
-    return ensureThemeClassDefs(updated);
+    return ensureThemeClassDefs(updated.join('\n'));
 }
 
 // 🗑️ Bridges predecessors directly to successors and preserves target definitions!
@@ -723,6 +747,9 @@ export default function WorkflowEditorPage() {
     const [assigneeStatus, setAssigneeStatus] = useState<WorkflowTaskStatus>('En cours');
     const [assigneeLoading, setAssigneeLoading] = useState(false);
 
+    // Entités assignées à chaque étape (saisie libre, découplée du code Mermaid)
+    const [stepEntities, setStepEntities] = useState<Record<string, string>>({});
+
     // Orientation actuelle du diagramme Mermaid
     const currentOrientation = detectDiagramOrientation(code);
 
@@ -776,7 +803,7 @@ export default function WorkflowEditorPage() {
 
     const handleOpenAssigneeModal = (node: { id: string; label: string; entity?: string }) => {
         setAssigneeTargetNode(node);
-        setAssigneeEntity(node.entity || '');
+        setAssigneeEntity(stepEntities[node.id] || node.entity || '');
         const existing = getNodeAssignee(node.id);
         if (existing) {
             setAssigneeSelectedUserId(existing.userId || '');
@@ -792,12 +819,16 @@ export default function WorkflowEditorPage() {
         setAssigneeModalOpen(true);
     };
 
-    // Édition d'entité en saisie libre et synchronisation automatique dans les tags
+    // Édition d'entité en saisie libre (état découplé - zéro freeze / zéro corruption)
     const handleEditNodeEntity = (nodeId: string, newEntity: string) => {
-        const node = visualModel.nodes.find(n => n.id === nodeId);
-        const currentLabel = node?.label || nodeId;
-        const updated = surgicalEditLabelAndEntity(codeRef.current, nodeId, currentLabel, newEntity);
-        applyCode(updated);
+        setStepEntities(prev => {
+            const next = { ...prev, [nodeId]: newEntity };
+            if (!newEntity.trim()) delete next[nodeId];
+            if (typeof window !== 'undefined' && id) {
+                try { localStorage.setItem(`workflow_entities_${id}`, JSON.stringify(next)); } catch (_) {}
+            }
+            return next;
+        });
 
         // Ajout automatique aux tags du workflow
         const cleanEntity = newEntity.trim().replace(/^[\(\[]|[\)\]]$/g, '').trim();
@@ -806,28 +837,25 @@ export default function WorkflowEditorPage() {
         }
     };
 
-    // Synchronisation automatique de toute entité présente dans les nœuds vers les tags
+    // Synchronisation automatique des entités actives vers les tags
     useEffect(() => {
-        if (visualModel.nodes.length > 0) {
-            const entities = visualModel.nodes
-                .map(n => n.entity?.trim())
-                .filter((e): e is string => !!e && e.length > 0);
-            if (entities.length > 0) {
-                setTags(prev => {
-                    const newTags = [...prev];
-                    let changed = false;
-                    entities.forEach(ent => {
-                        const clean = ent.replace(/^[\(\[]|[\)\]]$/g, '').trim();
-                        if (clean && !newTags.includes(clean)) {
-                            newTags.push(clean);
-                            changed = true;
-                        }
-                    });
-                    return changed ? newTags : prev;
+        const entityList = Object.values(stepEntities)
+            .map(e => e.trim().replace(/^[\(\[]|[\)\]]$/g, '').trim())
+            .filter(Boolean);
+        if (entityList.length > 0) {
+            setTags(prev => {
+                const newTags = [...prev];
+                let changed = false;
+                entityList.forEach(ent => {
+                    if (ent && !newTags.includes(ent)) {
+                        newTags.push(ent);
+                        changed = true;
+                    }
                 });
-            }
+                return changed ? newTags : prev;
+            });
         }
-    }, [visualModel.nodes]);
+    }, [stepEntities]);
 
     const handleSaveAssignee = async () => {
         if (!assigneeTargetNode || !id) return;
@@ -880,9 +908,10 @@ export default function WorkflowEditorPage() {
         }
     };
 
-    // Apply Code safely
+    // Apply Code safely (avec nettoyage automatique des corruptions résiduelles)
     const applyCode = useCallback((newCode: string) => {
-        const enriched = ensureThemeClassDefs(newCode);
+        const sanitized = cleanCorruptedLabels(newCode);
+        const enriched = ensureThemeClassDefs(sanitized);
         codeRef.current = enriched;
         setCode(enriched);
         setVisualModel(parseMermaid(enriched));
@@ -896,8 +925,7 @@ export default function WorkflowEditorPage() {
     // ── Direct Surgical Modifications ──────────────────────────────────────
 
     const handleEditNodeText = (nodeId: string, newText: string) => {
-        const node = visualModel.nodes.find(n => n.id === nodeId);
-        const updated = surgicalEditLabelAndEntity(codeRef.current, nodeId, newText, node?.entity);
+        const updated = surgicalEditLabel(codeRef.current, nodeId, newText);
         applyCode(updated);
     };
 
@@ -1027,6 +1055,21 @@ export default function WorkflowEditorPage() {
                     } else {
                         applyCode(EASY_TEMPLATES[0].code);
                     }
+
+                    // Chargement des entités assignées
+                    if (data.stepEntities) {
+                        setStepEntities(data.stepEntities);
+                    } else {
+                        const extracted = extractEntitiesFromCode(loadedCode);
+                        let cachedEnt: Record<string, string> = {};
+                        if (typeof window !== 'undefined') {
+                            try {
+                                const rawCached = localStorage.getItem(`workflow_entities_${id}`);
+                                if (rawCached) cachedEnt = JSON.parse(rawCached);
+                            } catch (_) {}
+                        }
+                        setStepEntities({ ...extracted, ...cachedEnt });
+                    }
                 } else if (isMounted) {
                     if (cachedCode) {
                         applyCode(cachedCode);
@@ -1076,6 +1119,7 @@ export default function WorkflowEditorPage() {
                 currentVersion: nextV,
                 updatedAt: now,
                 tags: updatedTags,
+                stepEntities: stepEntities,
                 ...(status === 'published' ? { activeVersionId: vId } : {})
             };
 
@@ -1340,13 +1384,13 @@ export default function WorkflowEditorPage() {
                                                 />
 
                                                 {/* Badge discret si entité assignée */}
-                                                {node.entity && (
+                                                {(stepEntities[node.id] || node.entity) && (
                                                     <span
                                                         className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0"
-                                                        title={`Entité : ${node.entity}`}
+                                                        title={`Entité : ${stepEntities[node.id] || node.entity}`}
                                                     >
                                                         <LucideIcons.Building2 className="h-3 w-3 text-indigo-600" />
-                                                        <span className="truncate max-w-[120px]">{node.entity}</span>
+                                                        <span className="truncate max-w-[120px]">{stepEntities[node.id] || node.entity}</span>
                                                     </span>
                                                 )}
 
@@ -1389,12 +1433,12 @@ export default function WorkflowEditorPage() {
                                                     Entité :
                                                 </span>
                                                 <Input
-                                                    value={node.entity || ''}
+                                                    value={stepEntities[node.id] !== undefined ? stepEntities[node.id] : (node.entity || '')}
                                                     onChange={e => handleEditNodeEntity(node.id, e.target.value)}
                                                     placeholder="Saisie libre (ex: Direction Conformité, Front Office, DG...)"
                                                     className="h-7 text-xs font-semibold rounded-lg bg-white border-slate-200 focus:border-indigo-400 focus:bg-white flex-1 text-slate-800 placeholder:text-slate-400 shadow-2xs"
                                                 />
-                                                {node.entity && (
+                                                {(stepEntities[node.id] || node.entity) && (
                                                     <button
                                                         type="button"
                                                         onClick={() => handleEditNodeEntity(node.id, '')}
@@ -1714,6 +1758,7 @@ export default function WorkflowEditorPage() {
                                     chart={code}
                                     workflowId={id}
                                     zoom={zoom}
+                                    stepEntities={stepEntities}
                                     onNodeClick={(nodeId) => {
                                         const found = visualModel.nodes.find(n => n.id === nodeId);
                                         if (found) handleOpenAssigneeModal(found);
@@ -1752,6 +1797,7 @@ export default function WorkflowEditorPage() {
                                 chart={code}
                                 workflowId={id}
                                 fitMode={true}
+                                stepEntities={stepEntities}
                                 onNodeClick={(nodeId) => {
                                     const found = visualModel.nodes.find(n => n.id === nodeId);
                                     if (found) handleOpenAssigneeModal(found);

@@ -19,6 +19,7 @@ interface MermaidRendererProps {
     onEditTask?: (task: any) => void;
     zoom?: number;
     fitMode?: boolean;
+    stepEntities?: Record<string, string>;
 }
 
 const riskLevelToNumber = (level: string): number => {
@@ -38,7 +39,7 @@ const riskLevelConfig: Record<string, { emoji: string; bg: string; border: strin
     'Très élevé': { emoji: '🔴', bg: '#fef2f2', border: '#fca5a5', text: '#991b1b', label: 'Risque Très élevé' },
 };
 
-export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflowId, onEditTask, zoom = 1, fitMode = false }) => {
+export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflowId, onEditTask, zoom = 1, fitMode = false, stepEntities = {} }) => {
     const uniqueId = useMemo(() => Math.random().toString(36).substring(7), []);
     const [svg, setSvg] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
@@ -124,7 +125,8 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                     workflowTasks,
                     availableUsers,
                     allRisks,
-                    uniqueId
+                    uniqueId,
+                    stepEntities
                 });
 
                 // Callback global pour le clic sur les nœuds
@@ -182,7 +184,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
             const callbackName = `mermaidClick_${uniqueId}`;
             delete (window as any)[callbackName];
         };
-    }, [chart, workflowTasks, workflowId, planData, availableUsers, allRisks, onEditTask, uniqueId, retryCount]);
+    }, [chart, workflowTasks, workflowId, planData, availableUsers, allRisks, onEditTask, uniqueId, retryCount, stepEntities]);
 
     if (error && !svg) {
         return (

@@ -281,9 +281,10 @@ export function annotateMermaidCode(
         availableUsers?: any[];
         allRisks?: any[];
         uniqueId?: string;
+        stepEntities?: Record<string, string>;
     }
 ): string {
-    const { workflowId, planData = [], workflowTasks = [], availableUsers = [], allRisks = [], uniqueId = 'print' } = options;
+    const { workflowId, planData = [], workflowTasks = [], availableUsers = [], allRisks = [], uniqueId = 'print', stepEntities = {} } = options;
     let annotatedChart = chart;
     const chartId = workflowId || chart.match(/(?:graph|flowchart)\s+(?:TD|LR|TB|BT|RL);?\s+%%ID:(\w+)/)?.[1] || '';
 
@@ -337,107 +338,125 @@ export function annotateMermaidCode(
         tasksByNode[t.nodeId].push(t);
     });
 
-    Object.entries(tasksByNode).forEach(([nodeId, tasks]) => {
+    const targetNodeIds = new Set<string>([
+        ...Object.keys(tasksByNode),
+        ...Object.keys(stepEntities || {})
+    ]);
+
+    targetNodeIds.forEach(nodeId => {
+        const tasks = tasksByNode[nodeId] || [];
+        const entityFromMap = stepEntities?.[nodeId];
         const escapedId = nodeId.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
-        const nodeRegex = new RegExp(`\\b(${escapedId})\\s*([\\(\\[\\{\\>]{1,2})["']?(.*?)["']?([\\)\\]\\}]{1,2})`, 'g');
 
-        const nodeRiskIds = [...new Set(tasks.flatMap((t: any) => t.riskIds || []))];
-        const nodeRisks = allRisks.filter((r: any) => nodeRiskIds.includes(r.id));
-        let nodeMaxRiskLevel = '';
-        let nodeMaxRiskNum = 0;
-        nodeRisks.forEach((r: any) => {
-            const lvl = riskLevelToNumber(r.riskLevel);
-            if (lvl > nodeMaxRiskNum) {
-                nodeMaxRiskNum = lvl;
-                nodeMaxRiskLevel = r.riskLevel;
-            }
-        });
-        const nodeRiskConfig = nodeMaxRiskLevel ? riskLevelConfig[nodeMaxRiskLevel] : null;
+        let infoHtml = '';
+        if (tasks.length > 0) {
+            const nodeRiskIds = [...new Set(tasks.flatMap((t: any) => t.riskIds || []))];
+            const nodeRisks = allRisks.filter((r: any) => nodeRiskIds.includes(r.id));
+            let nodeMaxRiskLevel = '';
+            let nodeMaxRiskNum = 0;
+            nodeRisks.forEach((r: any) => {
+                const lvl = riskLevelToNumber(r.riskLevel);
+                if (lvl > nodeMaxRiskNum) {
+                    nodeMaxRiskNum = lvl;
+                    nodeMaxRiskLevel = r.riskLevel;
+                }
+            });
+            const nodeRiskConfig = nodeMaxRiskLevel ? riskLevelConfig[nodeMaxRiskLevel] : null;
 
-        let infoHtml = `<div class='assignee-info-box'>`;
-        const uniqueAssignees = new Map();
-        tasks.forEach(task => {
-            const sName = cleanForMermaid(task.responsibleUserName);
-            const sApprover = task.approverUserName ? cleanForMermaid(task.approverUserName) : null;
-            const sTaskName = cleanForMermaid(task.taskName);
-            const sRole = cleanForMermaid(task.roleRequired).toUpperCase();
-            const isGrc = task.isGrcControl;
-            const key = `${sName}-${sApprover}-${sRole}-${isGrc}-${sTaskName}`;
+            infoHtml = `<div class='assignee-info-box'>`;
+            const uniqueAssignees = new Map();
+            tasks.forEach(task => {
+                const sName = cleanForMermaid(task.responsibleUserName);
+                const sApprover = task.approverUserName ? cleanForMermaid(task.approverUserName) : null;
+                const sTaskName = cleanForMermaid(task.taskName);
+                const sRole = cleanForMermaid(task.roleRequired).toUpperCase();
+                const isGrc = task.isGrcControl;
+                const key = `${sName}-${sApprover}-${sRole}-${isGrc}-${sTaskName}`;
 
-            if (!uniqueAssignees.has(key)) {
-                uniqueAssignees.set(key, { sName, sApprover, sRole, isGrc, sTaskName });
-            }
-        });
+                if (!uniqueAssignees.has(key)) {
+                    uniqueAssignees.set(key, { sName, sApprover, sRole, isGrc, sTaskName });
+                }
+            });
 
-        Array.from(uniqueAssignees.values()).forEach(({ sName, sApprover, sRole, isGrc, sTaskName }) => {
-            infoHtml += `<div class='assignee-row ${isGrc ? 'grc-row' : ''}'>`;
-            if (isGrc && sTaskName) {
-                infoHtml += `<div class='linked-task-name'>Task: ${sTaskName}</div>`;
-            }
-            infoHtml += `<div class='assignee-group'>` +
-                `<span class='icon'>${isGrc ? '🛡️' : '👤'}</span>` +
-                `<span class='assignee-name'>${sName}</span>` +
-                `<span class='assignee-role-badge'>${sRole}</span>` +
-                `</div>`;
-            if (sApprover) {
-                infoHtml += `<div class='approver-row'>` +
-                    `<span class='icon'>✅</span>` +
-                    `<span class='approver-label'>Approbateur:</span>` +
-                    `<span class='approver-name'>${sApprover}</span>` +
+            Array.from(uniqueAssignees.values()).forEach(({ sName, sApprover, sRole, isGrc, sTaskName }) => {
+                infoHtml += `<div class='assignee-row ${isGrc ? 'grc-row' : ''}'>`;
+                if (isGrc && sTaskName) {
+                    infoHtml += `<div class='linked-task-name'>Task: ${sTaskName}</div>`;
+                }
+                infoHtml += `<div class='assignee-group'>` +
+                    `<span class='icon'>${isGrc ? '🛡️' : '👤'}</span>` +
+                    `<span class='assignee-name'>${sName}</span>` +
+                    `<span class='assignee-role-badge'>${sRole}</span>` +
+                    `</div>`;
+                if (sApprover) {
+                    infoHtml += `<div class='approver-row'>` +
+                        `<span class='icon'>✅</span>` +
+                        `<span class='approver-label'>Approbateur:</span>` +
+                        `<span class='approver-name'>${sApprover}</span>` +
+                        `</div>`;
+                }
+                infoHtml += `</div>`;
+            });
+
+            if (nodeRiskConfig && nodeMaxRiskLevel) {
+                infoHtml += `<div class='risk-badge-node' style='background:${nodeRiskConfig.bg};border:1.5px solid ${nodeRiskConfig.border};color:${nodeRiskConfig.text};'>` +
+                    `<span class='risk-badge-emoji'>${nodeRiskConfig.emoji}</span>` +
+                    `<span class='risk-badge-label'>${nodeRiskConfig.label}</span>` +
+                    `<span class='risk-badge-count'>${nodeRisks.length} risque${nodeRisks.length > 1 ? 's' : ''}</span>` +
                     `</div>`;
             }
             infoHtml += `</div>`;
-        });
-
-        if (nodeRiskConfig && nodeMaxRiskLevel) {
-            infoHtml += `<div class='risk-badge-node' style='background:${nodeRiskConfig.bg};border:1.5px solid ${nodeRiskConfig.border};color:${nodeRiskConfig.text};'>` +
-                `<span class='risk-badge-emoji'>${nodeRiskConfig.emoji}</span>` +
-                `<span class='risk-badge-label'>${nodeRiskConfig.label}</span>` +
-                `<span class='risk-badge-count'>${nodeRisks.length} risque${nodeRisks.length > 1 ? 's' : ''}</span>` +
-                `</div>`;
         }
-        infoHtml += `</div>`;
 
+        // Remplacement sécurisé ligne par ligne (anti-boucle infinie & anti-backtracking)
+        const lines = annotatedChart.split('\n');
         let matched = false;
-        const replaceRegex = new RegExp(`\\b(${escapedId})\\s*([\\(\\[\\{\\>]{1,2})["']?(.*?)["']?([\\)\\]\\}]{1,2})`, 'g');
-        annotatedChart = annotatedChart.replace(replaceRegex, (match, id, rawOpen, rawLabel) => {
-            matched = true;
-            const { open, close } = getShapeBrackets(rawOpen);
 
-            // Détection et extraction de l'entité (saisie libre)
-            const entityMatch = rawLabel.match(/<(?:small|span)[^>]*class=['"][^'"]*node-entity[^'"]*['"][^>]*>\s*\(?([^<)]+)\)?\s*<\/(?:small|span)>/i)
-                || rawLabel.match(/<(?:small|span)[^>]*>\s*\(?([^<)]+)\)?\s*<\/(?:small|span)>/i)
-                || rawLabel.match(/\((?:Entité\s*:\s*|Entite\s*:\s*)([^)]+)\)/i);
-            const entity = entityMatch ? entityMatch[1].trim() : null;
-            const baseLabel = rawLabel
-                .replace(/<(?:small|span)[^>]*>.*?<\/(?:small|span)>/gi, '')
-                .replace(/\((?:Entité\s*:\s*|Entite\s*:\s*)[^)]+\)/gi, '');
+        const newLines = lines.map(line => {
+            if (matched) return line;
+            const t = line.trim();
+            // Match du noeud dans une déclaration simple: nodeId[...] ou nodeId(...) ou nodeId{...}
+            const re = new RegExp(`^(\\s*\\b${escapedId}\\s*)([\\(\\[\\{\\/]{1,2})("?)(.*?)\\3([\\)\\]\\}\\/]{1,2})(\\s*:::?\\w+)?$`);
+            const m = t.match(re);
+            if (m) {
+                matched = true;
+                const prefix = m[1];
+                const rawOpen = m[2];
+                const rawLabel = m[4];
+                const colorCls = m[6] || '';
+                const { open, close } = getShapeBrackets(rawOpen);
 
-            const cleanLabel = cleanForMermaid(
-                baseLabel.split('<br')[0].split('<div')[0].replace(/^["']+|["']+$/g, '').trim()
-            );
+                // Extraction entité : priorité au map stepEntities, sinon fallback contenu existant
+                const entMatch = rawLabel.match(/<(?:small|span)[^>]*class=['"][^'"]*node-entity[^'"]*['"][^>]*>\s*\(?([^<)]+)\)?\s*<\/(?:small|span)>/i)
+                    || rawLabel.match(/\((?:Entité\s*:\s*|Entite\s*:\s*)([^)]+)\)/i);
+                const effectiveEntity = entityFromMap || (entMatch ? entMatch[1].trim() : '');
 
-            const entityHtml = entity
-                ? ` <span class='node-entity-badge' style='font-size:9.5px;font-weight:700;color:#4f46e5;margin-left:4px;'>(${cleanForMermaid(entity)})</span>`
-                : '';
+                const cleanLabel = cleanForMermaid(
+                    rawLabel
+                        .replace(/<[^>]+>/g, '')
+                        .replace(/["'\)]+$/g, '')
+                        .trim()
+                );
 
-            return `${id}${open}<div class='node-label-main'>${cleanLabel || id}${entityHtml}</div>${infoHtml}${close}`;
+                const entityHtml = effectiveEntity.trim()
+                    ? ` <span class='node-entity-badge' style='font-size:9.5px;font-weight:700;color:#4f46e5;margin-left:4px;'>(${cleanForMermaid(effectiveEntity.trim().replace(/^[\(\[]|[\)\]]$/g, ''))})</span>`
+                    : '';
+
+                return `  ${prefix.trim()}${open}<div class='node-label-main'>${cleanLabel || nodeId}${entityHtml}</div>${infoHtml}${close}${colorCls}`;
+            }
+            return line;
         });
 
-        if (!matched && !annotatedChart.includes(nodeId)) {
-            if (/^[a-zA-Z0-9_\-\.]+$/.test(nodeId)) {
-                annotatedChart += `\n${nodeId}["<div class='node-label-main'>${nodeId}</div>${infoHtml}"]`;
+        if (matched) {
+            annotatedChart = newLines.join('\n');
+            if (tasks.length > 0) {
+                const hasAlert = tasks.some((t: any) => t.status === 'Alerte');
+                const allDone = tasks.every((t: any) => t.status === 'Terminé');
+                const anyProgress = tasks.some((t: any) => t.status === 'En cours');
+                const statusClass = hasAlert ? 'node-alert' : allDone ? 'node-done' : anyProgress ? 'node-progress' : 'node-pending';
+                annotatedChart += `\nclass ${nodeId} ${statusClass};`;
+                annotatedChart += `\nclick ${nodeId} call mermaidClick_${uniqueId}("${nodeId}") "Modifier cette étape"`;
             }
-        }
-
-        const hasAlert = tasks.some((t: any) => t.status === 'Alerte');
-        const allDone = tasks.every((t: any) => t.status === 'Terminé');
-        const anyProgress = tasks.some((t: any) => t.status === 'En cours');
-        const statusClass = hasAlert ? 'node-alert' : allDone ? 'node-done' : anyProgress ? 'node-progress' : 'node-pending';
-        annotatedChart += `\nclass ${nodeId} ${statusClass};`;
-
-        if (tasks.length > 0) {
-            annotatedChart += `\nclick ${nodeId} call mermaidClick_${uniqueId}("${nodeId}") "Modifier cette étape"`;
         }
     });
 
