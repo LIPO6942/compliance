@@ -282,11 +282,68 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, workflo
                 }
 
                 /* Animations & Interactivité */
-                .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { transition: all 0.3s ease !important; }
-                .mermaid .node:hover rect, .mermaid .node:hover circle, .mermaid .node:hover polygon { filter: brightness(0.98); transform: translateY(-3px); }
+                .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { 
+                    transition: all 0.25s ease !important; 
+                    stroke-width: 1.5px !important;
+                }
+                .mermaid .node rect {
+                    rx: 12px !important;
+                    ry: 12px !important;
+                }
+                .mermaid .node:hover rect, .mermaid .node:hover circle, .mermaid .node:hover polygon { 
+                    filter: brightness(0.98); 
+                    transform: translateY(-2px); 
+                }
                 .mermaid .node.clickable { cursor: pointer !important; }
-                .mermaid .edgePath path { stroke: #94a3b8 !important; stroke-width: 2px !important; }
-                .mermaid .edgePath:hover path { stroke: #6366f1 !important; stroke-width: 3px !important; }
+
+                /* Typographie haute fidélité pour tous les libellés de nœuds */
+                .mermaid text, .mermaid .nodeLabel, .mermaid span {
+                    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                    font-weight: 700 !important;
+                    font-size: 12px !important;
+                    letter-spacing: -0.01em !important;
+                }
+
+                /* Flèches fines, douces et élégantes (adieu les flèches noires agressives !) */
+                .mermaid .edgePath path { 
+                    stroke: #64748b !important; 
+                    stroke-width: 1.5px !important; 
+                    stroke-linecap: round !important;
+                    stroke-linejoin: round !important;
+                }
+                .mermaid .edgePath:hover path { 
+                    stroke: #4f46e5 !important; 
+                    stroke-width: 2.5px !important; 
+                }
+                .mermaid marker path, 
+                .mermaid .arrowMarkerPath, 
+                .mermaid marker polygon { 
+                    fill: #64748b !important; 
+                    stroke: #64748b !important; 
+                    stroke-width: 0.5px !important; 
+                }
+
+                /* Étiquettes de branches (Oui, Non, etc.) épurées et sans pavé coloré */
+                .mermaid .edgeLabel {
+                    font-family: 'Outfit', sans-serif !important;
+                    font-size: 10px !important;
+                    font-weight: 700 !important;
+                    color: #475569 !important;
+                }
+                .mermaid .edgeLabel rect {
+                    fill: #ffffff !important;
+                    opacity: 0.95 !important;
+                    rx: 5px !important;
+                    ry: 5px !important;
+                    stroke: #e2e8f0 !important;
+                    stroke-width: 1px !important;
+                }
+                .mermaid .edgeLabel span {
+                    background: transparent !important;
+                    color: #475569 !important;
+                    font-size: 10px !important;
+                    font-weight: 700 !important;
+                }
             ` }} />
 
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[110%] h-[110%] bg-gradient-to-tr from-indigo-500/5 to-emerald-500/5 blur-[100px] opacity-30 pointer-events-none -z-10" />

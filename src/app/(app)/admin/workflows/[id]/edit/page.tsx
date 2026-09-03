@@ -85,16 +85,16 @@ function getNextSimpleNodeId(code: string): string {
 function ensureThemeClassDefs(rawCode: string): string {
     let code = rawCode;
     const defs = [
-        `classDef greenNode fill:#e6f4ea,stroke:#0d9488,stroke-width:2px,rx:10,ry:10,color:#0f766e;`,
-        `classDef blueNode fill:#f0f7ff,stroke:#0284c7,stroke-width:2px,rx:10,ry:10,color:#0369a1;`,
-        `classDef orangeNode fill:#fff7ed,stroke:#ea580c,stroke-width:2px,rx:6,ry:6,color:#c2410c;`,
-        `classDef purpleNode fill:#faf5ff,stroke:#9333ea,stroke-width:2px,rx:10,ry:10,color:#7e22ce;`,
-        `classDef roseNode fill:#fff1f2,stroke:#e11d48,stroke-width:2px,rx:10,ry:10,color:#be123c;`,
-        `classDef amberNode fill:#fefce8,stroke:#ca8a04,stroke-width:2px,rx:10,ry:10,color:#a16207;`,
-        `classDef startend fill:#e6f4ea,stroke:#0d9488,stroke-width:2px,rx:10,ry:10,color:#0f766e;`,
-        `classDef action fill:#f0f7ff,stroke:#0284c7,stroke-width:2px,rx:10,ry:10,color:#0369a1;`,
-        `classDef decision fill:#fff7ed,stroke:#ea580c,stroke-width:2px,rx:6,ry:6,color:#c2410c;`,
-        `classDef process fill:#faf5ff,stroke:#9333ea,stroke-width:2px,rx:10,ry:10,color:#7e22ce;`,
+        `classDef greenNode fill:#ecfdf5,stroke:#10b981,stroke-width:1.5px,rx:12,ry:12,color:#065f46;`,
+        `classDef blueNode fill:#f0f9ff,stroke:#0284c7,stroke-width:1.5px,rx:12,ry:12,color:#0369a1;`,
+        `classDef orangeNode fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,rx:8,ry:8,color:#9a3412;`,
+        `classDef purpleNode fill:#faf5ff,stroke:#8b5cf6,stroke-width:1.5px,rx:12,ry:12,color:#6b21a8;`,
+        `classDef roseNode fill:#fff1f2,stroke:#f43f5e,stroke-width:1.5px,rx:12,ry:12,color:#9f1239;`,
+        `classDef amberNode fill:#fefce8,stroke:#ca8a04,stroke-width:1.5px,rx:12,ry:12,color:#854d0e;`,
+        `classDef startend fill:#ecfdf5,stroke:#10b981,stroke-width:1.5px,rx:12,ry:12,color:#065f46;`,
+        `classDef action fill:#f0f9ff,stroke:#0284c7,stroke-width:1.5px,rx:12,ry:12,color:#0369a1;`,
+        `classDef decision fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,rx:8,ry:8,color:#9a3412;`,
+        `classDef process fill:#faf5ff,stroke:#8b5cf6,stroke-width:1.5px,rx:12,ry:12,color:#6b21a8;`,
     ];
 
     defs.forEach(def => {
