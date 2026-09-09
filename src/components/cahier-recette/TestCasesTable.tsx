@@ -68,6 +68,17 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
     return directAnomalies + unlinkedKOTests;
   };
 
+  // Helper to count total test cases for a given module
+  const getModuleTestCount = (mod: string): number => {
+    if (mod === "ALL") {
+      return allTestCases.length;
+    }
+    const target = mod.toLowerCase().trim();
+    return allTestCases.filter(
+      (t) => (t.module || "").toLowerCase().trim() === target
+    ).length;
+  };
+
   // Helper to compute color classes according to exact user rules:
   // - > 3 (ou >= 3) anomalies : Rouge
   // - 2 anomalies : Orange
@@ -234,6 +245,7 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
             {/* Boutons pour chaque module */}
             {modulesList.map((mod) => {
               const anomalyCount = getModuleAnomalyCount(mod);
+              const testCount = getModuleTestCount(mod);
               const isSelected = selectedModule === mod;
 
               return (
@@ -241,15 +253,25 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                   key={mod}
                   onClick={() => setSelectedModule(mod)}
                   className={cn(
-                    "px-2.5 py-1 rounded-xl text-xs transition-all duration-200 flex items-center gap-1.5",
+                    "px-2.5 py-1 rounded-xl text-xs transition-all duration-200 flex items-center gap-1.5 cursor-pointer",
                     getFilterColorClasses(anomalyCount, isSelected)
                   )}
                 >
-                  <span>{mod}</span>
-                  {anomalyCount > 0 ? (
+                  <span>
+                    {mod}{" "}
                     <span
                       className={cn(
-                        "px-1.5 py-0.2 rounded-full text-[9.5px] font-black leading-tight",
+                        "font-black text-[10.5px]",
+                        isSelected ? "text-white" : "opacity-90"
+                      )}
+                    >
+                      ({testCount})
+                    </span>
+                  </span>
+                  {anomalyCount > 0 && (
+                    <span
+                      className={cn(
+                        "px-1.5 py-0.2 rounded-full text-[9px] font-black leading-tight shrink-0",
                         isSelected
                           ? "bg-white/30 text-white"
                           : anomalyCount >= 3
@@ -258,17 +280,9 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                           ? "bg-orange-500 text-white"
                           : "bg-amber-500 text-white"
                       )}
+                      title={`${anomalyCount} anomalie(s) active(s)`}
                     >
-                      ({anomalyCount})
-                    </span>
-                  ) : (
-                    <span
-                      className={cn(
-                        "text-[9.5px] font-bold opacity-75",
-                        isSelected ? "text-white" : "text-emerald-600 dark:text-emerald-400"
-                      )}
-                    >
-                      (0)
+                      {anomalyCount} ano.
                     </span>
                   )}
                 </button>
@@ -445,6 +459,7 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
           onSave={handleSaveModal}
           testCaseToEdit={editingTestCase}
           modulesList={modulesList}
+          defaultModule={selectedModule !== "ALL" ? selectedModule : undefined}
           existingAnomalies={anomalies}
           nextSuggestedId={nextId}
           nextSuggestedAnomalyId={nextAnomalyId}

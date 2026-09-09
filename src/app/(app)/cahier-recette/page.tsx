@@ -200,9 +200,19 @@ export default function TestBookPage() {
   }, [testCases, anomalies]);
 
   const modulesList = useMemo(() => {
-    const fromTests = testCases.map((t) => t.module);
-    const fromAnos = anomalies.map((a) => a.module);
-    return Array.from(new Set([...fromTests, ...fromAnos])).filter(Boolean);
+    const modulesMap = new Map<string, string>();
+    [...testCases.map((t) => t.module), ...anomalies.map((a) => a.module)]
+      .filter(Boolean)
+      .forEach((m) => {
+        const trimmed = (m || "").trim();
+        const key = trimmed.toLowerCase();
+        if (trimmed && !modulesMap.has(key)) {
+          modulesMap.set(key, trimmed);
+        }
+      });
+    return Array.from(modulesMap.values()).sort((a, b) =>
+      a.localeCompare(b, "fr", { sensitivity: "base" })
+    );
   }, [testCases, anomalies]);
 
   // Filtered Test Cases
@@ -215,7 +225,9 @@ export default function TestBookPage() {
         (tc.linkedAnomaly && tc.linkedAnomaly.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (tc.comment && tc.comment.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      const matchesModule = selectedModule === "ALL" || tc.module === selectedModule;
+      const matchesModule =
+        selectedModule === "ALL" ||
+        (tc.module || "").trim().toLowerCase() === selectedModule.trim().toLowerCase();
       const matchesStatus = selectedStatus === "ALL" || tc.status === selectedStatus;
       return matchesSearch && matchesModule && matchesStatus;
     });
@@ -266,8 +278,10 @@ export default function TestBookPage() {
 
   const handleAddTestCase = (newTestCase: TestCase, associatedAnomaly?: Anomaly) => {
     const nowIso = new Date().toISOString();
+    const cleanModule = (newTestCase.module || "").trim() || "Général";
     const preparedTest: TestCase = {
       ...newTestCase,
+      module: cleanModule,
       createdAt: newTestCase.createdAt || nowIso,
       updatedAt: nowIso,
     };
@@ -277,6 +291,7 @@ export default function TestBookPage() {
     if (associatedAnomaly) {
       const preparedAno: Anomaly = {
         ...associatedAnomaly,
+        module: (associatedAnomaly.module || cleanModule).trim(),
         createdAt: associatedAnomaly.createdAt || nowIso,
         updatedAt: nowIso,
       };
@@ -296,8 +311,10 @@ export default function TestBookPage() {
 
   const handleUpdateTestCase = (updatedTestCase: TestCase, associatedAnomaly?: Anomaly) => {
     const nowIso = new Date().toISOString();
+    const cleanModule = (updatedTestCase.module || "").trim() || "Général";
     const preparedTest: TestCase = {
       ...updatedTestCase,
+      module: cleanModule,
       updatedAt: nowIso,
       createdAt: updatedTestCase.createdAt || nowIso,
     };
@@ -307,6 +324,7 @@ export default function TestBookPage() {
     if (associatedAnomaly) {
       const preparedAno: Anomaly = {
         ...associatedAnomaly,
+        module: (associatedAnomaly.module || cleanModule).trim(),
         updatedAt: nowIso,
         createdAt: associatedAnomaly.createdAt || nowIso,
       };

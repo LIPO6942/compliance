@@ -22,6 +22,7 @@ interface TestCaseModalProps {
   onSave: (testCase: TestCase, associatedAnomaly?: Anomaly) => void;
   testCaseToEdit?: TestCase | null;
   modulesList: string[];
+  defaultModule?: string;
   existingAnomalies?: Anomaly[];
   nextSuggestedId?: string;
   nextSuggestedAnomalyId?: string;
@@ -33,6 +34,7 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
   onSave,
   testCaseToEdit,
   modulesList,
+  defaultModule,
   existingAnomalies = [],
   nextSuggestedId = "T-025",
   nextSuggestedAnomalyId = "ANO-010",
@@ -95,7 +97,14 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
       }
     } else {
       setId(nextSuggestedId);
-      setModule(modulesList[0] || "Reporting");
+      const initialModule =
+        defaultModule &&
+        modulesList.some((m) => m.toLowerCase().trim() === defaultModule.toLowerCase().trim())
+          ? modulesList.find(
+              (m) => m.toLowerCase().trim() === defaultModule.toLowerCase().trim()
+            ) || defaultModule
+          : modulesList[0] || "Reporting";
+      setModule(initialModule);
       setIsCustomModule(false);
       setCustomModule("");
       setTitle("");
@@ -109,7 +118,7 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
       setAnomalyImpact("");
       setAnomalyPriority("HAUTE");
     }
-  }, [testCaseToEdit, nextSuggestedId, nextSuggestedAnomalyId, modulesList, existingAnomalies, isOpen]);
+  }, [testCaseToEdit, nextSuggestedId, nextSuggestedAnomalyId, modulesList, existingAnomalies, defaultModule, isOpen]);
 
   // When user switches status to KO, auto-enable anomaly declaration
   const handleStatusChange = (newStatus: TestStatus) => {

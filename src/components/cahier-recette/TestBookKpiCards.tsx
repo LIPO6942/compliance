@@ -64,7 +64,7 @@ export const TestBookKpiCards: React.FC<TestBookKpiCardsProps> = ({ stats }) => 
                 {stats.koCount}
               </span>
               <span className="text-xs font-bold text-rose-600/80">
-                ({((stats.koCount / stats.total) * 100).toFixed(0)}%)
+                ({stats.total > 0 ? ((stats.koCount / stats.total) * 100).toFixed(0) : "0"}%)
               </span>
             </div>
           </div>
