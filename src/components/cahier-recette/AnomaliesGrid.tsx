@@ -272,7 +272,6 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Statut Résolu / Ouvert */}
                       <Badge
                         className={cn(
                           "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 border-none",
@@ -285,8 +284,6 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
                       >
                         {isResolved ? "🟢 Résolue" : ano.status === "EN COURS" ? "🟡 En cours" : "🔴 Ouverte"}
                       </Badge>
-
-                      {/* Priorité */}
                       <Badge
                         variant="outline"
                         className={cn(
@@ -323,7 +320,7 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
                       <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 text-[11px]">
                         <span className="text-[9.5px] font-black uppercase text-rose-600 dark:text-rose-400 block mb-0.5 flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3" />
-                          Impact Métier & Risque Réglementaire
+                          Impact Métier &amp; Risque Réglementaire
                         </span>
                         <p className="text-slate-600 dark:text-slate-300 font-medium">
                           {ano.businessImpact}
@@ -333,97 +330,80 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
 
                     {isResolved && ano.resolvedAt && (
                       <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50 text-[10.5px] text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 font-medium">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span>
+                          Résolue le <strong className="font-bold">{formatDateTime(ano.resolvedAt)}</strong>
+                          {ano.resolvedBy ? ` par ${ano.resolvedBy}` : ""}
+                        </span>
+                      </div>
+                    )}
+                  </CardContent>
+                </div>
 
-                      {ano.businessImpact && (
-                        <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 text-[11px]">
-                          <span className="text-[9.5px] font-black uppercase text-rose-600 dark:text-rose-400 block mb-0.5 flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            Impact Métier & Risque Réglementaire
-                          </span>
-                          <p className="text-slate-600 dark:text-slate-300 font-medium">
-                            {ano.businessImpact}
-                          </p>
-                        </div>
-                      )}
-
-                      {isResolved && ano.resolvedAt && (
-                        <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50 text-[10.5px] text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 font-medium">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                          <span>
-                            Résolue le <strong className="font-bold">{formatDateTime(ano.resolvedAt)}</strong>
-                            {ano.resolvedBy ? ` par ${ano.resolvedBy}` : ""}
-                          </span>
-                        </div>
-                      )}
-                    </CardContent>
+                {/* Pied de carte : Test lié & Bouton Résoudre / Réouvrir */}
+                <div className="p-3 bg-slate-50/60 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2">
+                  <div className="text-[10px] text-slate-400 font-medium truncate">
+                    Test(s) lié(s):{" "}
+                    {ano.linkedTest && ano.linkedTest !== "N/A" ? (
+                      <button
+                        onClick={() => onNavigateToTest?.(ano.linkedTest || "")}
+                        className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer ml-0.5"
+                        title={`Aller au test ${ano.linkedTest}`}
+                      >
+                        {ano.linkedTest}
+                      </button>
+                    ) : (
+                      <strong className="text-slate-700 dark:text-slate-300 font-bold">
+                        {ano.linkedTest || "N/A"}
+                      </strong>
+                    )}
                   </div>
 
-                  {/* Pied de carte : Test lié & Bouton Résoudre / Réouvrir */}
-                  <div className="p-3 bg-slate-50/60 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2">
-                    <div className="text-[10px] text-slate-400 font-medium truncate">
-                      Test(s) lié(s):{" "}
-                      {ano.linkedTest && ano.linkedTest !== "N/A" ? (
-                        <button
-                          onClick={() => onNavigateToTest?.(ano.linkedTest || "")}
-                          className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer ml-0.5"
-                          title={`Aller au test ${ano.linkedTest}`}
-                        >
-                          {ano.linkedTest}
-                        </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      size="sm"
+                      onClick={() => onToggleResolveAnomaly(ano.id)}
+                      className={cn(
+                        "h-7 px-2.5 text-[10px] font-bold rounded-xl gap-1 transition-all shadow-xs",
+                        isResolved
+                          ? "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300"
+                          : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20"
+                      )}
+                    >
+                      {isResolved ? (
+                        <>
+                          <RotateCcw className="h-3 w-3" />
+                          Réouvrir
+                        </>
                       ) : (
-                        <strong className="text-slate-700 dark:text-slate-300 font-bold">
-                          {ano.linkedTest || "N/A"}
-                        </strong>
+                        <>
+                          <CheckCircle2 className="h-3 w-3" />
+                          Marquer comme résolue
+                        </>
                       )}
-                    </div>
+                    </Button>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Bouton Résoudre / Réouvrir */}
-                      <Button
-                        size="sm"
-                        onClick={() => onToggleResolveAnomaly(ano.id)}
-                        className={cn(
-                          "h-7 px-2.5 text-[10px] font-bold rounded-xl gap-1 transition-all shadow-xs",
-                          isResolved
-                            ? "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300"
-                            : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20"
-                        )}
-                      >
-                        {isResolved ? (
-                          <>
-                            <RotateCcw className="h-3 w-3" />
-                            Réouvrir
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="h-3 w-3" />
-                            Marquer comme résolue
-                          </>
-                        )}
-                      </Button>
-
-                      {/* Actions Modifier & Supprimer */}
-                      <button
-                        onClick={() => handleOpenEditModal(ano)}
-                        className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-indigo-600 transition-colors"
-                        title="Modifier l'anomalie"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (window.confirm(`Supprimer l'anomalie ${ano.id} ?`)) {
-                            onDeleteAnomaly(ano.id);
-                          }
-                        }}
-                        className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-600 transition-colors"
-                        title="Supprimer l'anomalie"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handleOpenEditModal(ano)}
+                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-indigo-600 transition-colors"
+                      title="Modifier l'anomalie"
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Supprimer l'anomalie ${ano.id} ?`)) {
+                          onDeleteAnomaly(ano.id);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-600 transition-colors"
+                      title="Supprimer l'anomalie"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                </Card>
+                </div>
+              </Card>
               </div>
             );
           })}
