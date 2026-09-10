@@ -211,11 +211,19 @@ export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer 
       <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-[9px] text-slate-400">
         <div className="space-y-0.5">
           <div className="font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1">
-            <span>👤 {memo.authorName}</span>
+            <span>👤 Créé par {memo.authorName || "Équipe Conformité"}</span>
           </div>
           <div className="font-mono text-[8.5px] text-slate-400">
             {dateFormatted} à {timeFormatted}
           </div>
+          {memo.updatedBy && memo.updatedBy !== memo.authorName && memo.updatedAt && (
+            <div className="text-[8.5px] text-indigo-500 dark:text-indigo-400 font-semibold flex items-center gap-1 mt-0.5">
+              <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              Modifié par {memo.updatedBy} · {new Date(memo.updatedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-1">

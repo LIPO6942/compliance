@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { ComplianceMemo, MemoPillar, MemoScope, MemoPriority, APP_SECTIONS } from "@/types/memo";
 import { useMemos } from "@/contexts/MemoContext";
+import { useUser } from "@/contexts/UserContext";
 import { reformulateMemoAction, generateAutoTitleAction } from "@/app/(app)/memos/actions";
 import { extractFaithfulTitle } from "@/lib/memoTitleGenerator";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +47,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
   defaultSectionLabel = "Dashboard Général",
 }) => {
   const { addMemo, updateMemo } = useMemos();
+  const { user } = useUser();
   const { toast } = useToast();
 
   const isEditing = Boolean(memoToEdit && memoToEdit.id);
@@ -252,6 +254,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
         associatedSectionHref,
         associatedSectionLabel,
         checklists,
+        updatedBy: user?.name || "Utilisateur",
       });
     } else {
       await addMemo({
@@ -265,6 +268,8 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
         checklists,
         pinned: false,
         status: "ACTIVE",
+        authorName: user?.name || "Utilisateur",
+        authorEmail: user?.email || "",
       });
     }
 

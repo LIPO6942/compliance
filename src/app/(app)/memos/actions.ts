@@ -58,7 +58,8 @@ CONSIGNES STRICTES :
 1. Rédige en français irréprochable.
 2. Si le texte original contient des fautes, abréviations ou approximations, clarifie-les intelligemment selon le vocabulaire bancassurance/conformité.
 3. Conserve rigoureusement le sens, les chiffres et les noms mentionnés.
-4. Réponds UNIQUEMENT sous la forme d'un objet JSON valide avec les deux champs suivants :
+4. INTERDICTION ABSOLUE d'ajouter des informations, phrases, sections ou recommandations qui ne sont pas présentes dans le texte original. Reformule uniquement ce qui existe déjà.
+5. Réponds UNIQUEMENT sous la forme d'un objet JSON valide avec les deux champs suivants :
 {
   "suggestedTitle": "Titre court, percutant et professionnel (max 8 mots)",
   "reformulatedText": "Texte complet reformulé"
@@ -126,28 +127,44 @@ function generateRuleBasedReformulation(
   const clean = rawText.trim();
   const title = rawTitle?.trim() || "Point de vigilance Conformité";
 
+  // Helper: capitalize first letter of each sentence
+  const capitalizeSentences = (t: string) =>
+    t.replace(/(^|[.!?]\s+)([a-z])/g, (m, p, c) => p + c.toUpperCase());
+
+  // Helper: replace abbreviations with proper terminology
+  const expandAbbreviations = (t: string) =>
+    t
+      .replace(/\bKYC\b/g, "Know Your Customer (KYC)")
+      .replace(/\bLCB-FT\b/g, "LCB-FT")
+      .replace(/\bPEP\b/g, "Personne Politiquement Exposée (PEP)")
+      .replace(/\bAML\b/g, "Anti-Money Laundering (AML)");
+
   if (style === "SYNTHETIC") {
+    // Only reformat as bullet points without adding extra content
     const lines = clean.split("\n").filter((l) => l.trim().length > 0);
     const bullets = lines
       .map((l) => `• ${l.replace(/^[•\-\*]\s*/, "").trim()}`)
       .join("\n");
     return {
       title: `[Synthèse] ${title}`,
-      text: `📌 Point d'attention :\n${bullets}\n\n👉 Action requise : Analyse et vérification de conformité par l'analyste en charge.`,
+      text: `📌 Point d'attention :\n${bullets}`,
     };
   }
 
   if (style === "LEGAL") {
+    // Only improve vocabulary/formulation, do not wrap with boilerplate
+    const improved = capitalizeSentences(expandAbbreviations(clean));
     return {
       title: `[Obligation] ${title}`,
-      text: `Au titre des obligations de diligence et de contrôle interne (${pillar === "LAB_FT" ? "Dispositif LCB-FT / CTAF" : "Conformité Réglementaire CGA"}) :\n\n${clean}\n\n⚖️ Recommandation : S'assurer de la traçabilité documentaire et de l'adéquation des pièces justificatives au dossier.`,
+      text: improved,
     };
   }
 
-  // FORMAL Default
+  // FORMAL Default — clean up and capitalize only
+  const improved = capitalizeSentences(expandAbbreviations(clean));
   return {
     title: title,
-    text: `Note de conformité :\n\n${clean}\n\nRevue effectuée dans le cadre du suivi opérationnel et de la maîtrise des risques.`,
+    text: improved,
   };
 }
 
