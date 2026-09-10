@@ -35,36 +35,34 @@ export async function reformulateMemoAction(
 
   const styleInstruction =
     style === "FORMAL"
-      ? "Ton professionnel, formel, élégant et précis pour une note interne de direction de conformité MAE. Corrige la syntaxe et sublime le vocabulaire métier."
+      ? `FORMEL — Transforme ce texte brut en note de service professionnelle avec des phrases complètes et bien construites. Si le texte liste des actions ou constats, reformule-les en paragraphes clairs. Améliore le vocabulaire, corrige la grammaire, restructure si nécessaire. Le résultat doit être immédiatement présentable à la direction.`
       : style === "SYNTHETIC"
-      ? "Format ultra-synthétique, percutant et orienté action (Bullet points clairs avec verbes d'action, points de vigilance immédiats)."
-      : "Formulation juridique et réglementaire rigoureuse, faisant référence aux obligations de diligence, de contrôle, de traçabilité et de conformité légale (CGA, CTAF, GAFI).";
+      ? `SYNTHÉTIQUE — Reformate en liste de points d'action concis et percutants, préfixés par "•". Chaque point = un verbe d'action fort à l'infinitif + l'objet de l'action. Supprime tout mot superflu. Sois ultra-concis. Format attendu : "📌 Points d'attention :\n• Action 1\n• Action 2"`
+      : `RÉGLEMENTAIRE — Reformule chaque action/constat en obligation formelle avec des locutions du type "Il convient de", "Il est requis de", "Il y a lieu de". Utilise le vocabulaire réglementaire tunisien (CGA, CTAF, LCB-FT). Structure en obligations numérotées si plusieurs actions.`;
 
-  const prompt = `Tu es un expert senior en Gouvernance, Risque et Conformité (GRC) et LCB-FT pour la MAE Assurance (Tunisie).
-Ta mission est de reformuler et professionnaliser la note de travail ci-dessous pour la rendre irréprochable et directement exploitable par la direction de conformité.
+  const prompt = `Tu es un expert senior en Gouvernance, Risque et Conformité (GRC) pour la MAE Assurance (Tunisie).
+Ta mission est de TRANSFORMER le texte brut ci-dessous selon le style demandé. L'objectif est une amélioration visible et significative : le résultat doit sonner professionnel, structuré et immédiatement exploitable.
 
-CONTEXTE :
-- Volet métier : ${pillarName}
-- Section applicative : ${sectionLabel || "Général"}
-- Style demandé : ${styleInstruction}
+VOLET MÉTIER : ${pillarName}
+SECTION : ${sectionLabel || "Général"}
 
-TEXTE BRUT ORIGINAL :
+TEXTE BRUT À AMÉLIORER :
 """
 ${text}
 """
 ${title ? `TITRE ACTUEL : "${title}"` : ""}
 
-RÈGLES DE REFORMULATION :
-1. Rédige en français professionnel, irréprochable, avec le vocabulaire de la compliance MAE.
-2. Reformule et développe les idées du texte original en phrases complètes et professionnelles.
-3. Tu peux reformuler, clarifier, préciser et enrichir le SENS déjà présent dans le texte original.
-4. Tu peux corriger la grammaire, l'orthographe, les abréviations, les formulations incomplètes.
-5. INTERDIT : N'ajoute PAS de nouvelles recommandations, procédures ou sujets absents du texte original.
-6. INTERDIT : N'invente PAS de chiffres, dates, noms ou références légales non mentionnés.
-7. Réponds UNIQUEMENT sous cette forme JSON valide :
+TRANSFORMATION DEMANDÉE : ${styleInstruction}
+
+RÈGLES ABSOLUES :
+1. Le résultat doit être NETTEMENT meilleur que le texte original — pas une simple paraphrase.
+2. Corrige toutes les fautes de grammaire, orthographe et accord.
+3. Ne garde pas les formulations maladroites ou incomplètes — réécris-les.
+4. N'invente PAS de nouveaux sujets, chiffres, noms ou références légales absents du texte.
+5. Réponds UNIQUEMENT sous cette forme JSON valide (rien d'autre) :
 {
   "suggestedTitle": "Titre court et professionnel (max 8 mots)",
-  "reformulatedText": "Texte reformulé complet et professionnel"
+  "reformulatedText": "Texte transformé complet"
 }`;
 
   // 1. Essai avec Groq API si configuré
