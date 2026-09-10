@@ -11,7 +11,8 @@ import {
   CheckSquare,
   AlertTriangle,
   Info,
-  Plus
+  Plus,
+  History
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ import { TestBookKpiCards } from "@/components/cahier-recette/TestBookKpiCards";
 import { TestCasesTable } from "@/components/cahier-recette/TestCasesTable";
 import { AnomaliesGrid } from "@/components/cahier-recette/AnomaliesGrid";
 import { TestBookCoverCard } from "@/components/cahier-recette/TestBookCoverCard";
+import { AuditLogModal } from "@/components/cahier-recette/AuditLogModal";
 import { db, isFirebaseConfigured } from "@/lib/firebase";
 
 const cleanData = (data: any): any => {
@@ -39,61 +41,50 @@ const cleanData = (data: any): any => {
   return data;
 };
 
+// Load and resequence test IDs (fills gaps after deletions)
+function loadInitialData(): { tests: TestCase[]; anomalies: Anomaly[] } {
+  let tests: TestCase[] = INITIAL_TEST_CASES;
+  let anomalies: Anomaly[] = INITIAL_ANOMALIES.map((a) => ({ ...a, status: "OUVERTE" as const }));
+  if (typeof window === "undefined") return { tests, anomalies };
+  try {
+    const s = localStorage.getItem("regtools_test_cases_v2") || localStorage.getItem("regtools_test_cases");
+    if (s) tests = JSON.parse(s);
+  } catch {}
+  try {
+    const s = localStorage.getItem("regtools_anomalies_v2") || localStorage.getItem("regtools_anomalies");
+    if (s) anomalies = JSON.parse(s).map((a: any) => ({ ...a, status: a.status || "OUVERTE" }));
+  } catch {}
+  // Resequence if there are gaps
+  const sorted = [...tests].sort((a, b) => {
+    const na = parseInt(a.id.replace(/\D/g, ""), 10) || 0;
+    const nb = parseInt(b.id.replace(/\D/g, ""), 10) || 0;
+    return na - nb;
+  });
+  const hasGaps = sorted.some((t, i) => parseInt(t.id.replace(/\D/g, ""), 10) !== i + 1);
+  if (hasGaps) {
+    const map: Record<string, string> = {};
+    tests = sorted.map((t, i) => {
+      const newId = `T-${String(i + 1).padStart(3, "0")}`;
+      map[t.id] = newId;
+      return { ...t, id: newId };
+    });
+    anomalies = anomalies.map((a) => ({
+      ...a,
+      linkedTest: a.linkedTest
+        ? a.linkedTest.split(/[/,\s]+/).map((s: string) => map[s.trim()] || s.trim()).join(" / ")
+        : a.linkedTest,
+    }));
+  }
+  return { tests, anomalies };
+}
+
 export default function TestBookPage() {
   const { toast } = useToast();
 
-  const [testCases, setTestCases] = useState<TestCase[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("regtools_test_cases_v2");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      // Migrate from v1
-      const oldSaved = localStorage.getItem("regtools_test_cases");
-      if (oldSaved) {
-        try {
-          return JSON.parse(oldSaved);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
-    return INITIAL_TEST_CASES;
-  });
-
-  const [anomalies, setAnomalies] = useState<Anomaly[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("regtools_anomalies_v2");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      // Migrate from v1
-      const oldSaved = localStorage.getItem("regtools_anomalies");
-      if (oldSaved) {
-        try {
-          const parsed = JSON.parse(oldSaved) as Anomaly[];
-          return parsed.map((a) => ({
-            ...a,
-            status: a.status || "OUVERTE",
-          }));
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
-    return INITIAL_ANOMALIES.map((a) => ({
-      ...a,
-      status: a.status || "OUVERTE",
-    }));
-  });
+  // Load both states together so resequencing can update anomaly linkedTest refs
+  const [_init] = useState(() => loadInitialData());
+  const [testCases, setTestCases] = useState<TestCase[]>(_init.tests);
+  const [anomalies, setAnomalies] = useState<Anomaly[]>(_init.anomalies);
 
   const [metadata] = useState<TestBookMetadata>(INITIAL_METADATA);
   const [activeTab, setActiveTab] = useState<"tests" | "anomalies" | "cover">("tests");
@@ -103,12 +94,26 @@ export default function TestBookPage() {
   const [selectedPriority, setSelectedPriority] = useState<string>("ALL");
   const [selectedAnomalyStatus, setSelectedAnomalyStatus] = useState<string>("ALL");
   const [highlightedAnomalyId, setHighlightedAnomalyId] = useState<string | null>(null);
+  const [highlightedTestId, setHighlightedTestId] = useState<string | null>(null);
+  const [isAuditLogOpen, setIsAuditLogOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<string>(() => {
+    try { return localStorage.getItem("regtools_current_user") || "Équipe Conformité"; } catch { return "Équipe Conformité"; }
+  });
 
   const handleNavigateToAnomaly = (anomalyId: string) => {
     setHighlightedAnomalyId(anomalyId);
     setActiveTab("anomalies");
-    // Clear highlight after a short delay
     setTimeout(() => setHighlightedAnomalyId(null), 3000);
+  };
+
+  const handleNavigateToTest = (testId: string) => {
+    // Extract first test ID if multiple (e.g. "T-008 / T-009")
+    const firstId = testId.split(/[/,\s]+/).map(s => s.trim()).find(s => s.startsWith("T-")) || testId;
+    setHighlightedTestId(firstId);
+    setSelectedModule("ALL");
+    setSelectedStatus("ALL");
+    setActiveTab("tests");
+    setTimeout(() => setHighlightedTestId(null), 3000);
   };
 
   // LocalStorage Persistence
@@ -269,7 +274,7 @@ export default function TestBookPage() {
           t.status === "OK" ? "KO" : t.status === "KO" ? "Non encore testé" : "OK";
         const auditEntry: AuditEntry = {
           timestamp: nowIso,
-          author: "Équipe Conformité",
+          author: currentUser,
           action: "Changement de statut",
           changes: `Statut modifié : "${t.status}" → "${nextStatus}"`,
         };
@@ -291,12 +296,17 @@ export default function TestBookPage() {
     });
   };
 
-  const handleAddTestCase = (newTestCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string) => {
+  const handleAddTestCase = (newTestCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string, auditAuthor?: string) => {
     const nowIso = new Date().toISOString();
     const cleanModule = (newTestCase.module || "").trim() || "Général";
+    const author = auditAuthor || currentUser;
+    if (auditAuthor && auditAuthor !== currentUser) {
+      setCurrentUser(auditAuthor);
+      try { localStorage.setItem("regtools_current_user", auditAuthor); } catch {}
+    }
     const auditEntry: AuditEntry = {
       timestamp: nowIso,
-      author: "Équipe Conformité",
+      author,
       action: "Création",
       changes: `Cas de test créé : "${newTestCase.title}" — Module : ${cleanModule} — Statut : ${newTestCase.status}`,
       remark: auditRemark,
@@ -314,7 +324,7 @@ export default function TestBookPage() {
     if (associatedAnomaly) {
       const anoAuditEntry: AuditEntry = {
         timestamp: nowIso,
-        author: "Équipe Conformité",
+        author,
         action: "Création",
         changes: `Anomalie créée via le test ${newTestCase.id} — Priorité : ${associatedAnomaly.priority}`,
       };
@@ -339,29 +349,29 @@ export default function TestBookPage() {
     });
   };
 
-  const handleUpdateTestCase = (updatedTestCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string) => {
+  const handleUpdateTestCase = (updatedTestCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string, auditAuthor?: string) => {
     const nowIso = new Date().toISOString();
     const cleanModule = (updatedTestCase.module || "").trim() || "Général";
+    const author = auditAuthor || currentUser;
+    if (auditAuthor && auditAuthor !== currentUser) {
+      setCurrentUser(auditAuthor);
+      try { localStorage.setItem("regtools_current_user", auditAuthor); } catch {}
+    }
     const existing = testCases.find((t) => t.id === updatedTestCase.id);
-    // Build change description
     const changeParts: string[] = [];
     if (existing) {
       if (existing.status !== updatedTestCase.status)
         changeParts.push(`Statut : "${existing.status}" → "${updatedTestCase.status}"`);
       if (existing.module !== cleanModule)
         changeParts.push(`Module : "${existing.module}" → "${cleanModule}"`);
-      if (existing.title !== updatedTestCase.title)
-        changeParts.push(`Titre modifié`);
-      if (existing.steps !== updatedTestCase.steps)
-        changeParts.push(`Étapes mises à jour`);
-      if (existing.expectedResult !== updatedTestCase.expectedResult)
-        changeParts.push(`Résultat attendu mis à jour`);
-      if (existing.comment !== updatedTestCase.comment)
-        changeParts.push(`Commentaire mis à jour`);
+      if (existing.title !== updatedTestCase.title) changeParts.push(`Titre modifié`);
+      if (existing.steps !== updatedTestCase.steps) changeParts.push(`Étapes mises à jour`);
+      if (existing.expectedResult !== updatedTestCase.expectedResult) changeParts.push(`Résultat attendu mis à jour`);
+      if (existing.comment !== updatedTestCase.comment) changeParts.push(`Commentaire mis à jour`);
     }
     const auditEntry: AuditEntry = {
       timestamp: nowIso,
-      author: "Équipe Conformité",
+      author,
       action: changeParts.some((c) => c.startsWith("Statut")) ? "Changement de statut" : "Modification",
       changes: changeParts.length > 0 ? changeParts.join(" | ") : `Cas de test ${updatedTestCase.id} modifié`,
       remark: auditRemark,
@@ -380,7 +390,7 @@ export default function TestBookPage() {
       const existingAno = anomalies.find((a) => a.id === associatedAnomaly.id);
       const anoAuditEntry: AuditEntry = {
         timestamp: nowIso,
-        author: "Équipe Conformité",
+        author,
         action: existingAno ? "Modification" : "Création",
         changes: `Anomalie ${existingAno ? "mise à jour" : "créée"} via le test ${updatedTestCase.id}`,
         remark: auditRemark,
@@ -452,7 +462,7 @@ export default function TestBookPage() {
         resolvedStatus = nextStatus;
         const auditEntry: AuditEntry = {
           timestamp: nowIso,
-          author: "Équipe Conformité",
+          author: currentUser,
           action: nextStatus === "RESOLUE" ? "Résolution" : "Réouverture",
           changes: `Statut anomalie : "${ano.status || "OUVERTE"}" → "${nextStatus}"`,
         };
@@ -461,7 +471,7 @@ export default function TestBookPage() {
           status: nextStatus as any,
           updatedAt: nowIso,
           resolvedAt: !isCurrentlyResolved ? nowIso : undefined,
-          resolvedBy: !isCurrentlyResolved ? "Équipe Conformité" : undefined,
+          resolvedBy: !isCurrentlyResolved ? currentUser : undefined,
           auditHistory: [auditEntry, ...(ano.auditHistory || [])],
         };
       }
@@ -484,7 +494,7 @@ export default function TestBookPage() {
     const nowIso = new Date().toISOString();
     const auditEntry: AuditEntry = {
       timestamp: nowIso,
-      author: "Équipe Conformité",
+      author: currentUser,
       action: "Création",
       changes: `Anomalie déclarée — Module : ${newAnomaly.module} — Priorité : ${newAnomaly.priority}`,
     };
@@ -504,23 +514,24 @@ export default function TestBookPage() {
     });
   };
 
-  const handleUpdateAnomaly = (updatedAnomaly: Anomaly, auditRemark?: string) => {
+  const handleUpdateAnomaly = (updatedAnomaly: Anomaly, auditRemark?: string, auditAuthor?: string) => {
     const nowIso = new Date().toISOString();
+    const author = auditAuthor || currentUser;
+    if (auditAuthor && auditAuthor !== currentUser) {
+      setCurrentUser(auditAuthor);
+      try { localStorage.setItem("regtools_current_user", auditAuthor); } catch {}
+    }
     const existingAno = anomalies.find((a) => a.id === updatedAnomaly.id);
     const changeParts: string[] = [];
     if (existingAno) {
-      if (existingAno.priority !== updatedAnomaly.priority)
-        changeParts.push(`Priorité : "${existingAno.priority}" → "${updatedAnomaly.priority}"`);
-      if (existingAno.status !== updatedAnomaly.status)
-        changeParts.push(`Statut : "${existingAno.status}" → "${updatedAnomaly.status}"`);
-      if (existingAno.description !== updatedAnomaly.description)
-        changeParts.push(`Description mise à jour`);
-      if (existingAno.businessImpact !== updatedAnomaly.businessImpact)
-        changeParts.push(`Impact métier mis à jour`);
+      if (existingAno.priority !== updatedAnomaly.priority) changeParts.push(`Priorité : "${existingAno.priority}" → "${updatedAnomaly.priority}"`);
+      if (existingAno.status !== updatedAnomaly.status) changeParts.push(`Statut : "${existingAno.status}" → "${updatedAnomaly.status}"`);
+      if (existingAno.description !== updatedAnomaly.description) changeParts.push(`Description mise à jour`);
+      if (existingAno.businessImpact !== updatedAnomaly.businessImpact) changeParts.push(`Impact métier mis à jour`);
     }
     const auditEntry: AuditEntry = {
       timestamp: nowIso,
-      author: "Équipe Conformité",
+      author,
       action: "Modification",
       changes: changeParts.length > 0 ? changeParts.join(" | ") : `Anomalie ${updatedAnomaly.id} modifiée`,
       remark: auditRemark,
@@ -607,6 +618,17 @@ export default function TestBookPage() {
           >
             <FileSpreadsheet className="h-4 w-4" />
             Exporter Excel (.xlsx)
+          </Button>
+
+          {/* Journal des modifications */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsAuditLogOpen(true)}
+            className="rounded-xl border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-xs font-bold gap-1.5 shadow-xs"
+          >
+            <History className="h-4 w-4" />
+            Journal
           </Button>
 
           <Button
@@ -698,6 +720,8 @@ export default function TestBookPage() {
           onUpdateTestCase={handleUpdateTestCase}
           onDeleteTestCase={handleDeleteTestCase}
           onNavigateToAnomaly={handleNavigateToAnomaly}
+          highlightedTestId={highlightedTestId}
+          currentUser={currentUser}
         />
       )}
 
@@ -716,6 +740,8 @@ export default function TestBookPage() {
           onUpdateAnomaly={handleUpdateAnomaly}
           onDeleteAnomaly={handleDeleteAnomaly}
           highlightedAnomalyId={highlightedAnomalyId}
+          onNavigateToTest={handleNavigateToTest}
+          currentUser={currentUser}
         />
       )}
 
@@ -733,5 +759,13 @@ export default function TestBookPage() {
         />
       )}
     </div>
+
+    {/* Global Audit Log Modal */}
+    <AuditLogModal
+      isOpen={isAuditLogOpen}
+      onClose={() => setIsAuditLogOpen(false)}
+      testCases={testCases}
+      anomalies={anomalies}
+    />
   );
 }

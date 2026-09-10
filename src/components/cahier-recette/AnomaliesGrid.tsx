@@ -19,7 +19,6 @@ import {
 import { cn } from "@/lib/utils";
 import { Anomaly, TestBookStats, AnomalyStatus } from "@/types/testBook";
 import { AnomalyModal } from "@/components/cahier-recette/AnomalyModal";
-import { AuditHistoryPanel } from "@/components/cahier-recette/AuditHistoryPanel";
 
 interface AnomaliesGridProps {
   anomalies: Anomaly[];
@@ -32,9 +31,11 @@ interface AnomaliesGridProps {
   setSelectedStatus: (status: string) => void;
   onToggleResolveAnomaly: (anomalyId: string) => void;
   onAddAnomaly: (anomaly: Anomaly) => void;
-  onUpdateAnomaly: (anomaly: Anomaly, auditRemark?: string) => void;
+  onUpdateAnomaly: (anomaly: Anomaly, auditRemark?: string, auditAuthor?: string) => void;
   onDeleteAnomaly: (anomalyId: string) => void;
   highlightedAnomalyId?: string | null;
+  onNavigateToTest?: (testId: string) => void;
+  currentUser?: string;
 }
 
 export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
@@ -51,6 +52,8 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
   onUpdateAnomaly,
   onDeleteAnomaly,
   highlightedAnomalyId,
+  onNavigateToTest,
+  currentUser,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAnomaly, setEditingAnomaly] = useState<Anomaly | null>(null);
@@ -86,9 +89,9 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleSaveModal = (savedAnomaly: Anomaly, auditRemark?: string) => {
+  const handleSaveModal = (savedAnomaly: Anomaly, auditRemark?: string, auditAuthor?: string) => {
     if (editingAnomaly) {
-      onUpdateAnomaly(savedAnomaly, auditRemark);
+      onUpdateAnomaly(savedAnomaly, auditRemark, auditAuthor);
     } else {
       onAddAnomaly(savedAnomaly);
     }
@@ -339,23 +342,27 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
                     )}
                   </CardContent>
 
-                  {/* Audit History */}
-                  {ano.auditHistory && ano.auditHistory.length > 0 && (
-                    <AuditHistoryPanel
-                      auditHistory={ano.auditHistory}
-                      className="mx-4 mb-3"
-                    />
-                  )}
+                  {/* Audit History removed - now in global Journal */}
                 </div>
 
-                {/* Pied de carte : Test lié & Bouton Résoudre / Réouvrir */}
-                <div className="p-3 bg-slate-50/60 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2">
-                  <div className="text-[10px] text-slate-400 font-medium truncate">
-                    Test(s) lié(s) :{" "}
-                    <strong className="text-slate-700 dark:text-slate-300 font-bold">
-                      {ano.linkedTest}
-                    </strong>
-                  </div>
+                  {/* Pied de carte : Test lié & Bouton Résoudre / Réouvrir */}
+                  <div className="p-3 bg-slate-50/60 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2">
+                    <div className="text-[10px] text-slate-400 font-medium truncate">
+                      Test(s) lié(s):{" "}
+                      {ano.linkedTest && ano.linkedTest !== "N/A" ? (
+                        <button
+                          onClick={() => onNavigateToTest?.(ano.linkedTest || "")}
+                          className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer ml-0.5"
+                          title={`Aller au test ${ano.linkedTest}`}
+                        >
+                          {ano.linkedTest}
+                        </button>
+                      ) : (
+                        <strong className="text-slate-700 dark:text-slate-300 font-bold">
+                          {ano.linkedTest || "N/A"}
+                        </strong>
+                      )}
+                    </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
                     {/* Bouton Résoudre / Réouvrir */}
@@ -402,6 +409,7 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
+                  </div>
                 </div>
               </Card>
               </div>
@@ -421,6 +429,7 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
         anomalyToEdit={editingAnomaly}
         modulesList={modulesList}
         nextSuggestedId={nextId}
+        currentUser={currentUser}
       />
     </div>
   );

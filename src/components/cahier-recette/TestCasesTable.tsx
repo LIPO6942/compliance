@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { CheckCircle2, XCircle, Clock, Plus, Edit2, Trash2, Layers, AlertTriangle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TestCase, TestBookStats, Anomaly, TestStatus } from "@/types/testBook";
 import { Button } from "@/components/ui/button";
 import { TestCaseModal } from "@/components/cahier-recette/TestCaseModal";
-import { AuditHistoryPanel } from "@/components/cahier-recette/AuditHistoryPanel";
 import {
   Tooltip,
   TooltipContent,
@@ -25,10 +24,12 @@ interface TestCasesTableProps {
   selectedStatus: string;
   setSelectedStatus: (status: string) => void;
   onToggleStatus: (testId: string) => void;
-  onAddTestCase: (testCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string) => void;
-  onUpdateTestCase: (testCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string) => void;
+  onAddTestCase: (testCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string, auditAuthor?: string) => void;
+  onUpdateTestCase: (testCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string, auditAuthor?: string) => void;
   onDeleteTestCase: (testId: string) => void;
   onNavigateToAnomaly: (anomalyId: string) => void;
+  highlightedTestId?: string | null;
+  currentUser?: string;
 }
 
 export const TestCasesTable: React.FC<TestCasesTableProps> = ({
@@ -46,9 +47,19 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
   onUpdateTestCase,
   onDeleteTestCase,
   onNavigateToAnomaly,
+  highlightedTestId,
+  currentUser,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTestCase, setEditingTestCase] = useState<TestCase | null>(null);
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+
+  // Scroll to highlighted test row
+  useEffect(() => {
+    if (highlightedTestId && rowRefs.current[highlightedTestId]) {
+      rowRefs.current[highlightedTestId]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightedTestId]);
 
   // Helper to count active/open anomalies for a given module
   const getModuleAnomalyCount = (mod: string): number => {
@@ -136,11 +147,11 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleSaveModal = (savedTestCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string) => {
+  const handleSaveModal = (savedTestCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string, auditAuthor?: string) => {
     if (editingTestCase) {
-      onUpdateTestCase(savedTestCase, associatedAnomaly, auditRemark);
+      onUpdateTestCase(savedTestCase, associatedAnomaly, auditRemark, auditAuthor);
     } else {
-      onAddTestCase(savedTestCase, associatedAnomaly, auditRemark);
+      onAddTestCase(savedTestCase, associatedAnomaly, auditRemark, auditAuthor);
     }
   };
 
@@ -356,9 +367,11 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                 testCases.map((tc) => (
                   <tr
                     key={tc.id}
+                    ref={(el) => { rowRefs.current[tc.id] = el; }}
                     className={cn(
                       "hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors group",
-                      tc.status === "KO" && "bg-rose-50/20 dark:bg-rose-950/10"
+                      tc.status === "KO" && "bg-rose-50/20 dark:bg-rose-950/10",
+                      highlightedTestId === tc.id && "ring-2 ring-inset ring-indigo-500/60 bg-indigo-50/30 dark:bg-indigo-950/20 animate-pulse"
                     )}
                   >
                     <td className="p-3.5 align-top">
@@ -372,11 +385,6 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                         >
                           <Clock className="h-2.5 w-2.5 text-slate-400 shrink-0" />
                           <span>{formatDateTime(tc.createdAt)}</span>
-                        </div>
-                      )}
-                      {tc.auditHistory && tc.auditHistory.length > 0 && (
-                        <div className="mt-2">
-                          <AuditHistoryPanel auditHistory={tc.auditHistory} />
                         </div>
                       )}
                     </td>
@@ -487,6 +495,7 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
           existingAnomalies={anomalies}
           nextSuggestedId={nextId}
           nextSuggestedAnomalyId={nextAnomalyId}
+          currentUser={currentUser}
         />
       </div>
     </TooltipProvider>
