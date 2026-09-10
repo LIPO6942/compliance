@@ -12,7 +12,8 @@ import {
   AlertTriangle,
   Info,
   Plus,
-  History
+  History,
+  Hash
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -41,7 +42,33 @@ const cleanData = (data: any): any => {
   return data;
 };
 
-// Load and resequence test IDs (fills gaps after deletions)
+// Resequence test IDs to T-001, T-002, ... based on createdAt order
+function resequenceTests(tests: TestCase[], anomalies: Anomaly[]): { tests: TestCase[]; anomalies: Anomaly[] } {
+  // Sort by createdAt first, then by existing numeric ID as fallback
+  const sorted = [...tests].sort((a, b) => {
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (dateA !== dateB) return dateA - dateB;
+    const na = parseInt(a.id.replace(/\D/g, ""), 10) || 0;
+    const nb = parseInt(b.id.replace(/\D/g, ""), 10) || 0;
+    return na - nb;
+  });
+  const map: Record<string, string> = {};
+  const resequenced = sorted.map((t, i) => {
+    const newId = `T-${String(i + 1).padStart(3, "0")}`;
+    map[t.id] = newId;
+    return { ...t, id: newId };
+  });
+  const updatedAnomalies = anomalies.map((a) => ({
+    ...a,
+    linkedTest: a.linkedTest
+      ? a.linkedTest.split(/[/,\s]+/).map((s: string) => map[s.trim()] || s.trim()).join(" / ")
+      : a.linkedTest,
+  }));
+  return { tests: resequenced, anomalies: updatedAnomalies };
+}
+
+// Load and resequence test IDs on startup
 function loadInitialData(): { tests: TestCase[]; anomalies: Anomaly[] } {
   let tests: TestCase[] = INITIAL_TEST_CASES;
   let anomalies: Anomaly[] = INITIAL_ANOMALIES.map((a) => ({ ...a, status: "OUVERTE" as const }));
@@ -54,28 +81,8 @@ function loadInitialData(): { tests: TestCase[]; anomalies: Anomaly[] } {
     const s = localStorage.getItem("regtools_anomalies_v2") || localStorage.getItem("regtools_anomalies");
     if (s) anomalies = JSON.parse(s).map((a: any) => ({ ...a, status: a.status || "OUVERTE" }));
   } catch {}
-  // Resequence if there are gaps
-  const sorted = [...tests].sort((a, b) => {
-    const na = parseInt(a.id.replace(/\D/g, ""), 10) || 0;
-    const nb = parseInt(b.id.replace(/\D/g, ""), 10) || 0;
-    return na - nb;
-  });
-  const hasGaps = sorted.some((t, i) => parseInt(t.id.replace(/\D/g, ""), 10) !== i + 1);
-  if (hasGaps) {
-    const map: Record<string, string> = {};
-    tests = sorted.map((t, i) => {
-      const newId = `T-${String(i + 1).padStart(3, "0")}`;
-      map[t.id] = newId;
-      return { ...t, id: newId };
-    });
-    anomalies = anomalies.map((a) => ({
-      ...a,
-      linkedTest: a.linkedTest
-        ? a.linkedTest.split(/[/,\s]+/).map((s: string) => map[s.trim()] || s.trim()).join(" / ")
-        : a.linkedTest,
-    }));
-  }
-  return { tests, anomalies };
+  // Always resequence to ensure T-001..T-N with no gaps
+  return resequenceTests(tests, anomalies);
 }
 
 export default function TestBookPage() {
@@ -574,6 +581,18 @@ export default function TestBookPage() {
     }
   };
 
+  const handleResequenceIds = () => {
+    if (!window.confirm(`Renuméroter les ${testCases.length} cas de test séquentiellement (T-001 à T-${String(testCases.length).padStart(3, "0")}) ?\n\nLes références dans les anomalies seront mises à jour automatiquement.`)) return;
+    const { tests: resequenced, anomalies: updatedAnomalies } = resequenceTests(testCases, anomalies);
+    setTestCases(resequenced);
+    setAnomalies(updatedAnomalies);
+    saveToFirestore(resequenced, updatedAnomalies);
+    toast({
+      title: "✅ IDs renumérotés",
+      description: `${resequenced.length} cas de test renumérotés de T-001 à T-${String(resequenced.length).padStart(3, "0")}.`,
+    });
+  };
+
   return (
     <>
     <div className="space-y-6 pb-12">
@@ -630,6 +649,18 @@ export default function TestBookPage() {
           >
             <History className="h-4 w-4" />
             Journal
+          </Button>
+
+          {/* Renuméroter les IDs */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleResequenceIds}
+            title={`Renuméroter les IDs de T-001 à T-${String(testCases.length).padStart(3, "0")}`}
+            className="rounded-xl text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-bold gap-1"
+          >
+            <Hash className="h-4 w-4" />
+            Renuméroter
           </Button>
 
           <Button
