@@ -52,7 +52,17 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTestCase, setEditingTestCase] = useState<TestCase | null>(null);
-  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc"); // desc = most recent first
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
+
+  // Sort test cases by createdAt according to sortOrder
+  const sortedTestCases = React.useMemo(() => {
+    return [...testCases].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+    });
+  }, [testCases, sortOrder]);
 
   // Scroll to highlighted test row
   useEffect(() => {
@@ -333,7 +343,18 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200/60 dark:border-slate-800/60">
-                <th className="p-3.5 w-[110px]">ID / Date</th>
+                <th className="p-3.5 w-[110px]">
+                  <button
+                    onClick={() => setSortOrder(s => s === "desc" ? "asc" : "desc")}
+                    className="flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors group"
+                    title={sortOrder === "desc" ? "Tri : plus récent en premier (cliquer pour inverser)" : "Tri : plus ancien en premier (cliquer pour inverser)"}
+                  >
+                    ID / Date
+                    <span className="text-indigo-500 font-black text-[11px]">
+                      {sortOrder === "desc" ? "↓" : "↑"}
+                    </span>
+                  </button>
+                </th>
                 <th className="p-3.5 w-[160px]">Module</th>
                 <th className="p-3.5 w-[240px]">Titre du Test</th>
                 <th className="p-3.5 w-[280px]">Étapes de Reproduction</th>
@@ -344,7 +365,7 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-              {testCases.length === 0 ? (
+              {sortedTestCases.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-12 text-center text-slate-400">
                     <div className="space-y-2">
@@ -364,16 +385,20 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                   </td>
                 </tr>
               ) : (
-                testCases.map((tc) => (
-                  <tr
-                    key={tc.id}
-                    ref={(el) => { rowRefs.current[tc.id] = el; }}
-                    className={cn(
-                      "hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors group",
-                      tc.status === "KO" && "bg-rose-50/20 dark:bg-rose-950/10",
-                      highlightedTestId === tc.id && "ring-2 ring-inset ring-indigo-500/60 bg-indigo-50/30 dark:bg-indigo-950/20 animate-pulse"
-                    )}
-                  >
+                sortedTestCases.map((tc) => {
+                  const anomalyExists = tc.linkedAnomaly
+                    ? anomalies.some((a) => a.id === tc.linkedAnomaly)
+                    : false;
+                  return (
+                    <tr
+                     key={tc.id}
+                     ref={(el) => { rowRefs.current[tc.id] = el; }}
+                     className={cn(
+                       "hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors group",
+                       tc.status === "KO" && "bg-rose-50/20 dark:bg-rose-950/10",
+                       highlightedTestId === tc.id && "ring-2 ring-inset ring-indigo-500/60 bg-indigo-50/30 dark:bg-indigo-950/20 animate-pulse"
+                     )}
+                    >
                     <td className="p-3.5 align-top">
                       <div className="font-bold font-mono text-slate-900 dark:text-white">
                         {tc.id}
@@ -428,7 +453,7 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                       </button>
                     </td>
                     <td className="p-3.5 align-top text-center font-mono text-[10px]">
-                      {tc.linkedAnomaly ? (
+                      {tc.linkedAnomaly && anomalyExists ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <button
@@ -475,7 +500,8 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
