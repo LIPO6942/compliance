@@ -41,11 +41,11 @@ export async function reformulateMemoAction(
       : "Formulation juridique et réglementaire rigoureuse, faisant référence aux obligations de diligence, de contrôle, de traçabilité et de conformité légale (CGA, CTAF, GAFI).";
 
   const prompt = `Tu es un expert senior en Gouvernance, Risque et Conformité (GRC) et LCB-FT pour la MAE Assurance (Tunisie).
-Ta mission est de reformuler le mémo/note de travail suivant pour le rendre irréprochable et directement exploitable par l'équipe conformité.
+Ta mission est de reformuler et professionnaliser la note de travail ci-dessous pour la rendre irréprochable et directement exploitable par la direction de conformité.
 
-CONTEXTE DU MÉMO :
+CONTEXTE :
 - Volet métier : ${pillarName}
-- Section applicative liée : ${sectionLabel || "Général"}
+- Section applicative : ${sectionLabel || "Général"}
 - Style demandé : ${styleInstruction}
 
 TEXTE BRUT ORIGINAL :
@@ -54,15 +54,17 @@ ${text}
 """
 ${title ? `TITRE ACTUEL : "${title}"` : ""}
 
-CONSIGNES STRICTES :
-1. Rédige en français irréprochable.
-2. Si le texte original contient des fautes, abréviations ou approximations, clarifie-les intelligemment selon le vocabulaire bancassurance/conformité.
-3. Conserve rigoureusement le sens, les chiffres et les noms mentionnés.
-4. INTERDICTION ABSOLUE d'ajouter des informations, phrases, sections ou recommandations qui ne sont pas présentes dans le texte original. Reformule uniquement ce qui existe déjà.
-5. Réponds UNIQUEMENT sous la forme d'un objet JSON valide avec les deux champs suivants :
+RÈGLES DE REFORMULATION :
+1. Rédige en français professionnel, irréprochable, avec le vocabulaire de la compliance MAE.
+2. Reformule et développe les idées du texte original en phrases complètes et professionnelles.
+3. Tu peux reformuler, clarifier, préciser et enrichir le SENS déjà présent dans le texte original.
+4. Tu peux corriger la grammaire, l'orthographe, les abréviations, les formulations incomplètes.
+5. INTERDIT : N'ajoute PAS de nouvelles recommandations, procédures ou sujets absents du texte original.
+6. INTERDIT : N'invente PAS de chiffres, dates, noms ou références légales non mentionnés.
+7. Réponds UNIQUEMENT sous cette forme JSON valide :
 {
-  "suggestedTitle": "Titre court, percutant et professionnel (max 8 mots)",
-  "reformulatedText": "Texte complet reformulé"
+  "suggestedTitle": "Titre court et professionnel (max 8 mots)",
+  "reformulatedText": "Texte reformulé complet et professionnel"
 }`;
 
   // 1. Essai avec Groq API si configuré
@@ -127,23 +129,25 @@ function generateRuleBasedReformulation(
   const clean = rawText.trim();
   const title = rawTitle?.trim() || "Point de vigilance Conformité";
 
-  // Helper: capitalize first letter of each sentence
+  // Helpers
   const capitalizeSentences = (t: string) =>
     t.replace(/(^|[.!?]\s+)([a-z])/g, (m, p, c) => p + c.toUpperCase());
 
-  // Helper: replace abbreviations with proper terminology
   const expandAbbreviations = (t: string) =>
     t
       .replace(/\bKYC\b/g, "Know Your Customer (KYC)")
-      .replace(/\bLCB-FT\b/g, "LCB-FT")
       .replace(/\bPEP\b/g, "Personne Politiquement Exposée (PEP)")
-      .replace(/\bAML\b/g, "Anti-Money Laundering (AML)");
+      .replace(/\bAML\b/g, "Anti-Money Laundering (AML)")
+      .replace(/\bLAB\/FT\b/gi, "LCB-FT");
+
+  // Split lines and strip bullet markers
+  const rawLines = clean.split("\n").filter((l) => l.trim().length > 0);
+  const strippedLines = rawLines.map((l) => l.replace(/^[📌•\-\*]\s*/, "").trim());
 
   if (style === "SYNTHETIC") {
-    // Only reformat as bullet points without adding extra content
-    const lines = clean.split("\n").filter((l) => l.trim().length > 0);
-    const bullets = lines
-      .map((l) => `• ${l.replace(/^[•\-\*]\s*/, "").trim()}`)
+    // Format as concise bullet points
+    const bullets = strippedLines
+      .map((l) => `• ${capitalizeSentences(expandAbbreviations(l))}`)
       .join("\n");
     return {
       title: `[Synthèse] ${title}`,
@@ -152,21 +156,32 @@ function generateRuleBasedReformulation(
   }
 
   if (style === "LEGAL") {
-    // Only improve vocabulary/formulation, do not wrap with boilerplate
-    const improved = capitalizeSentences(expandAbbreviations(clean));
+    // Convert each line to a full formal compliance sentence
+    const sentences = strippedLines.map((l) => {
+      const base = capitalizeSentences(expandAbbreviations(l));
+      // If the line starts with a verb in infinitive form, prefix with "Il convient de"
+      if (/^(expliquer|vérifier|contrôler|s'assurer|mettre|corriger|supprimer|ajouter|modifier)/i.test(base)) {
+        return `Il convient de ${base.charAt(0).toLowerCase() + base.slice(1)}.`;
+      }
+      return base.endsWith(".") ? base : `${base}.`;
+    });
     return {
       title: `[Obligation] ${title}`,
-      text: improved,
+      text: sentences.join("\n"),
     };
   }
 
-  // FORMAL Default — clean up and capitalize only
-  const improved = capitalizeSentences(expandAbbreviations(clean));
+  // FORMAL Default — convert notes to professional prose sentences
+  const sentences = strippedLines.map((l) => {
+    const base = capitalizeSentences(expandAbbreviations(l));
+    return base.endsWith(".") || base.endsWith(":") ? base : `${base}.`;
+  });
   return {
     title: title,
-    text: improved,
+    text: sentences.join(" "),
   };
 }
+
 
 export async function generateAutoTitleAction(params: {
   content: string;
