@@ -26,6 +26,7 @@ import { AnomaliesGrid } from "@/components/cahier-recette/AnomaliesGrid";
 import { TestBookCoverCard } from "@/components/cahier-recette/TestBookCoverCard";
 import { AuditLogModal } from "@/components/cahier-recette/AuditLogModal";
 import { db, isFirebaseConfigured } from "@/lib/firebase";
+import { useUser } from "@/contexts/UserContext";
 
 const cleanData = (data: any): any => {
   if (Array.isArray(data)) {
@@ -103,9 +104,8 @@ export default function TestBookPage() {
   const [highlightedAnomalyId, setHighlightedAnomalyId] = useState<string | null>(null);
   const [highlightedTestId, setHighlightedTestId] = useState<string | null>(null);
   const [isAuditLogOpen, setIsAuditLogOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<string>(() => {
-    try { return localStorage.getItem("regtools_current_user") || "Équipe Conformité"; } catch { return "Équipe Conformité"; }
-  });
+  const { user } = useUser();
+  const currentUser = user?.name || "Équipe Conformité";
 
   const handleNavigateToAnomaly = (anomalyId: string) => {
     setHighlightedAnomalyId(anomalyId);

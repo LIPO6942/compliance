@@ -59,7 +59,9 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
   const [anomalyPriority, setAnomalyPriority] = useState<AnomalyPriority>("HAUTE");
   // Audit
   const [auditRemark, setAuditRemark] = useState("");
-  const [auditAuthor, setAuditAuthor] = useState(currentUser);
+  const [showRemarkStep, setShowRemarkStep] = useState(false);
+  const [pendingTest, setPendingTest] = useState<TestCase | null>(null);
+  const [pendingAnomaly, setPendingAnomaly] = useState<Anomaly | undefined>(undefined);
 
   useEffect(() => {
     if (testCaseToEdit) {
@@ -124,8 +126,10 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
       setAnomalyPriority("HAUTE");
     }
     setAuditRemark("");
-    setAuditAuthor(currentUser);
-  }, [testCaseToEdit, nextSuggestedId, nextSuggestedAnomalyId, modulesList, existingAnomalies, defaultModule, isOpen, currentUser]);
+    setShowRemarkStep(false);
+    setPendingTest(null);
+    setPendingAnomaly(undefined);
+  }, [testCaseToEdit, nextSuggestedId, nextSuggestedAnomalyId, modulesList, existingAnomalies, defaultModule, isOpen]);
 
   // When user switches status to KO, auto-enable anomaly declaration
   const handleStatusChange = (newStatus: TestStatus) => {
@@ -175,11 +179,27 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
         createdAt: existingAno?.createdAt || nowIso,
         updatedAt: nowIso,
         resolvedAt: isResolved ? (existingAno?.resolvedAt || nowIso) : undefined,
-        resolvedBy: isResolved ? (existingAno?.resolvedBy || "Équipe Conformité") : undefined,
+        resolvedBy: isResolved ? (existingAno?.resolvedBy || currentUser) : undefined,
       };
     }
 
-    onSave(testCaseResult, associatedAnomalyResult, auditRemark.trim() || undefined, auditAuthor.trim() || undefined);
+    if (testCaseToEdit) {
+      // Edit flow: show optional remark step
+      setPendingTest(testCaseResult);
+      setPendingAnomaly(associatedAnomalyResult);
+      setShowRemarkStep(true);
+    } else {
+      // New test: save directly, no remark needed
+      onSave(testCaseResult, associatedAnomalyResult, undefined, currentUser);
+      onClose();
+    }
+  };
+
+  const handleConfirmWithRemark = (remark?: string) => {
+    if (pendingTest) {
+      onSave(pendingTest, pendingAnomaly, remark, currentUser);
+    }
+    setShowRemarkStep(false);
     onClose();
   };
 
@@ -423,39 +443,6 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
           </div>
 
           <DialogFooter className="pt-3 border-t border-slate-100 dark:border-slate-800 gap-2 flex-col sm:flex-col">
-            {/* Remark field (only for edits) */}
-            {testCaseToEdit && (
-              <div className="w-full space-y-2 mb-2">
-                {/* Author field */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                    <svg className="h-3 w-3 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                    Modifié par <span className="font-normal text-slate-400 normal-case">(votre nom)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={auditAuthor}
-                    onChange={(e) => setAuditAuthor(e.target.value)}
-                    placeholder="Prénom NOM ou identifiant..."
-                    className="w-full text-xs font-semibold rounded-xl px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-indigo-200 dark:border-indigo-900/60 text-slate-800 dark:text-slate-200 outline-none"
-                  />
-                </div>
-                {/* Remark field */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                    <svg className="h-3 w-3 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
-                    Remarque <span className="font-normal text-slate-400 normal-case">(optionnel)</span>
-                  </label>
-                  <Textarea
-                    value={auditRemark}
-                    onChange={(e) => setAuditRemark(e.target.value)}
-                    placeholder="Ex: Mise à jour suite à la recette du 10/09 — statut confirmé par l'équipe QA..."
-                    rows={2}
-                    className="text-xs font-medium rounded-xl bg-slate-50 dark:bg-slate-800 border-indigo-200 dark:border-indigo-900/60 resize-none w-full"
-                  />
-                </div>
-              </div>
-            )}
             <div className="flex justify-end gap-2 w-full">
               <Button
                 type="button"
@@ -474,7 +461,50 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
             </div>
           </DialogFooter>
         </form>
+
+        {/* Optional Remark Overlay — shown only for edits */}
+        {showRemarkStep && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm">
+            <div className="w-full max-w-sm mx-6 space-y-4">
+              <div className="text-center space-y-1">
+                <div className="h-12 w-12 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                  </svg>
+                </div>
+                <p className="font-black text-sm text-slate-900 dark:text-white">Ajouter une remarque ?</p>
+                <p className="text-[11px] text-slate-400">Optionnel — apparaîtra dans le journal des modifications</p>
+              </div>
+              <Textarea
+                autoFocus
+                value={auditRemark}
+                onChange={(e) => setAuditRemark(e.target.value)}
+                placeholder="Ex: Mise à jour suite à la recette du 10/09 — statut confirmé par l'équipe QA..."
+                rows={3}
+                className="text-xs font-medium rounded-xl bg-slate-50 dark:bg-slate-800 border-indigo-200 dark:border-indigo-900/60 resize-none w-full"
+              />
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleConfirmWithRemark(undefined)}
+                  className="flex-1 rounded-xl text-xs font-semibold text-slate-500"
+                >
+                  Passer
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => handleConfirmWithRemark(auditRemark.trim() || undefined)}
+                  className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold"
+                >
+                  Confirmer
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
 };
+
