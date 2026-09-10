@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 interface TestCaseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (testCase: TestCase, associatedAnomaly?: Anomaly) => void;
+  onSave: (testCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string) => void;
   testCaseToEdit?: TestCase | null;
   modulesList: string[];
   defaultModule?: string;
@@ -55,6 +55,8 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
   const [anomalyDescription, setAnomalyDescription] = useState("");
   const [anomalyImpact, setAnomalyImpact] = useState("");
   const [anomalyPriority, setAnomalyPriority] = useState<AnomalyPriority>("HAUTE");
+  // Audit
+  const [auditRemark, setAuditRemark] = useState("");
 
   useEffect(() => {
     if (testCaseToEdit) {
@@ -118,6 +120,7 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
       setAnomalyImpact("");
       setAnomalyPriority("HAUTE");
     }
+    setAuditRemark("");
   }, [testCaseToEdit, nextSuggestedId, nextSuggestedAnomalyId, modulesList, existingAnomalies, defaultModule, isOpen]);
 
   // When user switches status to KO, auto-enable anomaly declaration
@@ -172,7 +175,7 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
       };
     }
 
-    onSave(testCaseResult, associatedAnomalyResult);
+    onSave(testCaseResult, associatedAnomalyResult, auditRemark.trim() || undefined);
     onClose();
   };
 
@@ -415,21 +418,39 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
             )}
           </div>
 
-          <DialogFooter className="pt-3 border-t border-slate-100 dark:border-slate-800 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="rounded-xl text-xs font-semibold"
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20"
-            >
-              {testCaseToEdit ? "Enregistrer les modifications" : "Enregistrer le cas de test"}
-            </Button>
+          <DialogFooter className="pt-3 border-t border-slate-100 dark:border-slate-800 gap-2 flex-col sm:flex-col">
+            {/* Remark field (only for edits) */}
+            {testCaseToEdit && (
+              <div className="w-full space-y-1 mb-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <svg className="h-3 w-3 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+                  Remarque de modification <span className="font-normal text-slate-400 normal-case">(optionnel)</span>
+                </label>
+                <Textarea
+                  value={auditRemark}
+                  onChange={(e) => setAuditRemark(e.target.value)}
+                  placeholder="Ex: Mise à jour suite à la recette du 10/09 — statut confirmé par l'équipe QA..."
+                  rows={2}
+                  className="text-xs font-medium rounded-xl bg-slate-50 dark:bg-slate-800 border-indigo-200 dark:border-indigo-900/60 resize-none w-full"
+                />
+              </div>
+            )}
+            <div className="flex justify-end gap-2 w-full">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                className="rounded-xl text-xs font-semibold"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20"
+              >
+                {testCaseToEdit ? "Enregistrer les modifications" : "Enregistrer le cas de test"}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { TestCase, Anomaly, TestBookMetadata, TestBookStats, TestStatus } from "@/types/testBook";
+import { TestCase, Anomaly, TestBookMetadata, TestBookStats, TestStatus, AuditEntry } from "@/types/testBook";
 import { INITIAL_METADATA, INITIAL_TEST_CASES, INITIAL_ANOMALIES } from "@/data/initialTestBookData";
 import { exportTestBookPDF, exportTestBookExcel } from "@/lib/testBookExport";
 import { TestBookKpiCards } from "@/components/cahier-recette/TestBookKpiCards";
@@ -102,6 +102,14 @@ export default function TestBookPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedPriority, setSelectedPriority] = useState<string>("ALL");
   const [selectedAnomalyStatus, setSelectedAnomalyStatus] = useState<string>("ALL");
+  const [highlightedAnomalyId, setHighlightedAnomalyId] = useState<string | null>(null);
+
+  const handleNavigateToAnomaly = (anomalyId: string) => {
+    setHighlightedAnomalyId(anomalyId);
+    setActiveTab("anomalies");
+    // Clear highlight after a short delay
+    setTimeout(() => setHighlightedAnomalyId(null), 3000);
+  };
 
   // LocalStorage Persistence
   useEffect(() => {
@@ -259,11 +267,18 @@ export default function TestBookPage() {
       if (t.id === testId) {
         const nextStatus: TestStatus =
           t.status === "OK" ? "KO" : t.status === "KO" ? "Non encore testé" : "OK";
+        const auditEntry: AuditEntry = {
+          timestamp: nowIso,
+          author: "Équipe Conformité",
+          action: "Changement de statut",
+          changes: `Statut modifié : "${t.status}" → "${nextStatus}"`,
+        };
         return {
           ...t,
           status: nextStatus,
           updatedAt: nowIso,
           createdAt: t.createdAt || nowIso,
+          auditHistory: [auditEntry, ...(t.auditHistory || [])],
         };
       }
       return t;
@@ -276,24 +291,39 @@ export default function TestBookPage() {
     });
   };
 
-  const handleAddTestCase = (newTestCase: TestCase, associatedAnomaly?: Anomaly) => {
+  const handleAddTestCase = (newTestCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string) => {
     const nowIso = new Date().toISOString();
     const cleanModule = (newTestCase.module || "").trim() || "Général";
+    const auditEntry: AuditEntry = {
+      timestamp: nowIso,
+      author: "Équipe Conformité",
+      action: "Création",
+      changes: `Cas de test créé : "${newTestCase.title}" — Module : ${cleanModule} — Statut : ${newTestCase.status}`,
+      remark: auditRemark,
+    };
     const preparedTest: TestCase = {
       ...newTestCase,
       module: cleanModule,
       createdAt: newTestCase.createdAt || nowIso,
       updatedAt: nowIso,
+      auditHistory: [auditEntry],
     };
     const updatedTests = [preparedTest, ...testCases.filter((t) => t.id !== preparedTest.id)];
     let updatedAnomalies = [...anomalies];
 
     if (associatedAnomaly) {
+      const anoAuditEntry: AuditEntry = {
+        timestamp: nowIso,
+        author: "Équipe Conformité",
+        action: "Création",
+        changes: `Anomalie créée via le test ${newTestCase.id} — Priorité : ${associatedAnomaly.priority}`,
+      };
       const preparedAno: Anomaly = {
         ...associatedAnomaly,
         module: (associatedAnomaly.module || cleanModule).trim(),
         createdAt: associatedAnomaly.createdAt || nowIso,
         updatedAt: nowIso,
+        auditHistory: [anoAuditEntry],
       };
       updatedAnomalies = [preparedAno, ...anomalies.filter((a) => a.id !== preparedAno.id)];
       setAnomalies(updatedAnomalies);
@@ -309,24 +339,58 @@ export default function TestBookPage() {
     });
   };
 
-  const handleUpdateTestCase = (updatedTestCase: TestCase, associatedAnomaly?: Anomaly) => {
+  const handleUpdateTestCase = (updatedTestCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string) => {
     const nowIso = new Date().toISOString();
     const cleanModule = (updatedTestCase.module || "").trim() || "Général";
+    const existing = testCases.find((t) => t.id === updatedTestCase.id);
+    // Build change description
+    const changeParts: string[] = [];
+    if (existing) {
+      if (existing.status !== updatedTestCase.status)
+        changeParts.push(`Statut : "${existing.status}" → "${updatedTestCase.status}"`);
+      if (existing.module !== cleanModule)
+        changeParts.push(`Module : "${existing.module}" → "${cleanModule}"`);
+      if (existing.title !== updatedTestCase.title)
+        changeParts.push(`Titre modifié`);
+      if (existing.steps !== updatedTestCase.steps)
+        changeParts.push(`Étapes mises à jour`);
+      if (existing.expectedResult !== updatedTestCase.expectedResult)
+        changeParts.push(`Résultat attendu mis à jour`);
+      if (existing.comment !== updatedTestCase.comment)
+        changeParts.push(`Commentaire mis à jour`);
+    }
+    const auditEntry: AuditEntry = {
+      timestamp: nowIso,
+      author: "Équipe Conformité",
+      action: changeParts.some((c) => c.startsWith("Statut")) ? "Changement de statut" : "Modification",
+      changes: changeParts.length > 0 ? changeParts.join(" | ") : `Cas de test ${updatedTestCase.id} modifié`,
+      remark: auditRemark,
+    };
     const preparedTest: TestCase = {
       ...updatedTestCase,
       module: cleanModule,
       updatedAt: nowIso,
       createdAt: updatedTestCase.createdAt || nowIso,
+      auditHistory: [auditEntry, ...(existing?.auditHistory || [])],
     };
     const updatedTests = testCases.map((t) => (t.id === preparedTest.id ? preparedTest : t));
     let updatedAnomalies = [...anomalies];
 
     if (associatedAnomaly) {
+      const existingAno = anomalies.find((a) => a.id === associatedAnomaly.id);
+      const anoAuditEntry: AuditEntry = {
+        timestamp: nowIso,
+        author: "Équipe Conformité",
+        action: existingAno ? "Modification" : "Création",
+        changes: `Anomalie ${existingAno ? "mise à jour" : "créée"} via le test ${updatedTestCase.id}`,
+        remark: auditRemark,
+      };
       const preparedAno: Anomaly = {
         ...associatedAnomaly,
         module: (associatedAnomaly.module || cleanModule).trim(),
         updatedAt: nowIso,
         createdAt: associatedAnomaly.createdAt || nowIso,
+        auditHistory: [anoAuditEntry, ...(existingAno?.auditHistory || [])],
       };
       updatedAnomalies = [preparedAno, ...anomalies.filter((a) => a.id !== preparedAno.id)];
       setAnomalies(updatedAnomalies);
@@ -341,12 +405,39 @@ export default function TestBookPage() {
   };
 
   const handleDeleteTestCase = (testId: string) => {
-    const updated = testCases.filter((t) => t.id !== testId);
-    setTestCases(updated);
-    saveToFirestore(updated, anomalies);
+    // Remove the test, then renumber all remaining tests sequentially (T-001, T-002, ...)
+    const filtered = testCases.filter((t) => t.id !== testId);
+    // Sort by existing numeric ID to preserve order
+    const sorted = [...filtered].sort((a, b) => {
+      const na = parseInt(a.id.replace(/\D/g, ""), 10) || 0;
+      const nb = parseInt(b.id.replace(/\D/g, ""), 10) || 0;
+      return na - nb;
+    });
+    const oldIdToNew: Record<string, string> = {};
+    const renumbered = sorted.map((t, i) => {
+      const newId = `T-${String(i + 1).padStart(3, "0")}`;
+      oldIdToNew[t.id] = newId;
+      return { ...t, id: newId };
+    });
+    // Update linkedAnomaly references in anomalies that point to old test IDs (via linkedTest field in anomalies)
+    const updatedAnomalies = anomalies.map((a) => ({
+      ...a,
+      linkedTest: a.linkedTest
+        ? a.linkedTest
+            .split(/[/,\s]+/)
+            .map((s) => {
+              const t = s.trim();
+              return oldIdToNew[t] || t;
+            })
+            .join(" / ")
+        : a.linkedTest,
+    }));
+    setTestCases(renumbered);
+    setAnomalies(updatedAnomalies);
+    saveToFirestore(renumbered, updatedAnomalies);
     toast({
       title: "Cas de test supprimé",
-      description: `Le cas ${testId} a été retiré.`,
+      description: `Le cas ${testId} a été retiré. Les identifiants ont été réorganisés séquentiellement.`,
     });
   };
 
@@ -359,12 +450,19 @@ export default function TestBookPage() {
         const isCurrentlyResolved = ano.status === "RESOLUE";
         const nextStatus = isCurrentlyResolved ? "OUVERTE" : "RESOLUE";
         resolvedStatus = nextStatus;
+        const auditEntry: AuditEntry = {
+          timestamp: nowIso,
+          author: "Équipe Conformité",
+          action: nextStatus === "RESOLUE" ? "Résolution" : "Réouverture",
+          changes: `Statut anomalie : "${ano.status || "OUVERTE"}" → "${nextStatus}"`,
+        };
         return {
           ...ano,
           status: nextStatus as any,
           updatedAt: nowIso,
           resolvedAt: !isCurrentlyResolved ? nowIso : undefined,
           resolvedBy: !isCurrentlyResolved ? "Équipe Conformité" : undefined,
+          auditHistory: [auditEntry, ...(ano.auditHistory || [])],
         };
       }
       return ano;
@@ -377,18 +475,25 @@ export default function TestBookPage() {
       title: resolvedStatus === "RESOLUE" ? "✅ Anomalie résolue !" : "↺ Anomalie réouverte",
       description:
         resolvedStatus === "RESOLUE"
-          ? `L'anomalie ${anomalyId} a été marquée comme résolue. Le compteur du module a été recalculé.`
+          ? `L'anomalie ${anomalyId} a été marquée comme résolue.`
           : `L'anomalie ${anomalyId} est de nouveau ouverte pour investigation.`,
     });
   };
 
   const handleAddAnomaly = (newAnomaly: Anomaly) => {
     const nowIso = new Date().toISOString();
+    const auditEntry: AuditEntry = {
+      timestamp: nowIso,
+      author: "Équipe Conformité",
+      action: "Création",
+      changes: `Anomalie déclarée — Module : ${newAnomaly.module} — Priorité : ${newAnomaly.priority}`,
+    };
     const preparedAno: Anomaly = {
       ...newAnomaly,
       createdAt: newAnomaly.createdAt || nowIso,
       updatedAt: nowIso,
       resolvedAt: newAnomaly.status === "RESOLUE" ? (newAnomaly.resolvedAt || nowIso) : undefined,
+      auditHistory: [auditEntry],
     };
     const updated = [preparedAno, ...anomalies.filter((a) => a.id !== preparedAno.id)];
     setAnomalies(updated);
@@ -399,13 +504,33 @@ export default function TestBookPage() {
     });
   };
 
-  const handleUpdateAnomaly = (updatedAnomaly: Anomaly) => {
+  const handleUpdateAnomaly = (updatedAnomaly: Anomaly, auditRemark?: string) => {
     const nowIso = new Date().toISOString();
+    const existingAno = anomalies.find((a) => a.id === updatedAnomaly.id);
+    const changeParts: string[] = [];
+    if (existingAno) {
+      if (existingAno.priority !== updatedAnomaly.priority)
+        changeParts.push(`Priorité : "${existingAno.priority}" → "${updatedAnomaly.priority}"`);
+      if (existingAno.status !== updatedAnomaly.status)
+        changeParts.push(`Statut : "${existingAno.status}" → "${updatedAnomaly.status}"`);
+      if (existingAno.description !== updatedAnomaly.description)
+        changeParts.push(`Description mise à jour`);
+      if (existingAno.businessImpact !== updatedAnomaly.businessImpact)
+        changeParts.push(`Impact métier mis à jour`);
+    }
+    const auditEntry: AuditEntry = {
+      timestamp: nowIso,
+      author: "Équipe Conformité",
+      action: "Modification",
+      changes: changeParts.length > 0 ? changeParts.join(" | ") : `Anomalie ${updatedAnomaly.id} modifiée`,
+      remark: auditRemark,
+    };
     const preparedAno: Anomaly = {
       ...updatedAnomaly,
       updatedAt: nowIso,
       createdAt: updatedAnomaly.createdAt || nowIso,
       resolvedAt: updatedAnomaly.status === "RESOLUE" ? (updatedAnomaly.resolvedAt || nowIso) : undefined,
+      auditHistory: [auditEntry, ...(existingAno?.auditHistory || [])],
     };
     const updated = anomalies.map((a) => (a.id === preparedAno.id ? preparedAno : a));
     setAnomalies(updated);
@@ -572,6 +697,7 @@ export default function TestBookPage() {
           onAddTestCase={handleAddTestCase}
           onUpdateTestCase={handleUpdateTestCase}
           onDeleteTestCase={handleDeleteTestCase}
+          onNavigateToAnomaly={handleNavigateToAnomaly}
         />
       )}
 
@@ -589,6 +715,7 @@ export default function TestBookPage() {
           onAddAnomaly={handleAddAnomaly}
           onUpdateAnomaly={handleUpdateAnomaly}
           onDeleteAnomaly={handleDeleteAnomaly}
+          highlightedAnomalyId={highlightedAnomalyId}
         />
       )}
 

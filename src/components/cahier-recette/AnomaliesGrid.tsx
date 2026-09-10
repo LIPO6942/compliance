@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Anomaly, TestBookStats, AnomalyStatus } from "@/types/testBook";
 import { AnomalyModal } from "@/components/cahier-recette/AnomalyModal";
+import { AuditHistoryPanel } from "@/components/cahier-recette/AuditHistoryPanel";
 
 interface AnomaliesGridProps {
   anomalies: Anomaly[];
@@ -31,8 +32,9 @@ interface AnomaliesGridProps {
   setSelectedStatus: (status: string) => void;
   onToggleResolveAnomaly: (anomalyId: string) => void;
   onAddAnomaly: (anomaly: Anomaly) => void;
-  onUpdateAnomaly: (anomaly: Anomaly) => void;
+  onUpdateAnomaly: (anomaly: Anomaly, auditRemark?: string) => void;
   onDeleteAnomaly: (anomalyId: string) => void;
+  highlightedAnomalyId?: string | null;
 }
 
 export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
@@ -48,9 +50,19 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
   onAddAnomaly,
   onUpdateAnomaly,
   onDeleteAnomaly,
+  highlightedAnomalyId,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAnomaly, setEditingAnomaly] = useState<Anomaly | null>(null);
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Auto-scroll to highlighted anomaly
+  useEffect(() => {
+    if (highlightedAnomalyId && cardRefs.current[highlightedAnomalyId]) {
+      const el = cardRefs.current[highlightedAnomalyId];
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightedAnomalyId]);
 
   const openCount = allAnomalies.filter((a) => a.status !== "RESOLUE").length;
   const resolvedCount = allAnomalies.filter((a) => a.status === "RESOLUE").length;
@@ -74,9 +86,9 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleSaveModal = (savedAnomaly: Anomaly) => {
+  const handleSaveModal = (savedAnomaly: Anomaly, auditRemark?: string) => {
     if (editingAnomaly) {
-      onUpdateAnomaly(savedAnomaly);
+      onUpdateAnomaly(savedAnomaly, auditRemark);
     } else {
       onAddAnomaly(savedAnomaly);
     }
@@ -215,12 +227,17 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {anomalies.map((ano) => {
             const isResolved = ano.status === "RESOLUE";
+            const isHighlighted = highlightedAnomalyId === ano.id;
 
             return (
-              <Card
+              <div
                 key={ano.id}
+                ref={(el) => { cardRefs.current[ano.id] = el; }}
+              >
+              <Card
                 className={cn(
                   "border-2 rounded-3xl shadow-sm overflow-hidden transition-all duration-300 relative group flex flex-col justify-between",
+                  isHighlighted && "ring-4 ring-indigo-500/60 ring-offset-2 animate-pulse shadow-indigo-500/25 shadow-lg",
                   isResolved
                     ? "border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/20 dark:bg-emerald-950/10 opacity-90"
                     : ano.priority === "CRITIQUE"
@@ -321,6 +338,14 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
                       </div>
                     )}
                   </CardContent>
+
+                  {/* Audit History */}
+                  {ano.auditHistory && ano.auditHistory.length > 0 && (
+                    <AuditHistoryPanel
+                      auditHistory={ano.auditHistory}
+                      className="mx-4 mb-3"
+                    />
+                  )}
                 </div>
 
                 {/* Pied de carte : Test lié & Bouton Résoudre / Réouvrir */}
@@ -379,6 +404,7 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
                   </div>
                 </div>
               </Card>
+              </div>
             );
           })}
         </div>

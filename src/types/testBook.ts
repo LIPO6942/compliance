@@ -2,6 +2,14 @@ export type TestStatus = "OK" | "KO" | "Non encore testé";
 export type AnomalyPriority = "CRITIQUE" | "HAUTE" | "MOYENNE" | "BASSE";
 export type AnomalyStatus = "OUVERTE" | "RESOLUE" | "EN COURS";
 
+export interface AuditEntry {
+  timestamp: string;   // ISO date string
+  author: string;      // who made the change
+  action: string;      // "Création" | "Modification" | "Changement de statut" | etc.
+  changes: string;     // human-readable description of what changed
+  remark?: string;     // optional free comment entered by the user
+}
+
 export interface TestCase {
   id: string;
   module: string;
@@ -13,6 +21,7 @@ export interface TestCase {
   comment?: string;
   createdAt?: string;
   updatedAt?: string;
+  auditHistory?: AuditEntry[];
 }
 
 export interface Anomaly {
@@ -28,6 +37,7 @@ export interface Anomaly {
   resolvedAt?: string;
   resolvedBy?: string;
   resolutionComment?: string;
+  auditHistory?: AuditEntry[];
 }
 
 export interface TestBookMetadata {

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { TestCase, TestBookStats, Anomaly, TestStatus } from "@/types/testBook";
 import { Button } from "@/components/ui/button";
 import { TestCaseModal } from "@/components/cahier-recette/TestCaseModal";
+import { AuditHistoryPanel } from "@/components/cahier-recette/AuditHistoryPanel";
 import {
   Tooltip,
   TooltipContent,
@@ -24,9 +25,10 @@ interface TestCasesTableProps {
   selectedStatus: string;
   setSelectedStatus: (status: string) => void;
   onToggleStatus: (testId: string) => void;
-  onAddTestCase: (testCase: TestCase, associatedAnomaly?: Anomaly) => void;
-  onUpdateTestCase: (testCase: TestCase, associatedAnomaly?: Anomaly) => void;
+  onAddTestCase: (testCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string) => void;
+  onUpdateTestCase: (testCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string) => void;
   onDeleteTestCase: (testId: string) => void;
+  onNavigateToAnomaly: (anomalyId: string) => void;
 }
 
 export const TestCasesTable: React.FC<TestCasesTableProps> = ({
@@ -43,6 +45,7 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
   onAddTestCase,
   onUpdateTestCase,
   onDeleteTestCase,
+  onNavigateToAnomaly,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTestCase, setEditingTestCase] = useState<TestCase | null>(null);
@@ -133,11 +136,11 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleSaveModal = (savedTestCase: TestCase, associatedAnomaly?: Anomaly) => {
+  const handleSaveModal = (savedTestCase: TestCase, associatedAnomaly?: Anomaly, auditRemark?: string) => {
     if (editingTestCase) {
-      onUpdateTestCase(savedTestCase, associatedAnomaly);
+      onUpdateTestCase(savedTestCase, associatedAnomaly, auditRemark);
     } else {
-      onAddTestCase(savedTestCase, associatedAnomaly);
+      onAddTestCase(savedTestCase, associatedAnomaly, auditRemark);
     }
   };
 
@@ -371,6 +374,11 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                           <span>{formatDateTime(tc.createdAt)}</span>
                         </div>
                       )}
+                      {tc.auditHistory && tc.auditHistory.length > 0 && (
+                        <div className="mt-2">
+                          <AuditHistoryPanel auditHistory={tc.auditHistory} />
+                        </div>
+                      )}
                     </td>
                     <td className="p-3.5 align-top">
                       <span className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold text-[10px]">
@@ -413,9 +421,25 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                     </td>
                     <td className="p-3.5 align-top text-center font-mono text-[10px]">
                       {tc.linkedAnomaly ? (
-                        <span className="px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-black border border-rose-200 dark:border-rose-900">
-                          {tc.linkedAnomaly}
-                        </span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => onNavigateToAnomaly(tc.linkedAnomaly!)}
+                              className="px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-black border border-rose-200 dark:border-rose-900 hover:bg-rose-200 dark:hover:bg-rose-900/80 hover:border-rose-400 transition-all cursor-pointer inline-flex items-center gap-1 group"
+                              title={`Voir l'anomalie ${tc.linkedAnomaly}`}
+                            >
+                              <span>{tc.linkedAnomaly}</span>
+                              <svg className="h-2.5 w-2.5 opacity-60 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+                                <polyline points="15 3 21 3 21 9" />
+                                <line x1="10" y1="14" x2="21" y2="3" />
+                              </svg>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs font-bold bg-rose-600 text-white border-rose-700 rounded-xl">
+                            Aller à l&apos;anomalie {tc.linkedAnomaly} →
+                          </TooltipContent>
+                        </Tooltip>
                       ) : (
                         <span className="text-slate-300 dark:text-slate-600">-</span>
                       )}

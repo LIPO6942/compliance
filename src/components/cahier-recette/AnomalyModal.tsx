@@ -17,7 +17,7 @@ import { Anomaly, AnomalyPriority, AnomalyStatus } from "@/types/testBook";
 interface AnomalyModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (anomaly: Anomaly) => void;
+  onSave: (anomaly: Anomaly, auditRemark?: string) => void;
   anomalyToEdit?: Anomaly | null;
   modulesList: string[];
   nextSuggestedId?: string;
@@ -38,6 +38,7 @@ export const AnomalyModal: React.FC<AnomalyModalProps> = ({
   const [priority, setPriority] = useState<AnomalyPriority>("HAUTE");
   const [status, setStatus] = useState<AnomalyStatus>("OUVERTE");
   const [linkedTest, setLinkedTest] = useState("");
+  const [auditRemark, setAuditRemark] = useState("");
 
   useEffect(() => {
     if (anomalyToEdit) {
@@ -57,6 +58,7 @@ export const AnomalyModal: React.FC<AnomalyModalProps> = ({
       setStatus("OUVERTE");
       setLinkedTest("");
     }
+    setAuditRemark("");
   }, [anomalyToEdit, nextSuggestedId, modulesList, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -78,7 +80,7 @@ export const AnomalyModal: React.FC<AnomalyModalProps> = ({
       updatedAt: nowIso,
       resolvedAt: isResolved ? (anomalyToEdit?.resolvedAt || nowIso) : undefined,
       resolvedBy: isResolved ? (anomalyToEdit?.resolvedBy || "Équipe Conformité") : undefined,
-    });
+    }, auditRemark.trim() || undefined);
 
     onClose();
   };
@@ -204,21 +206,39 @@ export const AnomalyModal: React.FC<AnomalyModalProps> = ({
             />
           </div>
 
-          <DialogFooter className="pt-3 border-t border-slate-100 dark:border-slate-800 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="rounded-xl text-xs font-semibold"
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-500/20"
-            >
-              {anomalyToEdit ? "Enregistrer les modifications" : "Déclarer l'anomalie"}
-            </Button>
+          <DialogFooter className="pt-3 border-t border-slate-100 dark:border-slate-800 gap-2 flex-col sm:flex-col">
+            {/* Remark field (only for edits) */}
+            {anomalyToEdit && (
+              <div className="w-full space-y-1 mb-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <svg className="h-3 w-3 text-rose-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+                  Remarque de modification <span className="font-normal text-slate-400 normal-case">(optionnel)</span>
+                </label>
+                <Textarea
+                  value={auditRemark}
+                  onChange={(e) => setAuditRemark(e.target.value)}
+                  placeholder="Ex: Correction effectuée suite à la revue du 10/09 — validée par le responsable..."
+                  rows={2}
+                  className="text-xs font-medium rounded-xl bg-slate-50 dark:bg-slate-800 border-rose-200 dark:border-rose-900/60 resize-none w-full"
+                />
+              </div>
+            )}
+            <div className="flex justify-end gap-2 w-full">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                className="rounded-xl text-xs font-semibold"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-500/20"
+              >
+                {anomalyToEdit ? "Enregistrer les modifications" : "Déclarer l'anomalie"}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>
