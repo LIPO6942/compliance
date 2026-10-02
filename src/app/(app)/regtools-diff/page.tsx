@@ -15,7 +15,8 @@ import {
   Trash2,
   FileText,
   ClipboardList,
-  Settings
+  Settings,
+  Calendar
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db, isFirebaseConfigured } from "@/lib/firebase";
@@ -648,6 +649,55 @@ const getRowAgencyCode = (row: any, agenceCol: string, isVie: boolean): string =
   return strVal;
 };
 
+const MONTH_NAMES_FR = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+];
+
+// Extract month and year from a filename (e.g. "ns-092026b.csv", "clients-export-04 part sept.xlsx")
+const extractMonthFromFileName = (fileName: string): { month: string; year: string; monthKey: string; monthLabel: string } | null => {
+  if (!fileName) return null;
+  const trimmed = fileName.trim();
+
+  // Pattern 1: MMAAAA (e.g. ns-092026b.csv, ns_092026.csv, 092026, 09-2026, 09_2026)
+  const matchNumeric = trimmed.match(/(?:^|[^0-9])(\d{2})[_\-]?(\d{4})(?:[^0-9]|$)/);
+  if (matchNumeric) {
+    const m = matchNumeric[1];
+    const y = matchNumeric[2];
+    const mIdx = parseInt(m, 10) - 1;
+    if (mIdx >= 0 && mIdx < 12) {
+      return { month: m, year: y, monthKey: `${m}${y}`, monthLabel: `${MONTH_NAMES_FR[mIdx]} ${y}` };
+    }
+  }
+
+  // Pattern 2: Named French month in filename (e.g. "clients-export-04 part sept.xlsx")
+  const frenchMonths: [RegExp, string][] = [
+    [/janv/i, "01"],
+    [/f[ée]vr/i, "02"],
+    [/mars/i, "03"],
+    [/avr/i, "04"],
+    [/mai/i, "05"],
+    [/juin/i, "06"],
+    [/juil/i, "07"],
+    [/ao[uû]t/i, "08"],
+    [/sept/i, "09"],
+    [/oct/i, "10"],
+    [/nov/i, "11"],
+    [/d[ée]c/i, "12"]
+  ];
+
+  for (const [regex, m] of frenchMonths) {
+    if (regex.test(trimmed)) {
+      const yearMatch = trimmed.match(/(20\d{2})/);
+      const y = yearMatch ? yearMatch[1] : String(new Date().getFullYear());
+      const mIdx = parseInt(m, 10) - 1;
+      return { month: m, year: y, monthKey: `${m}${y}`, monthLabel: `${MONTH_NAMES_FR[mIdx]} ${y}` };
+    }
+  }
+
+  return null;
+};
+
 // Parse month and year from subscription date
 const parseMonthYearFromDateStr = (dateStr: string): { month: string; year: string } | null => {
   if (!dateStr) return null;
@@ -673,6 +723,106 @@ const parseMonthYearFromDateStr = (dateStr: string): { month: string; year: stri
     return {
       month: String(date.getUTCMonth() + 1).padStart(2, '0'),
       year: String(date.getUTCFullYear())
+    };
+  }
+
+  return null;
+};
+
+// Detect predominant month and year from rows via majority vote and format detection
+const detectMonthFromRows = (rows: any[], dateCol: string): { month: string; year: string; monthKey: string; monthLabel: string } | null => {
+  if (!rows || rows.length === 0 || !dateCol) return null;
+
+  // Step 1: Detect date order (DD/MM vs MM/DD) across rows
+  let ddMmEvidence = 0;
+  let mmDdEvidence = 0;
+
+  for (const row of rows) {
+    const raw = row[dateCol];
+    if (!raw) continue;
+    const str = String(raw).trim();
+    const match = str.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})/);
+    if (match) {
+      const n1 = parseInt(match[1], 10);
+      const n2 = parseInt(match[2], 10);
+      if (n1 > 12 && n2 <= 12) {
+        ddMmEvidence++;
+      } else if (n2 > 12 && n1 <= 12) {
+        mmDdEvidence++;
+      }
+    }
+  }
+
+  const isMmDd = mmDdEvidence > ddMmEvidence;
+
+  // Step 2: Accumulate month/year counts using majority vote
+  const counts: Record<string, { count: number; month: string; year: string }> = {};
+
+  for (const row of rows) {
+    const raw = row[dateCol];
+    if (!raw) continue;
+
+    let parsed: { month: string; year: string } | null = null;
+    const cleaned = String(raw).trim();
+
+    // Check if it's an Excel serial date number
+    const num = Number(cleaned);
+    if (!isNaN(num) && num > 10000 && num < 100000) {
+      const days = num - (num > 59 ? 25569 : 25568);
+      const date = new Date(days * 24 * 3600 * 1000);
+      parsed = {
+        month: String(date.getUTCMonth() + 1).padStart(2, '0'),
+        year: String(date.getUTCFullYear())
+      };
+    } else {
+      // String format: DD/MM/YYYY or MM/DD/YYYY
+      const m1 = cleaned.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})/);
+      if (m1) {
+        const n1 = m1[1];
+        const n2 = m1[2];
+        const yr = m1[3];
+        const monthVal = isMmDd ? n1.padStart(2, '0') : n2.padStart(2, '0');
+        const mIdx = parseInt(monthVal, 10) - 1;
+        if (mIdx >= 0 && mIdx < 12) {
+          parsed = { month: monthVal, year: yr };
+        }
+      } else {
+        // YYYY-MM-DD
+        const m2 = cleaned.match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})/);
+        if (m2) {
+          const mVal = m2[2].padStart(2, '0');
+          const mIdx = parseInt(mVal, 10) - 1;
+          if (mIdx >= 0 && mIdx < 12) {
+            parsed = { month: mVal, year: m2[1] };
+          }
+        }
+      }
+    }
+
+    if (parsed) {
+      const key = `${parsed.month}${parsed.year}`;
+      if (!counts[key]) {
+        counts[key] = { count: 0, month: parsed.month, year: parsed.year };
+      }
+      counts[key].count++;
+    }
+  }
+
+  // Find the (month, year) with the highest frequency
+  let best: { month: string; year: string; count: number } | null = null;
+  for (const k of Object.keys(counts)) {
+    if (!best || counts[k].count > best.count) {
+      best = counts[k];
+    }
+  }
+
+  if (best) {
+    const mIdx = parseInt(best.month, 10) - 1;
+    return {
+      month: best.month,
+      year: best.year,
+      monthKey: `${best.month}${best.year}`,
+      monthLabel: `${MONTH_NAMES_FR[mIdx]} ${best.year}`
     };
   }
 
@@ -717,30 +867,7 @@ const processVieData = (
   const dateCol = findColumnByKeywords(cols, ["date", "souscription"]) || findColumnByKeywords(cols, ["date", "sous"]) || autoDetectCol(cols, ["souscription", "sous"]);
   const agenceCol = findColumnByKeywords(cols, ["canal", "souscription"]) || findColumnByKeywords(cols, ["canal", "sou"]) || autoDetectCol(cols, ["canal", "agence", "structure"]);
 
-  let monthKey = "";
-  let monthLabel = "";
-  const months = [
-    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
-  ];
-
-  for (const row of rawData) {
-    const rawDateVal = row[dateCol];
-    if (rawDateVal) {
-      const formattedDate = formatExcelValue(dateCol, rawDateVal);
-      const parsed = parseMonthYearFromDateStr(formattedDate);
-      if (parsed) {
-        const mIdx = parseInt(parsed.month, 10) - 1;
-        if (mIdx >= 0 && mIdx < 12) {
-          monthKey = `${parsed.month}${parsed.year}`;
-          monthLabel = `${months[mIdx]} ${parsed.year}`;
-          break;
-        }
-      }
-    }
-  }
-
-  // Filter
+  // Filter first so month detection operates on relevant subscriptions
   const filtered = rawData.filter(row => {
     const avenantVal = String(row[avenantCol] || "").trim().toLowerCase();
     const statutVal = String(row[statutCol] || "").trim().toLowerCase();
@@ -748,6 +875,12 @@ const processVieData = (
     const matchStatut = statutVal.includes("en cours");
     return matchAvenant && matchStatut;
   });
+
+  // Detect month by majority vote (filtered rows prioritized, fallback to rawData)
+  const rowsForMonth = filtered.length > 0 ? filtered : rawData;
+  const detected = detectMonthFromRows(rowsForMonth, dateCol);
+  const monthKey = detected ? detected.monthKey : "";
+  const monthLabel = detected ? detected.monthLabel : "";
 
   // Deduplicate on unique card/fiscal ID
   const seenIds = new Set<string>();
@@ -1636,8 +1769,10 @@ export default function RegtoolsDiffPage() {
         const processed = processVieData(result.data, result.columns);
         setData(prev => ({ ...prev, vie: processed.filteredData }));
         setColumns(prev => ({ ...prev, vie: result.columns }));
-        setDetectedMonthKey(processed.detectedMonthKey);
-        setDetectedMonthLabel(processed.detectedMonthLabel);
+        if (processed.detectedMonthKey) {
+          setDetectedMonthKey(prev => prev || processed.detectedMonthKey);
+          setDetectedMonthLabel(prev => prev || processed.detectedMonthLabel);
+        }
 
         // Auto mappings for VIE
         setMapping(prev => ({
@@ -1650,6 +1785,13 @@ export default function RegtoolsDiffPage() {
         setData(prev => ({ ...prev, ns: result.data }));
         setColumns(prev => ({ ...prev, ns: result.columns }));
 
+        // Auto-detect month from NS file name (e.g. ns-092026b.csv -> Septembre 2026)
+        const nsDetected = extractMonthFromFileName(file.name);
+        if (nsDetected) {
+          setDetectedMonthKey(nsDetected.monthKey);
+          setDetectedMonthLabel(nsDetected.monthLabel);
+        }
+
         // Auto-detect mappings for NS
         const detectedId = autoDetectCol(result.columns, ['identifiant', 'id', 'identifier', 'code', 'numéro', 'num', 'ref', 'reference', 'matricule']);
         const detectedAgence = autoDetectCol(result.columns, ['agence', 'agency', 'code agence', 'code_agence', 'structure', 'bureau', 'succursale', 'agenc']);
@@ -1659,6 +1801,13 @@ export default function RegtoolsDiffPage() {
         // regtools
         setData(prev => ({ ...prev, regtools: result.data }));
         setColumns(prev => ({ ...prev, regtools: result.columns }));
+
+        // If month not yet detected, try detecting from RegTools file name (e.g. clients-export-04 part sept.xlsx)
+        const rtDetected = extractMonthFromFileName(file.name);
+        if (rtDetected) {
+          setDetectedMonthKey(prev => prev || rtDetected.monthKey);
+          setDetectedMonthLabel(prev => prev || rtDetected.monthLabel);
+        }
 
         // Auto-detect mappings for RegTools
         const detected = autoDetectCol(result.columns, ['identifiant', 'id', 'identifier', 'code', 'numéro', 'num', 'ref', 'reference', 'matricule']);
@@ -3262,29 +3411,21 @@ export default function RegtoolsDiffPage() {
       baseMonthKey = detectedMonthKey;
       monthLabel = detectedMonthLabel;
     } else {
-      const fileForName = files.ns || files.vie;
-      if (!fileForName) return;
-      const fileName = fileForName.name;
-
-      let month = "";
-      let year = "";
-      let match = fileName.trim().match(/^(\d{2})(\d{4})/);
-      if (!match) {
-        match = fileName.trim().match(/(?:^|[^0-9])(\d{2})(\d{4})(?:[^0-9]|$)/);
-      }
-      if (!match) {
-        const sepMatch = fileName.trim().match(/(?:^|[^0-9])(\d{2})[_-](\d{4})(?:[^0-9]|$)/);
-        if (sepMatch) match = sepMatch;
+      const candidateFiles = [files.ns, files.vie, files.regtools].filter(Boolean) as File[];
+      let found: { month: string; year: string; monthKey: string; monthLabel: string } | null = null;
+      for (const f of candidateFiles) {
+        found = extractMonthFromFileName(f.name);
+        if (found) break;
       }
 
-      if (match) {
-        month = match[1];
-        year = match[2];
+      if (found) {
+        baseMonthKey = found.monthKey;
+        monthLabel = found.monthLabel;
       } else {
         // Fallback: Ask user via prompt
         const userInput = prompt(
-          "Impossible de détecter le mois/année (format 052026) dans le nom du fichier.\n" +
-          "Veuillez saisir le mois et l'année de ce rapport (format MMAAAA ou MM/AAAA, ex: 052026) :"
+          "Impossible de détecter le mois/année (format MMAAAA) dans les fichiers.\n" +
+          "Veuillez saisir le mois et l'année de ce rapport (format MMAAAA ou MM/AAAA, ex: 092026) :"
         );
         if (!userInput) return; // User cancelled
 
@@ -3293,24 +3434,20 @@ export default function RegtoolsDiffPage() {
           inputMatch = userInput.trim().match(/^(\d{2})[/\-_](\d{4})$/);
         }
         if (!inputMatch) {
-          alert("Format invalide. La sauvegarde a été annulée. Veuillez saisir le format MMAAAA ou MM/AAAA (ex: 052026 ou 05/2026).");
+          alert("Format invalide. La sauvegarde a été annulée. Veuillez saisir le format MMAAAA ou MM/AAAA (ex: 092026 ou 09/2026).");
           return;
         }
-        month = inputMatch[1];
-        year = inputMatch[2];
-      }
-      const months = [
-        "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-        "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
-      ];
-      const monthIdx = parseInt(month, 10) - 1;
-      if (monthIdx < 0 || monthIdx >= 12) {
-        alert(`Erreur de sauvegarde : Le mois "${month}" extrait est invalide.`);
-        return;
-      }
+        const month = inputMatch[1];
+        const year = inputMatch[2];
+        const monthIdx = parseInt(month, 10) - 1;
+        if (monthIdx < 0 || monthIdx >= 12) {
+          alert(`Erreur de sauvegarde : Le mois "${month}" saisi est invalide.`);
+          return;
+        }
 
-      baseMonthKey = `${month}${year}`;
-      monthLabel = `${months[monthIdx]} ${year}`;
+        baseMonthKey = `${month}${year}`;
+        monthLabel = `${MONTH_NAMES_FR[monthIdx]} ${year}`;
+      }
     }
 
     setIsSavingReport(true);
@@ -5851,14 +5988,49 @@ export default function RegtoolsDiffPage() {
                   </button>
                 </div>
                 
-                <button
-                  onClick={handleSaveReport}
-                  disabled={isSavingReport}
-                  className="mb-2 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5"
-                >
-                  <RefreshCw className={cn("h-3.5 w-3.5", isSavingReport && "animate-spin")} />
-                  {isSavingReport ? "Sauvegarde..." : "Sauvegarder le Rapport Mensuel"}
-                </button>
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  {detectedMonthLabel && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-semibold text-blue-700 dark:text-blue-300">
+                      <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>Période : <strong className="font-bold">{detectedMonthLabel}</strong></span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const input = prompt(
+                            "Modifier la période du rapport (format MMAAAA ou MM/AAAA, ex: 092026 ou 09/2026) :",
+                            detectedMonthKey || ""
+                          );
+                          if (!input) return;
+                          const m1 = input.trim().match(/^(\d{2})[/\-_]?(\d{4})$/);
+                          if (m1) {
+                            const m = m1[1];
+                            const y = m1[2];
+                            const mIdx = parseInt(m, 10) - 1;
+                            if (mIdx >= 0 && mIdx < 12) {
+                              setDetectedMonthKey(`${m}${y}`);
+                              setDetectedMonthLabel(`${MONTH_NAMES_FR[mIdx]} ${y}`);
+                              return;
+                            }
+                          }
+                          alert("Format invalide (attendu : MMAAAA ou MM/AAAA, ex: 092026).");
+                        }}
+                        className="ml-1 text-[10px] text-blue-500 hover:text-blue-700 dark:hover:text-blue-200 underline font-medium"
+                        title="Modifier manuellement la période"
+                      >
+                        (Modifier)
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleSaveReport}
+                    disabled={isSavingReport}
+                    className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5"
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", isSavingReport && "animate-spin")} />
+                    {isSavingReport ? "Sauvegarde..." : detectedMonthLabel ? `Sauvegarder le Rapport (${detectedMonthLabel})` : "Sauvegarder le Rapport Mensuel"}
+                  </button>
+                </div>
               </div>
 
               {activeTab === "list" ? (
