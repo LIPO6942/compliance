@@ -22,8 +22,10 @@ interface MultiIdSuspect {
   compositeKey?: string;
   displayName: string;
   ids: string[];
+  idTypes?: ("CIN" | "PASSPORT" | "UNKNOWN")[];
   confidence?: "HIGH" | "MEDIUM" | "LOW";
   discriminators?: number;
+  discriminatorLabels?: string[];
 }
 
 interface ClientSearchPanelProps {
@@ -199,7 +201,7 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
             </div>
             <div>
               <p className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Portefeuille Sain Estimé</p>
-              <p className="text-[8px] text-slate-500">Total RegTools − clients multi-identifiants suspects</p>
+              <p className="text-[8px] text-slate-500">Total RegTools − clients à double document (CIN + Passeport)</p>
             </div>
           </div>
           <div className="flex gap-6 ml-auto items-center">
@@ -408,9 +410,9 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
                 const isExpanded = expandedSuspect === key;
                 const conf = suspect.confidence ?? "LOW";
                 const confBadge = {
-                  HIGH:   { label: "Fiable ✓✓",   cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
-                  MEDIUM: { label: "Probable ✓",   cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
-                  LOW:    { label: "Incertain ~",  cls: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" },
+                  HIGH:   { label: "Confirmé CIN+PP ✓✓", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
+                  MEDIUM: { label: "2 Passeports (info)",  cls: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" },
+                  LOW:    { label: "Incertain ~",          cls: "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500" },
                 }[conf];
                 return (
                   <div key={key} className={cn(
@@ -451,17 +453,40 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {suspect.ids.map((id, i) => (
-                            <span key={i} className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-violet-200 dark:border-violet-800 text-slate-700 dark:text-slate-300">
-                              {highlight(id, suspectQuery)}
-                            </span>
-                          ))}
+                          {suspect.ids.map((id, i) => {
+                            const idType = suspect.idTypes?.[i];
+                            return (
+                              <div key={i} className="flex flex-col items-center gap-0.5">
+                                <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-violet-200 dark:border-violet-800 text-slate-700 dark:text-slate-300">
+                                  {highlight(id, suspectQuery)}
+                                </span>
+                                <span className={cn(
+                                  "text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider",
+                                  idType === "CIN"
+                                    ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300"
+                                    : idType === "PASSPORT"
+                                    ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                    : "bg-slate-100 text-slate-400"
+                                )}>
+                                  {idType === "CIN" ? "CIN" : idType === "PASSPORT" ? "Passeport" : "?"}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                         <p className="text-[8px] text-slate-400">
                           {conf === "LOW"
-                            ? "⚠ Nom commun — peut être 2 personnes différentes. Vérification manuelle recommandée."
+                            ? "⚠ Nom seul — peut être 2 personnes différentes. Vérification manuelle recommandée."
                             : `Ce client est enregistré ${suspect.ids.length}× dans RegTools avec des identifiants différents → 1 seule fiche réelle attendue.`}
                         </p>
+                        {suspect.discriminatorLabels && suspect.discriminatorLabels.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <span className="text-[8px] text-slate-400 font-semibold mr-1">Confirmé par :</span>
+                            {suspect.discriminatorLabels.map((lbl, i) => (
+                              <span key={i} className="text-[8px] px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/30 text-violet-600 font-bold">{lbl}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

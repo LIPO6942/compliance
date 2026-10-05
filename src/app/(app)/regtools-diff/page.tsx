@@ -980,21 +980,32 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
   const nameCol = keys.find(k => /^nom|^name|^client/i.test(k) && !/num|n_|code/i.test(k))
     || keys.find(k => /nom/i.test(k) && !/num|n_|n°/i.test(k)) || "";
 
-  // ─── Multi-ID detection: discriminating columns (auto-detected) ──────────
-  const dobCol      = keys.find(k => /naissance|birth|dob|date.*naiss/i.test(k)) || "";
-  const genderCol   = keys.find(k => /^sexe$|^genre$|^gender$|^sex$/i.test(k)) || keys.find(k => /sexe|genre|gender/i.test(k)) || "";
-  const govCol      = keys.find(k => /gouvernorat|gouv(?!ern)|wilaya|region(?!al)/i.test(k)) || "";
-  const nationalCol = keys.find(k => /nationalite|nationality|natl/i.test(k)) || "";
-  const docTypeCol  = keys.find(k => /type.*doc|nature.*piece|type.*piece|piece.*identite/i.test(k)) || "";
+  // ─── Multi-ID detection: discriminating columns (adapted to RegTools structure) ──
+  // RegTools columns available: identifier, name, type, status, potentialProfileType,
+  // isPep, isSanctioned, isAllTreated, riskLevel, kycFormsCount, formNames, createdAt
+  // No DOB / gender / gouvernorat → use what's available
 
-  // Structured list of discriminating columns (order matters for signature)
-  const multiIdSigCols: { col: string; label: string }[] = [
-    { col: dobCol,      label: "Date de naissance" },
-    { col: genderCol,   label: "Sexe / Genre" },
-    { col: govCol,      label: "Gouvernorat" },
-    { col: nationalCol, label: "Nationalité" },
-    { col: docTypeCol,  label: "Type de document" },
-  ].filter(c => c.col); // keep only detected columns
+  // 1. Entity type (bt = personne morale, ot = personne physique, etc.)
+  const entityTypeCol = keys.find(k => /^type$/i.test(k)) || "";
+  // 2. Profile type (already detected above as profileTypeCol = potentialProfileType)
+  // 3. PEP status (already detected as isPepCol)
+  // 4. Sanctioned status (already detected as isSanctionedCol)
+  // 5. Status column (actif/inactif)
+  const statusCol = keys.find(k => /^status$|^statut$|^etat$/i.test(k)) || "";
+  // 6. createdAt — same client re-created would likely have very different dates; same date → same record
+  const createdAtCol = keys.find(k => /^createdat$|^date.*creat|^creat.*date/i.test(k)) || "";
+
+  // Structured list of discriminating columns (order matters for signature building)
+  // STRONG: entityType (bt/ot) — a person cannot change their entity type
+  // MEDIUM: isPep — rare, very specific
+  // WEAK:   profileType, status — can change over time
+  const multiIdSigCols: { col: string; label: string; weight: "STRONG" | "MEDIUM" | "WEAK" }[] = [
+    { col: entityTypeCol,  label: "Type d'entité",       weight: "STRONG" },
+    { col: isPepCol,       label: "Statut PEP",          weight: "STRONG" },
+    { col: profileTypeCol, label: "Type de profil",      weight: "MEDIUM" },
+    { col: statusCol,      label: "Statut",              weight: "WEAK"   },
+    { col: isSanctionedCol,label: "Sanctionné",          weight: "MEDIUM" },
+  ].filter(c => c.col); // keep only columns that exist in this file
 
   // Map compositeKey → display name (populated during forEach)
   const nameToDisplay: Record<string, string> = {};
@@ -1085,7 +1096,11 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
         const normName = rawName.toLowerCase()
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           .replace(/\s+/g, " ").trim();
-        const normId = rawId.toLowerCase().replace(/\s+/g, "").trim();
+        // Normalize ID same way as normalizeKey in reconciliation:
+        // uppercase, strip spaces, remove trailing .0, strip leading zeros, keep alphanum only
+        let normId = String(rawId).replace(/\s+/g, "").toUpperCase();
+        if (normId.endsWith(".0")) normId = normId.slice(0, -2);
+        normId = normId.replace(/^0+(?!$)/, "").replace(/[^A-Z0-9]/g, "");
 
         // Build composite signature from all available discriminating fields
         const sig = multiIdSigCols.map(({ col }) => {
@@ -1105,44 +1120,91 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
     }
   });
 
-  // Columns used for signature — detected before the loop
-  // (declared here for reference but resolved above)
+  // ─── Helper: classify identifier format ───────────────────────────────────
+  // IDs here are already normalized (uppercase, no spaces, alphanumeric only)
+  // CIN tunisien : que des chiffres (généralement 8 chiffres)
+  // Passeport tunisien : 1-2 lettres MAJUSCULES suivies de chiffres (ex: P1234567, AB1234567)
+  // Carte de séjour / autre : alphanumérique mixte
+  const classifyId = (id: string): "CIN" | "PASSPORT" | "UNKNOWN" => {
+    if (!id) return "UNKNOWN";
+    // Already uppercase and stripped by normalizeKey logic
+    if (/^\d+$/.test(id)) return "CIN";                 // pure digits → CIN
+    if (/^[A-Z]{1,2}\d+$/.test(id)) return "PASSPORT"; // 1-2 letters then digits → Passeport tunisien
+    if (/[A-Z]/.test(id) && /\d/.test(id)) return "PASSPORT"; // other alphanumeric → carte séjour / autre doc
+    return "UNKNOWN";
+  };
 
-  // ─── Classify suspects by confidence level ────────────────────────────────
-  // HIGH  : 3+ discriminators matched (name + DOB + at least 1 more)
-  // MEDIUM: 2 discriminators (name + DOB, or name + gender + gouvernorat)
-  // LOW   : name only (high false-positive risk)
+  // ─── Classify suspects by ID format + weighted confidence ─────────────────
   const multiIdEntries = Object.entries(nameToIds).filter(([, ids]) => ids.size >= 2);
 
   const multiIdDetails = multiIdEntries
     .slice(0, 500)
     .map(([compositeKey, ids]) => {
       const [normName, sig] = compositeKey.split("::");
-      const sigParts = sig ? sig.split("|").filter(Boolean) : [];
-      // Confidence based on how many discriminators contributed to the sig
-      let confidence: "HIGH" | "MEDIUM" | "LOW";
-      if (sigParts.length >= 3) confidence = "HIGH";
-      else if (sigParts.length >= 1) confidence = "MEDIUM";
-      else confidence = "LOW";
+      const idList = [...ids];
+
+      // ── Step 1: Analyse ID formats ─────────────────────────────────────────
+      const idTypes = idList.map(id => classifyId(id));
+      const cinCount      = idTypes.filter(t => t === "CIN").length;
+      const passportCount = idTypes.filter(t => t === "PASSPORT").length;
+
+      // EXCLUSION RULE: 2+ pure-digit IDs (CINs) → different people, not a multi-ID
+      // A real person cannot have 2 different CINs
+      if (cinCount >= 2) {
+        return null; // will be filtered out
+      }
+
+      // ── Step 2: ID-format based confidence ────────────────────────────────
+      // CIN (1) + Passport (1+) → CERTAIN same person (different document types)
+      // Passport only (2+) → possible old+new passport, or different people
+      const idFormatConf: "HIGH" | "MEDIUM" | "LOW" =
+        (cinCount === 1 && passportCount >= 1) ? "HIGH" :
+        (passportCount >= 2)                   ? "MEDIUM" :
+        "LOW";
+
+      // ── Step 3: Structural (column-based) confidence ──────────────────────
+      const sigParts = sig ? sig.split("|") : [];
+      const activeCols = multiIdSigCols.filter((_, i) => sigParts[i] && sigParts[i].length > 0);
+      const hasStrong = activeCols.some(c => c.weight === "STRONG");
+      const hasMedium = activeCols.some(c => c.weight === "MEDIUM" || c.weight === "WEAK");
+      const structConf: "HIGH" | "MEDIUM" | "LOW" =
+        hasStrong  ? "HIGH" :
+        hasMedium  ? "MEDIUM" :
+        "LOW";
+
+      // ── Step 4: Final confidence = best of ID-format or structural ─────────
+      const cOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 } as const;
+      const finalConf: "HIGH" | "MEDIUM" | "LOW" =
+        cOrder[idFormatConf] <= cOrder[structConf] ? idFormatConf : structConf;
+
+      // Labels explaining what confirmed the detection
+      const confLabels: string[] = [];
+      if (cinCount === 1 && passportCount >= 1) confLabels.push("CIN + Passeport (formats différents)");
+      else if (passportCount >= 2) confLabels.push("2 passeports distincts");
+      activeCols.forEach(c => confLabels.push(c.label));
+
       return {
         normName,
         compositeKey,
         displayName: nameToDisplay[compositeKey] || normName.toUpperCase(),
-        ids: [...ids],
-        confidence,
-        discriminators: sigParts.length, // how many extra criteria matched
+        ids: idList,
+        idTypes,          // "CIN" | "PASSPORT" | "UNKNOWN" per id
+        confidence: finalConf,
+        discriminators: activeCols.length + (cinCount === 1 && passportCount >= 1 ? 1 : 0),
+        discriminatorLabels: confLabels,
       };
     })
-    // Sort: HIGH confidence first, then by number of IDs
-    .sort((a, b) => {
+    .filter(Boolean) // remove excluded (2+ CINs = different people)
+    .sort((a: any, b: any) => {
       const cOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
       if (cOrder[a.confidence] !== cOrder[b.confidence]) return cOrder[a.confidence] - cOrder[b.confidence];
       return b.ids.length - a.ids.length;
-    });
+    }) as any[];
 
-  // For the "clean portfolio" KPI, only count HIGH + MEDIUM confidence suspects
-  // LOW confidence (name only) are too risky to subtract → exclude from main count
-  const reliableMultiId = multiIdDetails.filter(d => d.confidence !== "LOW");
+  // For the "clean portfolio" KPI, count ONLY HIGH confidence suspects
+  // (= confirmed by ID format: 1 CIN + 1 passeport for the same normalized name+type)
+  // MEDIUM and LOW are shown in the UI for information but NOT subtracted from total
+  const reliableMultiId = multiIdDetails.filter(d => d.confidence === "HIGH");
   const multiIdClients = reliableMultiId.length;
   const totalForms = regtoolsData.length;
   const estimatedUniqueClients = totalForms - multiIdClients;
@@ -1157,9 +1219,9 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
     treatedCount,
     avgRiskValue: riskValueCount > 0 ? parseFloat((totalRiskValue / riskValueCount).toFixed(2)) : 0,
     totalForms,
-    multiIdClients,       // only HIGH + MEDIUM confidence
+    multiIdClients,
     estimatedUniqueClients,
-    multiIdDetails,       // full list with confidence for UI
+    multiIdDetails,
   };
 };
 
