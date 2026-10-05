@@ -142,7 +142,8 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
         const identifiant = String(row[idCol] || row["Identifiant"] || row["identifiant"] || "").trim();
         const agenceRaw = row[agenceCol] || row["N_GESTIONNAIRE"] || row["n_gestionnaire"] || "";
         const agInfo = resolveAgencyInfo(agenceRaw);
-        const matchType = row.__matchType || "Absent";
+        // missingRows = absent de RegTools (matchType = "Aucun" dans le moteur de rapprochement)
+        const matchType = "Absent de RegTools";
 
         const allFields: Record<string, string> = {};
         Object.entries(row).forEach(([k, v]) => {
@@ -198,18 +199,15 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
       const vieNameCol = (report.columnsVIE || []).find((c: string) => /nom/i.test(c) && !/num|n_|n\u00b0/i.test(c)) || "Nom et pr\u00e9nom du souscripteur";
 
       if (rType === "BOTH") {
+        // Only missingRows — similarRows are FOUND clients (reconciled), not absent
         const nsMissing = (report.missingRows || []).filter((r: any) => r.__sourcePortfolio !== "VIE");
         const vieMissing = (report.missingRows || []).filter((r: any) => r.__sourcePortfolio === "VIE");
         processRows(nsMissing, "NS", nsIdCol, nsAgCol, nsNameCol, monthKey, monthLabel);
         processRows(vieMissing, "VIE", vieIdCol, vieAgCol, vieNameCol, monthKey, monthLabel);
-        processRows((report.similarRows || []).filter((r: any) => r.__sourcePortfolio !== "VIE"), "NS", nsIdCol, nsAgCol, nsNameCol, monthKey, monthLabel);
-        processRows((report.similarRows || []).filter((r: any) => r.__sourcePortfolio === "VIE"), "VIE", vieIdCol, vieAgCol, vieNameCol, monthKey, monthLabel);
       } else if (rType === "VIE") {
         processRows(report.missingRows || [], "VIE", vieIdCol, vieAgCol, vieNameCol, monthKey, monthLabel);
-        processRows(report.similarRows || [], "VIE", vieIdCol, vieAgCol, vieNameCol, monthKey, monthLabel);
       } else {
         processRows(report.missingRows || [], "NS", nsIdCol, nsAgCol, nsNameCol, monthKey, monthLabel);
-        processRows(report.similarRows || [], "NS", nsIdCol, nsAgCol, nsNameCol, monthKey, monthLabel);
       }
     }
 
@@ -267,8 +265,8 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
       {/* KPI strip */}
       <div className="grid grid-cols-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
         {[
-          { label: "Clients indexés", value: totalClients, color: "text-blue-600" },
-          { label: "Multi-identifiants", value: duplicateCount, color: "text-violet-600" },
+          { label: "Clients absents (uniques)", value: totalClients, color: "text-rose-600" },
+          { label: "Mêmes noms, IDs diff.", value: duplicateCount, color: "text-violet-600" },
           { label: "Mois importés", value: uniqueMonthCount, color: "text-amber-600" },
         ].map((kpi, i) => (
           <div key={i} className={cn("px-4 py-3 text-center", i < 2 && "border-r border-slate-100 dark:border-slate-800")}>
@@ -359,7 +357,7 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
                     ))}
                     {group.isDuplicate && (
                       <span className="text-[9px] font-black px-1.5 py-0.5 rounded-lg bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 flex items-center gap-1">
-                        <Fingerprint className="h-2.5 w-2.5" />Multi-ID
+                        <Fingerprint className="h-2.5 w-2.5" />Même client, IDs diff.
                       </span>
                     )}
                   </div>
@@ -384,7 +382,7 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
                       ))}
                       {group.isDuplicate && (
                         <span className="text-[9px] text-violet-600 font-bold flex items-center gap-1 ml-1">
-                          <AlertCircle className="h-3 w-3" />Doublon potentiel (multi-documents)
+                          <AlertCircle className="h-3 w-3" />Ce client a plusieurs identifiants → pourrait être détecté sous plusieurs documents
                         </span>
                       )}
                     </div>

@@ -96,9 +96,8 @@ const buildAgencyEcartForMonth = (
   const processRows = (rows: any[], idCol: string, agenceCol: string, nameCol: string) => {
     if (!rows || !Array.isArray(rows)) return;
     for (const row of rows) {
-      // Only true absences (not similitude matches)
-      const matchType = row.__matchType || "Absent";
-      if (!/absent/i.test(matchType)) continue;
+      // missingRows contains ONLY absent clients (matchType="Aucun" from the comparison engine)
+      // No need to filter by matchType — if it's in missingRows, it IS absent
 
       const agRaw = row[agenceCol] || row["N_GESTIONNAIRE"] || "";
       const agInfo = resolveAgencyInfo(agRaw);
