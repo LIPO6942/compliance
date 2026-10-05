@@ -13,7 +13,8 @@ import {
   Info,
   Plus,
   History,
-  Hash
+  Hash,
+  Settings2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -25,8 +26,10 @@ import { TestCasesTable } from "@/components/cahier-recette/TestCasesTable";
 import { AnomaliesGrid } from "@/components/cahier-recette/AnomaliesGrid";
 import { TestBookCoverCard } from "@/components/cahier-recette/TestBookCoverCard";
 import { AuditLogModal } from "@/components/cahier-recette/AuditLogModal";
+import { ModuleManagerModal } from "@/components/cahier-recette/ModuleManagerModal";
 import { db, isFirebaseConfigured } from "@/lib/firebase";
 import { useUser } from "@/contexts/UserContext";
+import { useActivityLog } from "@/contexts/ActivityLogContext";
 
 const cleanData = (data: any): any => {
   if (Array.isArray(data)) {
@@ -104,8 +107,11 @@ export default function TestBookPage() {
   const [highlightedAnomalyId, setHighlightedAnomalyId] = useState<string | null>(null);
   const [highlightedTestId, setHighlightedTestId] = useState<string | null>(null);
   const [isAuditLogOpen, setIsAuditLogOpen] = useState(false);
+  const [isModuleManagerOpen, setIsModuleManagerOpen] = useState(false);
   const { user } = useUser();
+  const { isAdmin } = useActivityLog();
   const currentUser = user?.name || "Équipe Conformité";
+  const userIsAdmin = user ? isAdmin(user.authEmail || user.email || "") : false;
 
   const handleNavigateToAnomaly = (anomalyId: string) => {
     setHighlightedAnomalyId(anomalyId);
@@ -581,6 +587,57 @@ export default function TestBookPage() {
     }
   };
 
+  // Admin: rename a functional module across all test cases and anomalies
+  const handleRenameModule = (oldName: string, newName: string) => {
+    const nowIso = new Date().toISOString();
+    const oldKey = oldName.trim().toLowerCase();
+
+    const updatedTests = testCases.map((t) => {
+      if ((t.module || "").trim().toLowerCase() !== oldKey) return t;
+      const auditEntry: AuditEntry = {
+        timestamp: nowIso,
+        author: currentUser,
+        action: "Modification",
+        changes: `Module renommé : "${oldName}" → "${newName}" (action admin)`,
+      };
+      return {
+        ...t,
+        module: newName,
+        updatedAt: nowIso,
+        auditHistory: [auditEntry, ...(t.auditHistory || [])],
+      };
+    });
+
+    const updatedAnomalies = anomalies.map((a) => {
+      if ((a.module || "").trim().toLowerCase() !== oldKey) return a;
+      const auditEntry: AuditEntry = {
+        timestamp: nowIso,
+        author: currentUser,
+        action: "Modification",
+        changes: `Module renommé : "${oldName}" → "${newName}" (action admin)`,
+      };
+      return {
+        ...a,
+        module: newName,
+        updatedAt: nowIso,
+        auditHistory: [auditEntry, ...(a.auditHistory || [])],
+      };
+    });
+
+    // Update selected module filter if it was pointing at the old name
+    if (selectedModule.trim().toLowerCase() === oldKey) {
+      setSelectedModule(newName);
+    }
+
+    setTestCases(updatedTests);
+    setAnomalies(updatedAnomalies);
+    saveToFirestore(updatedTests, updatedAnomalies);
+    toast({
+      title: "✅ Module renommé",
+      description: `Le module "${oldName}" a été renommé en "${newName}" sur ${updatedTests.filter(t => t.module === newName).length} test(s) et ${updatedAnomalies.filter(a => a.module === newName).length} anomalie(s).`,
+    });
+  };
+
   const handleResequenceIds = () => {
     if (!window.confirm(`Renuméroter les ${testCases.length} cas de test séquentiellement (T-001 à T-${String(testCases.length).padStart(3, "0")}) ?\n\nLes références dans les anomalies seront mises à jour automatiquement.`)) return;
     const { tests: resequenced, anomalies: updatedAnomalies } = resequenceTests(testCases, anomalies);
@@ -662,6 +719,20 @@ export default function TestBookPage() {
             <Hash className="h-4 w-4" />
             Renuméroter
           </Button>
+
+          {/* Gestion des modules — Admin uniquement */}
+          {userIsAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsModuleManagerOpen(true)}
+              title="Gérer et renommer les modules fonctionnels (Admin)"
+              className="rounded-xl border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 text-xs font-bold gap-1.5 shadow-xs"
+            >
+              <Settings2 className="h-4 w-4" />
+              Modules
+            </Button>
+          )}
 
           <Button
             variant="ghost"
@@ -799,6 +870,32 @@ export default function TestBookPage() {
       testCases={testCases}
       anomalies={anomalies}
     />
+
+    {/* Module Manager Modal — Admin only */}
+    {userIsAdmin && (
+      <ModuleManagerModal
+        isOpen={isModuleManagerOpen}
+        onClose={() => setIsModuleManagerOpen(false)}
+        modulesList={modulesList}
+        onRenameModule={handleRenameModule}
+        anomalyCountByModule={Object.fromEntries(
+          modulesList.map((m) => [
+            m.toLowerCase(),
+            anomalies.filter(
+              (a) => (a.module || "").trim().toLowerCase() === m.toLowerCase() && a.status !== "RESOLUE"
+            ).length,
+          ])
+        )}
+        testCountByModule={Object.fromEntries(
+          modulesList.map((m) => [
+            m.toLowerCase(),
+            testCases.filter(
+              (t) => (t.module || "").trim().toLowerCase() === m.toLowerCase()
+            ).length,
+          ])
+        )}
+      />
+    )}
     </>
   );
 }
