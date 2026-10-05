@@ -973,6 +973,12 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
   const isAllTreatedCol = keys.find(k => /^is.*treat|trait/i.test(k)) || "isAllTreated";
   const riskValueCol = keys.find(k => /risk.*val|valeur.*risque/i.test(k)) || "riskValue";
   const profileTypeCol = keys.find(k => /profile.*type|type.*profil/i.test(k)) || "potentialProfileType";
+  // ID column for multi-ID detection
+  const idCol = keys.find(k => /^identifiant$|^id$|^identifier$|^matricule$/i.test(k))
+    || keys.find(k => /identif|matricule/i.test(k)) || "";
+  // Name column for multi-ID detection
+  const nameCol = keys.find(k => /^nom|^name|^client/i.test(k) && !/num|n_|code/i.test(k))
+    || keys.find(k => /nom/i.test(k) && !/num|n_|n°/i.test(k)) || "";
 
   const riskLevels: Record<string, number> = { Faible: 0, Moyen: 0, Eleve: 0 };
   const formTypes: Record<string, number> = {};
@@ -981,6 +987,9 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
   let treatedCount = 0;
   let totalRiskValue = 0;
   let riskValueCount = 0;
+
+  // ─── Multi-ID detection: group by normalized name, count distinct IDs per name ──
+  const nameToIds: Record<string, Set<string>> = {};
 
   regtoolsData.forEach(row => {
     const rLevelVal = String(row[riskLevelCol] || "").trim().toLowerCase();
@@ -1047,7 +1056,27 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
       totalRiskValue += rVal;
       riskValueCount++;
     }
+
+    // Multi-ID detection: group by normalized name
+    if (nameCol && idCol) {
+      const rawName = String(row[nameCol] || "").trim();
+      const rawId = String(row[idCol] || "").trim();
+      if (rawName && rawId) {
+        const normName = rawName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+        const normId = rawId.toLowerCase().replace(/\s+/g, "").trim();
+        if (!nameToIds[normName]) nameToIds[normName] = new Set<string>();
+        nameToIds[normName].add(normId);
+      }
+    }
   });
+
+  // Count names with 2+ different IDs (= same client, multiple documents)
+  const multiIdClients = Object.values(nameToIds).filter(ids => ids.size >= 2).length;
+  const totalForms = regtoolsData.length;
+  // Estimated unique real clients = total RegTools rows minus the extra ID entries
+  // For a client with 2 IDs: counts as 2 rows in RegTools but is 1 real client
+  // Approximate: each multi-ID client has on average 2+ IDs → subtract 1 per multi-ID client
+  const estimatedUniqueClients = totalForms - multiIdClients;
 
   return {
     riskLevels,
@@ -1058,7 +1087,9 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
     sanctionedCount,
     treatedCount,
     avgRiskValue: riskValueCount > 0 ? parseFloat((totalRiskValue / riskValueCount).toFixed(2)) : 0,
-    totalForms: regtoolsData.length
+    totalForms,
+    multiIdClients,
+    estimatedUniqueClients,
   };
 };
 
@@ -5592,6 +5623,11 @@ export default function RegtoolsDiffPage() {
             savedReports={crossMonthReports.length > 0 ? crossMonthReports : savedReports}
             resolveAgencyInfo={resolveAgencyInfo}
             isExternalLoading={isLoadingCrossMonth}
+            regtoolsKPIs={
+              (crossMonthReports.length > 0 ? crossMonthReports : savedReports)
+                .map((r: any) => r.regtoolsKPIs)
+                .find((k: any) => k?.totalForms > 0) || null
+            }
           />
         </div>
       ) : pageTab === "tracker" ? (
