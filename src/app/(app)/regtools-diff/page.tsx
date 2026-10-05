@@ -5758,7 +5758,9 @@ export default function RegtoolsDiffPage() {
             regtoolsKPIs={
               (crossMonthReports.length > 0 ? crossMonthReports : savedReports)
                 .map((r: any) => r.regtoolsKPIs)
-                .find((k: any) => k?.totalForms > 0) || null
+                .filter((k: any) => k?.totalForms > 0)
+                // Take the report with the highest totalForms (most complete = most recent full import)
+                .sort((a: any, b: any) => (b.totalForms ?? 0) - (a.totalForms ?? 0))[0] || null
             }
           />
         </div>
