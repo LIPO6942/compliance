@@ -81,11 +81,11 @@ RÈGLES ABSOLUES :
           messages: [
             {
               role: "system",
-              content: "Tu es un assistant IA expert en conformité d'assurance MAE. Tu réponds exclusivement en JSON valide.",
+              content: "Tu es un expert senior en Gouvernance, Risque et Conformité (GRC) MAE Assurance. Tu dois VRAIMENT améliorer le texte fourni — vocabulaire professionnel, structure claire, phrases complètes et enrichies. Tu réponds EXCLUSIVEMENT en JSON valide.",
             },
             { role: "user", content: prompt },
           ],
-          temperature: 0.3,
+          temperature: 0.7,
         }),
       });
 
@@ -118,6 +118,57 @@ RÈGLES ABSOLUES :
   };
 }
 
+// ─── Dictionnaire d'enrichissement lexical métier ───────────────────────────
+const LEXICAL_UPGRADES: [RegExp, string][] = [
+  [/\bfiltrage\b/gi, "filtrage et identification"],
+  [/\bpar agence\b/gi, "par agence commerciale"],
+  [/\bsucc digitale?\b/gi, "succursale digitale"],
+  [/\bsucc\b/gi, "succursale"],
+  [/\bpb\b/gi, "problème"],
+  [/\bpbs\b/gi, "problèmes"],
+  [/\bpas ok\b/gi, "non conforme"],
+  [/\bko\b/gi, "non conforme"],
+  [/\bok\b/gi, "conforme"],
+  [/\bvérif\b/gi, "vérification"],
+  [/\bvérifs\b/gi, "vérifications"],
+  [/\bregtools\b/gi, "RegTools"],
+  [/\bmae\b/gi, "MAE Assurance"],
+  [/\bKYC\b/g, "Know Your Customer (KYC)"],
+  [/\bPEP\b/g, "Personne Politiquement Exposée (PEP)"],
+  [/\bAML\b/g, "Anti-Money Laundering (AML)"],
+  [/\bLAB\/FT\b/gi, "Lutte Contre le Blanchiment et le Financement du Terrorisme (LCB-FT)"],
+  [/\bnb\b/gi, "à noter"],
+  [/\bsvp\b/gi, "s'il vous plaît"],
+  [/\binfo\b/gi, "information"],
+  [/\binfos\b/gi, "informations"],
+  [/\bpas fonctionnel\b/gi, "non fonctionnel — action corrective requise"],
+  [/\bà corriger\b/gi, "à corriger en priorité"],
+  [/\bà vérifier\b/gi, "à vérifier impérativement"],
+  [/\bà faire\b/gi, "à traiter sans délai"],
+  [/\bsuivi\b/gi, "suivi opérationnel"],
+  [/\bcontrôle\b/gi, "contrôle de conformité"],
+];
+
+function applyLexicalUpgrades(text: string): string {
+  let result = text;
+  for (const [pattern, replacement] of LEXICAL_UPGRADES) {
+    result = result.replace(pattern, replacement);
+  }
+  return result;
+}
+
+function capitalizeSentences(t: string): string {
+  return t.replace(/(^|[.!?]\s+)([a-zàâçéèêëîïôûùüÿœæ])/g, (m, p, c) => p + c.toUpperCase());
+}
+
+function stripBullets(line: string): string {
+  return line.replace(/^[📌🎯⚠️•\-\*\d+\.\)]+\s*/, "").trim();
+}
+
+function endSentence(s: string): string {
+  return s.match(/[.!?:]$/) ? s : `${s}.`;
+}
+
 function generateRuleBasedReformulation(
   rawText: string,
   rawTitle?: string,
@@ -125,60 +176,108 @@ function generateRuleBasedReformulation(
   style?: "FORMAL" | "SYNTHETIC" | "LEGAL"
 ): { text: string; title: string } {
   const clean = rawText.trim();
-  const title = rawTitle?.trim() || "Point de vigilance Conformité";
+  const inputTitle = rawTitle?.trim() || "Point de vigilance Conformité";
 
-  // Helpers
-  const capitalizeSentences = (t: string) =>
-    t.replace(/(^|[.!?]\s+)([a-z])/g, (m, p, c) => p + c.toUpperCase());
-
-  const expandAbbreviations = (t: string) =>
-    t
-      .replace(/\bKYC\b/g, "Know Your Customer (KYC)")
-      .replace(/\bPEP\b/g, "Personne Politiquement Exposée (PEP)")
-      .replace(/\bAML\b/g, "Anti-Money Laundering (AML)")
-      .replace(/\bLAB\/FT\b/gi, "LCB-FT");
-
-  // Split lines and strip bullet markers
   const rawLines = clean.split("\n").filter((l) => l.trim().length > 0);
-  const strippedLines = rawLines.map((l) => l.replace(/^[📌•\-\*]\s*/, "").trim());
+  const strippedLines = rawLines.map(stripBullets).filter(Boolean);
 
+  const enrichedTitle = capitalizeSentences(applyLexicalUpgrades(inputTitle));
+
+  const pillarCtx =
+    pillar === "LAB_FT"
+      ? "dans le cadre du dispositif LCB-FT"
+      : pillar === "CONFORMITE_REGLEMENTAIRE"
+      ? "au titre des exigences de conformité réglementaire"
+      : "dans le cadre de la gouvernance interne";
+
+  // ── MODE SYNTHÉTIQUE ──────────────────────────────────────────────────────
   if (style === "SYNTHETIC") {
-    // Format as concise bullet points
-    const bullets = strippedLines
-      .map((l) => `• ${capitalizeSentences(expandAbbreviations(l))}`)
-      .join("\n");
-    return {
-      title: `[Synthèse] ${title}`,
-      text: `📌 Point d'attention :\n${bullets}`,
-    };
-  }
-
-  if (style === "LEGAL") {
-    // Convert each line to a full formal compliance sentence
-    const sentences = strippedLines.map((l) => {
-      const base = capitalizeSentences(expandAbbreviations(l));
-      // If the line starts with a verb in infinitive form, prefix with "Il convient de"
-      if (/^(expliquer|vérifier|contrôler|s'assurer|mettre|corriger|supprimer|ajouter|modifier)/i.test(base)) {
-        return `Il convient de ${base.charAt(0).toLowerCase() + base.slice(1)}.`;
+    const actionVerbs = ["Vérifier", "Contrôler", "S'assurer de", "Identifier", "Documenter", "Mettre en œuvre", "Tracer"];
+    const bullets = strippedLines.map((l, i) => {
+      const enriched = capitalizeSentences(applyLexicalUpgrades(l));
+      const wordCount = enriched.split(/\s+/).length;
+      if (wordCount < 5) {
+        const verb = actionVerbs[i % actionVerbs.length];
+        return `• ${verb} : ${enriched.charAt(0).toLowerCase() + enriched.slice(1)}.`;
       }
-      return base.endsWith(".") ? base : `${base}.`;
+      return `• ${endSentence(enriched)}`;
     });
+    const pillarTag =
+      pillar === "LAB_FT" ? "[LCB-FT]" :
+      pillar === "CONFORMITE_REGLEMENTAIRE" ? "[Conformité Réglementaire]" : "[Gouvernance]";
     return {
-      title: `[Obligation] ${title}`,
-      text: sentences.join("\n"),
+      title: `${pillarTag} ${enrichedTitle}`,
+      text: `📌 Points de vigilance — Actions requises :\n\n${bullets.join("\n")}`,
     };
   }
 
-  // FORMAL Default — convert notes to professional prose sentences
+  // ── MODE RÉGLEMENTAIRE ────────────────────────────────────────────────────
+  if (style === "LEGAL") {
+    const legalPrefixes = [
+      "Il convient de",
+      "Il est requis de",
+      "Il y a lieu de",
+      "L'équipe conformité doit",
+      "Il est impératif de",
+    ];
+    const obligations = strippedLines.map((l, i) => {
+      const enriched = applyLexicalUpgrades(l);
+      const base = capitalizeSentences(enriched);
+      if (/^(il convient|il est|il y a|l'équipe|conformément|en application)/i.test(base)) {
+        return endSentence(base);
+      }
+      const prefix = legalPrefixes[i % legalPrefixes.length];
+      const lower = base.charAt(0).toLowerCase() + base.slice(1);
+      return endSentence(`${prefix} ${lower}`);
+    });
+    const numbered =
+      obligations.length > 1
+        ? obligations.map((o, i) => `${i + 1}. ${o}`).join("\n")
+        : obligations[0];
+    const legalIntro =
+      pillar === "LAB_FT"
+        ? "En application des dispositions LCB-FT en vigueur (Circulaire CTAF, Loi n° 2015-26), les obligations suivantes ont été identifiées :"
+        : pillar === "CONFORMITE_REGLEMENTAIRE"
+        ? "En vertu des exigences réglementaires applicables au secteur de l'assurance, les obligations suivantes ont été identifiées :"
+        : "Conformément aux règles de gouvernance interne de MAE Assurance, les obligations suivantes ont été identifiées :";
+    return {
+      title: `[Obligation Réglementaire] ${enrichedTitle}`,
+      text: `${legalIntro}\n\n${numbered}`,
+    };
+  }
+
+  // ── MODE FORMEL (défaut) ─────────────────────────────────────────────────
+  const formalIntro =
+    pillar === "LAB_FT"
+      ? "Dans le cadre du dispositif de Lutte Contre le Blanchiment et le Financement du Terrorisme (LCB-FT),"
+      : pillar === "CONFORMITE_REGLEMENTAIRE"
+      ? "Dans le cadre du programme de conformité réglementaire de MAE Assurance,"
+      : "Dans le cadre du suivi de gouvernance et de conformité interne,";
+
   const sentences = strippedLines.map((l) => {
-    const base = capitalizeSentences(expandAbbreviations(l));
-    return base.endsWith(".") || base.endsWith(":") ? base : `${base}.`;
+    const enriched = applyLexicalUpgrades(l);
+    const base = capitalizeSentences(enriched);
+    // Compléter les phrases trop courtes avec contexte
+    const wordCount = base.split(/\s+/).length;
+    if (wordCount < 6) {
+      return endSentence(`${base} (point relevé ${pillarCtx})`);
+    }
+    return endSentence(base);
   });
+
+  const prose = sentences.join(" ");
+  let formalText = `${formalIntro} le point suivant a été relevé :\n\n${prose}`;
+
+  if (strippedLines.length <= 2) {
+    formalText += `\n\nCe point est signalé à l'attention de l'équipe concernée pour suivi et traitement dans les meilleurs délais.`;
+  }
+
   return {
-    title: title,
-    text: sentences.join(" "),
+    title: enrichedTitle,
+    text: formalText,
   };
 }
+
 
 
 export async function generateAutoTitleAction(params: {
