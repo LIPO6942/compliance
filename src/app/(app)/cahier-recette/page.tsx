@@ -638,6 +638,50 @@ export default function TestBookPage() {
     });
   };
 
+  // Admin: transfer all tests+anomalies from one module to another
+  const handleTransferModule = (fromModule: string, toModule: string) => {
+    const nowIso = new Date().toISOString();
+    const fromKey = fromModule.trim().toLowerCase();
+
+    const updatedTests = testCases.map((t) => {
+      if ((t.module || "").trim().toLowerCase() !== fromKey) return t;
+      const auditEntry: AuditEntry = {
+        timestamp: nowIso,
+        author: currentUser,
+        action: "Modification",
+        changes: `Module transféré : "${fromModule}" → "${toModule}" (action admin)`,
+      };
+      return { ...t, module: toModule, updatedAt: nowIso, auditHistory: [auditEntry, ...(t.auditHistory || [])] };
+    });
+
+    const updatedAnomalies = anomalies.map((a) => {
+      if ((a.module || "").trim().toLowerCase() !== fromKey) return a;
+      const auditEntry: AuditEntry = {
+        timestamp: nowIso,
+        author: currentUser,
+        action: "Modification",
+        changes: `Module transféré : "${fromModule}" → "${toModule}" (action admin)`,
+      };
+      return { ...a, module: toModule, updatedAt: nowIso, auditHistory: [auditEntry, ...(a.auditHistory || [])] };
+    });
+
+    // Update active module filter if it was pointing at source
+    if (selectedModule.trim().toLowerCase() === fromKey) {
+      setSelectedModule(toModule);
+    }
+
+    const transferredTests = updatedTests.filter(t => t.module === toModule && (testCases.find(o => o.id === t.id)?.module || "").trim().toLowerCase() === fromKey).length;
+    const transferredAnos  = updatedAnomalies.filter(a => a.module === toModule && (anomalies.find(o => o.id === a.id)?.module || "").trim().toLowerCase() === fromKey).length;
+
+    setTestCases(updatedTests);
+    setAnomalies(updatedAnomalies);
+    saveToFirestore(updatedTests, updatedAnomalies);
+    toast({
+      title: "✅ Transfert effectué",
+      description: `${transferredTests} test(s) et ${transferredAnos} anomalie(s) transférés de "${fromModule}" vers "${toModule}".`,
+    });
+  };
+
   const handleResequenceIds = () => {
     if (!window.confirm(`Renuméroter les ${testCases.length} cas de test séquentiellement (T-001 à T-${String(testCases.length).padStart(3, "0")}) ?\n\nLes références dans les anomalies seront mises à jour automatiquement.`)) return;
     const { tests: resequenced, anomalies: updatedAnomalies } = resequenceTests(testCases, anomalies);
@@ -878,6 +922,7 @@ export default function TestBookPage() {
         onClose={() => setIsModuleManagerOpen(false)}
         modulesList={modulesList}
         onRenameModule={handleRenameModule}
+        onTransferModule={handleTransferModule}
         anomalyCountByModule={Object.fromEntries(
           modulesList.map((m) => [
             m.toLowerCase(),
