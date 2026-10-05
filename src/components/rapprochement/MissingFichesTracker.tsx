@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   ClipboardList, CheckCircle2, XCircle, AlertTriangle, Building2,
   Calendar, ChevronDown, ChevronRight, X, TrendingDown, TrendingUp,
-  Minus, ArrowRight, RefreshCw, Hash
+  Minus, ArrowRight, RefreshCw, Hash, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -55,10 +55,36 @@ interface MissingFichesTrackerProps {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
+// Returns sorted unique BASE month keys (e.g. "052026"), merging NS+VIE duplicates
 const sortedMonthKeys = (reports: any[]): string[] => {
-  const keys = new Set<string>();
-  reports.forEach(r => keys.add(r.monthKey));
-  return [...keys].sort();
+  const bases = new Set<string>();
+  reports.forEach(r => {
+    const base = String(r.monthKey || "").replace(/_(NS|VIE)$/i, "");
+    if (base) bases.add(base);
+  });
+  return [...bases].sort();
+};
+
+// Merge all reports that share the same base month key into one combined report
+const mergeReportsForBaseKey = (reports: any[], baseKey: string): any => {
+  const matching = reports.filter(r =>
+    String(r.monthKey || "").replace(/_(NS|VIE)$/i, "") === baseKey
+  );
+  if (matching.length === 0) return null;
+  if (matching.length === 1) return matching[0];
+  // Merge: combine missingRows and similarRows from all matching
+  const merged = { ...matching[0] };
+  const allMissing: any[] = [];
+  const allSimilar: any[] = [];
+  matching.forEach(r => {
+    if (r.missingRows) allMissing.push(...r.missingRows);
+    if (r.similarRows) allSimilar.push(...r.similarRows);
+  });
+  merged.missingRows = allMissing;
+  merged.similarRows = allSimilar;
+  merged.monthKey = baseKey;
+  merged.reconciliationType = "BOTH";
+  return merged;
 };
 
 const buildAgencyEcartForMonth = (
@@ -139,17 +165,45 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
   const [typeFilter, setTypeFilter] = useState<"ALL" | "Succursale" | "Agence" | "courtier">("ALL");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "RESOLVED" | "PERSISTENT" | "NEW">("ALL");
   const [expandedClientRow, setExpandedClientRow] = useState<string | null>(null);
+  const [enrichedReports, setEnrichedReports] = useState<any[]>(savedReports);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // ─── Load full report data from localStorage on mount ───────────────────────
+  useEffect(() => {
+    setIsLoading(true);
+    const enriched = savedReports.map(report => {
+      if (report.missingRows && report.missingRows.length > 0) return report;
+      try {
+        const stored = localStorage.getItem(`regtools_report_${report.monthKey}`);
+        if (stored) {
+          const full = JSON.parse(stored);
+          return { ...report, ...full };
+        }
+      } catch (e) { /* ignore */ }
+      return report;
+    });
+    setEnrichedReports(enriched);
+    setIsLoading(false);
+  }, [savedReports]);
+
+  // Unique base months (strip _NS / _VIE suffix)
+  const uniqueMonthCount = useMemo(() => {
+    const bases = new Set(savedReports.map(r => String(r.monthKey).replace(/_(NS|VIE)$/i, "")));
+    return bases.size;
+  }, [savedReports]);
 
   // ─── Build month-by-month per-agency ecart data ──────────────────────────
   const { months, trackerEntries, orderedMonthKeys } = useMemo(() => {
-    const orderedKeys = sortedMonthKeys(savedReports);
+    const orderedKeys = sortedMonthKeys(enrichedReports);
 
     // Map monthKey -> { agenceCode -> Set<identifiant> }
     const monthAgencyIds: Record<string, Record<string, Set<string>>> = {};
     const monthEcartByReport: Record<string, AgencyEcart[]> = {};
 
-    for (const report of savedReports) {
-      const mk = report.monthKey;
+    for (const baseKey of orderedKeys) {
+      const report = mergeReportsForBaseKey(enrichedReports, baseKey);
+      if (!report) continue;
+      const mk = baseKey;
       const ecarts = buildAgencyEcartForMonth(report, resolveAgencyInfo);
       monthEcartByReport[mk] = ecarts;
       monthAgencyIds[mk] = {};
@@ -171,7 +225,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
       const monthsData: TrackerEntry["months"] = {};
 
       orderedKeys.forEach((mk, idx) => {
-        const report = savedReports.find(r => r.monthKey === mk);
+        const report = mergeReportsForBaseKey(enrichedReports, mk);
         const monthLabel = report?.monthLabel || mk;
         const currentEcart = monthEcartByReport[mk]?.find(ag => ag.agenceCode === code);
         const currentIds = monthAgencyIds[mk]?.[code] || new Set<string>();
@@ -221,7 +275,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
 
     // Build months summary for the header
     const monthsSummary: MonthEcartReport[] = orderedKeys.map(mk => {
-      const report = savedReports.find(r => r.monthKey === mk);
+      const report = mergeReportsForBaseKey(enrichedReports, mk);
       const ecarts = monthEcartByReport[mk] || [];
       return {
         monthKey: mk,
@@ -232,7 +286,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
     });
 
     return { months: monthsSummary, trackerEntries: entries, orderedMonthKeys: orderedKeys };
-  }, [savedReports, resolveAgencyInfo]);
+  }, [enrichedReports, resolveAgencyInfo]);
 
   const lastMonthKey = orderedMonthKeys[orderedMonthKeys.length - 1] || "";
   const prevMonthKey = orderedMonthKeys[orderedMonthKeys.length - 2] || "";
@@ -372,6 +426,11 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
             <RefreshCw className="h-8 w-8 mx-auto mb-3 opacity-40" />
             Importez au moins <strong>2 mois</strong> de rapprochement pour activer le suivi.
           </div>
+        ) : isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
+            <Loader2 className="h-8 w-8 animate-spin text-rose-400" />
+            <p className="text-xs font-semibold">Chargement des données depuis l'historique...</p>
+          </div>
         ) : filteredEntries.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-xs font-semibold">
             Aucune agence avec écart trouvée pour ce filtre.
@@ -478,7 +537,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                       <div className="space-y-1 max-h-40 overflow-y-auto">
                         {/* Find client objects from the report */}
                         {(() => {
-                          const report = savedReports.find(r => r.monthKey === lastMonthKey);
+                          const report = mergeReportsForBaseKey(enrichedReports, lastMonthKey);
                           if (!report) return null;
                           const ecarts = buildAgencyEcartForMonth(report, resolveAgencyInfo);
                           const agEcart = ecarts.find(a => a.agenceCode === entry.agenceCode);

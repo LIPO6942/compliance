@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Search, UserRound, Building2, Calendar, Hash, AlertCircle,
-  ChevronDown, ChevronRight, X, Fingerprint, Users
+  ChevronDown, ChevronRight, X, Fingerprint, Users, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +64,37 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
   const [expandedClient, setExpandedClient] = useState<string | null>(null);
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
   const [portfolioFilter, setPortfolioFilter] = useState<"ALL" | "NS" | "VIE">("ALL");
+  const [enrichedReports, setEnrichedReports] = useState<any[]>(savedReports);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // ─── Load full report data (missingRows) from localStorage on mount ───────
+  useEffect(() => {
+    setIsLoading(true);
+    const load = async () => {
+      const enriched = savedReports.map(report => {
+        // If already has missingRows data, use as-is
+        if (report.missingRows && report.missingRows.length > 0) return report;
+        // Try to load from localStorage
+        try {
+          const stored = localStorage.getItem(`regtools_report_${report.monthKey}`);
+          if (stored) {
+            const full = JSON.parse(stored);
+            return { ...report, ...full };
+          }
+        } catch (e) { /* ignore */ }
+        return report;
+      });
+      setEnrichedReports(enriched);
+      setIsLoading(false);
+    };
+    load();
+  }, [savedReports]);
+
+  // Unique base months (strip _NS / _VIE suffix)
+  const uniqueMonthCount = useMemo(() => {
+    const bases = new Set(savedReports.map(r => String(r.monthKey).replace(/_(NS|VIE)$/i, "")));
+    return bases.size;
+  }, [savedReports]);
 
   const clientIndex = useMemo((): ClientGroup[] => {
     const groups: Record<string, ClientGroup> = {};
@@ -126,7 +157,7 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
       }
     };
 
-    for (const report of savedReports) {
+    for (const report of enrichedReports) {
       const monthKey: string = report.monthKey || "";
       const monthLabel: string = report.monthLabel || monthKey;
       const rType = report.reconciliationType || "NS";
@@ -160,7 +191,7 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
     });
 
     return Object.values(groups).sort((a, b) => b.occurrences.length - a.occurrences.length);
-  }, [savedReports, resolveAgencyInfo]);
+  }, [enrichedReports, resolveAgencyInfo]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -193,7 +224,9 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
           </div>
           <div>
             <h2 className="text-sm font-black text-slate-900 dark:text-white">Recherche Client — Cross-Mois</h2>
-            <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{totalClients.toLocaleString("fr-FR")} clients · {savedReports.length} mois importés</p>
+            <p className="text-[10px] text-slate-500 mt-0.5 font-medium">
+              {isLoading ? "Chargement des données..." : `${totalClients.toLocaleString("fr-FR")} clients · ${uniqueMonthCount} mois importés`}
+            </p>
           </div>
         </div>
         {onClose && (
@@ -208,10 +241,14 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
         {[
           { label: "Clients indexés", value: totalClients, color: "text-blue-600" },
           { label: "Multi-identifiants", value: duplicateCount, color: "text-violet-600" },
-          { label: "Mois importés", value: savedReports.length, color: "text-amber-600" },
+          { label: "Mois importés", value: uniqueMonthCount, color: "text-amber-600" },
         ].map((kpi, i) => (
           <div key={i} className={cn("px-4 py-3 text-center", i < 2 && "border-r border-slate-100 dark:border-slate-800")}>
-            <p className={cn("text-lg font-black", kpi.color)}>{kpi.value.toLocaleString("fr-FR")}</p>
+            {isLoading && kpi.label !== "Mois importés" ? (
+              <Loader2 className="h-5 w-5 mx-auto animate-spin text-slate-300" />
+            ) : (
+              <p className={cn("text-lg font-black", kpi.color)}>{kpi.value.toLocaleString("fr-FR")}</p>
+            )}
             <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{kpi.label}</p>
           </div>
         ))}
@@ -256,7 +293,12 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
 
       {/* Results */}
       <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2">
-        {totalClients === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+            <p className="text-xs font-semibold">Chargement des données depuis l'historique...</p>
+          </div>
+        ) : totalClients === 0 ? (
           <div className="text-center py-16 text-slate-400 text-xs font-semibold">
             <Users className="h-8 w-8 mx-auto mb-3 opacity-40" />
             Aucune donnée. Importez au moins un rapport pour indexer les clients.
