@@ -2,6 +2,8 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import * as XLSX from "xlsx";
+import { ClientSearchPanel } from "@/components/rapprochement/ClientSearchPanel";
+import { MissingFichesTracker } from "@/components/rapprochement/MissingFichesTracker";
 import {
   Upload,
   FileSpreadsheet,
@@ -1302,7 +1304,7 @@ export default function RegtoolsDiffPage() {
   const [statsSortDirection, setStatsSortDirection] = useState<"asc" | "desc">("asc");
 
   // Page Tab state and History state
-  const [pageTab, setPageTab] = useState<"new" | "history">("new");
+  const [pageTab, setPageTab] = useState<"new" | "history" | "search" | "tracker">("new");
   const [savedReports, setSavedReports] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
@@ -5490,10 +5492,7 @@ export default function RegtoolsDiffPage() {
           {/* Page Switcher */}
           <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
             <button
-              onClick={() => {
-                setPageTab("new");
-                setShowHistoryColumnDropdown(false);
-              }}
+              onClick={() => { setPageTab("new"); setShowHistoryColumnDropdown(false); }}
               className={cn(
                 "px-4 py-2 text-xs font-semibold rounded-lg transition-all",
                 pageTab === "new"
@@ -5504,11 +5503,7 @@ export default function RegtoolsDiffPage() {
               Nouveau Rapprochement
             </button>
             <button
-              onClick={() => {
-                setPageTab("history");
-                loadHistory();
-                setShowColumnDropdown(false);
-              }}
+              onClick={() => { setPageTab("history"); loadHistory(); setShowColumnDropdown(false); }}
               className={cn(
                 "px-4 py-2 text-xs font-semibold rounded-lg transition-all",
                 pageTab === "history"
@@ -5518,11 +5513,47 @@ export default function RegtoolsDiffPage() {
             >
               Historique des Rapports ({groupedHistoryReports.length})
             </button>
+            <button
+              onClick={() => { setPageTab("search"); loadHistory(); }}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg transition-all",
+                pageTab === "search"
+                  ? "bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              )}
+            >
+              🔍 Recherche Client
+            </button>
+            <button
+              onClick={() => { setPageTab("tracker"); loadHistory(); }}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg transition-all",
+                pageTab === "tracker"
+                  ? "bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              )}
+            >
+              📋 Suivi Écarts
+            </button>
           </div>
         </div>
       </div>
 
-      {pageTab === "new" ? (
+      {pageTab === "search" ? (
+        <div className="min-h-[600px]">
+          <ClientSearchPanel
+            savedReports={savedReports}
+            resolveAgencyInfo={resolveAgencyInfo}
+          />
+        </div>
+      ) : pageTab === "tracker" ? (
+        <div className="min-h-[600px]">
+          <MissingFichesTracker
+            savedReports={savedReports}
+            resolveAgencyInfo={resolveAgencyInfo}
+          />
+        </div>
+      ) : pageTab === "new" ? (
         <>
           {/* Info Card */}
           <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-500/5 dark:via-purple-500/5 dark:to-pink-500/5 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-1.5 shadow-sm">
