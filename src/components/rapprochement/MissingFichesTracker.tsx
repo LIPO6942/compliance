@@ -168,20 +168,50 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
   const [enrichedReports, setEnrichedReports] = useState<any[]>(savedReports);
   const [isLoading, setIsLoading] = useState(false);
 
-  // ─── Load full report data from localStorage on mount ───────────────────────
+  // ─── Load full report data / unminify Firestore data on mount ─────────────
   useEffect(() => {
     setIsLoading(true);
+
+    const unminify = (minified: any[][], cols: string[]): any[] => {
+      if (!minified || !cols || cols.length === 0) return [];
+      return minified.map(rowArr => {
+        const rowObj: any = {};
+        cols.forEach((col, idx) => { rowObj[col] = rowArr[idx]; });
+        const lastEl = rowArr[rowArr.length - 1];
+        if (rowArr.length === cols.length + 1 && typeof lastEl === "string" && lastEl.startsWith("{")) {
+          try { Object.assign(rowObj, JSON.parse(lastEl)); } catch (e) { /* ignore */ }
+        }
+        return rowObj;
+      });
+    };
+
     const enriched = savedReports.map(report => {
       if (report.missingRows && report.missingRows.length > 0) return report;
+
+      let result = { ...report };
+
+      // 1. Try localStorage
       try {
         const stored = localStorage.getItem(`regtools_report_${report.monthKey}`);
         if (stored) {
           const full = JSON.parse(stored);
-          return { ...report, ...full };
+          result = { ...result, ...full };
         }
       } catch (e) { /* ignore */ }
-      return report;
+
+      // 2. Unminify from Firestore compressed data
+      if ((!result.missingRows || result.missingRows.length === 0) && result.minifiedMissingRows && result.minifiedMissingRows.length > 0) {
+        const cols = result.columnsNS || [];
+        result.missingRows = unminify(result.minifiedMissingRows, cols);
+      }
+      if ((!result.similarRows || result.similarRows.length === 0) && result.minifiedSimilarRows && result.minifiedSimilarRows.length > 0) {
+        const cols = result.columnsNS || [];
+        result.similarRows = unminify(result.minifiedSimilarRows, cols);
+      }
+
+      return result;
     });
+
     setEnrichedReports(enriched);
     setIsLoading(false);
   }, [savedReports]);

@@ -3075,6 +3075,22 @@ export default function RegtoolsDiffPage() {
       }
     }
 
+    // Pre-unminify missingRows for cross-month tools (ClientSearchPanel, MissingFichesTracker)
+    // This avoids each component having to handle Firestore decompression independently
+    for (let i = 0; i < reportsList.length; i++) {
+      const r = reportsList[i];
+      if ((!r.missingRows || r.missingRows.length === 0) && r.minifiedMissingRows && r.minifiedMissingRows.length > 0) {
+        const cols: string[] = r.columnsNS || [];
+        if (cols.length > 0) {
+          reportsList[i] = {
+            ...r,
+            missingRows: unminifyRows(r.minifiedMissingRows, cols),
+            similarRows: r.minifiedSimilarRows ? unminifyRows(r.minifiedSimilarRows, cols) : (r.similarRows || []),
+          };
+        }
+      }
+    }
+
     // Sort by monthKey descending (e.g. 062026, 052026)
     reportsList.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
     setSavedReports(reportsList);

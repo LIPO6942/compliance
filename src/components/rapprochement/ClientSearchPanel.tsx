@@ -67,27 +67,55 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
   const [enrichedReports, setEnrichedReports] = useState<any[]>(savedReports);
   const [isLoading, setIsLoading] = useState(false);
 
-  // ─── Load full report data (missingRows) from localStorage on mount ───────
+  // ─── Load full report data from localStorage / unminify Firestore data on mount ───
   useEffect(() => {
     setIsLoading(true);
-    const load = async () => {
-      const enriched = savedReports.map(report => {
-        // If already has missingRows data, use as-is
-        if (report.missingRows && report.missingRows.length > 0) return report;
-        // Try to load from localStorage
-        try {
-          const stored = localStorage.getItem(`regtools_report_${report.monthKey}`);
-          if (stored) {
-            const full = JSON.parse(stored);
-            return { ...report, ...full };
-          }
-        } catch (e) { /* ignore */ }
-        return report;
+
+    // Replicate the unminifyRows logic from page.tsx
+    const unminify = (minified: any[][], cols: string[]): any[] => {
+      if (!minified || !cols || cols.length === 0) return [];
+      return minified.map(rowArr => {
+        const rowObj: any = {};
+        cols.forEach((col, idx) => { rowObj[col] = rowArr[idx]; });
+        // Last element may be JSON-stringified extras ({ __sourcePortfolio, __matchType, ... })
+        const lastEl = rowArr[rowArr.length - 1];
+        if (rowArr.length === cols.length + 1 && typeof lastEl === "string" && lastEl.startsWith("{")) {
+          try { Object.assign(rowObj, JSON.parse(lastEl)); } catch (e) { /* ignore */ }
+        }
+        return rowObj;
       });
-      setEnrichedReports(enriched);
-      setIsLoading(false);
     };
-    load();
+
+    const enriched = savedReports.map(report => {
+      // Already fully loaded
+      if (report.missingRows && report.missingRows.length > 0) return report;
+
+      let result = { ...report };
+
+      // 1. Try localStorage for the full saved report
+      try {
+        const stored = localStorage.getItem(`regtools_report_${report.monthKey}`);
+        if (stored) {
+          const full = JSON.parse(stored);
+          result = { ...result, ...full };
+        }
+      } catch (e) { /* ignore */ }
+
+      // 2. If still no missingRows, unminify from minifiedMissingRows
+      if ((!result.missingRows || result.missingRows.length === 0) && result.minifiedMissingRows && result.minifiedMissingRows.length > 0) {
+        const cols = result.columnsNS || [];
+        result.missingRows = unminify(result.minifiedMissingRows, cols);
+      }
+      if ((!result.similarRows || result.similarRows.length === 0) && result.minifiedSimilarRows && result.minifiedSimilarRows.length > 0) {
+        const cols = result.columnsNS || [];
+        result.similarRows = unminify(result.minifiedSimilarRows, cols);
+      }
+
+      return result;
+    });
+
+    setEnrichedReports(enriched);
+    setIsLoading(false);
   }, [savedReports]);
 
   // Unique base months (strip _NS / _VIE suffix)
