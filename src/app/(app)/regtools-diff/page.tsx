@@ -1309,6 +1309,9 @@ export default function RegtoolsDiffPage() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
   const [selectedHistoryReport, setSelectedHistoryReport] = useState<any | null>(null);
+  // Cross-month tools: fully-loaded reports (all months, with missingRows from sub-collections)
+  const [crossMonthReports, setCrossMonthReports] = useState<any[]>([]);
+  const [isLoadingCrossMonth, setIsLoadingCrossMonth] = useState(false);
 
   // History detail view states
   const [historyTab, setHistoryTab] = useState<"stats" | "list" | "similar" | "report">("stats");
@@ -3023,6 +3026,34 @@ export default function RegtoolsDiffPage() {
       pctMissing
     };
   }, [data.ns, data.vie, similarRows, missingRows, comparisonDone]);
+
+  // Load fully-hydrated reports for cross-month tools (Recherche Client + Suivi Écarts)
+  // Uses fetchSingleFullReportData which handles Firestore sub-collections
+  const loadCrossMonthData = useCallback(async () => {
+    if (isLoadingCrossMonth) return;
+    setIsLoadingCrossMonth(true);
+    try {
+      // Fetch full data for each unique base month (deduplicate NS/VIE)
+      const baseKeys = [...new Set(savedReports.map((r: any) => String(r.monthKey).replace(/_(NS|VIE)$/i, "")))].sort();
+      const results: any[] = [];
+      for (const baseKey of baseKeys) {
+        // Find all reports for this base month (NS + VIE)
+        const matching = savedReports.filter((r: any) => String(r.monthKey).replace(/_(NS|VIE)$/i, "") === baseKey);
+        for (const meta of matching) {
+          try {
+            const full = await fetchSingleFullReportData(meta);
+            if (full) results.push({ ...meta, ...full });
+            else results.push(meta);
+          } catch {
+            results.push(meta);
+          }
+        }
+      }
+      setCrossMonthReports(results);
+    } finally {
+      setIsLoadingCrossMonth(false);
+    }
+  }, [savedReports, isLoadingCrossMonth]);
 
   // Load History from Firestore & LocalStorage
   const loadHistory = useCallback(async () => {
@@ -5530,7 +5561,7 @@ export default function RegtoolsDiffPage() {
               Historique des Rapports ({groupedHistoryReports.length})
             </button>
             <button
-              onClick={() => { setPageTab("search"); loadHistory(); }}
+              onClick={() => { setPageTab("search"); loadHistory().then(() => loadCrossMonthData()); }}
               className={cn(
                 "flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg transition-all",
                 pageTab === "search"
@@ -5541,7 +5572,7 @@ export default function RegtoolsDiffPage() {
               🔍 Recherche Client
             </button>
             <button
-              onClick={() => { setPageTab("tracker"); loadHistory(); }}
+              onClick={() => { setPageTab("tracker"); loadHistory().then(() => loadCrossMonthData()); }}
               className={cn(
                 "flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg transition-all",
                 pageTab === "tracker"
@@ -5558,15 +5589,17 @@ export default function RegtoolsDiffPage() {
       {pageTab === "search" ? (
         <div className="min-h-[600px]">
           <ClientSearchPanel
-            savedReports={savedReports}
+            savedReports={crossMonthReports.length > 0 ? crossMonthReports : savedReports}
             resolveAgencyInfo={resolveAgencyInfo}
+            isExternalLoading={isLoadingCrossMonth}
           />
         </div>
       ) : pageTab === "tracker" ? (
         <div className="min-h-[600px]">
           <MissingFichesTracker
-            savedReports={savedReports}
+            savedReports={crossMonthReports.length > 0 ? crossMonthReports : savedReports}
             resolveAgencyInfo={resolveAgencyInfo}
+            isExternalLoading={isLoadingCrossMonth}
           />
         </div>
       ) : pageTab === "new" ? (

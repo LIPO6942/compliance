@@ -52,6 +52,7 @@ interface MissingFichesTrackerProps {
   savedReports: any[];
   resolveAgencyInfo: (code: any) => { code: string; name: string; type: string };
   onClose?: () => void;
+  isExternalLoading?: boolean;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -159,6 +160,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
   savedReports,
   resolveAgencyInfo,
   onClose,
+  isExternalLoading = false,
 }) => {
   const [expandedAgency, setExpandedAgency] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<"ALL" | "Succursale" | "Agence" | "courtier">("ALL");
@@ -166,6 +168,8 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
   const [expandedClientRow, setExpandedClientRow] = useState<string | null>(null);
   const [enrichedReports, setEnrichedReports] = useState<any[]>(savedReports);
   const [isLoading, setIsLoading] = useState(false);
+
+  const effectivelyLoading = isExternalLoading || isLoading;
 
   // ─── Load full report data / unminify Firestore data on mount ─────────────
   useEffect(() => {
@@ -455,10 +459,10 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
             <RefreshCw className="h-8 w-8 mx-auto mb-3 opacity-40" />
             Importez au moins <strong>2 mois</strong> de rapprochement pour activer le suivi.
           </div>
-        ) : isLoading ? (
+        ) : effectivelyLoading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
             <Loader2 className="h-8 w-8 animate-spin text-rose-400" />
-            <p className="text-xs font-semibold">Chargement des données depuis l'historique...</p>
+            <p className="text-xs font-semibold">Chargement des données depuis Firestore...</p>
           </div>
         ) : filteredEntries.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-xs font-semibold">

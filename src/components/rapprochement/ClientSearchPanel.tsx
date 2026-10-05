@@ -32,6 +32,7 @@ interface ClientSearchPanelProps {
   savedReports: any[];
   resolveAgencyInfo: (code: any) => { code: string; name: string; type: string };
   onClose?: () => void;
+  isExternalLoading?: boolean;
 }
 
 const normalizeName = (name: any): string => {
@@ -59,6 +60,7 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
   savedReports,
   resolveAgencyInfo,
   onClose,
+  isExternalLoading = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedClient, setExpandedClient] = useState<string | null>(null);
@@ -66,6 +68,8 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
   const [portfolioFilter, setPortfolioFilter] = useState<"ALL" | "NS" | "VIE">("ALL");
   const [enrichedReports, setEnrichedReports] = useState<any[]>(savedReports);
   const [isLoading, setIsLoading] = useState(false);
+
+  const effectivelyLoading = isExternalLoading || isLoading;
 
   // ─── Load full report data from localStorage / unminify Firestore data on mount ───
   useEffect(() => {
@@ -251,7 +255,7 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
           <div>
             <h2 className="text-sm font-black text-slate-900 dark:text-white">Recherche Client — Cross-Mois</h2>
             <p className="text-[10px] text-slate-500 mt-0.5 font-medium">
-              {isLoading ? "Chargement des données..." : `${totalClients.toLocaleString("fr-FR")} clients · ${uniqueMonthCount} mois importés`}
+              {effectivelyLoading ? "Chargement des données..." : `${totalClients.toLocaleString("fr-FR")} clients · ${uniqueMonthCount} mois importés`}
             </p>
           </div>
         </div>
@@ -270,7 +274,7 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
           { label: "Mois importés", value: uniqueMonthCount, color: "text-amber-600" },
         ].map((kpi, i) => (
           <div key={i} className={cn("px-4 py-3 text-center", i < 2 && "border-r border-slate-100 dark:border-slate-800")}>
-            {isLoading && kpi.label !== "Mois importés" ? (
+            {effectivelyLoading && kpi.label !== "Mois importés" ? (
               <Loader2 className="h-5 w-5 mx-auto animate-spin text-slate-300" />
             ) : (
               <p className={cn("text-lg font-black", kpi.color)}>{kpi.value.toLocaleString("fr-FR")}</p>
@@ -319,7 +323,7 @@ export const ClientSearchPanel: React.FC<ClientSearchPanelProps> = ({
 
       {/* Results */}
       <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2">
-        {isLoading ? (
+        {effectivelyLoading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
             <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
             <p className="text-xs font-semibold">Chargement des données depuis l'historique...</p>
