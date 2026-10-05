@@ -980,6 +980,25 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
   const nameCol = keys.find(k => /^nom|^name|^client/i.test(k) && !/num|n_|code/i.test(k))
     || keys.find(k => /nom/i.test(k) && !/num|n_|n°/i.test(k)) || "";
 
+  // ─── Multi-ID detection: discriminating columns (auto-detected) ──────────
+  const dobCol      = keys.find(k => /naissance|birth|dob|date.*naiss/i.test(k)) || "";
+  const genderCol   = keys.find(k => /^sexe$|^genre$|^gender$|^sex$/i.test(k)) || keys.find(k => /sexe|genre|gender/i.test(k)) || "";
+  const govCol      = keys.find(k => /gouvernorat|gouv(?!ern)|wilaya|region(?!al)/i.test(k)) || "";
+  const nationalCol = keys.find(k => /nationalite|nationality|natl/i.test(k)) || "";
+  const docTypeCol  = keys.find(k => /type.*doc|nature.*piece|type.*piece|piece.*identite/i.test(k)) || "";
+
+  // Structured list of discriminating columns (order matters for signature)
+  const multiIdSigCols: { col: string; label: string }[] = [
+    { col: dobCol,      label: "Date de naissance" },
+    { col: genderCol,   label: "Sexe / Genre" },
+    { col: govCol,      label: "Gouvernorat" },
+    { col: nationalCol, label: "Nationalité" },
+    { col: docTypeCol,  label: "Type de document" },
+  ].filter(c => c.col); // keep only detected columns
+
+  // Map compositeKey → display name (populated during forEach)
+  const nameToDisplay: Record<string, string> = {};
+
   const riskLevels: Record<string, number> = { Faible: 0, Moyen: 0, Eleve: 0 };
   const formTypes: Record<string, number> = {};
   let pepCount = 0;
@@ -988,7 +1007,7 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
   let totalRiskValue = 0;
   let riskValueCount = 0;
 
-  // ─── Multi-ID detection: group by normalized name, count distinct IDs per name ──
+  // ─── Multi-ID detection: composite key (name + discriminators) ───────────
   const nameToIds: Record<string, Set<string>> = {};
 
   regtoolsData.forEach(row => {
@@ -1057,25 +1076,75 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
       riskValueCount++;
     }
 
-    // Multi-ID detection: group by normalized name
+    // Multi-ID detection: multi-criteria composite key
+    // Key = normalized name + available discriminators (DOB, gender, gouvernorat, nationality)
     if (nameCol && idCol) {
       const rawName = String(row[nameCol] || "").trim();
-      const rawId = String(row[idCol] || "").trim();
+      const rawId   = String(row[idCol]   || "").trim();
       if (rawName && rawId) {
-        const normName = rawName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+        const normName = rawName.toLowerCase()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/\s+/g, " ").trim();
         const normId = rawId.toLowerCase().replace(/\s+/g, "").trim();
-        if (!nameToIds[normName]) nameToIds[normName] = new Set<string>();
-        nameToIds[normName].add(normId);
+
+        // Build composite signature from all available discriminating fields
+        const sig = multiIdSigCols.map(({ col }) => {
+          const v = col ? String(row[col] || "").trim().toLowerCase()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+          return v;
+        }).join("|");
+
+        // Composite key: name + discriminators
+        const compositeKey = `${normName}::${sig}`;
+        if (!nameToIds[compositeKey]) {
+          nameToIds[compositeKey] = new Set<string>();
+          nameToDisplay[compositeKey] = rawName.toUpperCase();
+        }
+        nameToIds[compositeKey].add(normId);
       }
     }
   });
 
-  // Count names with 2+ different IDs (= same client, multiple documents)
-  const multiIdClients = Object.values(nameToIds).filter(ids => ids.size >= 2).length;
+  // Columns used for signature — detected before the loop
+  // (declared here for reference but resolved above)
+
+  // ─── Classify suspects by confidence level ────────────────────────────────
+  // HIGH  : 3+ discriminators matched (name + DOB + at least 1 more)
+  // MEDIUM: 2 discriminators (name + DOB, or name + gender + gouvernorat)
+  // LOW   : name only (high false-positive risk)
+  const multiIdEntries = Object.entries(nameToIds).filter(([, ids]) => ids.size >= 2);
+
+  const multiIdDetails = multiIdEntries
+    .slice(0, 500)
+    .map(([compositeKey, ids]) => {
+      const [normName, sig] = compositeKey.split("::");
+      const sigParts = sig ? sig.split("|").filter(Boolean) : [];
+      // Confidence based on how many discriminators contributed to the sig
+      let confidence: "HIGH" | "MEDIUM" | "LOW";
+      if (sigParts.length >= 3) confidence = "HIGH";
+      else if (sigParts.length >= 1) confidence = "MEDIUM";
+      else confidence = "LOW";
+      return {
+        normName,
+        compositeKey,
+        displayName: nameToDisplay[compositeKey] || normName.toUpperCase(),
+        ids: [...ids],
+        confidence,
+        discriminators: sigParts.length, // how many extra criteria matched
+      };
+    })
+    // Sort: HIGH confidence first, then by number of IDs
+    .sort((a, b) => {
+      const cOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+      if (cOrder[a.confidence] !== cOrder[b.confidence]) return cOrder[a.confidence] - cOrder[b.confidence];
+      return b.ids.length - a.ids.length;
+    });
+
+  // For the "clean portfolio" KPI, only count HIGH + MEDIUM confidence suspects
+  // LOW confidence (name only) are too risky to subtract → exclude from main count
+  const reliableMultiId = multiIdDetails.filter(d => d.confidence !== "LOW");
+  const multiIdClients = reliableMultiId.length;
   const totalForms = regtoolsData.length;
-  // Estimated unique real clients = total RegTools rows minus the extra ID entries
-  // For a client with 2 IDs: counts as 2 rows in RegTools but is 1 real client
-  // Approximate: each multi-ID client has on average 2+ IDs → subtract 1 per multi-ID client
   const estimatedUniqueClients = totalForms - multiIdClients;
 
   return {
@@ -1088,8 +1157,9 @@ const extractRegtoolsKPIs = (regtoolsData: any[]) => {
     treatedCount,
     avgRiskValue: riskValueCount > 0 ? parseFloat((totalRiskValue / riskValueCount).toFixed(2)) : 0,
     totalForms,
-    multiIdClients,
+    multiIdClients,       // only HIGH + MEDIUM confidence
     estimatedUniqueClients,
+    multiIdDetails,       // full list with confidence for UI
   };
 };
 
