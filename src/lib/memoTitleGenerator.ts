@@ -12,16 +12,38 @@ export function extractFaithfulTitle(content: string, pillar?: MemoPillar, secti
 
   const raw = content.trim();
 
-  // 1. Extraire la première phrase ou paragraphe pertinent
-  const firstSentence = raw.split(/\n+/)[0] || raw;
-  let clean = firstSentence.trim().replace(/^[•\-\*#\d\.\)\s]+/, "");
+  // 1. Détection de sujets techniques et métiers précis
+  const lowerAll = raw.toLowerCase();
+  if (/calcul de risque|score de risque|scoring/i.test(lowerAll) && /ne s'adapte pas|pas mis à jour|incohéren|erreur|bloqu/i.test(lowerAll)) {
+    return "Non-adaptation du calcul de risque après révision de décision";
+  }
+  if (/espèces|cash|seuil/i.test(lowerAll) && /dépassement|versement|retrait|soupçon/i.test(lowerAll)) {
+    return "Contrôle des versements d'espèces et seuils LCB-FT";
+  }
+  if (/rne|registre national/i.test(lowerAll) && /3 mois|manquant|extrait|pièce/i.test(lowerAll)) {
+    return "Exigence d'extrait RNE récent pour personnes morales";
+  }
+  if (/pep|ppe|sanction/i.test(lowerAll) && /filtrage|liste|détection|homonyme/i.test(lowerAll)) {
+    return "Filtrage et vigilance renforcée Personnes Politiquement Exposées";
+  }
 
-  // 2. Nettoyer les amorces conversationnelles
+  // 2. Extraire la première phrase ou ligne SUBSTANTIELLE (ignorer les entêtes génériques)
+  const lines = raw.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  let substantialLine = lines.find((l) => {
+    const stripped = l.replace(/^[•\-\*#\d\.\)\s]+/, "").trim().toLowerCase();
+    return stripped.length > 5 && !/^(actions requises|notes?|constats?|à faire|todos?|points? d'attention|points?)\s*[:\-]?$/i.test(stripped);
+  }) || lines[0] || raw;
+
+  let clean = substantialLine.trim().replace(/^[•\-\*#\d\.\)\s]+/, "");
+
+  // 3. Nettoyer les amorces conversationnelles et préfixes génériques
   const conversationalPrefixes = [
+    /^(actions requises|action requise|points d'attention|à faire|constat)\s*[:,.]?\s*/i,
     /^bonjour\s*,?\s*(l'équipe|à tous|équipe)?\s*[:,.]?\s*/i,
     /^(bonsoir|salut|hello)\s*,?\s*/i,
     /^(prière de|merci de|veuillez|il faut|il conviendrait de|il est nécessaire de|nous devons|on doit|je vous prie de)\s+/i,
     /^(j'ai constaté que|j'ai remarqué que|il a été constaté que|il apparaît que|nous constatons que|à noter que)\s+/i,
+    /^(dans résultat de |dans les résultats de |lors de |au niveau de )\s*/i,
     /^(objet\s*:\s*|sujet\s*:\s*|note\s*:\s*|titre\s*:\s*|mémo\s*:\s*)/i,
     /^(attention\s*:\s*|urgent\s*:\s*|important\s*:\s*)/i,
   ];

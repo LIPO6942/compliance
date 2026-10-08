@@ -92,10 +92,12 @@ export const MemoDrawer: React.FC = () => {
 
   const handleEdit = (memo: ComplianceMemo) => {
     setActiveEditorMemo(memo);
+    setIsDrawerOpen(false); // Fermer le tiroir pour ne pas cacher la modale d'édition
     setIsEditorOpen(true);
   };
 
   const handleCreateNew = () => {
+    setIsDrawerOpen(false); // Fermer le tiroir pour laisser la modale visible au centre
     openDrawerWithNewMemo(currentFullHref, currentSectionLabel);
   };
 
@@ -106,13 +108,13 @@ export const MemoDrawer: React.FC = () => {
       {/* Backdrop */}
       <div
         onClick={() => setIsDrawerOpen(false)}
-        className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[90] transition-opacity animate-in fade-in duration-300"
+        className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 transition-opacity animate-in fade-in duration-300"
       />
 
       {/* Slide-over Drawer Panel */}
       <div
         className={cn(
-          "fixed right-0 top-0 bottom-0 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 z-[100] shadow-2xl flex flex-col justify-between transition-all duration-300 animate-in slide-in-from-right-full",
+          "fixed right-0 top-0 bottom-0 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 z-40 shadow-2xl flex flex-col justify-between transition-all duration-300 animate-in slide-in-from-right-full",
           isExpandedWidth
             ? "w-full sm:w-[94vw] lg:w-[94vw] xl:max-w-7xl"
             : "w-full sm:w-[620px] md:w-[720px] lg:w-[840px] xl:w-[920px]"

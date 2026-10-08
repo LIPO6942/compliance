@@ -199,7 +199,6 @@ RÈGLES ABSOLUES :
 
 // ─── Dictionnaire d'enrichissement lexical métier ───────────────────────────
 const LEXICAL_UPGRADES: [RegExp, string][] = [
-  [/\bfiltrage\b/gi, "filtrage et identification"],
   [/\bpar agence\b/gi, "par agence commerciale"],
   [/\bsucc digitale?\b/gi, "succursale digitale"],
   [/\bsucc\b/gi, "succursale"],
@@ -593,6 +592,9 @@ function generateCognitiveFramingAndMemo(
   const combined = `${prompt} ${existingText || ""}`.toLowerCase();
 
   // Détection de la thématique dominante
+  const isRiskCalcOrFiltrage =
+    (/calcul.*risque|score.*risque|scoring/i.test(combined) && /adapte|calcul|recalcul|mise à jour|décision|corrig|incohéren/i.test(combined)) ||
+    (/filtrage|criblage/i.test(combined) && /décision.*agent|décision corrig|oui vers non/i.test(combined));
   const isLcbFt = /blanchiment|terrorisme|ctaf|soupçon|tracfin|pep|ppe|gel|avoirs|illicite|espèces|cash|seuil/i.test(combined);
   const isKyc = /kyc|pièce|identité|cin|passeport|rne|registre|bénéficiaire|actionnaire|société|justificatif|domicile|client/i.test(combined);
   const isAgency = /agence|succursale|commercial|vendeur|guichet|caisse|encaissement|délégation|souscription/i.test(combined);
@@ -606,7 +608,19 @@ function generateCognitiveFramingAndMemo(
   let memoBody = "";
   let checklist: string[] = [];
 
-  if (isLcbFt) {
+  if (isRiskCalcOrFiltrage) {
+    themeTitle = "Non-adaptation du calcul de risque après révision de décision de filtrage";
+    diagnostic = "Vous soulevez une anomalie opérationnelle critique dans le module de filtrage : lorsque l'équipe conformité rectifie manuellement la décision d'un agent (passage de 'Oui' à 'Non'), l'algorithme d'évaluation du risque ne s'actualise pas en conséquence et conserve l'ancien score.";
+    risks = "Désynchronisation entre la décision réelle de conformité et l'indicateur de risque visible, entraînant un risque de sous-estimation du danger LCB-FT, une distorsion de la cartographie des risques et un défaut d'auditabilité lors des revues CGA/CTAF.";
+    regulatoryRef = "Exigences d'intégrité de la piste d'audit, traçabilité des décisions de criblage et directives CTAF relatives aux dispositifs automatisés de surveillance.";
+    memoBody = `Dans le cadre du contrôle de cohérence du module de filtrage et d'évaluation des risques :\n\n• Constat opérationnel : Lors de la modification manuelle d'une décision d'agent par l'équipe conformité (passage de 'Oui' vers 'Non'), le calcul de risque ne s'adapte pas et reste figé.\n• Impact & Risque : Incohérence entre la décision de conformité validée et le score affiché, altérant la fiabilité du profil de risque client.\n• Action requise : Réajuster l'automatisme de recalcul du risque dès modification d'une décision agent et tracer l'auteur de la correction.\n• Consigne : Vérifier l'ensemble des dossiers modifiés manuellement pour harmoniser leur niveau de risque.`;
+    checklist = [
+      "Vérifier le recalcul effectif du score de risque après modification de décision agent",
+      "Contrôler la cohérence des dossiers corrigés dans le résultat de filtrage",
+      "Valider la traçabilité de l'auteur de la modification dans le journal d'audit",
+      "Consigner l'anomalie dans le Cahier de Recette pour suivi de résolution"
+    ];
+  } else if (isLcbFt) {
     themeTitle = "Contrôle LCB-FT & Vigilance Opérationnelle";
     diagnostic = "La situation soumise met en jeu les obligations strictes de vigilance et de surveillance des flux financiers au sein de la MAE Assurance. Il est impératif d'écarter tout risque de circuit opaque ou de contournement des règles prudentielles.";
     risks = "Risque majeur de non-conformité vis-à-vis de la CTAF, sanctions pécuniaires pour l'établissement, blocage des opérations et mise en cause de la responsabilité de la direction de conformité.";
@@ -961,54 +975,165 @@ function generateAutonomousOrganizedMemo(
   pillar?: MemoPillar,
   sectionLabel?: string
 ): ImproveMemoWithAIResult {
-  const summaryTitle = extractFaithfulTitle(rawText, pillar, sectionLabel);
   const clean = rawText.trim();
-  const rawLines = clean.split("\n").filter((l) => l.trim().length > 0);
-  const strippedLines = rawLines.map(stripBullets).filter(Boolean);
+  const lower = clean.toLowerCase();
 
-  const actionVerbs = [
-    "Contrôler",
-    "Vérifier",
-    "S'assurer de",
-    "Mettre en conformité",
-    "Documenter",
-    "Notifier",
-    "Tracer",
+  // 1. Filtrer les lignes métadonnées / préfixes inutiles comme "Actions requises :", "Notes :", etc.
+  const rawLines = clean
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !/^(actions requises|action requise|notes?|constats?|à faire|todos?|points?)\s*[:\-]?$/i.test(l));
+
+  const strippedContent = rawLines.map(stripBullets).join(" ");
+
+  // 2. Détection thématique experte (Anomalies, LCB-FT, KYC, Fraude, Agences)
+  const hasRiskCalcIssue =
+    /calcul de risque|score de risque|scoring/i.test(lower) &&
+    /ne s'adapte pas|pas mis à jour|incohéren|erreur|bloqu|décision/i.test(lower);
+  const hasFiltrageAgentIssue =
+    /décision.*agent|corrige.*décision|oui vers non|non vers oui|filtrage/i.test(lower);
+  const hasCashIssue = /espèces|cash|seuil|versement|dépassement|retrait/i.test(lower);
+  const hasKycIssue = /kyc|rne|pièce|identité|cin|justificatif|passeport|bénéficiaire/i.test(lower);
+  const hasPepIssue = /pep|ppe|sanction|gel.*avoirs|politiquement/i.test(lower);
+  const hasSinistreIssue = /sinistre|indemnisation|fraude|fausse déclaration|décaissement/i.test(lower);
+  const hasAgencyIssue = /agence|succursale|commercial|guichet|délégation/i.test(lower);
+
+  let summaryTitle = "";
+  let constatPoint = "";
+  let impactPoint = "";
+  let actionPoints: string[] = [];
+  let checklistItems: string[] = [];
+
+  if (hasRiskCalcIssue || (hasFiltrageAgentIssue && /risque/i.test(lower))) {
+    summaryTitle = "Non-adaptation du calcul de risque après révision de décision de filtrage";
+    constatPoint =
+      "Lors de la correction manuelle de la décision d'un agent par l'équipe conformité (passage de 'Oui' à 'Non' dans les résultats de filtrage), le moteur de calcul du score de risque ne s'actualise pas automatiquement et conserve sa valeur précédente.";
+    impactPoint =
+      "Risque d'incohérence entre la décision de conformité validée et le score affiché, faussant la classification du profil de risque client et la traçabilité lors des contrôles d'audit.";
+    actionPoints = [
+      "Déclencher le recalcul automatique du score de risque dès validation d'une nouvelle décision par l'équipe conformité.",
+      "Assurer la persistance immédiate de la décision révisée et tracer l'auteur de la modification dans la piste d'audit.",
+      "Identifier et réévaluer les dossiers déjà modifiés manuellement pour harmoniser leurs scores de risque."
+    ];
+    checklistItems = [
+      "Vérifier le recalcul effectif du score de risque après modification de décision agent",
+      "Contrôler la cohérence des dossiers corrigés dans la base de données",
+      "Valider la traçabilité de l'auteur de la correction dans le journal d'audit"
+    ];
+  } else if (hasCashIssue) {
+    summaryTitle = "Vigilance sur les versements d'espèces et respect des seuils LCB-FT";
+    constatPoint = `Signalement d'opérations en espèces nécessitant une vigilance renforcée : ${clean}`;
+    impactPoint =
+      "Risque de non-conformité majeure vis-à-vis des circulaires CTAF et sanctions réglementaires en cas de défaut de justification économique.";
+    actionPoints = [
+      "Exiger la justification documentée de l'origine licite des fonds avant toute validation d'encaissement.",
+      "Bloquer temporairement l'opération en l'absence de justificatifs probants.",
+      "Notifier immédiatement le Responsable Conformité / LCB-FT pour examen d'une éventuelle déclaration de soupçon."
+    ];
+    checklistItems = [
+      "Exiger les justificatifs de provenance des fonds avant encaissement",
+      "Vérifier l'historique des versements récents du souscripteur",
+      "Transmettre la fiche d'incident au Responsable LCB-FT"
+    ];
+  } else if (hasKycIssue) {
+    summaryTitle = "Mise en conformité documentaire KYC & Justificatifs RNE";
+    constatPoint = `Constat relatif aux dossiers d'identification client : ${clean}`;
+    impactPoint =
+      "Risque de non-conformité lors des audits périodiques du CGA et défaut d'identification formelle des bénéficiaires effectifs.";
+    actionPoints = [
+      "Exiger la fourniture d'une pièce d'identité en cours de validité ou d'un extrait RNE de moins de 3 mois.",
+      "Suspendre toute souscription ou validation contractuelle tant que le dossier documentaire n'est pas exhaustif.",
+      "Numériser et archiver l'ensemble des pièces probantes dans le système centralisé."
+    ];
+    checklistItems = [
+      "Vérifier la validité de la pièce d'identité ou extrait RNE récent (< 3 mois)",
+      "Contrôler la conformité des bénéficiaires effectifs (UBO)",
+      "Bloquer la validation tant que les pièces obligatoires sont manquantes"
+    ];
+  } else if (hasPepIssue) {
+    summaryTitle = "Filtrage et surveillance renforcée Personnes Politiquement Exposées (PPE)";
+    constatPoint = `Point de vigilance relatif à l'identification d'une personne exposée ou sanctionnée : ${clean}`;
+    impactPoint =
+      "Exposition accrue aux obligations de vigilance constante et risque de sanctions légales en cas de défaillance du dispositif de filtrage.";
+    actionPoints = [
+      "Effectuer un filtrage contradictoire sur les bases de données de sanctions et listes PPE officielles.",
+      "Soumettre le dossier à l'approbation formelle de la Direction de la Conformité avant toute relation contractuelle.",
+      "Instaurer une surveillance continue sur l'ensemble des flux financiers associés."
+    ];
+    checklistItems = [
+      "Contrôler l'exactitude de l'homonymie sur les bases PPE / Sanctions",
+      "Recueillir l'accord écrit de la Direction de la Conformité",
+      "Consigner la fiche de surveillance renforcée dans le dossier"
+    ];
+  } else if (hasSinistreIssue) {
+    summaryTitle = "Contrôle des dossiers sinistres et prévention de la fraude";
+    constatPoint = `Constat relatif à l'instruction d'un dossier de sinistre : ${clean}`;
+    impactPoint = "Risque de sur-indemnisation ou de versement indu portant atteinte aux équilibres techniques de la compagnie.";
+    actionPoints = [
+      "Suspendre le décaissement en attente de validation contradictoire des pièces justificatives.",
+      "Rapprocher les antécédents de sinistres et croiser les informations avec les fichiers centraux.",
+      "Solliciter un avis motivé de la cellule anti-fraude avant tout règlement."
+    ];
+    checklistItems = [
+      "Vérifier la cohérence du rapport d'expertise et des pièces du dossier",
+      "Contrôler l'historique des sinistres antérieurs de l'assuré",
+      "Soumettre le dossier au visa du Responsable Sinistres / Fraude"
+    ];
+  } else if (hasAgencyIssue) {
+    summaryTitle = "Rappel des procédures et consignes pour le réseau des agences";
+    constatPoint = `Instruction de conformité opérationnelle pour les agences : ${clean}`;
+    impactPoint = "Risque de disparité dans l'application des contrôles obligatoires et non-respect des délégations de pouvoir.";
+    actionPoints = [
+      "Diffuser la consigne formelle à l'ensemble des chefs d'agences et succursales commerciales.",
+      "Vérifier le respect des plafonds autorisés et des pièces justificatives obligatoires.",
+      "Prévoir un contrôle de second niveau par l'inspection commerciale."
+    ];
+    checklistItems = [
+      "Notifier la note de service aux responsables d'agences",
+      "Contrôler la conformité des encaissements et souscriptions récentes",
+      "Rendre compte à la Direction du Réseau Commercial"
+    ];
+  } else {
+    summaryTitle = extractFaithfulTitle(clean, pillar, sectionLabel);
+    const cleanedSentences = strippedContent
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 5);
+
+    constatPoint = cleanedSentences.length > 0
+      ? `Constat relevé : ${cleanedSentences[0]}`
+      : `Constat relevé dans le cadre des vérifications opérationnelles : ${clean}`;
+
+    impactPoint = "Nécessité de cadrage et de mise en conformité opérationnelle pour garantir la rigueur et la traçabilité des opérations.";
+    actionPoints = cleanedSentences.length > 1
+      ? cleanedSentences.slice(1).map((s) => `Prendre en compte : ${endSentence(s)}`)
+      : [
+          "Appliquer les mesures correctives nécessaires selon les procédures en vigueur.",
+          "Documenter l'état d'avancement et tracer les étapes de traitement.",
+          "Assurer le suivi régulier auprès du responsable de section concerné."
+        ];
+    checklistItems = [
+      "Vérifier l'application des consignes transmises",
+      "Contrôler la conformité de l'opération dans le système",
+      "Archiver les éléments de preuve au dossier"
+    ];
+  }
+
+  const intro = `Dans le cadre du suivi de conformité (${sectionLabel || "Opérations"}) :`;
+  const bullets = [
+    `• Constat opérationnel : ${endSentence(constatPoint)}`,
+    `• Risque & Enjeu : ${endSentence(impactPoint)}`,
+    ...actionPoints.map((act) => `• Action requise : ${endSentence(act)}`),
   ];
+  const consigne = "📌 Consigne : Veiller à la traçabilité complète de ces actions et faire remonter tout blocage.";
 
-  const points = strippedLines.map((line, i) => {
-    const upgraded = capitalizeSentences(applyLexicalUpgrades(line));
-    const words = upgraded.split(/\s+/);
-    if (words.length <= 4) {
-      const verb = actionVerbs[i % actionVerbs.length];
-      const lower = upgraded.charAt(0).toLowerCase() + upgraded.slice(1);
-      return `• ${verb} : ${lower}${lower.endsWith(".") ? "" : "."}`;
-    }
-    return `• ${endSentence(upgraded)}`;
-  });
-
-  const pillarContext =
-    pillar === "LAB_FT"
-      ? "Lutte Anti-Blanchiment et Financement du Terrorisme (LCB-FT)"
-      : pillar === "CONFORMITE_REGLEMENTAIRE"
-      ? "Conformité Réglementaire"
-      : "Gouvernance et Contrôle Interne";
-
-  const intro = `Dans le cadre des exigences de ${pillarContext}${sectionLabel ? ` (${sectionLabel})` : ""}, les points suivants sont formalisés :`;
-  const footerNote = `📌 Consigne : Veiller à la stricte application de ces points et consigner les justificatifs requis.`;
-
-  const organizedText = `${intro}\n\n${points.join("\n")}\n\n${footerNote}`;
-
-  const suggestedChecklist = strippedLines.map((l) => {
-    const upgraded = capitalizeSentences(applyLexicalUpgrades(l));
-    return endSentence(upgraded);
-  });
+  const organizedText = `${intro}\n\n${bullets.join("\n")}\n\n${consigne}`;
 
   return {
     summaryTitle,
     organizedText,
-    suggestedChecklist,
-    providerUsed: "Moteur Cognitif GRC (Autonome)",
+    suggestedChecklist: checklistItems,
+    providerUsed: "Moteur Cognitif GRC Expert",
   };
 }
 
