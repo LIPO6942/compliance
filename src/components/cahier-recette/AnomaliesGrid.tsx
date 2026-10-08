@@ -254,7 +254,13 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {anomalies.map((ano) => {
             const isResolved = ano.status === "RESOLUE";
+            const isReopened = isAnomalyReopened(ano);
             const isHighlighted = highlightedAnomalyId === ano.id;
+            const hasAuditHistory = Boolean(ano.auditHistory && ano.auditHistory.length > 0);
+            const latestReopenEntry = ano.auditHistory?.find(
+              (entry) => entry.action === "Réouverture" || entry.changes?.toLowerCase().includes("réouverture")
+            );
+            const latestReopenRemark = latestReopenEntry?.remark;
 
             return (
               <div
@@ -265,33 +271,15 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
                 className={cn(
                   "border-2 rounded-3xl shadow-sm overflow-hidden transition-all duration-300 relative group flex flex-col justify-between",
                   isHighlighted && "ring-4 ring-indigo-500/60 ring-offset-2 animate-pulse shadow-indigo-500/25 shadow-lg",
-                const isResolved = ano.status === "RESOLUE";
-                const isReopened = isAnomalyReopened(ano);
-                const isHighlighted = highlightedAnomalyId === ano.id;
-                const hasAuditHistory = Boolean(ano.auditHistory && ano.auditHistory.length > 0);
-                const latestReopenEntry = ano.auditHistory?.find(
-                  (entry) => entry.action === "Réouverture" || entry.changes?.toLowerCase().includes("réouverture")
-                );
-                const latestReopenRemark = latestReopenEntry?.remark;
-
-                return (
-                  <div
-                    key={ano.id}
-                    ref={(el) => { cardRefs.current[ano.id] = el; }}
-                  >
-                  <Card
-                    className={cn(
-                      "border-2 rounded-3xl shadow-sm overflow-hidden transition-all duration-300 relative group flex flex-col justify-between",
-                      isHighlighted && "ring-4 ring-indigo-500/60 ring-offset-2 animate-pulse shadow-indigo-500/25 shadow-lg",
-                      isResolved
-                        ? "border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/20 dark:bg-emerald-950/10 opacity-90"
-                        : isReopened
-                        ? "border-amber-400/90 dark:border-amber-600/80 bg-gradient-to-br from-amber-50/50 via-white to-amber-50/20 dark:from-amber-950/30 dark:via-slate-900 dark:to-transparent shadow-amber-500/10"
-                        : ano.priority === "CRITIQUE"
-                        ? "border-rose-300/80 dark:border-rose-800/80 bg-gradient-to-br from-rose-50/40 via-white to-transparent dark:from-rose-950/20 dark:via-slate-900 dark:to-transparent shadow-rose-500/5"
-                        : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
-                    )}
-                  >
+                  isResolved
+                    ? "border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/20 dark:bg-emerald-950/10 opacity-90"
+                    : isReopened
+                    ? "border-amber-400/90 dark:border-amber-600/80 bg-gradient-to-br from-amber-50/50 via-white to-amber-50/20 dark:from-amber-950/30 dark:via-slate-900 dark:to-transparent shadow-amber-500/10"
+                    : ano.priority === "CRITIQUE"
+                    ? "border-rose-300/80 dark:border-rose-800/80 bg-gradient-to-br from-rose-50/40 via-white to-transparent dark:from-rose-950/20 dark:via-slate-900 dark:to-transparent shadow-rose-500/5"
+                    : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+                )}
+              >
                     <div>
                       {/* En-tête de la carte */}
                       <CardHeader className="p-4 pb-2.5 flex flex-row items-center justify-between border-b border-slate-100 dark:border-slate-800 gap-2">
