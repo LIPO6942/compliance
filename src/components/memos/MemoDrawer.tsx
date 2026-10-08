@@ -106,20 +106,20 @@ export const MemoDrawer: React.FC = () => {
       {/* Backdrop */}
       <div
         onClick={() => setIsDrawerOpen(false)}
-        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 transition-opacity animate-in fade-in duration-300"
+        className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[90] transition-opacity animate-in fade-in duration-300"
       />
 
       {/* Slide-over Drawer Panel */}
       <div
         className={cn(
-          "fixed right-0 top-0 bottom-0 bg-white/98 dark:bg-slate-950/98 backdrop-blur-2xl border-l border-slate-200/80 dark:border-slate-800/80 z-50 shadow-2xl flex flex-col justify-between transition-all duration-300 animate-in slide-in-from-right-full",
+          "fixed right-0 top-0 bottom-0 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 z-[100] shadow-2xl flex flex-col justify-between transition-all duration-300 animate-in slide-in-from-right-full",
           isExpandedWidth
             ? "w-full sm:w-[94vw] lg:w-[94vw] xl:max-w-7xl"
             : "w-full sm:w-[620px] md:w-[720px] lg:w-[840px] xl:w-[920px]"
         )}
       >
         {/* Header du Drawer */}
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 space-y-3 shrink-0">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 space-y-3 shrink-0 bg-white dark:bg-slate-900">
           <div className="flex justify-between items-center gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="p-2 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
@@ -137,36 +137,36 @@ export const MemoDrawer: React.FC = () => {
                     </Badge>
                   )}
                 </h3>
-                <p className="text-[11px] text-slate-400 truncate">
+                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate mt-0.5">
                   Notes & consignes contextuelles d'équipe ou personnelles
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               {/* Bascule Mode Confort / Plein Écran */}
               <button
                 type="button"
                 onClick={() => setIsExpandedWidth(!isExpandedWidth)}
-                className="px-2.5 py-1.5 rounded-xl text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 text-xs font-bold border border-slate-200/60 dark:border-slate-800"
+                className="px-3 py-1.5 rounded-xl text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50/60 dark:hover:bg-slate-700 transition-colors flex items-center gap-1.5 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-xs"
                 title={isExpandedWidth ? "Réduire à la largeur standard" : "Agrandir en mode lecture confort grand format"}
               >
                 {isExpandedWidth ? (
                   <>
                     <Minimize2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                    <span className="hidden sm:inline text-[11px]">Normal</span>
+                    <span className="hidden sm:inline text-xs font-bold">Réduire</span>
                   </>
                 ) : (
                   <>
-                    <Maximize2 className="h-4 w-4" />
-                    <span className="hidden sm:inline text-[11px]">Agrandir</span>
+                    <Maximize2 className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+                    <span className="hidden sm:inline text-xs font-bold">Agrandir</span>
                   </>
                 )}
               </button>
 
               <button
                 onClick={() => setIsDrawerOpen(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors border border-slate-300 dark:border-slate-700"
                 title="Fermer le tiroir de mémos"
               >
                 <X className="h-4 w-4" />
@@ -177,19 +177,19 @@ export const MemoDrawer: React.FC = () => {
           {/* Bouton Nouveau Mémo & Recherche */}
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Rechercher dans les notes..."
-                className="pl-8 text-xs h-9 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                className="pl-9 text-xs h-9 rounded-xl bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-500 font-medium"
               />
             </div>
 
             <Button
               onClick={handleCreateNew}
               size="sm"
-              className="h-9 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold gap-1 shadow-md shadow-indigo-500/20 shrink-0"
+              className="h-9 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black gap-1 shadow-md shadow-indigo-500/20 shrink-0"
             >
               <Plus className="h-3.5 w-3.5" />
               Nouveau Mémo
@@ -197,14 +197,14 @@ export const MemoDrawer: React.FC = () => {
           </div>
 
           {/* Sélecteur de portée : Collaboratif (Équipe) / Privé (Individuel) / Tous */}
-          <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800/80">
+          <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
             <button
               onClick={() => setFilterScope("ALL")}
               className={cn(
                 "py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5",
                 filterScope === "ALL"
-                  ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-black"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
               )}
             >
               🌐 Tous ({memos.length})
@@ -214,7 +214,7 @@ export const MemoDrawer: React.FC = () => {
               className={cn(
                 "py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5",
                 filterScope === "COLLABORATIVE"
-                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 font-black"
                   : "text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
               )}
             >
@@ -226,8 +226,8 @@ export const MemoDrawer: React.FC = () => {
               className={cn(
                 "py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5",
                 filterScope === "PRIVATE"
-                  ? "bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+                  ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm font-black"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
               )}
             >
               <User className="h-3.5 w-3.5" />
@@ -245,7 +245,7 @@ export const MemoDrawer: React.FC = () => {
                   "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all",
                   filterLocation === "ALL"
                     ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm"
-                    : "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
                 )}
               >
                 Toutes sections
@@ -257,7 +257,7 @@ export const MemoDrawer: React.FC = () => {
                   "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1",
                   filterLocation === "CURRENT_PAGE"
                     ? "bg-amber-500 text-white shadow-sm font-black"
-                    : "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60"
+                    : "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700"
                 )}
               >
                 📍 Sur cette page ({currentPageCount})
@@ -269,8 +269,8 @@ export const MemoDrawer: React.FC = () => {
                 className={cn(
                   "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all",
                   filterPillar === "LAB_FT"
-                    ? "bg-amber-600 text-white shadow-sm font-bold"
-                    : "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                    ? "bg-amber-600 text-white shadow-sm font-black"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
                 )}
               >
                 🛡️ LAB/FT
@@ -283,19 +283,19 @@ export const MemoDrawer: React.FC = () => {
                 className={cn(
                   "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all",
                   filterPillar === "CONFORMITE_REGLEMENTAIRE"
-                    ? "bg-emerald-600 text-white shadow-sm font-bold"
-                    : "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                    ? "bg-emerald-600 text-white shadow-sm font-black"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
                 )}
               >
                 ⚖️ Réglementaire
               </button>
             </div>
 
-            <div className="flex items-center justify-between text-[10px] text-slate-400 px-0.5">
+            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 px-0.5 font-semibold">
               <span>{filteredMemos.length} mémo(s) affiché(s)</span>
               <button
                 onClick={() => setFilterStatus(filterStatus === "ACTIVE" ? "RESOLVED" : "ACTIVE")}
-                className="hover:text-primary transition-colors font-semibold"
+                className="text-indigo-600 dark:text-indigo-400 hover:underline transition-colors font-bold"
               >
                 {filterStatus === "ACTIVE" ? "Afficher les résolus" : "Afficher les actifs"}
               </button>
@@ -306,7 +306,7 @@ export const MemoDrawer: React.FC = () => {
         {/* Liste des Mémos (Scrollable) */}
         <div
           className={cn(
-            "flex-1 overflow-y-auto p-4 sm:p-5",
+            "flex-1 overflow-y-auto p-4 sm:p-5 bg-slate-100/70 dark:bg-slate-950",
             isExpandedWidth
               ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-max"
               : "space-y-3.5"
@@ -314,14 +314,14 @@ export const MemoDrawer: React.FC = () => {
         >
           {filteredMemos.length === 0 ? (
             <div className="py-16 text-center space-y-3">
-              <div className="h-12 w-12 rounded-3xl bg-slate-100 dark:bg-slate-900 text-slate-400 mx-auto flex items-center justify-center">
-                <StickyNote className="h-6 w-6 opacity-40" />
+              <div className="h-12 w-12 rounded-3xl bg-white dark:bg-slate-800 text-slate-400 mx-auto flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm">
+                <StickyNote className="h-6 w-6 text-slate-400" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
                   Aucun mémo correspondant
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5 max-w-xs mx-auto">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 max-w-xs mx-auto">
                   {filterLocation === "CURRENT_PAGE"
                     ? `Aucune note attachée à ${currentSectionLabel}. Cliquez sur "Nouveau Mémo" pour en créer une.`
                     : "Modifiez vos filtres ou créez votre première note de conformité."}
@@ -331,7 +331,7 @@ export const MemoDrawer: React.FC = () => {
                 onClick={handleCreateNew}
                 size="sm"
                 variant="outline"
-                className="rounded-xl text-xs font-bold gap-1"
+                className="rounded-xl text-xs font-bold gap-1 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Créer un mémo pour cette page
@@ -350,7 +350,7 @@ export const MemoDrawer: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="p-3 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-400 text-center font-medium">
+        <div className="p-3.5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 text-center font-bold">
           MAE Assurance • Espace de collaboration GRC & Mémos
         </div>
       </div>

@@ -72,6 +72,67 @@ function resequenceTests(tests: TestCase[], anomalies: Anomaly[]): { tests: Test
   return { tests: resequenced, anomalies: updatedAnomalies };
 }
 
+// Synchronize test cases based on anomaly status:
+// If an anomaly is "RESOLUE", linked tests must be "OK"
+// If an anomaly is "OUVERTE" or "REOUVERTE", linked tests must be "KO"
+function syncTestsWithAnomalies(
+  tests: TestCase[],
+  anomalies: Anomaly[],
+  author = "Équipe Conformité"
+): TestCase[] {
+  const nowIso = new Date().toISOString();
+  const anomalyMap = new Map<string, Anomaly>();
+  anomalies.forEach((a) => anomalyMap.set(a.id, a));
+
+  // Collect anomalies linked to test IDs from a.linkedTest (e.g. "T-005 / T-006")
+  const testIdToAnomaly = new Map<string, Anomaly[]>();
+  anomalies.forEach((a) => {
+    if (a.linkedTest) {
+      const parts = a.linkedTest.split(/[/,\s]+/).map((s) => s.trim());
+      parts.forEach((tid) => {
+        if (tid.startsWith("T-")) {
+          const list = testIdToAnomaly.get(tid) || [];
+          list.push(a);
+          testIdToAnomaly.set(tid, list);
+        }
+      });
+    }
+  });
+
+  return tests.map((t) => {
+    const linkedAnos: Anomaly[] = [...(testIdToAnomaly.get(t.id) || [])];
+    if (t.linkedAnomaly && anomalyMap.has(t.linkedAnomaly)) {
+      const direct = anomalyMap.get(t.linkedAnomaly)!;
+      if (!linkedAnos.some((a) => a.id === direct.id)) {
+        linkedAnos.push(direct);
+      }
+    }
+
+    if (linkedAnos.length === 0) return t;
+
+    // If ANY linked anomaly is open or reopened, test must be KO
+    // If ALL linked anomalies are RESOLUE, test must be OK
+    const anyOpen = linkedAnos.some((a) => a.status !== "RESOLUE");
+    const targetStatus: TestStatus = anyOpen ? "KO" : "OK";
+
+    if (t.status !== targetStatus) {
+      const auditEntry: AuditEntry = {
+        timestamp: nowIso,
+        author,
+        action: "Changement de statut (Alignement Anomalie)",
+        changes: `Statut aligné sur anomalie(s) : "${t.status}" → "${targetStatus}"`,
+      };
+      return {
+        ...t,
+        status: targetStatus,
+        updatedAt: nowIso,
+        auditHistory: [auditEntry, ...(t.auditHistory || [])],
+      };
+    }
+    return t;
+  });
+}
+
 // Load and resequence test IDs on startup
 function loadInitialData(): { tests: TestCase[]; anomalies: Anomaly[] } {
   let tests: TestCase[] = INITIAL_TEST_CASES;
@@ -102,7 +163,10 @@ function loadInitialData(): { tests: TestCase[]; anomalies: Anomaly[] } {
     }
   });
   // Always resequence to ensure T-001..T-N with no gaps
-  return resequenceTests(tests, anomalies);
+  const resequenced = resequenceTests(tests, anomalies);
+  // Synchronize test statuses with anomalies (RESOLUE -> OK, OUVERTE/REOUVERTE -> KO)
+  const syncedTests = syncTestsWithAnomalies(resequenced.tests, resequenced.anomalies);
+  return { tests: syncedTests, anomalies: resequenced.anomalies };
 }
 
 export default function TestBookPage() {
@@ -305,6 +369,8 @@ export default function TestBookPage() {
   // Test Case Actions
   const handleToggleStatus = (testId: string) => {
     const nowIso = new Date().toISOString();
+    let updatedAnomalyList = [...anomalies];
+
     const updated = testCases.map((t) => {
       if (t.id === testId) {
         const nextStatus: TestStatus =
@@ -325,8 +391,69 @@ export default function TestBookPage() {
       }
       return t;
     });
+
+    // Bidirectional sync: If test changed, update linked anomaly status
+    const toggledTest = updated.find((t) => t.id === testId);
+    if (toggledTest) {
+      updatedAnomalyList = updatedAnomalyList.map((ano) => {
+        const isLinked =
+          (toggledTest.linkedAnomaly && toggledTest.linkedAnomaly.includes(ano.id)) ||
+          (ano.linkedTest && ano.linkedTest.includes(toggledTest.id));
+
+        if (!isLinked) return ano;
+
+        if (toggledTest.status === "KO" && ano.status === "RESOLUE") {
+          const newReopenCount = (ano.reopenCount || 0) + 1;
+          const auditEntry: AuditEntry = {
+            timestamp: nowIso,
+            author: currentUser,
+            action: "Réouverture",
+            changes: `Statut anomalie : "RESOLUE" → "REOUVERTE" (Cas de test ${testId} passé à KO)`,
+            remark: `Anomalie réouverte automatiquement suite au basculement du test ${testId} à KO.`,
+          };
+          return {
+            ...ano,
+            status: "REOUVERTE" as AnomalyStatus,
+            reopenedAt: nowIso,
+            reopenedBy: currentUser,
+            reopenCount: newReopenCount,
+            updatedAt: nowIso,
+            auditHistory: [auditEntry, ...(ano.auditHistory || [])],
+          };
+        } else if (toggledTest.status === "OK" && ano.status !== "RESOLUE") {
+          // Check if all other tests linked to this anomaly are also OK
+          const otherTestsForAno = updated.filter(
+            (other) =>
+              other.id !== testId &&
+              ((other.linkedAnomaly && other.linkedAnomaly.includes(ano.id)) ||
+                (ano.linkedTest && ano.linkedTest.includes(other.id)))
+          );
+          const allOtherOk = otherTestsForAno.every((other) => other.status === "OK");
+          if (allOtherOk) {
+            const auditEntry: AuditEntry = {
+              timestamp: nowIso,
+              author: currentUser,
+              action: "Résolution",
+              changes: `Statut anomalie : "${ano.status}" → "RESOLUE" (Validation des tests associés)`,
+              remark: `Anomalie résolue automatiquement suite à la validation du test ${testId} à OK.`,
+            };
+            return {
+              ...ano,
+              status: "RESOLUE" as AnomalyStatus,
+              resolvedAt: nowIso,
+              resolvedBy: currentUser,
+              updatedAt: nowIso,
+              auditHistory: [auditEntry, ...(ano.auditHistory || [])],
+            };
+          }
+        }
+        return ano;
+      });
+    }
+
     setTestCases(updated);
-    saveToFirestore(updated, anomalies);
+    setAnomalies(updatedAnomalyList);
+    saveToFirestore(updated, updatedAnomalyList);
     toast({
       title: "Statut mis à jour",
       description: `Le cas de test ${testId} a été mis à jour.`,
@@ -373,11 +500,13 @@ export default function TestBookPage() {
         auditHistory: [anoAuditEntry],
       };
       updatedAnomalies = [preparedAno, ...anomalies.filter((a) => a.id !== preparedAno.id)];
-      setAnomalies(updatedAnomalies);
     }
 
-    setTestCases(updatedTests);
-    saveToFirestore(updatedTests, updatedAnomalies);
+    // Synchronize test statuses with anomalies
+    const syncedTests = syncTestsWithAnomalies(updatedTests, updatedAnomalies, author);
+    setTestCases(syncedTests);
+    setAnomalies(updatedAnomalies);
+    saveToFirestore(syncedTests, updatedAnomalies);
     toast({
       title: "Cas de test créé",
       description: associatedAnomaly
@@ -440,11 +569,12 @@ export default function TestBookPage() {
         auditHistory: [anoAuditEntry, ...(existingAno?.auditHistory || [])],
       };
       updatedAnomalies = [preparedAno, ...anomalies.filter((a) => a.id !== preparedAno.id)];
-      setAnomalies(updatedAnomalies);
     }
 
-    setTestCases(updatedTests);
-    saveToFirestore(updatedTests, updatedAnomalies);
+    const syncedTests = syncTestsWithAnomalies(updatedTests, updatedAnomalies, author);
+    setTestCases(syncedTests);
+    setAnomalies(updatedAnomalies);
+    saveToFirestore(syncedTests, updatedAnomalies);
     toast({
       title: "Cas de test modifié",
       description: `Le cas ${updatedTestCase.id} a été enregistré avec succès.`,
@@ -452,9 +582,7 @@ export default function TestBookPage() {
   };
 
   const handleDeleteTestCase = (testId: string) => {
-    // Remove the test, then renumber all remaining tests sequentially (T-001, T-002, ...)
     const filtered = testCases.filter((t) => t.id !== testId);
-    // Sort by existing numeric ID to preserve order
     const sorted = [...filtered].sort((a, b) => {
       const na = parseInt(a.id.replace(/\D/g, ""), 10) || 0;
       const nb = parseInt(b.id.replace(/\D/g, ""), 10) || 0;
@@ -466,7 +594,6 @@ export default function TestBookPage() {
       oldIdToNew[t.id] = newId;
       return { ...t, id: newId };
     });
-    // Update linkedAnomaly references in anomalies that point to old test IDs (via linkedTest field in anomalies)
     const updatedAnomalies = anomalies.map((a) => ({
       ...a,
       linkedTest: a.linkedTest
@@ -492,7 +619,7 @@ export default function TestBookPage() {
   const handleToggleResolveAnomaly = (anomalyId: string) => {
     let resolvedStatus: string = "";
     const nowIso = new Date().toISOString();
-    const updated = anomalies.map((ano) => {
+    const updatedAnomalies = anomalies.map((ano) => {
       if (ano.id === anomalyId) {
         const isCurrentlyResolved = ano.status === "RESOLUE";
         const nextStatus: AnomalyStatus = isCurrentlyResolved ? "REOUVERTE" : "RESOLUE";
@@ -524,15 +651,19 @@ export default function TestBookPage() {
       return ano;
     });
 
-    setAnomalies(updated);
-    saveToFirestore(testCases, updated);
+    // Synchronize test cases: if RESOLUE -> tests become OK; if REOUVERTE -> tests become KO
+    const syncedTests = syncTestsWithAnomalies(testCases, updatedAnomalies, currentUser);
+
+    setAnomalies(updatedAnomalies);
+    setTestCases(syncedTests);
+    saveToFirestore(syncedTests, updatedAnomalies);
 
     toast({
       title: resolvedStatus === "RESOLUE" ? "✅ Anomalie résolue !" : "↺ Anomalie réouverte",
       description:
         resolvedStatus === "RESOLUE"
-          ? `L'anomalie ${anomalyId} a été marquée comme résolue.`
-          : `L'anomalie ${anomalyId} a été réouverte avec traçabilité dans l'historique.`,
+          ? `L'anomalie ${anomalyId} est résolue et son cas de test a été basculé sur 'OK'.`
+          : `L'anomalie ${anomalyId} est réouverte et son cas de test a été basculé sur 'KO'.`,
     });
   };
 
@@ -551,12 +682,15 @@ export default function TestBookPage() {
       resolvedAt: newAnomaly.status === "RESOLUE" ? (newAnomaly.resolvedAt || nowIso) : undefined,
       auditHistory: [auditEntry],
     };
-    const updated = [preparedAno, ...anomalies.filter((a) => a.id !== preparedAno.id)];
-    setAnomalies(updated);
-    saveToFirestore(testCases, updated);
+    const updatedAnomalies = [preparedAno, ...anomalies.filter((a) => a.id !== preparedAno.id)];
+    const syncedTests = syncTestsWithAnomalies(testCases, updatedAnomalies, currentUser);
+
+    setAnomalies(updatedAnomalies);
+    setTestCases(syncedTests);
+    saveToFirestore(syncedTests, updatedAnomalies);
     toast({
       title: "Anomalie déclarée",
-      description: `L'anomalie ${newAnomaly.id} a été enregistrée.`,
+      description: `L'anomalie ${newAnomaly.id} a été enregistrée et les cas de test associés ont été alignés.`,
     });
   };
 
@@ -609,12 +743,15 @@ export default function TestBookPage() {
       reopenCount: newReopenCount,
       auditHistory: [auditEntry, ...(existingAno?.auditHistory || [])],
     };
-    const updated = anomalies.map((a) => (a.id === preparedAno.id ? preparedAno : a));
-    setAnomalies(updated);
-    saveToFirestore(testCases, updated);
+    const updatedAnomalies = anomalies.map((a) => (a.id === preparedAno.id ? preparedAno : a));
+    const syncedTests = syncTestsWithAnomalies(testCases, updatedAnomalies, author);
+
+    setAnomalies(updatedAnomalies);
+    setTestCases(syncedTests);
+    saveToFirestore(syncedTests, updatedAnomalies);
     toast({
       title: "Anomalie modifiée",
-      description: `L'anomalie ${updatedAnomaly.id} a été mise à jour.`,
+      description: `L'anomalie ${updatedAnomaly.id} a été mise à jour et le statut du cas de test associé a été aligné (${updatedAnomaly.status === "RESOLUE" ? "OK" : "KO"}).`,
     });
   };
 

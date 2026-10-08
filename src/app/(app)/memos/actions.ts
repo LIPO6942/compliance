@@ -41,6 +41,21 @@ export interface ChatWithMemoAIResult {
   error?: string;
 }
 
+export interface ImproveMemoWithAIParams {
+  rawText: string;
+  pillar: MemoPillar;
+  sectionLabel?: string;
+  customApiKey?: string;
+}
+
+export interface ImproveMemoWithAIResult {
+  summaryTitle: string;
+  organizedText: string;
+  suggestedChecklist: string[];
+  providerUsed?: string;
+  error?: string;
+}
+
 export async function reformulateMemoAction(
   params: ReformulateMemoParams
 ): Promise<ReformulateMemoResult> {
@@ -763,3 +778,237 @@ ${trimmed}
   const localTitle = extractFaithfulTitle(trimmed, pillar, sectionLabel);
   return { title: localTitle };
 }
+
+// ─── AMÉLIORATION DIRECTE ET SIMPLIFIÉE DU MÉMO VIA IA ──────────────────────
+// Prend les notes brutes de l'utilisateur, résume le sujet dans le titre,
+// et reformule le corps de manière professionnelle et organisée avec des points (•).
+
+export async function improveMemoWithAIAction(
+  params: ImproveMemoWithAIParams
+): Promise<ImproveMemoWithAIResult> {
+  const { rawText, pillar, sectionLabel, customApiKey } = params;
+
+  if (!rawText || !rawText.trim()) {
+    return {
+      summaryTitle: "",
+      organizedText: "",
+      suggestedChecklist: [],
+      error: "Veuillez saisir des notes ou du texte avant de lancer l'amélioration.",
+    };
+  }
+
+  const pillarName =
+    pillar === "LAB_FT"
+      ? "Lutte Anti-Blanchiment et Financement du Terrorisme (LCB-FT)"
+      : pillar === "CONFORMITE_REGLEMENTAIRE"
+      ? "Conformité Réglementaire & Normative"
+      : "Gouvernance & Conformité Générale";
+
+  const prompt = `Tu es un expert senior en Gouvernance, Risque et Conformité (GRC) pour la MAE Assurance (Tunisie).
+L'utilisateur a écrit des notes informelles ou du texte brut ci-dessous.
+
+TA MISSION EST DE RÉALISER CETTE AMÉLIORATION EN 3 POINTS STRICTS :
+1. LE TITRE DOIT ÊTRE LE RÉSUMÉ SYNTHÉTIQUE DU SUJET ("summaryTitle") :
+   - Rédige un titre percutant, professionnel et court (entre 4 et 8 mots maximum) qui résume parfaitement le sujet traité.
+   - Ne pas inventer de faits extérieurs.
+
+2. LE TEXTE DOIT ÊTRE AMÉLIORÉ DE FAÇON PROFESSIONNELLE ET ORGANISÉE AVEC DES POINTS CLAIRS ("organizedText") :
+   - Formule exactement ce qui est demandé avec un ton professionnel, clair et percutant.
+   - Structure le corps de la note avec des tirets ou puces ("• Point 1", "• Point 2", ...).
+   - Corrige rigoureusement toute faute d'orthographe, de grammaire et maladresse de style.
+   - Utilise le vocabulaire précis de la conformité d'assurance (procédures, vérifications, traçabilité, conformité).
+
+3. EXTRAIRE LA CHECKLIST D'ACTIONS CONCRÈTES ("suggestedChecklist") :
+   - 2 à 4 actions courtes à l'infinitif à vérifier ou cocher.
+
+RÉPONDS STRICTEMENT SOUS FORME D'OBJET JSON :
+{
+  "summaryTitle": "Titre résumé du sujet",
+  "organizedText": "Texte professionnel organisé avec des points (•)",
+  "suggestedChecklist": ["Action 1 à vérifier", "Action 2 à contrôler"]
+}
+
+VOLET : ${pillarName}
+SECTION : ${sectionLabel || "Général"}
+NOTES BRUTES :
+"""
+${rawText.trim()}
+"""`;
+
+  // 1. Essai avec Groq API si clé configurée
+  const groqKey = customApiKey?.startsWith("gsk_") ? customApiKey : process.env.GROQ_API_KEY;
+  if (groqKey) {
+    try {
+      const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile" || "llama3-8b-8192";
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: "Tu es un expert senior en GRC d'assurance. Tu réponds exclusivement en JSON strict." },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.25,
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const contentStr = data?.choices?.[0]?.message?.content;
+        if (contentStr) {
+          const parsed = JSON.parse(contentStr);
+          if (parsed.organizedText || parsed.summaryTitle) {
+            return {
+              summaryTitle: parsed.summaryTitle || extractFaithfulTitle(rawText, pillar, sectionLabel),
+              organizedText: parsed.organizedText || rawText,
+              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
+              providerUsed: "Groq Llama-3.3",
+            };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[IMPROVE MEMO] Groq attempt error:", e);
+    }
+  }
+
+  // 2. Essai avec Gemini API si clé configurée
+  const geminiKey = customApiKey?.startsWith("AIza") ? customApiKey : process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    try {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+      const res = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json", temperature: 0.25 },
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const textResp = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (textResp) {
+          const parsed = JSON.parse(textResp);
+          if (parsed.organizedText || parsed.summaryTitle) {
+            return {
+              summaryTitle: parsed.summaryTitle || extractFaithfulTitle(rawText, pillar, sectionLabel),
+              organizedText: parsed.organizedText || rawText,
+              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
+              providerUsed: "Google Gemini",
+            };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[IMPROVE MEMO] Gemini attempt error:", e);
+    }
+  }
+
+  // 3. Essai avec OpenAI API si clé configurée
+  const openaiKey = customApiKey?.startsWith("sk-") ? customApiKey : process.env.OPENAI_API_KEY;
+  if (openaiKey) {
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: "Tu es un expert senior en GRC d'assurance. Tu réponds exclusivement en JSON strict." },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.25,
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const contentStr = data?.choices?.[0]?.message?.content;
+        if (contentStr) {
+          const parsed = JSON.parse(contentStr);
+          if (parsed.organizedText || parsed.summaryTitle) {
+            return {
+              summaryTitle: parsed.summaryTitle || extractFaithfulTitle(rawText, pillar, sectionLabel),
+              organizedText: parsed.organizedText || rawText,
+              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
+              providerUsed: "OpenAI GPT-4o-mini",
+            };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[IMPROVE MEMO] OpenAI attempt error:", e);
+    }
+  }
+
+  // 4. Moteur Cognitif Autonome (instantané et 100% robuste)
+  return generateAutonomousOrganizedMemo(rawText, pillar, sectionLabel);
+}
+
+function generateAutonomousOrganizedMemo(
+  rawText: string,
+  pillar?: MemoPillar,
+  sectionLabel?: string
+): ImproveMemoWithAIResult {
+  const summaryTitle = extractFaithfulTitle(rawText, pillar, sectionLabel);
+  const clean = rawText.trim();
+  const rawLines = clean.split("\n").filter((l) => l.trim().length > 0);
+  const strippedLines = rawLines.map(stripBullets).filter(Boolean);
+
+  const actionVerbs = [
+    "Contrôler",
+    "Vérifier",
+    "S'assurer de",
+    "Mettre en conformité",
+    "Documenter",
+    "Notifier",
+    "Tracer",
+  ];
+
+  const points = strippedLines.map((line, i) => {
+    const upgraded = capitalizeSentences(applyLexicalUpgrades(line));
+    const words = upgraded.split(/\s+/);
+    if (words.length <= 4) {
+      const verb = actionVerbs[i % actionVerbs.length];
+      const lower = upgraded.charAt(0).toLowerCase() + upgraded.slice(1);
+      return `• ${verb} : ${lower}${lower.endsWith(".") ? "" : "."}`;
+    }
+    return `• ${endSentence(upgraded)}`;
+  });
+
+  const pillarContext =
+    pillar === "LAB_FT"
+      ? "Lutte Anti-Blanchiment et Financement du Terrorisme (LCB-FT)"
+      : pillar === "CONFORMITE_REGLEMENTAIRE"
+      ? "Conformité Réglementaire"
+      : "Gouvernance et Contrôle Interne";
+
+  const intro = `Dans le cadre des exigences de ${pillarContext}${sectionLabel ? ` (${sectionLabel})` : ""}, les points suivants sont formalisés :`;
+  const footerNote = `📌 Consigne : Veiller à la stricte application de ces points et consigner les justificatifs requis.`;
+
+  const organizedText = `${intro}\n\n${points.join("\n")}\n\n${footerNote}`;
+
+  const suggestedChecklist = strippedLines.map((l) => {
+    const upgraded = capitalizeSentences(applyLexicalUpgrades(l));
+    return endSentence(upgraded);
+  });
+
+  return {
+    summaryTitle,
+    organizedText,
+    suggestedChecklist,
+    providerUsed: "Moteur Cognitif GRC (Autonome)",
+  };
+}
+
