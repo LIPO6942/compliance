@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -17,7 +17,9 @@ import {
   CheckSquare2,
   Square,
   Clock,
-  RotateCcw
+  RotateCcw,
+  Copy,
+  Check
 } from "lucide-react";
 import { ComplianceMemo, PILLAR_CONFIG } from "@/types/memo";
 import { useMemos } from "@/contexts/MemoContext";
@@ -34,9 +36,17 @@ interface MemoCardProps {
 export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer }) => {
   const router = useRouter();
   const { deleteMemo, toggleResolveMemo, togglePinMemo, toggleMemoScope, toggleChecklistItem } = useMemos();
+  const [copied, setCopied] = useState(false);
 
   const pillarInfo = PILLAR_CONFIG[memo.pillar] || PILLAR_CONFIG.GENERAL;
   const isResolved = memo.status === "RESOLVED";
+
+  const handleCopyContent = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(`${memo.title}\n\n${memo.content}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const dateFormatted = new Date(memo.createdAt).toLocaleDateString("fr-FR", {
     day: "2-digit",
@@ -57,7 +67,7 @@ export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer 
   return (
     <div
       className={cn(
-        "p-4 rounded-2xl border transition-all duration-300 relative group/card flex flex-col justify-between gap-3 shadow-sm",
+        "p-5 rounded-2xl border transition-all duration-300 relative group/card flex flex-col justify-between gap-3.5 shadow-sm",
         isResolved
           ? "bg-slate-50/60 dark:bg-slate-900/30 border-slate-200/50 dark:border-slate-800/50 opacity-75"
           : memo.pinned
@@ -113,8 +123,21 @@ export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer 
             )}
           </div>
 
-          {/* Boutons d'actions rapides (Pin, Résoudre, Menu) */}
+          {/* Boutons d'actions rapides (Copier, Pin, Résoudre) */}
           <div className="flex items-center gap-1">
+            <button
+              onClick={handleCopyContent}
+              title={copied ? "Copié !" : "Copier le texte du mémo"}
+              className={cn(
+                "p-1.5 rounded-lg transition-all",
+                copied
+                  ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+              )}
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+
             <button
               onClick={() => togglePinMemo(memo.id)}
               title={memo.pinned ? "Détacher de l'écran" : "Épingler en mémo flottant"}
@@ -146,7 +169,7 @@ export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer 
         {/* Titre */}
         <h4
           className={cn(
-            "text-xs font-black tracking-tight leading-snug",
+            "text-sm sm:text-base font-black tracking-tight leading-snug",
             isResolved
               ? "line-through text-slate-400 dark:text-slate-500"
               : "text-slate-900 dark:text-white"
@@ -158,10 +181,10 @@ export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer 
         {/* Section Associée (Lien d'ancrage cliquable) */}
         <button
           onClick={handleNavigateToSection}
-          className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 px-2 py-0.5 rounded-md border border-indigo-100/60 dark:border-indigo-900/50 transition-colors"
+          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 px-2.5 py-1 rounded-lg border border-indigo-100/70 dark:border-indigo-900/60 transition-colors"
           title={`Aller à la section : ${memo.associatedSectionLabel}`}
         >
-          <Layers className="h-3 w-3" />
+          <Layers className="h-3.5 w-3.5" />
           <span>{memo.associatedSectionLabel}</span>
           <ExternalLink className="h-2.5 w-2.5 opacity-60 ml-0.5" />
         </button>
@@ -169,10 +192,10 @@ export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer 
         {/* Contenu */}
         <p
           className={cn(
-            "text-[11px] leading-relaxed whitespace-pre-line font-medium",
+            "text-xs sm:text-[13.5px] leading-relaxed sm:leading-6 whitespace-pre-line font-medium",
             isResolved
               ? "text-slate-400 dark:text-slate-500 italic"
-              : "text-slate-700 dark:text-slate-300"
+              : "text-slate-700 dark:text-slate-200"
           )}
         >
           {memo.content}
@@ -180,23 +203,23 @@ export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer 
 
         {/* Checklist */}
         {memo.checklists && memo.checklists.length > 0 && (
-          <div className="space-y-1 pt-1.5 border-t border-slate-100 dark:border-slate-800">
+          <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
             {memo.checklists.map((chk) => (
               <div
                 key={chk.id}
                 onClick={() => toggleChecklistItem(memo.id, chk.id)}
-                className="flex items-start gap-2 text-[10px] font-medium text-slate-600 dark:text-slate-400 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
+                className="flex items-start gap-2.5 text-xs sm:text-[13px] font-medium text-slate-700 dark:text-slate-300 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
               >
                 <button
                   type="button"
                   className={cn(
-                    "mt-0.5 h-3.5 w-3.5 rounded border flex items-center justify-center transition-all shrink-0",
+                    "mt-0.5 h-4 w-4 rounded border flex items-center justify-center transition-all shrink-0",
                     chk.completed
                       ? "bg-emerald-500 border-emerald-500 text-white"
                       : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
                   )}
                 >
-                  {chk.completed && <CheckSquare2 className="h-2.5 w-2.5" />}
+                  {chk.completed && <CheckSquare2 className="h-3 w-3" />}
                 </button>
                 <span className={cn(chk.completed && "line-through opacity-50")}>
                   {chk.text}
@@ -208,16 +231,16 @@ export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer 
       </div>
 
       {/* Pied de carte : Auteur, Date/Heure et Actions Modifier/Supprimer */}
-      <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-[9px] text-slate-400">
+      <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-[10px] sm:text-[11px] text-slate-400">
         <div className="space-y-0.5">
           <div className="font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1">
             <span>👤 Créé par {memo.authorName || "Équipe Conformité"}</span>
           </div>
-          <div className="font-mono text-[8.5px] text-slate-400">
+          <div className="font-mono text-[9px] text-slate-400">
             {dateFormatted} à {timeFormatted}
           </div>
           {memo.updatedBy && memo.updatedBy !== memo.authorName && memo.updatedAt && (
-            <div className="text-[8.5px] text-indigo-500 dark:text-indigo-400 font-semibold flex items-center gap-1 mt-0.5">
+            <div className="text-[9px] text-indigo-500 dark:text-indigo-400 font-semibold flex items-center gap-1 mt-0.5">
               <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
               </svg>
@@ -226,14 +249,14 @@ export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer 
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onEdit(memo)}
-            className="h-6 px-1.5 text-[10px] text-slate-500 hover:text-primary gap-1"
+            className="h-7 px-2 text-[11px] text-slate-500 hover:text-primary gap-1"
           >
-            <Edit2 className="h-3 w-3" />
+            <Edit2 className="h-3.5 w-3.5" />
             Modifier
           </Button>
 
@@ -245,9 +268,9 @@ export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer 
                 deleteMemo(memo.id);
               }
             }}
-            className="h-6 px-1.5 text-[10px] text-slate-400 hover:text-rose-600"
+            className="h-7 px-2 text-[11px] text-slate-400 hover:text-rose-600"
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>

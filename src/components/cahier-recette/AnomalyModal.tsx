@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle } from "lucide-react";
 import { Anomaly, AnomalyPriority, AnomalyStatus } from "@/types/testBook";
+import { AuditHistoryPanel } from "@/components/cahier-recette/AuditHistoryPanel";
 
 interface AnomalyModalProps {
   isOpen: boolean;
@@ -182,6 +183,7 @@ export const AnomalyModal: React.FC<AnomalyModalProps> = ({
               >
                 <option value="OUVERTE">🔴 Ouverte (Non résolue)</option>
                 <option value="EN COURS">🟡 En cours d&apos;analyse</option>
+                <option value="REOUVERTE">🔄 Réouverte (Suite à régression ou non-conformité)</option>
                 <option value="RESOLUE">🟢 Résolue / Corrigée</option>
               </select>
             </div>
@@ -227,6 +229,16 @@ export const AnomalyModal: React.FC<AnomalyModalProps> = ({
               className="text-xs font-medium rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 resize-none"
             />
           </div>
+
+          {/* Historique des audits si existant */}
+          {anomalyToEdit?.auditHistory && anomalyToEdit.auditHistory.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                Historique des résolutions &amp; modifications
+              </label>
+              <AuditHistoryPanel auditHistory={anomalyToEdit.auditHistory} />
+            </div>
+          )}
 
           <DialogFooter className="pt-3 border-t border-slate-100 dark:border-slate-800 gap-2">
             <div className="flex justify-end gap-2 w-full">

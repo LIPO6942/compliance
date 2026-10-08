@@ -3,17 +3,41 @@
 import { MemoPillar } from "@/types/memo";
 import { extractFaithfulTitle } from "@/lib/memoTitleGenerator";
 
+export type MemoAIStyle = "FORMAL" | "SYNTHETIC" | "LEGAL" | "CLARITY" | "CHECKLIST";
+
 export interface ReformulateMemoParams {
   text: string;
   title?: string;
   pillar: MemoPillar;
-  style: "FORMAL" | "SYNTHETIC" | "LEGAL";
+  style: MemoAIStyle;
   sectionLabel?: string;
 }
 
 export interface ReformulateMemoResult {
   reformulatedText?: string;
   suggestedTitle?: string;
+  suggestedChecklist?: string[];
+  framingAnalysis?: string;
+  error?: string;
+}
+
+export interface ChatWithMemoAIParams {
+  userPrompt: string;
+  history?: { role: "user" | "assistant"; content: string }[];
+  currentMemoText?: string;
+  currentMemoTitle?: string;
+  pillar: MemoPillar;
+  sectionLabel?: string;
+  customApiKey?: string;
+}
+
+export interface ChatWithMemoAIResult {
+  reply: string;
+  framingAnalysis: string;
+  suggestedTitle: string;
+  suggestedContent: string;
+  suggestedChecklist: string[];
+  providerUsed?: string;
   error?: string;
 }
 
@@ -35,13 +59,17 @@ export async function reformulateMemoAction(
 
   const styleInstruction =
     style === "FORMAL"
-      ? `FORMEL — Transforme ce texte brut en note de service professionnelle avec des phrases complètes et bien construites. Si le texte liste des actions ou constats, reformule-les en paragraphes clairs. Améliore le vocabulaire, corrige la grammaire, restructure si nécessaire. Le résultat doit être immédiatement présentable à la direction.`
+      ? `FORMEL & DIRECTION — Transforme ce texte brut en note de synthèse professionnelle de haut niveau pour la direction générale et le comité de contrôle. Phrases complètes, articulation logique (Constat / Analyse / Recommandation), vocabulaire châtié et précis de conformité d'assurance.`
       : style === "SYNTHETIC"
-      ? `SYNTHÉTIQUE — Reformate en liste de points d'action concis et percutants, préfixés par "•". Chaque point = un verbe d'action fort à l'infinitif + l'objet de l'action. Supprime tout mot superflu. Sois ultra-concis. Format attendu : "📌 Points d'attention :\n• Action 1\n• Action 2"`
-      : `RÉGLEMENTAIRE — Reformule chaque action/constat en obligation formelle avec des locutions du type "Il convient de", "Il est requis de", "Il y a lieu de". Utilise le vocabulaire réglementaire tunisien (CGA, CTAF, LCB-FT). Structure en obligations numérotées si plusieurs actions.`;
+      ? `SYNTHÉTIQUE & ACTIONS — Reformate en points d'action concis, percutants et hiérarchisés par priorité. Chaque point commence par "•" avec un verbe d'action fort à l'infinitif. Supprime tout mot superflu. Format : "📌 Points d'attention :\n• Action 1\n• Action 2"`
+      : style === "LEGAL"
+      ? `RÉGLEMENTAIRE & LCB-FT — Reformule chaque constat ou consigne sous l'angle des obligations normatives et réglementaires applicables (circulaires CTAF, directives CGA, décrets-lois LCB-FT et conformité prudentielle). Utilise des formules juridiques formelles ("Il est requis de", "En application de", "Il y a lieu de procéder à").`
+      : style === "CLARITY"
+      ? `CLARTÉ & ORTHOGRAPHE — Corrige toutes les fautes d'orthographe, de ponctuation, de grammaire et d'accord. Élimine les maladresses et tournures familières tout en préservant fidèlement la concision, la structure et le sens original de la note.`
+      : `PLAN D'ACTIONS & CHECKLIST — Transforme le texte en un plan de contrôle pratique avec une brève introduction suivie d'une liste claire de tâches de vérification ou d'actions concrètes à cocher. Renseigne impérativement le tableau "suggestedChecklist" avec les actions à cocher.`;
 
   const prompt = `Tu es un expert senior en Gouvernance, Risque et Conformité (GRC) pour la MAE Assurance (Tunisie).
-Ta mission est de TRANSFORMER le texte brut ci-dessous selon le style demandé. L'objectif est une amélioration visible et significative : le résultat doit sonner professionnel, structuré et immédiatement exploitable.
+Ta mission est de TRANSFORMER et d'AMÉLIORER SIGNIFICATIVEMENT le texte brut ci-dessous selon le style demandé. Le résultat doit être impeccable, structuré et immédiatement exploitable.
 
 VOLET MÉTIER : ${pillarName}
 SECTION : ${sectionLabel || "Général"}
@@ -55,14 +83,15 @@ ${title ? `TITRE ACTUEL : "${title}"` : ""}
 TRANSFORMATION DEMANDÉE : ${styleInstruction}
 
 RÈGLES ABSOLUES :
-1. Le résultat doit être NETTEMENT meilleur que le texte original — pas une simple paraphrase.
-2. Corrige toutes les fautes de grammaire, orthographe et accord.
-3. Ne garde pas les formulations maladroites ou incomplètes — réécris-les.
-4. N'invente PAS de nouveaux sujets, chiffres, noms ou références légales absents du texte.
-5. Réponds UNIQUEMENT sous cette forme JSON valide (rien d'autre) :
+1. Le résultat doit être NETTEMENT meilleur et plus professionnel que l'original.
+2. Corrige rigoureusement toute faute de grammaire, orthographe, accord et syntaxe.
+3. Reste strictement fidèle aux faits sans inventer d'informations fictives.
+4. Si le texte contient des actions concrètes à mener, extrais-les également dans "suggestedChecklist" sous forme de phrases courtes à l'infinitif.
+5. Réponds UNIQUEMENT sous cette forme JSON valide :
 {
   "suggestedTitle": "Titre court et professionnel (max 8 mots)",
-  "reformulatedText": "Texte transformé complet"
+  "reformulatedText": "Texte transformé complet",
+  "suggestedChecklist": ["Action 1 à vérifier", "Action 2 à vérifier"]
 }`;
 
   // 1. Essai avec Groq API si configuré
@@ -81,11 +110,11 @@ RÈGLES ABSOLUES :
           messages: [
             {
               role: "system",
-              content: "Tu es un expert senior en Gouvernance, Risque et Conformité (GRC) MAE Assurance. Tu dois VRAIMENT améliorer le texte fourni — vocabulaire professionnel, structure claire, phrases complètes et enrichies. Tu réponds EXCLUSIVEMENT en JSON valide.",
+              content: "Tu es un expert senior en GRC MAE Assurance. Tu améliores avec excellence le texte fourni en JSON strict.",
             },
             { role: "user", content: prompt },
           ],
-          temperature: 0.7,
+          temperature: 0.4,
         }),
       });
 
@@ -100,6 +129,7 @@ RÈGLES ABSOLUES :
               return {
                 reformulatedText: parsed.reformulatedText,
                 suggestedTitle: parsed.suggestedTitle,
+                suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : undefined,
               };
             }
           }
@@ -110,11 +140,45 @@ RÈGLES ABSOLUES :
     }
   }
 
-  // 2. Fallback Intelligent NLP si pas d'API ou erreur réseau
+  // 2. Essai avec Gemini API si configuré
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    try {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+      const res = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json", temperature: 0.3 }
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const textResp = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (textResp) {
+          const parsed = JSON.parse(textResp);
+          if (parsed.reformulatedText) {
+            return {
+              reformulatedText: parsed.reformulatedText,
+              suggestedTitle: parsed.suggestedTitle,
+              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : undefined,
+            };
+          }
+        }
+      }
+    } catch (geminiErr) {
+      console.warn("[MEMO AI] Gemini attempt error:", geminiErr);
+    }
+  }
+
+  // 3. Fallback Intelligent NLP haute fidélité
   const fallback = generateRuleBasedReformulation(text, title, pillar, style);
   return {
     reformulatedText: fallback.text,
     suggestedTitle: fallback.title,
+    suggestedChecklist: fallback.checklist,
   };
 }
 
@@ -124,29 +188,37 @@ const LEXICAL_UPGRADES: [RegExp, string][] = [
   [/\bpar agence\b/gi, "par agence commerciale"],
   [/\bsucc digitale?\b/gi, "succursale digitale"],
   [/\bsucc\b/gi, "succursale"],
-  [/\bpb\b/gi, "problème"],
-  [/\bpbs\b/gi, "problèmes"],
+  [/\bpb\b/gi, "problème technique"],
+  [/\bpbs\b/gi, "problèmes techniques"],
   [/\bpas ok\b/gi, "non conforme"],
   [/\bko\b/gi, "non conforme"],
-  [/\bok\b/gi, "conforme"],
+  [/\bok\b/gi, "conforme et validé"],
   [/\bvérif\b/gi, "vérification"],
   [/\bvérifs\b/gi, "vérifications"],
   [/\bregtools\b/gi, "RegTools"],
   [/\bmae\b/gi, "MAE Assurance"],
   [/\bKYC\b/g, "Know Your Customer (KYC)"],
-  [/\bPEP\b/g, "Personne Politiquement Exposée (PEP)"],
+  [/\bPEP\b/g, "Personne Politiquement Exposée (PEP/PPE)"],
   [/\bAML\b/g, "Anti-Money Laundering (AML)"],
   [/\bLAB\/FT\b/gi, "Lutte Contre le Blanchiment et le Financement du Terrorisme (LCB-FT)"],
+  [/\bCTAF\b/g, "Commission Tunisienne des Analyses Financières (CTAF)"],
+  [/\bCGA\b/g, "Comité Général des Assurances (CGA)"],
+  [/\bDMR\b/g, "Dispositif de Maîtrise des Risques (DMR)"],
+  [/\bGRC\b/g, "Gouvernance, Risque et Conformité (GRC)"],
   [/\bnb\b/gi, "à noter"],
   [/\bsvp\b/gi, "s'il vous plaît"],
   [/\binfo\b/gi, "information"],
   [/\binfos\b/gi, "informations"],
   [/\bpas fonctionnel\b/gi, "non fonctionnel — action corrective requise"],
-  [/\bà corriger\b/gi, "à corriger en priorité"],
-  [/\bà vérifier\b/gi, "à vérifier impérativement"],
-  [/\bà faire\b/gi, "à traiter sans délai"],
+  [/\bà corriger\b/gi, "à corriger impérativement"],
+  [/\bà vérifier\b/gi, "à vérifier sans délai"],
+  [/\bà faire\b/gi, "à traiter en priorité"],
   [/\bsuivi\b/gi, "suivi opérationnel"],
   [/\bcontrôle\b/gi, "contrôle de conformité"],
+  [/\bds\b/gi, "dans"],
+  [/\bclt\b/gi, "client"],
+  [/\bclts\b/gi, "clients"],
+  [/\brdv\b/gi, "rendez-vous"],
 ];
 
 function applyLexicalUpgrades(text: string): string {
@@ -162,7 +234,7 @@ function capitalizeSentences(t: string): string {
 }
 
 function stripBullets(line: string): string {
-  return line.replace(/^[📌🎯⚠️•\-\*\d+\.\)]+\s*/, "").trim();
+  return line.replace(/^[📌🎯⚠️•\-\*\d+\.\)\[\]\s]+/, "").trim();
 }
 
 function endSentence(s: string): string {
@@ -173,8 +245,8 @@ function generateRuleBasedReformulation(
   rawText: string,
   rawTitle?: string,
   pillar?: MemoPillar,
-  style?: "FORMAL" | "SYNTHETIC" | "LEGAL"
-): { text: string; title: string } {
+  style?: MemoAIStyle
+): { text: string; title: string; checklist?: string[] } {
   const clean = rawText.trim();
   const inputTitle = rawTitle?.trim() || "Point de vigilance Conformité";
 
@@ -189,6 +261,24 @@ function generateRuleBasedReformulation(
       : pillar === "CONFORMITE_REGLEMENTAIRE"
       ? "au titre des exigences de conformité réglementaire"
       : "dans le cadre de la gouvernance interne";
+
+  // ── MODE CHECKLIST ────────────────────────────────────────────────────────
+  if (style === "CHECKLIST") {
+    const checklistItems = strippedLines.map((l) => {
+      const enriched = capitalizeSentences(applyLexicalUpgrades(l));
+      if (!/^(vérifier|contrôler|valider|mettre|documenter|s'assurer|transmettre|archiver)/i.test(enriched)) {
+        return `Vérifier : ${enriched.charAt(0).toLowerCase() + enriched.slice(1)}`;
+      }
+      return enriched;
+    });
+
+    const bodyChecklist = checklistItems.map((item) => `[ ] ${endSentence(item)}`).join("\n");
+    return {
+      title: `[Checklist] ${enrichedTitle}`,
+      text: `📋 Plan d'actions & Vérifications à opérer :\n\n${bodyChecklist}`,
+      checklist: checklistItems,
+    };
+  }
 
   // ── MODE SYNTHÉTIQUE ──────────────────────────────────────────────────────
   if (style === "SYNTHETIC") {
@@ -208,6 +298,20 @@ function generateRuleBasedReformulation(
     return {
       title: `${pillarTag} ${enrichedTitle}`,
       text: `📌 Points de vigilance — Actions requises :\n\n${bullets.join("\n")}`,
+      checklist: strippedLines.map((l) => capitalizeSentences(applyLexicalUpgrades(l))),
+    };
+  }
+
+  // ── MODE CLARTÉ & ORTHOGRAPHE ─────────────────────────────────────────────
+  if (style === "CLARITY") {
+    const cleanSentences = strippedLines.map((l) => {
+      const enriched = capitalizeSentences(applyLexicalUpgrades(l));
+      return endSentence(enriched);
+    });
+    return {
+      title: enrichedTitle,
+      text: cleanSentences.join("\n\n"),
+      checklist: strippedLines.length > 1 ? strippedLines : undefined,
     };
   }
 
@@ -243,6 +347,7 @@ function generateRuleBasedReformulation(
     return {
       title: `[Obligation Réglementaire] ${enrichedTitle}`,
       text: `${legalIntro}\n\n${numbered}`,
+      checklist: obligations,
     };
   }
 
@@ -257,7 +362,6 @@ function generateRuleBasedReformulation(
   const sentences = strippedLines.map((l) => {
     const enriched = applyLexicalUpgrades(l);
     const base = capitalizeSentences(enriched);
-    // Compléter les phrases trop courtes avec contexte
     const wordCount = base.split(/\s+/).length;
     if (wordCount < 6) {
       return endSentence(`${base} (point relevé ${pillarCtx})`);
@@ -275,10 +379,291 @@ function generateRuleBasedReformulation(
   return {
     title: enrichedTitle,
     text: formalText,
+    checklist: strippedLines.length > 1 ? strippedLines : undefined,
   };
 }
 
+// ─── Assistant IA Conversationnel & Moteur de Cadrage du Besoin ───────────────
 
+export async function chatWithMemoAIAction(
+  params: ChatWithMemoAIParams
+): Promise<ChatWithMemoAIResult> {
+  const { userPrompt, history = [], currentMemoText, currentMemoTitle, pillar, sectionLabel, customApiKey } = params;
+
+  if (!userPrompt || !userPrompt.trim()) {
+    return {
+      reply: "Veuillez exprimer votre situation ou votre besoin pour que je puisse vous guider et rédiger votre mémo.",
+      framingAnalysis: "",
+      suggestedTitle: "",
+      suggestedContent: "",
+      suggestedChecklist: [],
+      error: "Prompt vide",
+    };
+  }
+
+  const pillarName =
+    pillar === "LAB_FT"
+      ? "Lutte Anti-Blanchiment et Financement du Terrorisme (LCB-FT)"
+      : pillar === "CONFORMITE_REGLEMENTAIRE"
+      ? "Conformité Réglementaire & Normative"
+      : "Gouvernance & Conformité Générale";
+
+  const systemPrompt = `Tu es l'Assistant IA Copilot Expert en Gouvernance, Risque et Conformité (GRC) pour la MAE Assurance (Tunisie).
+L'utilisateur te consulte comme sur ChatGPT pour t'exposer une situation brute, un problème opérationnel, un constat ou une question, et souhaite que tu :
+1. CADRES SON BESOIN AVEC EXCELLENCE :
+   - Reformule la problématique, identifie les acteurs touchés (souscription, réseau agence, sinistre, trésorerie) et la criticité.
+   - Détaille les risques encourus (sanctions CTAF, exigences prudentielles CGA, risque de fraude, responsabilité opérationnelle).
+   - Rapproche la situation des obligations normatives (Circulaires CTAF 2017-01 et 2021, décrets CGA, loi 2015-26 modifiée relative à la LCB-FT).
+2. AMÉLIORES ET RÉDIGES LA NOTE DE CONFORMITÉ (MÉMO) :
+   - Rédige un titre percutant et professionnel (4 à 8 mots max).
+   - Rédige un contenu de mémo soigné, structuré avec logique : Constat / Consignes applicables / Justification et traçabilité.
+3. CONSTRUISES UN PLAN D'ACTIONS CONCRET (CHECKLIST) :
+   - 3 à 5 points de vérification précis à l'infinitif.
+
+Réponds OBLIGATOIREMENT sous la forme d'un objet JSON strict :
+{
+  "reply": "Ta réponse conversationnelle comme ChatGPT : bienveillante, rigoureuse et explicative.",
+  "framingAnalysis": "Cadrage détaillé du besoin : Diagnostic, Enjeux, Risques et Références réglementaires.",
+  "suggestedTitle": "Titre professionnel synthétique",
+  "suggestedContent": "Texte rédigé complet du mémo, structuré et directement exploitable.",
+  "suggestedChecklist": ["Action 1 à vérifier", "Action 2 à contrôler"]
+}`;
+
+  const formattedMessages: { role: string; content: string }[] = [
+    { role: "system", content: systemPrompt },
+    ...history.slice(-6).map((h) => ({ role: h.role, content: h.content })),
+    {
+      role: "user",
+      content: `CONTEXTE ACTUEL DU MÉMO :
+Volet : ${pillarName}
+Section : ${sectionLabel || "Général"}
+${currentMemoTitle ? `Titre actuel : "${currentMemoTitle}"` : ""}
+${currentMemoText ? `Contenu actuel :\n"""${currentMemoText}"""` : ""}
+
+DEMANDE DU COLLABORATEUR :
+"""
+${userPrompt}
+"""`,
+    },
+  ];
+
+  // 1. Essai avec Groq API si clé configurée (custom ou env)
+  const groqKey = customApiKey?.startsWith("gsk_") ? customApiKey : process.env.GROQ_API_KEY;
+  if (groqKey) {
+    try {
+      const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile" || "llama3-8b-8192";
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: formattedMessages,
+          temperature: 0.3,
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const contentStr = data?.choices?.[0]?.message?.content;
+        if (contentStr) {
+          const parsed = JSON.parse(contentStr);
+          if (parsed.suggestedContent || parsed.reply) {
+            return {
+              reply: parsed.reply || "J'ai cadré votre besoin et rédigé votre mémo de conformité.",
+              framingAnalysis: parsed.framingAnalysis || "",
+              suggestedTitle: parsed.suggestedTitle || (currentMemoTitle || "Note de Conformité"),
+              suggestedContent: parsed.suggestedContent || userPrompt,
+              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
+              providerUsed: "Groq (Llama-3.3 70B)",
+            };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[MEMO CHAT AI] Groq attempt error:", e);
+    }
+  }
+
+  // 2. Essai avec Gemini API si clé configurée (custom ou env)
+  const geminiKey = customApiKey?.startsWith("AIza") ? customApiKey : process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    try {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+      const res = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${systemPrompt}\n\n${formattedMessages[formattedMessages.length - 1].content}` }] }],
+          generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const textResp = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (textResp) {
+          const parsed = JSON.parse(textResp);
+          if (parsed.suggestedContent || parsed.reply) {
+            return {
+              reply: parsed.reply || "J'ai cadré votre besoin et rédigé votre mémo de conformité.",
+              framingAnalysis: parsed.framingAnalysis || "",
+              suggestedTitle: parsed.suggestedTitle || (currentMemoTitle || "Note de Conformité"),
+              suggestedContent: parsed.suggestedContent || userPrompt,
+              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
+              providerUsed: "Google Gemini 1.5 Flash",
+            };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[MEMO CHAT AI] Gemini attempt error:", e);
+    }
+  }
+
+  // 3. Essai avec OpenAI API si clé configurée (custom ou env)
+  const openaiKey = customApiKey?.startsWith("sk-") ? customApiKey : process.env.OPENAI_API_KEY;
+  if (openaiKey) {
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: formattedMessages,
+          temperature: 0.3,
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const contentStr = data?.choices?.[0]?.message?.content;
+        if (contentStr) {
+          const parsed = JSON.parse(contentStr);
+          if (parsed.suggestedContent || parsed.reply) {
+            return {
+              reply: parsed.reply || "J'ai cadré votre besoin et rédigé votre mémo de conformité.",
+              framingAnalysis: parsed.framingAnalysis || "",
+              suggestedTitle: parsed.suggestedTitle || (currentMemoTitle || "Note de Conformité"),
+              suggestedContent: parsed.suggestedContent || userPrompt,
+              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
+              providerUsed: "OpenAI GPT-4o-mini",
+            };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[MEMO CHAT AI] OpenAI attempt error:", e);
+    }
+  }
+
+  // 4. Moteur Cognitif Expert GRC (Autonome, zéro dépendance réseau)
+  return generateCognitiveFramingAndMemo(userPrompt, currentMemoText, currentMemoTitle, pillar, sectionLabel);
+}
+
+function generateCognitiveFramingAndMemo(
+  prompt: string,
+  existingText?: string,
+  existingTitle?: string,
+  pillar?: MemoPillar,
+  sectionLabel?: string
+): ChatWithMemoAIResult {
+  const combined = `${prompt} ${existingText || ""}`.toLowerCase();
+
+  // Détection de la thématique dominante
+  const isLcbFt = /blanchiment|terrorisme|ctaf|soupçon|tracfin|pep|ppe|gel|avoirs|illicite|espèces|cash|seuil/i.test(combined);
+  const isKyc = /kyc|pièce|identité|cin|passeport|rne|registre|bénéficiaire|actionnaire|société|justificatif|domicile|client/i.test(combined);
+  const isAgency = /agence|succursale|commercial|vendeur|guichet|caisse|encaissement|délégation|souscription/i.test(combined);
+  const isSinistre = /sinistre|indemnisation|fraude|expert|fausse déclaration|remboursement|expertise/i.test(combined);
+  const isReglementaire = /cga|circulaire|décret|loi|article|conformité|audit|contrôle|dmr/i.test(combined);
+
+  let themeTitle = "Note de Cadrage & Conformité";
+  let diagnostic = "";
+  let risks = "";
+  let regulatoryRef = "";
+  let memoBody = "";
+  let checklist: string[] = [];
+
+  if (isLcbFt) {
+    themeTitle = "Contrôle LCB-FT & Vigilance Opérationnelle";
+    diagnostic = "La situation soumise met en jeu les obligations strictes de vigilance et de surveillance des flux financiers au sein de la MAE Assurance. Il est impératif d'écarter tout risque de circuit opaque ou de contournement des règles prudentielles.";
+    risks = "Risque majeur de non-conformité vis-à-vis de la CTAF, sanctions pécuniaires pour l'établissement, blocage des opérations et mise en cause de la responsabilité de la direction de conformité.";
+    regulatoryRef = "Loi organique n°2015-26 modifiée et Circulaires de la Commission Tunisienne des Analyses Financières (CTAF) relatives à l'obligation de vigilance constante.";
+    memoBody = `Dans le cadre du renforcement impératif du dispositif LCB-FT de la MAE Assurance, le point suivant est formalisé pour application immédiate :\n\n1. CONSTAT : ${prompt.trim()}\n\n2. DIRECTIVES APPLICABLES :\n• Tout flux atypique ou dépassement de seuil doit faire l'objet d'une justification formelle de l'origine licite des fonds avant toute validation.\n• Procéder sans délai au gel conservatoire de l'opération en cas de doute persistant ou d'absence de justificatif probant.\n• Consigner la fiche d'incident et la transmettre au Responsable Conformité / LCB-FT pour examen d'une éventuelle déclaration de soupçon.\n\n3. TRAÇABILITÉ : Aucun passe-droit ou dérogation verbale n'est toléré sans visa écrit préalable de la Direction de la Conformité.`;
+    checklist = [
+      "Vérifier la complétude des justificatifs économiques et de l'origine des fonds",
+      "Contrôler le filtrage du client sur les listes de sanctions et bases PEP/PPE",
+      "Suspendre l'opération en attente de validation du Responsable Conformité",
+      "Archiver l'intégralité des échanges dans le dossier de conformité",
+      "Évaluer l'opportunité d'une Déclaration de Soupçon (DS) auprès de la CTAF"
+    ];
+  } else if (isKyc) {
+    themeTitle = "Mise en Conformité Dossier Client (KYC / RNE)";
+    diagnostic = "Le besoin porte sur l'identification rigoureuse et la mise à jour des éléments probants constitutifs du dossier 'Know Your Customer' (KYC) pour les assurés ou bénéficiaires effectifs.";
+    risks = "Inopposabilité contractuelle, risque d'usurpation d'identité, rejet lors des contrôles périodiques du CGA et défaut de traçabilité des ayants droit.";
+    regulatoryRef = "Code des Assurances tunisien et Directives du Comité Général des Assurances (CGA) sur le devoir de vérification de l'identité des souscripteurs.";
+    memoBody = `Pour garantir la stricte conformité des souscriptions au sein de MAE Assurance, les règles d'identification client sont réaffirmées :\n\n1. CONSTAT & OBJECTIF : ${prompt.trim()}\n\n2. EXIGENCES FORMELLES :\n• Vérifier systématiquement la validité des pièces d'identité officielles (CIN pour les personnes physiques, extrait RNE de moins de 3 mois pour les personnes morales).\n• Identifier formellement les Bénéficiaires Effectifs Ultimes (UBO) détenant plus de 20% du capital.\n• Refuser toute validation définitive tant que le dossier documentaire n'est pas exhaustif.\n\n3. AUDIT : Les dossiers incomplets seront signalés lors des revues de contrôle permanent.`;
+    checklist = [
+      "Exiger la copie certifiée conforme de la pièce d'identité en cours de validité",
+      "Télécharger l'extrait du Registre National des Entreprises (RNE) récent",
+      "Identifier et documenter les bénéficiaires effectifs et ayants droit",
+      "Bloquer la souscription tant que les pièces obligatoires sont manquantes"
+    ];
+  } else if (isAgency) {
+    themeTitle = "Consigne Réseau Commercial & Procédure Agences";
+    diagnostic = "Cette note vise à encadrer les pratiques du réseau des agences et succursales pour assurer une stricte homogénéité dans l'application des procédures de souscription et d'encaissement.";
+    risks = "Risque d'erreurs récurrentes en agence, écarts de caisse, non-respect des délégations de pouvoir et sanctions internes.";
+    regulatoryRef = "Manuel de procédures internes MAE Assurance et Dispositif de Maîtrise des Risques Opérationnels (DMR).";
+    memoBody = `À l'attention de l'ensemble des responsables d'agences et succursales :\n\n1. RAPPEL DU CONSTAT : ${prompt.trim()}\n\n2. INSTRUCTIONS OPÉRATIONNELLES :\n• Se conformer strictement au barème de délégation et aux plafonds autorisés sans dérogation unilatérale.\n• S'assurer que chaque opération saisie dans le système est appuyée par une pièce justificative numérisée.\n• Effectuer un rapprochement quotidien entre les pièces physiques et les données du système d'information.\n\n3. CONTRÔLE : Les inspecteurs de réseau procéderont à des vérifications inopinées sur la conformité de ces consignes.`;
+    checklist = [
+      "Notifier la consigne à l'ensemble des collaborateurs du réseau d'agences",
+      "Vérifier le respect des plafonds et des seuils d'autorisation",
+      "Contrôler la présence des pièces justificatives numérisées dans le SI",
+      "Programmer un point de contrôle avec l'inspection commerciale"
+    ];
+  } else if (isSinistre) {
+    themeTitle = "Contrôle des Dossiers Sinistres & Prévention Fraude";
+    diagnostic = "Le signalement concerne un dossier d'indemnisation ou une procédure de sinistre présentant des zones d'ombre nécessitant des investigations approfondies avant tout décaissement.";
+    risks = "Pertes financières par sur-indemnisation ou fraude organisée, dégradation du ratio combiné et risque de contentieux.";
+    regulatoryRef = "Dispositif interne de lutte contre la fraude à l'assurance et Code des Assurances (dispositions relatives aux fausses déclarations intentionnelles).";
+    memoBody = `Dans le cadre de la protection des actifs et de la prévention de la fraude aux sinistres :\n\n1. EXPOSÉ DE LA SITUATION : ${prompt.trim()}\n\n2. CONSIGNES D'INSTRUCTION :\n• Suspendre le règlement jusqu'à obtention du rapport d'expertise contradictoire et vérification de la cohérence des circonstances.\n• Procéder à un croisement avec l'historique des sinistres antérieurs de l'assuré.\n• En cas d'incohérence avérée, saisir la cellule anti-fraude et la Direction Juridique pour avis motivé.`;
+    checklist = [
+      "Vérifier la concordance des déclarations initiales avec le constat d'expertise",
+      "Consulter l'historique des sinistres antérieurs de l'assuré sur 3 ans",
+      "Suspendre l'ordre de virement d'indemnisation à titre conservatoire",
+      "Rédiger une note de synthèse pour la cellule anti-fraude"
+    ];
+  } else {
+    themeTitle = existingTitle || "Instruction de Gouvernance & Suivi Opérationnel";
+    diagnostic = "Le besoin formulé nécessite d'établir une note de cadrage claire, traçable et directement opposable aux parties prenantes pour fluidifier les opérations tout en respectant les standards de conformité.";
+    risks = "Manque de traçabilité, incompréhension des consignes, retards de traitement et risque opérationnel résiduel.";
+    regulatoryRef = "Référentiel de gouvernance et de contrôle interne MAE Assurance.";
+    memoBody = `Note de service et de cadrage opérationnel :\n\n1. OBJET & CONTEXTE : ${prompt.trim()}\n\n2. DIRECTIVES FORMELLES :\n• Les équipes concernées sont invitées à appliquer immédiatement les mesures correctives nécessaires.\n• Assurer un enregistrement rigoureux de l'état d'avancement dans les outils de suivi prévus à cet effet.\n• Faire remonter toute difficulté d'application ou blocage sans délai.\n\n3. ÉCHÉANCE : Mise en conformité attendue sous le contrôle du responsable de section.`;
+    checklist = [
+      "Informer les intervenants clés de la consigne établie",
+      "Mettre à jour le statut dans l'outil de gestion",
+      "Contrôler l'effectivité de la mise en œuvre sous 48 heures"
+    ];
+  }
+
+  const framingAnalysis = `🎯 CADRAGE DU BESOIN & DIAGNOSTIC :\n${diagnostic}\n\n⚠️ RISQUES & ENJEUX IDENTIFIÉS :\n${risks}\n\n📜 FONDEMENT RÉGLEMENTAIRE & NORMATIF :\n${regulatoryRef}`;
+
+  return {
+    reply: `J'ai analysé votre situation et cadré votre besoin avec rigueur selon les standards de la MAE Assurance. Voici la note structurée prête à l'emploi que vous pouvez insérer dans votre mémo :`,
+    framingAnalysis,
+    suggestedTitle: themeTitle,
+    suggestedContent: memoBody,
+    suggestedChecklist: checklist,
+    providerUsed: "Moteur Cognitif Expert GRC (Autonome)",
+  };
+}
 
 export async function generateAutoTitleAction(params: {
   content: string;

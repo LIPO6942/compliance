@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { CheckCircle2, XCircle, Clock, Plus, Edit2, Trash2, Layers, AlertTriangle, Info } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Plus, Edit2, Trash2, Layers, AlertTriangle, Info, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TestCase, TestBookStats, Anomaly, TestStatus } from "@/types/testBook";
+import { TestCase, TestBookStats, Anomaly, TestStatus, isAnomalyReopened } from "@/types/testBook";
 import { Button } from "@/components/ui/button";
 import { TestCaseModal } from "@/components/cahier-recette/TestCaseModal";
 import {
@@ -453,26 +453,127 @@ export const TestCasesTable: React.FC<TestCasesTableProps> = ({
                       </button>
                     </td>
                     <td className="p-3.5 align-top text-center font-mono text-[10px]">
-                      {tc.linkedAnomaly && anomalyExists ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              onClick={() => onNavigateToAnomaly(tc.linkedAnomaly!)}
-                              className="px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-black border border-rose-200 dark:border-rose-900 hover:bg-rose-200 dark:hover:bg-rose-900/80 hover:border-rose-400 transition-all cursor-pointer inline-flex items-center gap-1 group"
-                              title={`Voir l'anomalie ${tc.linkedAnomaly}`}
-                            >
-                              <span>{tc.linkedAnomaly}</span>
-                              <svg className="h-2.5 w-2.5 opacity-60 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
-                                <polyline points="15 3 21 3 21 9" />
-                                <line x1="10" y1="14" x2="21" y2="3" />
-                              </svg>
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs font-bold bg-rose-600 text-white border-rose-700 rounded-xl">
-                            Aller à l&apos;anomalie {tc.linkedAnomaly} →
-                          </TooltipContent>
-                        </Tooltip>
+                      {tc.linkedAnomaly && tc.linkedAnomaly.trim() !== "" ? (
+                        <div className="flex flex-col items-center justify-center gap-1.5">
+                          {tc.linkedAnomaly
+                            .split(/[/,\s]+/)
+                            .map((s) => s.trim())
+                            .filter(Boolean)
+                            .map((anoId) => {
+                              const ano = anomalies.find(
+                                (a) => a.id.toLowerCase() === anoId.toLowerCase()
+                              );
+                              const isResolved = ano ? ano.status === "RESOLUE" : tc.status === "OK";
+                              const isReopened = ano ? isAnomalyReopened(ano) : false;
+                              const isEnCours = ano?.status === "EN COURS";
+
+                              const statusLabel = isResolved
+                                ? "Résolue"
+                                : isReopened
+                                ? "Réouverte"
+                                : isEnCours
+                                ? "En cours"
+                                : "Existante";
+
+                              const badgeClass = isResolved
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-300/70 dark:border-emerald-700/70"
+                                : isReopened
+                                ? "bg-amber-500/20 text-amber-800 dark:text-amber-200 border-amber-400 dark:border-amber-600 font-black shadow-xs shadow-amber-500/10"
+                                : isEnCours
+                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-300/70 dark:border-amber-700/70"
+                                : "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-300/70 dark:border-rose-700/70";
+
+                              const btnClass = isResolved
+                                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60"
+                                : isReopened
+                                ? "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/60"
+                                : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/60";
+
+                              return (
+                                <Tooltip key={anoId}>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex flex-col items-center gap-1 group/anobtn">
+                                      <button
+                                        type="button"
+                                        onClick={() => onNavigateToAnomaly(anoId)}
+                                        className={cn(
+                                          "px-2 py-0.5 rounded-md font-mono text-[10px] font-black border transition-all inline-flex items-center gap-1 cursor-pointer hover:scale-105 shadow-xs",
+                                          btnClass
+                                        )}
+                                        title={`Consulter l'anomalie ${anoId}`}
+                                      >
+                                        <span>{anoId}</span>
+                                        <svg
+                                          className="h-2.5 w-2.5 opacity-60 group-hover/anobtn:opacity-100 transition-opacity"
+                                          viewBox="0 0 24 24"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          strokeWidth="2.5"
+                                        >
+                                          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+                                          <polyline points="15 3 21 3 21 9" />
+                                          <line x1="10" y1="14" x2="21" y2="3" />
+                                        </svg>
+                                      </button>
+
+                                      {/* Petite mention de statut */}
+                                      <span
+                                        className={cn(
+                                          "inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[8.5px] font-black uppercase tracking-wider border shrink-0",
+                                          badgeClass
+                                        )}
+                                      >
+                                        {isResolved ? (
+                                          <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                        ) : isReopened ? (
+                                          <RotateCcw className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                        ) : (
+                                          <AlertTriangle className="h-2.5 w-2.5 text-rose-600 dark:text-rose-400 shrink-0" />
+                                        )}
+                                        <span>{statusLabel}</span>
+                                      </span>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent
+                                    side="top"
+                                    className="text-xs font-semibold p-2.5 max-w-xs space-y-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl"
+                                  >
+                                    <p className="font-black text-slate-900 dark:text-white flex items-center justify-between gap-2">
+                                      <span>Anomalie {anoId}</span>
+                                      <span
+                                        className={cn(
+                                          "px-1.5 py-0.2 rounded text-[9px] font-black uppercase",
+                                          badgeClass
+                                        )}
+                                      >
+                                        {statusLabel}
+                                      </span>
+                                    </p>
+                                    {ano && (
+                                      <p className="text-[10.5px] text-slate-600 dark:text-slate-300 font-medium leading-tight">
+                                        {ano.description.substring(0, 95)}...
+                                      </p>
+                                    )}
+                                    {isResolved && ano?.resolvedAt && (
+                                      <p className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                        ✓ Résolue le {formatDateTime(ano.resolvedAt)}
+                                        {ano.resolvedBy ? ` (${ano.resolvedBy})` : ""}
+                                      </p>
+                                    )}
+                                    {isReopened && ano?.reopenedAt && (
+                                      <p className="text-[9.5px] text-amber-600 dark:text-amber-400 font-bold">
+                                        ↺ Réouverte le {formatDateTime(ano.reopenedAt)}
+                                        {ano.reopenCount ? ` (n°${ano.reopenCount})` : ""}
+                                      </p>
+                                    )}
+                                    <p className="text-[9.5px] text-indigo-500 dark:text-indigo-400 pt-0.5 font-bold">
+                                      Cliquer pour accéder à la fiche anomalie →
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            })}
+                        </div>
                       ) : (
                         <span className="text-slate-300 dark:text-slate-600">-</span>
                       )}

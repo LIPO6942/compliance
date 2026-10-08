@@ -14,7 +14,9 @@ import {
   Pin,
   Sparkles,
   Layers,
-  FileText
+  FileText,
+  Maximize2,
+  Minimize2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +51,7 @@ export const MemoDrawer: React.FC = () => {
     privateCount,
   } = useMemos();
 
+  const [isExpandedWidth, setIsExpandedWidth] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPillar, setFilterPillar] = useState<string>("ALL");
   const [filterScope, setFilterScope] = useState<string>("ALL");
@@ -107,33 +110,68 @@ export const MemoDrawer: React.FC = () => {
       />
 
       {/* Slide-over Drawer Panel */}
-      <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[480px] bg-white/95 dark:bg-slate-950/95 backdrop-blur-2xl border-l border-slate-200/80 dark:border-slate-800/80 z-50 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right-full duration-300">
+      <div
+        className={cn(
+          "fixed right-0 top-0 bottom-0 bg-white/98 dark:bg-slate-950/98 backdrop-blur-2xl border-l border-slate-200/80 dark:border-slate-800/80 z-50 shadow-2xl flex flex-col justify-between transition-all duration-300 animate-in slide-in-from-right-full",
+          isExpandedWidth
+            ? "w-full sm:w-[94vw] lg:w-[94vw] xl:max-w-7xl"
+            : "w-full sm:w-[620px] md:w-[720px] lg:w-[840px] xl:w-[920px]"
+        )}
+      >
         {/* Header du Drawer */}
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 space-y-3 shrink-0">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <div className="flex justify-between items-center gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
                 <StickyNote className="h-5 w-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                   Compliance Mémos
                   <Badge className="bg-amber-500 text-white text-[9px] font-black uppercase px-2 py-0.2 border-none">
                     Live
                   </Badge>
+                  {isExpandedWidth && (
+                    <Badge variant="outline" className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/40 hidden sm:inline-flex">
+                      Mode Plein Écran / Confort
+                    </Badge>
+                  )}
                 </h3>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-400 truncate">
                   Notes & consignes contextuelles d'équipe ou personnelles
                 </p>
               </div>
             </div>
 
-            <button
-              onClick={() => setIsDrawerOpen(false)}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              {/* Bascule Mode Confort / Plein Écran */}
+              <button
+                type="button"
+                onClick={() => setIsExpandedWidth(!isExpandedWidth)}
+                className="px-2.5 py-1.5 rounded-xl text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 text-xs font-bold border border-slate-200/60 dark:border-slate-800"
+                title={isExpandedWidth ? "Réduire à la largeur standard" : "Agrandir en mode lecture confort grand format"}
+              >
+                {isExpandedWidth ? (
+                  <>
+                    <Minimize2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    <span className="hidden sm:inline text-[11px]">Normal</span>
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="h-4 w-4" />
+                    <span className="hidden sm:inline text-[11px]">Agrandir</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setIsDrawerOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                title="Fermer le tiroir de mémos"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Bouton Nouveau Mémo & Recherche */}
@@ -266,7 +304,14 @@ export const MemoDrawer: React.FC = () => {
         </div>
 
         {/* Liste des Mémos (Scrollable) */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div
+          className={cn(
+            "flex-1 overflow-y-auto p-4 sm:p-5",
+            isExpandedWidth
+              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-max"
+              : "space-y-3.5"
+          )}
+        >
           {filteredMemos.length === 0 ? (
             <div className="py-16 text-center space-y-3">
               <div className="h-12 w-12 rounded-3xl bg-slate-100 dark:bg-slate-900 text-slate-400 mx-auto flex items-center justify-center">

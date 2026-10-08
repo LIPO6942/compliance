@@ -1,11 +1,11 @@
 export type TestStatus = "OK" | "KO" | "Non encore testé";
 export type AnomalyPriority = "CRITIQUE" | "HAUTE" | "MOYENNE" | "BASSE";
-export type AnomalyStatus = "OUVERTE" | "RESOLUE" | "EN COURS";
+export type AnomalyStatus = "OUVERTE" | "RESOLUE" | "EN COURS" | "REOUVERTE";
 
 export interface AuditEntry {
   timestamp: string;   // ISO date string
   author: string;      // who made the change
-  action: string;      // "Création" | "Modification" | "Changement de statut" | etc.
+  action: string;      // "Création" | "Modification" | "Changement de statut" | "Résolution" | "Réouverture" | etc.
   changes: string;     // human-readable description of what changed
   remark?: string;     // optional free comment entered by the user
 }
@@ -37,7 +37,25 @@ export interface Anomaly {
   resolvedAt?: string;
   resolvedBy?: string;
   resolutionComment?: string;
+  reopenedAt?: string;
+  reopenedBy?: string;
+  reopenCount?: number;
   auditHistory?: AuditEntry[];
+}
+
+export function isAnomalyReopened(ano?: Anomaly | null): boolean {
+  if (!ano) return false;
+  if (ano.status === "REOUVERTE") return true;
+  if (ano.reopenedAt && ano.status !== "RESOLUE") return true;
+  if ((ano.reopenCount ?? 0) > 0 && ano.status !== "RESOLUE") return true;
+  if (
+    ano.status !== "RESOLUE" &&
+    ano.auditHistory &&
+    ano.auditHistory.some((entry) => entry.action === "Réouverture" || entry.changes?.toLowerCase().includes("réouverture"))
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export interface TestBookMetadata {
@@ -58,6 +76,7 @@ export interface TestBookStats {
   highAnomalies: number;
   openAnomaliesCount: number;
   resolvedAnomaliesCount: number;
+  reopenedAnomaliesCount?: number;
   progressRate: string;
   executionRate: string;
 }

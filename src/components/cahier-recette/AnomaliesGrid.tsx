@@ -14,11 +14,14 @@ import {
   Layers,
   Clock,
   ShieldCheck,
-  Filter
+  Filter,
+  History,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Anomaly, TestBookStats, AnomalyStatus } from "@/types/testBook";
+import { Anomaly, TestBookStats, AnomalyStatus, isAnomalyReopened } from "@/types/testBook";
 import { AnomalyModal } from "@/components/cahier-recette/AnomalyModal";
+import { AuditHistoryPanel } from "@/components/cahier-recette/AuditHistoryPanel";
 
 interface AnomaliesGridProps {
   anomalies: Anomaly[];
@@ -57,7 +60,15 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAnomaly, setEditingAnomaly] = useState<Anomaly | null>(null);
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Record<string, boolean>>({});
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const toggleHistory = (anomalyId: string) => {
+    setExpandedHistoryIds((prev) => ({
+      ...prev,
+      [anomalyId]: !prev[anomalyId],
+    }));
+  };
 
   // Auto-scroll to highlighted anomaly
   useEffect(() => {
@@ -69,6 +80,7 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
 
   const openCount = allAnomalies.filter((a) => a.status !== "RESOLUE").length;
   const resolvedCount = allAnomalies.filter((a) => a.status === "RESOLUE").length;
+  const reopenedCount = allAnomalies.filter((a) => isAnomalyReopened(a)).length;
 
   // Next suggested ID e.g. ANO-010
   const nextId = React.useMemo(() => {
@@ -147,6 +159,18 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
             >
               <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
               Ouvertes ({openCount})
+            </button>
+            <button
+              onClick={() => setSelectedStatus("REOUVERTE")}
+              className={cn(
+                "px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1",
+                selectedStatus === "REOUVERTE"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+              )}
+            >
+              <RotateCcw className="h-3 w-3" />
+              Réouvertes ({reopenedCount})
             </button>
             <button
               onClick={() => setSelectedStatus("RESOLUE")}
@@ -241,104 +265,222 @@ export const AnomaliesGrid: React.FC<AnomaliesGridProps> = ({
                 className={cn(
                   "border-2 rounded-3xl shadow-sm overflow-hidden transition-all duration-300 relative group flex flex-col justify-between",
                   isHighlighted && "ring-4 ring-indigo-500/60 ring-offset-2 animate-pulse shadow-indigo-500/25 shadow-lg",
-                  isResolved
-                    ? "border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/20 dark:bg-emerald-950/10 opacity-90"
-                    : ano.priority === "CRITIQUE"
-                    ? "border-rose-300/80 dark:border-rose-800/80 bg-gradient-to-br from-rose-50/40 via-white to-transparent dark:from-rose-950/20 dark:via-slate-900 dark:to-transparent shadow-rose-500/5"
-                    : "border-amber-300/80 dark:border-amber-800/80 bg-gradient-to-br from-amber-50/40 via-white to-transparent dark:from-amber-950/20 dark:via-slate-900 dark:to-transparent"
-                )}
-              >
-                <div>
-                  {/* En-tête de la carte */}
-                  <CardHeader className="p-4 pb-2.5 flex flex-row items-center justify-between border-b border-slate-100 dark:border-slate-800 gap-2">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono font-black text-sm text-slate-900 dark:text-white">
-                          {ano.id}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800"
-                        >
-                          {ano.module}
-                        </Badge>
-                      </div>
-                      {ano.createdAt && (
-                        <div className="flex items-center gap-1 text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">
-                          <Clock className="h-2.5 w-2.5 text-slate-400 shrink-0" />
-                          <span>Enregistrée le {formatDateTime(ano.createdAt)}</span>
-                        </div>
-                      )}
-                    </div>
+                const isResolved = ano.status === "RESOLUE";
+                const isReopened = isAnomalyReopened(ano);
+                const isHighlighted = highlightedAnomalyId === ano.id;
+                const hasAuditHistory = Boolean(ano.auditHistory && ano.auditHistory.length > 0);
+                const latestReopenEntry = ano.auditHistory?.find(
+                  (entry) => entry.action === "Réouverture" || entry.changes?.toLowerCase().includes("réouverture")
+                );
+                const latestReopenRemark = latestReopenEntry?.remark;
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Badge
-                        className={cn(
-                          "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 border-none",
-                          isResolved
-                            ? "bg-emerald-500 text-white"
-                            : ano.status === "EN COURS"
-                            ? "bg-amber-500 text-white"
-                            : "bg-rose-500 text-white"
-                        )}
-                      >
-                        {isResolved ? "🟢 Résolue" : ano.status === "EN COURS" ? "🟡 En cours" : "🔴 Ouverte"}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.2",
-                          ano.priority === "CRITIQUE"
-                            ? "border-rose-300 text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50"
-                            : "border-amber-300 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50"
-                        )}
-                      >
-                        {ano.priority}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-
-                  {/* Contenu */}
-                  <CardContent className="p-4 space-y-3">
+                return (
+                  <div
+                    key={ano.id}
+                    ref={(el) => { cardRefs.current[ano.id] = el; }}
+                  >
+                  <Card
+                    className={cn(
+                      "border-2 rounded-3xl shadow-sm overflow-hidden transition-all duration-300 relative group flex flex-col justify-between",
+                      isHighlighted && "ring-4 ring-indigo-500/60 ring-offset-2 animate-pulse shadow-indigo-500/25 shadow-lg",
+                      isResolved
+                        ? "border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/20 dark:bg-emerald-950/10 opacity-90"
+                        : isReopened
+                        ? "border-amber-400/90 dark:border-amber-600/80 bg-gradient-to-br from-amber-50/50 via-white to-amber-50/20 dark:from-amber-950/30 dark:via-slate-900 dark:to-transparent shadow-amber-500/10"
+                        : ano.priority === "CRITIQUE"
+                        ? "border-rose-300/80 dark:border-rose-800/80 bg-gradient-to-br from-rose-50/40 via-white to-transparent dark:from-rose-950/20 dark:via-slate-900 dark:to-transparent shadow-rose-500/5"
+                        : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+                    )}
+                  >
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
-                        Description du Dysfonctionnement
-                      </span>
-                      <p
-                        className={cn(
-                          "text-xs font-semibold leading-relaxed",
-                          isResolved
-                            ? "text-slate-500 dark:text-slate-400"
-                            : "text-slate-800 dark:text-slate-100"
+                      {/* En-tête de la carte */}
+                      <CardHeader className="p-4 pb-2.5 flex flex-row items-center justify-between border-b border-slate-100 dark:border-slate-800 gap-2">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono font-black text-sm text-slate-900 dark:text-white">
+                              {ano.id}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800"
+                            >
+                              {ano.module}
+                            </Badge>
+                          </div>
+                          {ano.createdAt && (
+                            <div className="flex items-center gap-1 text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">
+                              <Clock className="h-2.5 w-2.5 text-slate-400 shrink-0" />
+                              <span>Enregistrée le {formatDateTime(ano.createdAt)}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Badge
+                            className={cn(
+                              "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 border-none",
+                              isResolved
+                                ? "bg-emerald-500 text-white"
+                                : isReopened
+                                ? "bg-amber-600 text-white"
+                                : ano.status === "EN COURS"
+                                ? "bg-amber-500 text-white"
+                                : "bg-rose-500 text-white"
+                            )}
+                          >
+                            {isResolved
+                              ? "🟢 Résolue"
+                              : isReopened
+                              ? `🔄 Réouverte ${ano.reopenCount && ano.reopenCount > 1 ? `(x${ano.reopenCount})` : ""}`
+                              : ano.status === "EN COURS"
+                              ? "🟡 En cours"
+                              : "🔴 Ouverte"}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.2",
+                              ano.priority === "CRITIQUE"
+                                ? "border-rose-300 text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50"
+                                : "border-amber-300 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50"
+                            )}
+                          >
+                            {ano.priority}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+
+                      {/* Contenu */}
+                      <CardContent className="p-4 space-y-3">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                            Description du Dysfonctionnement
+                          </span>
+                          <p
+                            className={cn(
+                              "text-xs font-semibold leading-relaxed",
+                              isResolved
+                                ? "text-slate-500 dark:text-slate-400"
+                                : "text-slate-800 dark:text-slate-100"
+                            )}
+                          >
+                            {ano.description}
+                          </p>
+                        </div>
+
+                        {ano.businessImpact && (
+                          <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 text-[11px]">
+                            <span className="text-[9.5px] font-black uppercase text-rose-600 dark:text-rose-400 block mb-0.5 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Impact Métier &amp; Risque Réglementaire
+                            </span>
+                            <p className="text-slate-600 dark:text-slate-300 font-medium">
+                              {ano.businessImpact}
+                            </p>
+                          </div>
                         )}
-                      >
-                        {ano.description}
-                      </p>
+
+                        {/* Bloc Historique spécifique lorsqu'une anomalie est résolue et réouverte à nouveau */}
+                        {isReopened && (
+                          <div className="rounded-2xl border border-amber-300 dark:border-amber-700/80 bg-gradient-to-br from-amber-50/80 via-white to-amber-50/40 dark:from-amber-950/30 dark:via-slate-900 dark:to-amber-950/20 p-3 space-y-2 shadow-xs">
+                            <div className="flex items-center justify-between gap-1 flex-wrap">
+                              <span className="text-[10px] font-black uppercase text-amber-800 dark:text-amber-300 flex items-center gap-1.5 tracking-wider">
+                                <RotateCcw className="h-3.5 w-3.5 text-amber-600" />
+                                Historique du cycle de vie (Résolue puis Réouverte)
+                              </span>
+                              <Badge className="bg-amber-500/20 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700 text-[8.5px] font-bold">
+                                {ano.reopenCount && ano.reopenCount > 1 ? `Réouverte ${ano.reopenCount} fois` : "Non conforme après résolution"}
+                              </Badge>
+                            </div>
+
+                            {/* Timeline du cycle */}
+                            <div className="space-y-1.5 pl-2 border-l-2 border-amber-400 dark:border-amber-600 text-[10.5px]">
+                              {ano.createdAt && (
+                                <div className="flex items-start gap-1.5 text-slate-600 dark:text-slate-400">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-1 shrink-0" />
+                                  <span>
+                                    <strong className="text-slate-700 dark:text-slate-300">1. Déclarée :</strong> {formatDateTime(ano.createdAt)}
+                                  </span>
+                                </div>
+                              )}
+                              {ano.resolvedAt && (
+                                <div className="flex items-start gap-1.5 text-emerald-700 dark:text-emerald-300 font-medium">
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-600 mt-0.5 shrink-0" />
+                                  <span>
+                                    <strong className="font-bold">2. Résolue :</strong> {formatDateTime(ano.resolvedAt)}
+                                    {ano.resolvedBy ? ` par ${ano.resolvedBy}` : ""}
+                                  </span>
+                                </div>
+                              )}
+                              {ano.reopenedAt && (
+                                <div className="flex items-start gap-1.5 text-amber-700 dark:text-amber-300 font-semibold">
+                                  <RotateCcw className="h-3 w-3 text-amber-600 mt-0.5 shrink-0" />
+                                  <div>
+                                    <span>
+                                      <strong className="font-bold">3. Réouverte :</strong> {formatDateTime(ano.reopenedAt)}
+                                      {ano.reopenedBy ? ` par ${ano.reopenedBy}` : ""}
+                                    </span>
+                                    {latestReopenRemark && (
+                                      <p className="italic text-[10px] text-amber-900 dark:text-amber-200 mt-0.5 bg-amber-100/70 dark:bg-amber-900/40 p-1.5 rounded-lg border border-amber-200/70 dark:border-amber-800/60 font-medium">
+                                        💬 {latestReopenRemark}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Bouton pour afficher tout le journal d'audit */}
+                            {hasAuditHistory && (
+                              <div className="pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleHistory(ano.id)}
+                                  className="text-[9.5px] font-bold text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                                >
+                                  <History className="h-3 w-3" />
+                                  {expandedHistoryIds[ano.id] ? "Masquer le journal complet" : `Afficher tout l'historique (${ano.auditHistory!.length})`}
+                                </button>
+                                {expandedHistoryIds[ano.id] && (
+                                  <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-800">
+                                    <AuditHistoryPanel auditHistory={ano.auditHistory} />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {isResolved && ano.resolvedAt && !isReopened && (
+                          <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50 text-[10.5px] text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 font-medium">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                            <span>
+                              Résolue le <strong className="font-bold">{formatDateTime(ano.resolvedAt)}</strong>
+                              {ano.resolvedBy ? ` par ${ano.resolvedBy}` : ""}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Lien d'historique pour les autres anomalies ayant des entrées d'audit */}
+                        {!isReopened && hasAuditHistory && (
+                          <div className="pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => toggleHistory(ano.id)}
+                              className="text-[9.5px] font-semibold text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors"
+                            >
+                              <History className="h-3 w-3" />
+                              {expandedHistoryIds[ano.id] ? "Masquer l'historique" : `Historique des modifications (${ano.auditHistory!.length})`}
+                            </button>
+                            {expandedHistoryIds[ano.id] && (
+                              <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                <AuditHistoryPanel auditHistory={ano.auditHistory} />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
                     </div>
-
-                    {ano.businessImpact && (
-                      <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 text-[11px]">
-                        <span className="text-[9.5px] font-black uppercase text-rose-600 dark:text-rose-400 block mb-0.5 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          Impact Métier &amp; Risque Réglementaire
-                        </span>
-                        <p className="text-slate-600 dark:text-slate-300 font-medium">
-                          {ano.businessImpact}
-                        </p>
-                      </div>
-                    )}
-
-                    {isResolved && ano.resolvedAt && (
-                      <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50 text-[10.5px] text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 font-medium">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                        <span>
-                          Résolue le <strong className="font-bold">{formatDateTime(ano.resolvedAt)}</strong>
-                          {ano.resolvedBy ? ` par ${ano.resolvedBy}` : ""}
-                        </span>
-                      </div>
-                    )}
-                  </CardContent>
-                </div>
 
                 {/* Pied de carte : Test lié & Bouton Résoudre / Réouvrir */}
                 <div className="p-3 bg-slate-50/60 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2">

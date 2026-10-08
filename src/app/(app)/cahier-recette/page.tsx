@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { TestCase, Anomaly, TestBookMetadata, TestBookStats, TestStatus, AuditEntry } from "@/types/testBook";
+import { TestCase, Anomaly, AnomalyStatus, isAnomalyReopened, TestBookMetadata, TestBookStats, TestStatus, AuditEntry } from "@/types/testBook";
 import { INITIAL_METADATA, INITIAL_TEST_CASES, INITIAL_ANOMALIES } from "@/data/initialTestBookData";
 import { exportTestBookPDF, exportTestBookExcel } from "@/lib/testBookExport";
 import { TestBookKpiCards } from "@/components/cahier-recette/TestBookKpiCards";
@@ -75,7 +75,10 @@ function resequenceTests(tests: TestCase[], anomalies: Anomaly[]): { tests: Test
 // Load and resequence test IDs on startup
 function loadInitialData(): { tests: TestCase[]; anomalies: Anomaly[] } {
   let tests: TestCase[] = INITIAL_TEST_CASES;
-  let anomalies: Anomaly[] = INITIAL_ANOMALIES.map((a) => ({ ...a, status: "OUVERTE" as const }));
+  let anomalies: Anomaly[] = INITIAL_ANOMALIES.map((a) => ({
+    ...a,
+    status: (a.status || "OUVERTE") as AnomalyStatus,
+  }));
   if (typeof window === "undefined") return { tests, anomalies };
   try {
     const s = localStorage.getItem("regtools_test_cases_v2") || localStorage.getItem("regtools_test_cases");
@@ -83,8 +86,21 @@ function loadInitialData(): { tests: TestCase[]; anomalies: Anomaly[] } {
   } catch {}
   try {
     const s = localStorage.getItem("regtools_anomalies_v2") || localStorage.getItem("regtools_anomalies");
-    if (s) anomalies = JSON.parse(s).map((a: any) => ({ ...a, status: a.status || "OUVERTE" }));
+    if (s) {
+      const parsed: Anomaly[] = JSON.parse(s);
+      anomalies = parsed.map((a: any) => ({
+        ...a,
+        status: (a.status || "OUVERTE") as AnomalyStatus,
+      }));
+    }
   } catch {}
+  // Ensure default initial anomalies (like ANO-001 and ANO-002) are present
+  const existingIds = new Set(anomalies.map((a) => a.id));
+  INITIAL_ANOMALIES.forEach((initAno) => {
+    if (!existingIds.has(initAno.id)) {
+      anomalies.push(initAno);
+    }
+  });
   // Always resequence to ensure T-001..T-N with no gaps
   return resequenceTests(tests, anomalies);
 }
@@ -204,6 +220,7 @@ export default function TestBookPage() {
     const openAnomalies = anomalies.filter((a) => a.status !== "RESOLUE");
     const openAnomaliesCount = openAnomalies.length;
     const resolvedAnomaliesCount = anomalies.filter((a) => a.status === "RESOLUE").length;
+    const reopenedAnomaliesCount = anomalies.filter((a) => isAnomalyReopened(a)).length;
 
     const criticalAnomalies = openAnomalies.filter((a) => a.priority === "CRITIQUE").length;
     const highAnomalies = openAnomalies.filter((a) => a.priority === "HAUTE").length;
@@ -220,6 +237,7 @@ export default function TestBookPage() {
       highAnomalies,
       openAnomaliesCount,
       resolvedAnomaliesCount,
+      reopenedAnomaliesCount,
       progressRate,
       executionRate,
     };
@@ -272,7 +290,13 @@ export default function TestBookPage() {
       const matchesPriority = selectedPriority === "ALL" || a.priority === selectedPriority;
       const matchesStatus =
         selectedAnomalyStatus === "ALL" ||
-        (selectedAnomalyStatus === "RESOLUE" ? a.status === "RESOLUE" : a.status !== "RESOLUE");
+        (selectedAnomalyStatus === "RESOLUE"
+          ? a.status === "RESOLUE"
+          : selectedAnomalyStatus === "REOUVERTE"
+          ? isAnomalyReopened(a)
+          : selectedAnomalyStatus === "OUVERTE"
+          ? (a.status === "OUVERTE" || a.status === "EN COURS" || (!a.status && a.status !== "RESOLUE"))
+          : a.status !== "RESOLUE");
 
       return matchesSearch && matchesPriority && matchesStatus;
     });
@@ -471,20 +495,29 @@ export default function TestBookPage() {
     const updated = anomalies.map((ano) => {
       if (ano.id === anomalyId) {
         const isCurrentlyResolved = ano.status === "RESOLUE";
-        const nextStatus = isCurrentlyResolved ? "OUVERTE" : "RESOLUE";
+        const nextStatus: AnomalyStatus = isCurrentlyResolved ? "REOUVERTE" : "RESOLUE";
         resolvedStatus = nextStatus;
+        const newReopenCount = isCurrentlyResolved ? (ano.reopenCount || 0) + 1 : (ano.reopenCount || 0);
         const auditEntry: AuditEntry = {
           timestamp: nowIso,
           author: currentUser,
-          action: nextStatus === "RESOLUE" ? "Résolution" : "Réouverture",
-          changes: `Statut anomalie : "${ano.status || "OUVERTE"}" → "${nextStatus}"`,
+          action: isCurrentlyResolved ? "Réouverture" : "Résolution",
+          changes: isCurrentlyResolved
+            ? `Statut anomalie : "${ano.status || "RESOLUE"}" → "REOUVERTE" (Réouverture n°${newReopenCount})`
+            : `Statut anomalie : "${ano.status || "OUVERTE"}" → "RESOLUE"`,
+          remark: isCurrentlyResolved
+            ? "Anomalie réouverte suite à réapparition du problème en recette."
+            : "Anomalie marquée comme résolue.",
         };
         return {
           ...ano,
-          status: nextStatus as any,
+          status: nextStatus,
           updatedAt: nowIso,
-          resolvedAt: !isCurrentlyResolved ? nowIso : undefined,
-          resolvedBy: !isCurrentlyResolved ? currentUser : undefined,
+          resolvedAt: !isCurrentlyResolved ? nowIso : ano.resolvedAt,
+          resolvedBy: !isCurrentlyResolved ? currentUser : ano.resolvedBy,
+          reopenedAt: isCurrentlyResolved ? nowIso : ano.reopenedAt,
+          reopenedBy: isCurrentlyResolved ? currentUser : ano.reopenedBy,
+          reopenCount: newReopenCount,
           auditHistory: [auditEntry, ...(ano.auditHistory || [])],
         };
       }
@@ -499,7 +532,7 @@ export default function TestBookPage() {
       description:
         resolvedStatus === "RESOLUE"
           ? `L'anomalie ${anomalyId} a été marquée comme résolue.`
-          : `L'anomalie ${anomalyId} est de nouveau ouverte pour investigation.`,
+          : `L'anomalie ${anomalyId} a été réouverte avec traçabilité dans l'historique.`,
     });
   };
 
@@ -535,6 +568,15 @@ export default function TestBookPage() {
       try { localStorage.setItem("regtools_current_user", auditAuthor); } catch {}
     }
     const existingAno = anomalies.find((a) => a.id === updatedAnomaly.id);
+    const wasResolved = existingAno?.status === "RESOLUE";
+    const isNowReopened =
+      (wasResolved && (updatedAnomaly.status === "REOUVERTE" || updatedAnomaly.status === "OUVERTE")) ||
+      (existingAno?.status !== "REOUVERTE" && updatedAnomaly.status === "REOUVERTE");
+
+    const newReopenCount = isNowReopened
+      ? (existingAno?.reopenCount || 0) + 1
+      : (updatedAnomaly.reopenCount ?? existingAno?.reopenCount);
+
     const changeParts: string[] = [];
     if (existingAno) {
       if (existingAno.priority !== updatedAnomaly.priority) changeParts.push(`Priorité : "${existingAno.priority}" → "${updatedAnomaly.priority}"`);
@@ -542,10 +584,17 @@ export default function TestBookPage() {
       if (existingAno.description !== updatedAnomaly.description) changeParts.push(`Description mise à jour`);
       if (existingAno.businessImpact !== updatedAnomaly.businessImpact) changeParts.push(`Impact métier mis à jour`);
     }
+
+    const actionType = isNowReopened
+      ? "Réouverture"
+      : updatedAnomaly.status === "RESOLUE" && !wasResolved
+      ? "Résolution"
+      : "Modification";
+
     const auditEntry: AuditEntry = {
       timestamp: nowIso,
       author,
-      action: "Modification",
+      action: actionType,
       changes: changeParts.length > 0 ? changeParts.join(" | ") : `Anomalie ${updatedAnomaly.id} modifiée`,
       remark: auditRemark,
     };
@@ -553,7 +602,11 @@ export default function TestBookPage() {
       ...updatedAnomaly,
       updatedAt: nowIso,
       createdAt: updatedAnomaly.createdAt || nowIso,
-      resolvedAt: updatedAnomaly.status === "RESOLUE" ? (updatedAnomaly.resolvedAt || nowIso) : undefined,
+      resolvedAt: updatedAnomaly.status === "RESOLUE" ? (updatedAnomaly.resolvedAt || nowIso) : existingAno?.resolvedAt,
+      resolvedBy: updatedAnomaly.status === "RESOLUE" ? (updatedAnomaly.resolvedBy || author) : existingAno?.resolvedBy,
+      reopenedAt: isNowReopened ? nowIso : (updatedAnomaly.reopenedAt || existingAno?.reopenedAt),
+      reopenedBy: isNowReopened ? author : (updatedAnomaly.reopenedBy || existingAno?.reopenedBy),
+      reopenCount: newReopenCount,
       auditHistory: [auditEntry, ...(existingAno?.auditHistory || [])],
     };
     const updated = anomalies.map((a) => (a.id === preparedAno.id ? preparedAno : a));

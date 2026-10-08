@@ -20,7 +20,7 @@ export const FloatingPinnedMemoWidget: React.FC = () => {
   const pillarInfo = PILLAR_CONFIG[currentMemo.pillar] || PILLAR_CONFIG.GENERAL;
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 max-w-sm w-full transition-all duration-300 animate-in fade-in slide-in-from-bottom-5">
+    <div className="fixed bottom-5 right-5 z-40 max-w-md w-full transition-all duration-300 animate-in fade-in slide-in-from-bottom-5">
       <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-2 border-amber-300/80 dark:border-amber-700/80 rounded-2xl shadow-2xl overflow-hidden shadow-amber-500/10">
         {/* Header Widget */}
         <div className="p-3 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border-b border-amber-200/50 dark:border-amber-800/50 flex justify-between items-center gap-2">
@@ -73,49 +73,49 @@ export const FloatingPinnedMemoWidget: React.FC = () => {
 
         {/* Corps du Widget (si non réduit) */}
         {!isMinimized && (
-          <div className="p-3.5 space-y-2.5 max-h-64 overflow-y-auto">
+          <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
             <div className="flex justify-between items-start gap-2">
-              <Badge variant="outline" className={cn("text-[8.5px] font-black uppercase px-1.5 py-0.2 border", pillarInfo.badgeClass)}>
+              <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-2 py-0.5 border", pillarInfo.badgeClass)}>
                 {pillarInfo.icon} {pillarInfo.short}
               </Badge>
 
               <button
                 onClick={() => router.push(currentMemo.associatedSectionHref)}
-                className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 truncate max-w-[150px]"
+                className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 truncate max-w-[170px]"
                 title={`Aller à : ${currentMemo.associatedSectionLabel}`}
               >
-                <Layers className="h-2.5 w-2.5 shrink-0" />
+                <Layers className="h-3 w-3 shrink-0" />
                 <span className="truncate">{currentMemo.associatedSectionLabel}</span>
               </button>
             </div>
 
-            <h5 className="text-xs font-black text-slate-900 dark:text-white leading-tight">
+            <h5 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
               {currentMemo.title}
             </h5>
 
-            <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-medium whitespace-pre-line bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+            <p className="text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed font-medium whitespace-pre-line bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
               {currentMemo.content}
             </p>
 
             {/* Checklist interactive */}
             {currentMemo.checklists && currentMemo.checklists.length > 0 && (
-              <div className="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+              <div className="space-y-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800">
                 {currentMemo.checklists.map((chk) => (
                   <div
                     key={chk.id}
                     onClick={() => toggleChecklistItem(currentMemo.id, chk.id)}
-                    className="flex items-start gap-1.5 text-[10px] font-medium text-slate-600 dark:text-slate-400 cursor-pointer hover:text-slate-900 dark:hover:text-white"
+                    className="flex items-start gap-2 text-xs font-medium text-slate-600 dark:text-slate-400 cursor-pointer hover:text-slate-900 dark:hover:text-white"
                   >
                     <button
                       type="button"
                       className={cn(
-                        "mt-0.5 h-3 w-3 rounded border flex items-center justify-center transition-all shrink-0",
+                        "mt-0.5 h-3.5 w-3.5 rounded border flex items-center justify-center transition-all shrink-0",
                         chk.completed
                           ? "bg-emerald-500 border-emerald-500 text-white"
                           : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
                       )}
                     >
-                      {chk.completed && <CheckSquare2 className="h-2 w-2" />}
+                      {chk.completed && <CheckSquare2 className="h-2.5 w-2.5" />}
                     </button>
                     <span className={cn(chk.completed && "line-through opacity-50 truncate")}>
                       {chk.text}

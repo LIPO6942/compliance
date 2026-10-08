@@ -244,6 +244,70 @@ export const INITIAL_TEST_CASES: TestCase[] = [
 
 export const INITIAL_ANOMALIES: Anomaly[] = [
   {
+    id: "ANO-001",
+    module: "Reporting",
+    description: "La colonne 'Niveau de risque' n'était pas générée dans le rapport initial.",
+    businessImpact: "Absence de visibilité sur le niveau de risque des clients exportés.",
+    priority: "HAUTE",
+    linkedTest: "T-002 / T-003",
+    status: "RESOLUE",
+    createdAt: "2026-08-15T09:00:00.000Z",
+    resolvedAt: "2026-08-20T14:30:00.000Z",
+    resolvedBy: "Équipe Conformité",
+    auditHistory: [
+      {
+        timestamp: "2026-08-15T09:00:00.000Z",
+        author: "Équipe Conformité",
+        action: "Création",
+        changes: "Anomalie déclarée — Module : Reporting — Priorité : HAUTE"
+      },
+      {
+        timestamp: "2026-08-20T14:30:00.000Z",
+        author: "Équipe Conformité",
+        action: "Résolution",
+        changes: "Statut anomalie : OUVERTE → RESOLUE",
+        remark: "Correctif validé : colonne niveau de risque désormais bien intégrée au rapport."
+      }
+    ]
+  },
+  {
+    id: "ANO-002",
+    module: "Alertes / Pagination",
+    description: "La colonne 'Agent éditeur' est renseignée sur la première page mais devient vide ou non persistée lors de la navigation / pagination.",
+    businessImpact: "Perte de traçabilité des actions utilisateurs et de l'attribution des alertes.",
+    priority: "HAUTE",
+    linkedTest: "T-005 / T-006",
+    status: "REOUVERTE",
+    createdAt: "2026-08-16T11:00:00.000Z",
+    resolvedAt: "2026-08-22T16:00:00.000Z",
+    resolvedBy: "Équipe Conformité",
+    reopenedAt: "2026-08-25T10:15:00.000Z",
+    reopenedBy: "Équipe Conformité",
+    reopenCount: 1,
+    auditHistory: [
+      {
+        timestamp: "2026-08-16T11:00:00.000Z",
+        author: "Équipe Conformité",
+        action: "Création",
+        changes: "Anomalie déclarée — Module : Alertes / Pagination — Priorité : HAUTE"
+      },
+      {
+        timestamp: "2026-08-22T16:00:00.000Z",
+        author: "Équipe Conformité",
+        action: "Résolution",
+        changes: "Statut anomalie : OUVERTE → RESOLUE",
+        remark: "Correctif initial appliqué sur la vue page 1."
+      },
+      {
+        timestamp: "2026-08-25T10:15:00.000Z",
+        author: "Équipe Conformité",
+        action: "Réouverture",
+        changes: "Statut anomalie : RESOLUE → REOUVERTE (Réouverture n°1)",
+        remark: "Régression constatée : l'agent éditeur disparaît à nouveau lors du passage en page 2 et 3."
+      }
+    ]
+  },
+  {
     id: "ANO-003",
     module: "KYC / PEP",
     description: "L'identification PEP n'est pas générée depuis la fiche KYC ni via le filtrage liste clients (= source pas très fiable)",
@@ -290,14 +354,6 @@ export const INITIAL_ANOMALIES: Anomaly[] = [
     businessImpact: "Surcharge de travail pour les analystes conformité et risque de double traitement incohérent.",
     priority: "HAUTE",
     linkedTest: "T-023"
-  },
-  {
-    id: "ANO-002",
-    module: "Alertes / Pagination",
-    description: "La colonne 'Agent éditeur' est renseignée sur la première page mais devient vide ou non persistée lors de la navigation / pagination.",
-    businessImpact: "Perte de traçabilité des actions utilisateurs et de l'attribution des alertes.",
-    priority: "HAUTE",
-    linkedTest: "T-006"
   },
   {
     id: "ANO-009",
