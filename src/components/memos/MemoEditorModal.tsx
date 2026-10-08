@@ -29,7 +29,6 @@ import {
   MessageSquare,
   ArrowRight,
   ShieldCheck,
-  AlertTriangle,
   FileText,
   X,
 } from "lucide-react";
@@ -480,7 +479,8 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[85vh] h-[85vh] flex flex-col p-0 overflow-hidden border border-amber-300/80 dark:border-slate-800 rounded-3xl shadow-2xl bg-amber-50/98 dark:bg-slate-900 z-[200]">
+      {/* ─── MODALE POST-IT 100% OPAQUE SANS AUCUNE TRANSPARENCE ─── */}
+      <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[85vh] h-[85vh] flex flex-col p-0 overflow-hidden border-2 border-amber-300 dark:border-slate-700 rounded-3xl shadow-2xl !bg-[#fffbeb] dark:!bg-[#0f172a] opacity-100 z-[200]">
         {/* Ruban / Pin en haut au centre */}
         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 flex items-center justify-center z-20 pointer-events-none">
           <div className="h-7 w-7 rounded-full bg-rose-500 shadow-md border-2 border-white flex items-center justify-center text-white">
@@ -488,8 +488,8 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
           </div>
         </div>
 
-        {/* ─── EN-TÊTE FIXE (SHRINK-0) ─────────────────────────────────────────── */}
-        <div className="shrink-0 px-6 py-3.5 border-b border-amber-200/80 dark:border-slate-800 bg-amber-100/70 dark:bg-slate-900/90 flex justify-between items-center gap-3">
+        {/* ─── EN-TÊTE FIXE ET OPAQUE (SHRINK-0) ─────────────────────────────────── */}
+        <div className="shrink-0 px-6 py-3.5 border-b border-amber-200 dark:border-slate-800 !bg-[#fef3c7] dark:!bg-[#1e293b] flex justify-between items-center gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <Pin className="h-4 w-4 fill-current text-rose-500 rotate-12 shrink-0" />
             <h3 className="text-sm sm:text-base font-black uppercase tracking-tight text-slate-900 dark:text-white truncate">
@@ -498,7 +498,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
           </div>
 
           {/* Onglets de navigation : Mode Post-it vs Chatbot IA */}
-          <div className="flex items-center gap-1.5 p-1 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-amber-200/60 dark:border-slate-700 shadow-xs">
+          <div className="flex items-center gap-1.5 p-1 !bg-white dark:!bg-slate-800 rounded-xl border border-amber-200 dark:border-slate-700 shadow-xs">
             <button
               type="button"
               onClick={() => setActiveTab("postit")}
@@ -534,7 +534,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
             <button
               type="button"
               onClick={() => setShowKeyConfig(!showKeyConfig)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 text-xs border border-amber-200/50 dark:border-slate-800 bg-white/60 dark:bg-slate-800/60 transition-colors"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 text-xs border border-amber-200 dark:border-slate-800 !bg-white dark:!bg-slate-800 transition-colors"
               title="Configuration clé API IA (Optionnelle)"
             >
               <KeyRound className="h-3.5 w-3.5" />
@@ -552,7 +552,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
 
         {/* Configuration Clé API Optionnelle (dépliable au sommet) */}
         {showKeyConfig && (
-          <div className="shrink-0 p-3 bg-white/95 dark:bg-slate-800/95 border-b border-amber-300/70 dark:border-slate-700 space-y-2 text-xs shadow-sm">
+          <div className="shrink-0 p-3 !bg-white dark:!bg-slate-800 border-b border-amber-300 dark:border-slate-700 space-y-2 text-xs shadow-sm">
             <div className="flex justify-between items-center">
               <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                 <KeyRound className="h-3.5 w-3.5 text-amber-500" /> Clé API IA Personnelle (Groq, Gemini, OpenAI)
@@ -573,7 +573,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                 value={customApiKey}
                 onChange={(e) => setCustomApiKey(e.target.value)}
                 placeholder="Ex: gsk_... ou AIza... ou sk-..."
-                className="text-xs h-8 rounded-xl font-mono"
+                className="text-xs h-8 rounded-xl font-mono !bg-white dark:!bg-slate-900 border-amber-200 dark:border-slate-700"
               />
               <Button
                 type="button"
@@ -587,8 +587,8 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
           </div>
         )}
 
-        {/* ─── CORPS DÉFILABLE (FLEX-1 OVERFLOW-Y-AUTO) ─────────────────────────── */}
-        <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4 space-y-4">
+        {/* ─── CORPS DÉFILABLE 100% OPAQUE (FLEX-1 OVERFLOW-Y-AUTO) ─────────────── */}
+        <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4 space-y-4 !bg-[#fffbeb] dark:!bg-[#0f172a]">
           {activeTab === "postit" ? (
             /* ══════════════════════════════════════════════════════════════════════
                MODE POST-IT : FORMULAIRE CLASSIQUE AMÉLIORÉ
@@ -596,7 +596,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
             <div className="space-y-4">
               {/* Champ Titre du Mémo (Résumé synthétique du sujet) */}
               {!isManualTitleOpen && !isEditing ? (
-                <div className="p-3 rounded-2xl bg-amber-500/10 dark:bg-slate-800/80 border border-amber-300/60 dark:border-amber-700/50 flex items-center justify-between gap-3 shadow-xs">
+                <div className="p-3 rounded-2xl !bg-[#fef3c7] dark:!bg-slate-800 border border-amber-300 dark:border-amber-700 flex items-center justify-between gap-3 shadow-xs">
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div className="p-1.5 rounded-xl bg-amber-500 text-white shrink-0 shadow-sm">
                       {isGeneratingTitle ? (
@@ -624,7 +624,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                         setTitle(title || autoGeneratedTitle);
                         setIsManualTitleOpen(true);
                       }}
-                      className="p-1.5 rounded-lg text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 text-[10px] font-bold shrink-0 flex items-center gap-1 transition-colors"
+                      className="p-1.5 rounded-lg text-amber-700 dark:text-amber-400 hover:bg-amber-200 text-[10px] font-bold shrink-0 flex items-center gap-1 transition-colors"
                       title="Personnaliser le titre manuellement"
                     >
                       <Edit3 className="h-3 w-3" />
@@ -654,7 +654,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Titre résumé du sujet..."
-                    className="text-sm font-black tracking-tight rounded-xl bg-white/90 dark:bg-slate-800/90 border-amber-200 dark:border-slate-700 text-slate-900 dark:text-white shadow-xs focus-visible:ring-1 focus-visible:ring-amber-500"
+                    className="text-sm font-black tracking-tight rounded-xl !bg-white dark:!bg-slate-800 border-amber-200 dark:border-slate-700 text-slate-900 dark:text-white shadow-xs focus-visible:ring-1 focus-visible:ring-amber-500"
                   />
                 </div>
               )}
@@ -668,7 +668,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                   <select
                     value={pillar}
                     onChange={(e) => setPillar(e.target.value as MemoPillar)}
-                    className="w-full text-xs font-bold rounded-xl p-2 bg-white/90 dark:bg-slate-800/90 border border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 outline-none shadow-xs"
+                    className="w-full text-xs font-bold rounded-xl p-2 !bg-white dark:!bg-slate-800 border border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 outline-none shadow-xs"
                   >
                     <option value="LAB_FT">🛡️ LAB / FT</option>
                     <option value="CONFORMITE_REGLEMENTAIRE">⚖️ Conformité Réglementaire</option>
@@ -680,7 +680,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
                     Portée / Visibilité
                   </label>
-                  <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-white/90 dark:bg-slate-800/90 border border-amber-200 dark:border-slate-700 shadow-xs">
+                  <div className="grid grid-cols-2 gap-1 p-1 rounded-xl !bg-white dark:!bg-slate-800 border border-amber-200 dark:border-slate-700 shadow-xs">
                     <button
                       type="button"
                       onClick={() => setScope("COLLABORATIVE")}
@@ -717,7 +717,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                   <select
                     value={priority}
                     onChange={(e) => setPriority(e.target.value as MemoPriority)}
-                    className="w-full text-xs font-bold rounded-xl p-2 bg-white/90 dark:bg-slate-800/90 border border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 outline-none shadow-xs"
+                    className="w-full text-xs font-bold rounded-xl p-2 !bg-white dark:!bg-slate-800 border border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 outline-none shadow-xs"
                   >
                     <option value="URGENT">🚨 Urgent / Bloquant</option>
                     <option value="ATTENTION">⚡ Attention</option>
@@ -735,7 +735,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                 <select
                   value={associatedSectionHref}
                   onChange={(e) => handleSectionChange(e.target.value)}
-                  className="w-full text-xs font-semibold rounded-xl p-2 bg-white/90 dark:bg-slate-800/90 border border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 outline-none shadow-xs truncate"
+                  className="w-full text-xs font-semibold rounded-xl p-2 !bg-white dark:!bg-slate-800 border border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 outline-none shadow-xs truncate"
                 >
                   {APP_SECTIONS.map((sec) => (
                     <option key={sec.href} value={sec.href}>
@@ -757,7 +757,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                     <button
                       type="button"
                       onClick={handleOpenChatbotFromPostit}
-                      className="h-8 px-2.5 rounded-xl bg-white/90 dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+                      className="h-8 px-2.5 rounded-xl !bg-white dark:!bg-slate-800 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
                       title="Ouvrir le chatbot conversationnel pour dialoguer et affiner vos besoins"
                     >
                       <Bot className="h-3.5 w-3.5" />
@@ -789,7 +789,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
 
                 {/* Bannière de confirmation / possibilité de rétablir les notes initiales */}
                 {improvedSuccess && undoBackup && (
-                  <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-500/15 via-amber-500/10 to-transparent border border-emerald-300 dark:border-emerald-800 flex items-center justify-between gap-2 text-xs animate-in fade-in duration-200">
+                  <div className="p-2.5 rounded-xl !bg-emerald-50 dark:!bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 flex items-center justify-between gap-2 text-xs animate-in fade-in duration-200">
                     <span className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
                       <Check className="h-3.5 w-3.5 text-emerald-600" />
                       Mémo organisé avec des points clairs & titre résumé du sujet généré !
@@ -809,13 +809,13 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Écrivez vos notes brutes, observations ou points ici... Vous pouvez ensuite cliquer sur 'Améliorer avec l'IA ✨' ou dialoguer avec le 'Chatbot IA (ChatGPT)' pour organiser le texte de façon professionnelle avec des points et générer le titre résumé."
                   rows={7}
-                  className="text-sm sm:text-base rounded-2xl font-medium leading-relaxed bg-white/95 dark:bg-slate-800/95 border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 shadow-xs resize-y focus-visible:ring-1 focus-visible:ring-amber-500 p-3.5"
+                  className="text-sm sm:text-base rounded-2xl font-medium leading-relaxed !bg-white dark:!bg-slate-800 border-amber-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 shadow-xs resize-y focus-visible:ring-1 focus-visible:ring-amber-500 p-3.5"
                   required
                 />
               </div>
 
               {/* Checklist / Actions */}
-              <div className="space-y-2 pt-1 border-t border-amber-200/60 dark:border-slate-800">
+              <div className="space-y-2 pt-1 border-t border-amber-200 dark:border-slate-800">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
                   <CheckCircle2 className="h-3 w-3 text-emerald-500" />
                   Checklist / Actions à vérifier
@@ -832,7 +832,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                       }
                     }}
                     placeholder="Ajouter une action (ex: Contrôler la pièce d'identité)..."
-                    className="text-xs rounded-xl h-8 bg-white/90 dark:bg-slate-800/90 border-amber-200 dark:border-slate-700"
+                    className="text-xs rounded-xl h-8 !bg-white dark:!bg-slate-800 border-amber-200 dark:border-slate-700"
                   />
                   <Button
                     type="button"
@@ -850,7 +850,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                     {checklists.map((chk) => (
                       <div
                         key={chk.id}
-                        className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-amber-200/40 dark:border-slate-700 text-xs"
+                        className="flex items-center justify-between gap-2 px-2.5 py-1.5 !bg-white dark:!bg-slate-800 rounded-xl border border-amber-200 dark:border-slate-700 text-xs"
                       >
                         <span className="truncate font-medium text-slate-700 dark:text-slate-300">
                           • {chk.text}
@@ -874,7 +874,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                ══════════════════════════════════════════════════════════════════════ */
             <div className="flex flex-col h-full space-y-3">
               {/* Bannière de cadrage conversationnel */}
-              <div className="p-3 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-amber-500/10 border border-indigo-200 dark:border-indigo-900 flex items-start gap-3 shadow-xs">
+              <div className="p-3 rounded-2xl !bg-[#fef3c7] dark:!bg-slate-800 border border-indigo-200 dark:border-indigo-900 flex items-start gap-3 shadow-xs">
                 <div className="p-2 rounded-xl bg-indigo-600 text-white shrink-0 shadow-sm mt-0.5">
                   <Bot className="h-4 w-4" />
                 </div>
@@ -902,7 +902,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                     key={idx}
                     type="button"
                     onClick={() => handleSendChatMessage(sug)}
-                    className="text-[10.5px] font-semibold px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800 border border-amber-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-amber-100 hover:text-amber-900 transition-colors shadow-2xs"
+                    className="text-[10.5px] font-semibold px-2.5 py-1 rounded-lg !bg-white dark:!bg-slate-800 border border-amber-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-amber-100 hover:text-amber-900 transition-colors shadow-2xs"
                   >
                     💬 {sug}
                   </button>
@@ -910,7 +910,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
               </div>
 
               {/* Zone des messages de chat */}
-              <div className="flex-1 overflow-y-auto space-y-3 p-3 bg-white/60 dark:bg-slate-900/60 rounded-2xl border border-amber-200/50 dark:border-slate-800 min-h-[260px] max-h-[380px]">
+              <div className="flex-1 overflow-y-auto space-y-3 p-3 !bg-[#fef9c3] dark:!bg-[#020617] rounded-2xl border border-amber-200 dark:border-slate-800 min-h-[260px] max-h-[380px]">
                 {chatMessages.map((msg) => (
                   <div
                     key={msg.id}
@@ -942,8 +942,8 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                       className={cn(
                         "rounded-2xl p-3.5 text-xs sm:text-sm max-w-[92%] leading-relaxed shadow-xs",
                         msg.role === "user"
-                          ? "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-tr-xs"
-                          : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-amber-200/70 dark:border-slate-700 rounded-tl-xs space-y-3"
+                          ? "!bg-indigo-600 text-white rounded-tr-xs"
+                          : "!bg-white dark:!bg-slate-800 text-slate-800 dark:text-slate-200 border border-amber-200 dark:border-slate-700 rounded-tl-xs space-y-3"
                       )}
                     >
                       {/* Message texte normal */}
@@ -951,14 +951,14 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
 
                       {/* Si l'assistant a proposé une analyse de cadrage */}
                       {msg.framingAnalysis && (
-                        <div className="p-2.5 rounded-xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800 text-xs text-amber-950 dark:text-amber-200 whitespace-pre-line leading-relaxed">
+                        <div className="p-2.5 rounded-xl !bg-[#fef3c7] dark:!bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-950 dark:text-amber-200 whitespace-pre-line leading-relaxed">
                           {msg.framingAnalysis}
                         </div>
                       )}
 
                       {/* Si l'assistant a généré un mémo structuré */}
                       {msg.suggestedContent && (
-                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
+                        <div className="p-3 rounded-xl !bg-slate-50 dark:!bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
                           <div className="flex items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-1.5">
                             <span className="font-black text-slate-900 dark:text-white uppercase tracking-tight flex items-center gap-1">
                               <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
@@ -1012,7 +1012,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                 ))}
 
                 {isChatSending && (
-                  <div className="flex items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-2xl border border-amber-200 dark:border-slate-700 w-fit text-xs text-slate-600">
+                  <div className="flex items-center gap-2 p-3 !bg-white dark:!bg-slate-800 rounded-2xl border border-amber-200 dark:border-slate-700 w-fit text-xs text-slate-600">
                     <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
                     <span>L'IA analyse votre situation et rédige la note...</span>
                   </div>
@@ -1033,7 +1033,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                   }}
                   placeholder="Posez votre question, décrivez une situation ou demandez un cadrage (ex: que faire si le calcul de risque ne s'adapte pas ?)..."
                   rows={2}
-                  className="text-xs sm:text-sm rounded-xl resize-none bg-white/95 dark:bg-slate-800/95 border-amber-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                  className="text-xs sm:text-sm rounded-xl resize-none !bg-white dark:!bg-slate-800 border-amber-200 dark:border-slate-700 text-slate-900 dark:text-white"
                 />
                 <Button
                   type="button"
@@ -1049,14 +1049,14 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
           )}
         </div>
 
-        {/* ─── PIED DE PAGE FIXE ET TOUJOURS VISIBLE (SHRINK-0) ─────────────────── */}
-        <div className="shrink-0 px-6 py-3.5 border-t border-amber-200/80 dark:border-slate-800 bg-amber-100/90 dark:bg-slate-900/95 flex justify-between items-center gap-2 shadow-md z-10">
+        {/* ─── PIED DE PAGE FIXE, OPAQUE ET TOUJOURS VISIBLE (SHRINK-0) ─────────── */}
+        <div className="shrink-0 px-6 py-3.5 border-t border-amber-200 dark:border-slate-800 !bg-[#fef3c7] dark:!bg-[#1e293b] flex justify-between items-center gap-2 shadow-md z-10">
           <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
-              className="h-9 px-4 rounded-xl text-xs font-semibold bg-white/90 dark:bg-slate-800 border-amber-200 dark:border-slate-700 hover:bg-white text-slate-700 dark:text-slate-300"
+              className="h-9 px-4 rounded-xl text-xs font-semibold !bg-white dark:!bg-slate-800 border-amber-200 dark:border-slate-700 hover:bg-white text-slate-700 dark:text-slate-300"
             >
               Annuler
             </Button>
@@ -1065,7 +1065,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                 type="button"
                 variant="ghost"
                 onClick={() => setActiveTab("postit")}
-                className="h-9 px-3 rounded-xl text-xs font-bold text-amber-800 dark:text-amber-300 hover:bg-amber-200/50"
+                className="h-9 px-3 rounded-xl text-xs font-bold text-amber-800 dark:text-amber-300 hover:bg-amber-200"
               >
                 ← Voir le Post-it
               </Button>
