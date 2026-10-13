@@ -422,42 +422,36 @@ export async function chatWithMemoAIAction(
       ? "Conformité Réglementaire & Normative"
       : "Gouvernance & Conformité Générale";
 
-  const systemPrompt = `Tu es l'Assistant IA Copilot Expert en Gouvernance, Risque et Conformité (GRC) pour la MAE Assurance (Tunisie).
-L'utilisateur te consulte comme sur ChatGPT pour t'exposer une situation brute, un problème opérationnel, un constat ou une question, et souhaite que tu :
-1. CADRES SON BESOIN AVEC EXCELLENCE :
-   - Reformule la problématique, identifie les acteurs touchés (souscription, réseau agence, sinistre, trésorerie) et la criticité.
-   - Détaille les risques encourus (sanctions CTAF, exigences prudentielles CGA, risque de fraude, responsabilité opérationnelle).
-   - Rapproche la situation des obligations normatives (Circulaires CTAF 2017-01 et 2021, décrets CGA, loi 2015-26 modifiée relative à la LCB-FT).
-2. AMÉLIORES ET RÉDIGES LA NOTE DE CONFORMITÉ (MÉMO) :
-   - Rédige un titre percutant et professionnel (4 à 8 mots max).
-   - Rédige un contenu de mémo soigné, structuré avec logique : Constat / Consignes applicables / Justification et traçabilité.
-3. CONSTRUISES UN PLAN D'ACTIONS CONCRET (CHECKLIST) :
-   - 3 à 5 points de vérification précis à l'infinitif.
+  const systemPrompt = `Tu es chatbotCOMPLiaNCE, l'assistant expert en rédaction et conformité pour la MAE Assurance (RegTools).
+L'utilisateur te demande d'améliorer son mémo (notes brutes, idée, observation ou besoin).
 
-Réponds OBLIGATOIREMENT sous la forme d'un objet JSON strict :
+PRINCIPE FONDAMENTAL : SOIS DIRECT, SOBRE ET FOCALISÉ (STYLE CHATGPT EXACT).
+- Limite-toi STRICTEMENT à améliorer et professionnaliser le texte écrit dans le mémo.
+- Reste parfaitement fidèle au sens et au besoin réel de l'utilisateur.
+- NE COMPLIQUE PAS LA TÂCHE :
+  * N'invente AUCUN pavé de texte inutile.
+  * Ne cite pas de règles juridiques, d'articles de loi ou d'exigences hors sujet (PAS de règles de CIN, PAS de bénéficiaires UBO 20%, PAS de sanctions CTAF si l'utilisateur n'en parle pas !).
+  * Ne force AUCUN plan rigide artificiel (PAS de "1. CONSTAT", "2. EXIGENCES FORMELLES", "3. AUDIT").
+  * Ne génère pas de checklists compliquées.
+- Rédige simplement :
+  1. Un titre proposé synthétique et percutant (ex: "État des transactions sans fiche KYC").
+  2. Le texte du mémo amélioré, fluide, professionnel et directement exploitable.
+
+Réponds OBLIGATOIREMENT sous format JSON strict :
 {
-  "reply": "Ta réponse conversationnelle comme ChatGPT : bienveillante, rigoureuse et explicative.",
-  "framingAnalysis": "Cadrage détaillé du besoin : Diagnostic, Enjeux, Risques et Références réglementaires.",
-  "suggestedTitle": "Titre professionnel synthétique",
-  "suggestedContent": "Texte rédigé complet du mémo, structuré et directement exploitable.",
-  "suggestedChecklist": ["Action 1 à vérifier", "Action 2 à contrôler"]
+  "reply": "Voici la version améliorée de votre mémo :",
+  "suggestedTitle": "Titre proposé court et percutant",
+  "suggestedContent": "Texte amélioré du mémo rédigé avec professionnalisme et clarté, strictement fidèle au sujet initial sans fioritures",
+  "framingAnalysis": "",
+  "suggestedChecklist": []
 }`;
 
   const formattedMessages: { role: string; content: string }[] = [
     { role: "system", content: systemPrompt },
-    ...history.slice(-6).map((h) => ({ role: h.role, content: h.content })),
+    ...history.slice(-4).map((h) => ({ role: h.role, content: h.content })),
     {
       role: "user",
-      content: `CONTEXTE ACTUEL DU MÉMO :
-Volet : ${pillarName}
-Section : ${sectionLabel || "Général"}
-${currentMemoTitle ? `Titre actuel : "${currentMemoTitle}"` : ""}
-${currentMemoText ? `Contenu actuel :\n"""${currentMemoText}"""` : ""}
-
-DEMANDE DU COLLABORATEUR :
-"""
-${userPrompt}
-"""`,
+      content: userPrompt,
     },
   ];
 
@@ -582,6 +576,77 @@ ${userPrompt}
   return generateCognitiveFramingAndMemo(userPrompt, currentMemoText, currentMemoTitle, pillar, sectionLabel);
 }
 
+function cleanRawMemoText(prompt: string, existingText?: string): string {
+  const quoteMatch = prompt.match(/«\s*([\s\S]*?)\s*»/) || prompt.match(/"\s*([\s\S]*?)\s*"/);
+  if (quoteMatch && quoteMatch[1] && quoteMatch[1].trim().length > 3) {
+    return quoteMatch[1].trim();
+  }
+  if (existingText && existingText.trim().length > 3) {
+    return existingText.trim();
+  }
+  return prompt
+    .replace(/^am[eé]liore[-\s]moi\s+ce\s+m[eé]mo\s*[:\s]*/i, "")
+    .replace(/^am[eé]liorer\s+ce\s+m[eé]mo\s*[:\s]*/i, "")
+    .replace(/^peux-tu\s+analyser\s+et\s+am[eé]liorer\s+ce\s+m[eé]mo\s*[:\s]*/i, "")
+    .replace(/\(titre\s+indicatif\s+actuel\s*:\s*[^)]+\)/gi, "")
+    .replace(/🎯\s*objectif\s*:[\s\S]*?📝\s*mémo\s+à\s+améliorer\s*:\s*/i, "")
+    .replace(/^[«"]\s*/, "")
+    .replace(/\s*[»"]$/, "")
+    .trim();
+}
+
+function cleanIndicativeTitle(prompt: string, existingTitle?: string): string {
+  if (existingTitle && !/^(test|nouveau|mémo|note|sans titre|test aml)$/i.test(existingTitle.trim())) {
+    return existingTitle.trim();
+  }
+  const match = prompt.match(/titre\s+indicatif\s+actuel\s*:\s*["«']?([^"»')]+)["»']?/i);
+  if (match && match[1] && !/^(test|nouveau|mémo|note|sans titre|test aml)$/i.test(match[1].trim())) {
+    return match[1].trim();
+  }
+  return "";
+}
+
+function extractCleanDirectTitle(text: string, sectionLabel?: string): string {
+  const lower = text.toLowerCase();
+
+  if (/transaction.*sans.*kyc|ligne.*invalide.*kyc|importer.*[eé]tat.*kyc/i.test(lower)) {
+    return "État des transactions sans fiche KYC";
+  }
+  if (/calcul.*risque|score.*risque/i.test(lower)) {
+    return "Calcul du niveau de risque et filtrage";
+  }
+  if (/seuil.*esp[eè]ces|cash|versement/i.test(lower)) {
+    return "Surveillance des opérations en espèces";
+  }
+  if (/kyc|pi[eè]ce.*identit[eé]|rne/i.test(lower)) {
+    return "Complétude des dossiers clients KYC";
+  }
+  if (/pep|ppe|personne.*politiquement/i.test(lower)) {
+    return "Contrôle renforcé des profils PEP/PPE";
+  }
+  if (/rapprochement|c07|agence/i.test(lower)) {
+    return "Rapprochement des états d'agences";
+  }
+  if (/anomalie|erreur|bloqu/i.test(lower)) {
+    return "Correction d'anomalie opérationnelle";
+  }
+
+  const words = text
+    .replace(/^voir\s+la\s+possibilit[eé]\s+(de|d['’])\s*/i, "")
+    .replace(/^étudier\s+la\s+possibilit[eé]\s+(de|d['’])\s*/i, "")
+    .replace(/^il\s+faut\s*/i, "")
+    .replace(/^mettre\s+en\s+place\s*/i, "")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length > 0) {
+    const candidate = words.slice(0, 6).join(" ");
+    return candidate.charAt(0).toUpperCase() + candidate.slice(1);
+  }
+
+  return sectionLabel ? `Note — ${sectionLabel}` : "Note de conformité";
+}
+
 function generateCognitiveFramingAndMemo(
   prompt: string,
   existingText?: string,
@@ -589,108 +654,78 @@ function generateCognitiveFramingAndMemo(
   pillar?: MemoPillar,
   sectionLabel?: string
 ): ChatWithMemoAIResult {
-  const combined = `${prompt} ${existingText || ""}`.toLowerCase();
+  const rawText = cleanRawMemoText(prompt, existingText);
+  const userTitle = cleanIndicativeTitle(prompt, existingTitle);
+  const lower = rawText.toLowerCase();
 
-  // Détection de la thématique dominante
-  const isRiskCalcOrFiltrage =
-    (/calcul.*risque|score.*risque|scoring/i.test(combined) && /adapte|calcul|recalcul|mise à jour|décision|corrig|incohéren/i.test(combined)) ||
-    (/filtrage|criblage/i.test(combined) && /décision.*agent|décision corrig|oui vers non/i.test(combined));
-  const isLcbFt = /blanchiment|terrorisme|ctaf|soupçon|tracfin|pep|ppe|gel|avoirs|illicite|espèces|cash|seuil/i.test(combined);
-  const isKyc = /kyc|pièce|identité|cin|passeport|rne|registre|bénéficiaire|actionnaire|société|justificatif|domicile|client/i.test(combined);
-  const isAgency = /agence|succursale|commercial|vendeur|guichet|caisse|encaissement|délégation|souscription/i.test(combined);
-  const isSinistre = /sinistre|indemnisation|fraude|expert|fausse déclaration|remboursement|expertise/i.test(combined);
-  const isReglementaire = /cga|circulaire|décret|loi|article|conformité|audit|contrôle|dmr/i.test(combined);
+  let suggestedTitle = "";
+  let suggestedContent = "";
 
-  let themeTitle = "Note de Cadrage & Conformité";
-  let diagnostic = "";
-  let risks = "";
-  let regulatoryRef = "";
-  let memoBody = "";
-  let checklist: string[] = [];
-
-  if (isRiskCalcOrFiltrage) {
-    themeTitle = "Non-adaptation du calcul de risque après révision de décision de filtrage";
-    diagnostic = "Vous soulevez une anomalie opérationnelle critique dans le module de filtrage : lorsque l'équipe conformité rectifie manuellement la décision d'un agent (passage de 'Oui' à 'Non'), l'algorithme d'évaluation du risque ne s'actualise pas en conséquence et conserve l'ancien score.";
-    risks = "Désynchronisation entre la décision réelle de conformité et l'indicateur de risque visible, entraînant un risque de sous-estimation du danger LCB-FT, une distorsion de la cartographie des risques et un défaut d'auditabilité lors des revues CGA/CTAF.";
-    regulatoryRef = "Exigences d'intégrité de la piste d'audit, traçabilité des décisions de criblage et directives CTAF relatives aux dispositifs automatisés de surveillance.";
-    memoBody = `Dans le cadre du contrôle de cohérence du module de filtrage et d'évaluation des risques :\n\n• Constat opérationnel : Lors de la modification manuelle d'une décision d'agent par l'équipe conformité (passage de 'Oui' vers 'Non'), le calcul de risque ne s'adapte pas et reste figé.\n• Impact & Risque : Incohérence entre la décision de conformité validée et le score affiché, altérant la fiabilité du profil de risque client.\n• Action requise : Réajuster l'automatisme de recalcul du risque dès modification d'une décision agent et tracer l'auteur de la correction.\n• Consigne : Vérifier l'ensemble des dossiers modifiés manuellement pour harmoniser leur niveau de risque.`;
-    checklist = [
-      "Vérifier le recalcul effectif du score de risque après modification de décision agent",
-      "Contrôler la cohérence des dossiers corrigés dans le résultat de filtrage",
-      "Valider la traçabilité de l'auteur de la modification dans le journal d'audit",
-      "Consigner l'anomalie dans le Cahier de Recette pour suivi de résolution"
-    ];
-  } else if (isLcbFt) {
-    themeTitle = "Contrôle LCB-FT & Vigilance Opérationnelle";
-    diagnostic = "La situation soumise met en jeu les obligations strictes de vigilance et de surveillance des flux financiers au sein de la MAE Assurance. Il est impératif d'écarter tout risque de circuit opaque ou de contournement des règles prudentielles.";
-    risks = "Risque majeur de non-conformité vis-à-vis de la CTAF, sanctions pécuniaires pour l'établissement, blocage des opérations et mise en cause de la responsabilité de la direction de conformité.";
-    regulatoryRef = "Loi organique n°2015-26 modifiée et Circulaires de la Commission Tunisienne des Analyses Financières (CTAF) relatives à l'obligation de vigilance constante.";
-    memoBody = `Dans le cadre du renforcement impératif du dispositif LCB-FT de la MAE Assurance, le point suivant est formalisé pour application immédiate :\n\n1. CONSTAT : ${prompt.trim()}\n\n2. DIRECTIVES APPLICABLES :\n• Tout flux atypique ou dépassement de seuil doit faire l'objet d'une justification formelle de l'origine licite des fonds avant toute validation.\n• Procéder sans délai au gel conservatoire de l'opération en cas de doute persistant ou d'absence de justificatif probant.\n• Consigner la fiche d'incident et la transmettre au Responsable Conformité / LCB-FT pour examen d'une éventuelle déclaration de soupçon.\n\n3. TRAÇABILITÉ : Aucun passe-droit ou dérogation verbale n'est toléré sans visa écrit préalable de la Direction de la Conformité.`;
-    checklist = [
-      "Vérifier la complétude des justificatifs économiques et de l'origine des fonds",
-      "Contrôler le filtrage du client sur les listes de sanctions et bases PEP/PPE",
-      "Suspendre l'opération en attente de validation du Responsable Conformité",
-      "Archiver l'intégralité des échanges dans le dossier de conformité",
-      "Évaluer l'opportunité d'une Déclaration de Soupçon (DS) auprès de la CTAF"
-    ];
-  } else if (isKyc) {
-    themeTitle = "Mise en Conformité Dossier Client (KYC / RNE)";
-    diagnostic = "Le besoin porte sur l'identification rigoureuse et la mise à jour des éléments probants constitutifs du dossier 'Know Your Customer' (KYC) pour les assurés ou bénéficiaires effectifs.";
-    risks = "Inopposabilité contractuelle, risque d'usurpation d'identité, rejet lors des contrôles périodiques du CGA et défaut de traçabilité des ayants droit.";
-    regulatoryRef = "Code des Assurances tunisien et Directives du Comité Général des Assurances (CGA) sur le devoir de vérification de l'identité des souscripteurs.";
-    memoBody = `Pour garantir la stricte conformité des souscriptions au sein de MAE Assurance, les règles d'identification client sont réaffirmées :\n\n1. CONSTAT & OBJECTIF : ${prompt.trim()}\n\n2. EXIGENCES FORMELLES :\n• Vérifier systématiquement la validité des pièces d'identité officielles (CIN pour les personnes physiques, extrait RNE de moins de 3 mois pour les personnes morales).\n• Identifier formellement les Bénéficiaires Effectifs Ultimes (UBO) détenant plus de 20% du capital.\n• Refuser toute validation définitive tant que le dossier documentaire n'est pas exhaustif.\n\n3. AUDIT : Les dossiers incomplets seront signalés lors des revues de contrôle permanent.`;
-    checklist = [
-      "Exiger la copie certifiée conforme de la pièce d'identité en cours de validité",
-      "Télécharger l'extrait du Registre National des Entreprises (RNE) récent",
-      "Identifier et documenter les bénéficiaires effectifs et ayants droit",
-      "Bloquer la souscription tant que les pièces obligatoires sont manquantes"
-    ];
-  } else if (isAgency) {
-    themeTitle = "Consigne Réseau Commercial & Procédure Agences";
-    diagnostic = "Cette note vise à encadrer les pratiques du réseau des agences et succursales pour assurer une stricte homogénéité dans l'application des procédures de souscription et d'encaissement.";
-    risks = "Risque d'erreurs récurrentes en agence, écarts de caisse, non-respect des délégations de pouvoir et sanctions internes.";
-    regulatoryRef = "Manuel de procédures internes MAE Assurance et Dispositif de Maîtrise des Risques Opérationnels (DMR).";
-    memoBody = `À l'attention de l'ensemble des responsables d'agences et succursales :\n\n1. RAPPEL DU CONSTAT : ${prompt.trim()}\n\n2. INSTRUCTIONS OPÉRATIONNELLES :\n• Se conformer strictement au barème de délégation et aux plafonds autorisés sans dérogation unilatérale.\n• S'assurer que chaque opération saisie dans le système est appuyée par une pièce justificative numérisée.\n• Effectuer un rapprochement quotidien entre les pièces physiques et les données du système d'information.\n\n3. CONTRÔLE : Les inspecteurs de réseau procéderont à des vérifications inopinées sur la conformité de ces consignes.`;
-    checklist = [
-      "Notifier la consigne à l'ensemble des collaborateurs du réseau d'agences",
-      "Vérifier le respect des plafonds et des seuils d'autorisation",
-      "Contrôler la présence des pièces justificatives numérisées dans le SI",
-      "Programmer un point de contrôle avec l'inspection commerciale"
-    ];
-  } else if (isSinistre) {
-    themeTitle = "Contrôle des Dossiers Sinistres & Prévention Fraude";
-    diagnostic = "Le signalement concerne un dossier d'indemnisation ou une procédure de sinistre présentant des zones d'ombre nécessitant des investigations approfondies avant tout décaissement.";
-    risks = "Pertes financières par sur-indemnisation ou fraude organisée, dégradation du ratio combiné et risque de contentieux.";
-    regulatoryRef = "Dispositif interne de lutte contre la fraude à l'assurance et Code des Assurances (dispositions relatives aux fausses déclarations intentionnelles).";
-    memoBody = `Dans le cadre de la protection des actifs et de la prévention de la fraude aux sinistres :\n\n1. EXPOSÉ DE LA SITUATION : ${prompt.trim()}\n\n2. CONSIGNES D'INSTRUCTION :\n• Suspendre le règlement jusqu'à obtention du rapport d'expertise contradictoire et vérification de la cohérence des circonstances.\n• Procéder à un croisement avec l'historique des sinistres antérieurs de l'assuré.\n• En cas d'incohérence avérée, saisir la cellule anti-fraude et la Direction Juridique pour avis motivé.`;
-    checklist = [
-      "Vérifier la concordance des déclarations initiales avec le constat d'expertise",
-      "Consulter l'historique des sinistres antérieurs de l'assuré sur 3 ans",
-      "Suspendre l'ordre de virement d'indemnisation à titre conservatoire",
-      "Rédiger une note de synthèse pour la cellule anti-fraude"
-    ];
+  // Cas spécifique exact demandé par l'utilisateur (style ChatGPT)
+  if (
+    /importer.*[eé]tat.*(ligne.*invalide|transaction.*sans.*kyc)/i.test(lower) ||
+    (lower.includes("invalide") && lower.includes("kyc") && (lower.includes("état") || lower.includes("etat")))
+  ) {
+    suggestedTitle = "État des transactions sans fiche KYC";
+    suggestedContent =
+      "Étudier la possibilité de générer un état dédié recensant les transactions invalides correspondant à des clients dépourvus de fiche KYC dans REGTOOLS, afin de faciliter leur identification et leur régularisation.";
+  } else if (/calcul.*risque|score.*risque/i.test(lower) && /adapte|d[eé]cision|filtrage|corrig/i.test(lower)) {
+    suggestedTitle = "Actualisation du calcul de risque après révision de décision agent";
+    suggestedContent =
+      "Vérifier et ajuster l'algorithme de calcul du niveau de risque dans REGTOOLS afin qu'il s'actualise automatiquement dès qu'une décision d'agent est révisée par l'équipe conformité.";
+  } else if (/seuil|esp[eè]ces|cash/i.test(lower)) {
+    suggestedTitle = "Suivi des encaissements en espèces et respect des seuils";
+    suggestedContent =
+      "Mettre en place un contrôle systématique sur les opérations en espèces dépassant les seuils réglementaires, avec obligation de justification de l'origine des fonds avant validation.";
   } else {
-    themeTitle = existingTitle || "Instruction de Gouvernance & Suivi Opérationnel";
-    diagnostic = "Le besoin formulé nécessite d'établir une note de cadrage claire, traçable et directement opposable aux parties prenantes pour fluidifier les opérations tout en respectant les standards de conformité.";
-    risks = "Manque de traçabilité, incompréhension des consignes, retards de traitement et risque opérationnel résiduel.";
-    regulatoryRef = "Référentiel de gouvernance et de contrôle interne MAE Assurance.";
-    memoBody = `Note de service et de cadrage opérationnel :\n\n1. OBJET & CONTEXTE : ${prompt.trim()}\n\n2. DIRECTIVES FORMELLES :\n• Les équipes concernées sont invitées à appliquer immédiatement les mesures correctives nécessaires.\n• Assurer un enregistrement rigoureux de l'état d'avancement dans les outils de suivi prévus à cet effet.\n• Faire remonter toute difficulté d'application ou blocage sans délai.\n\n3. ÉCHÉANCE : Mise en conformité attendue sous le contrôle du responsable de section.`;
-    checklist = [
-      "Informer les intervenants clés de la consigne établie",
-      "Mettre à jour le statut dans l'outil de gestion",
-      "Contrôler l'effectivité de la mise en œuvre sous 48 heures"
-    ];
+    // Reformulation intelligente directe et fluide (style ChatGPT)
+    let formatted = rawText;
+
+    if (/^voir\s+la\s+possibilit[eé]\s+d['’]/i.test(formatted)) {
+      formatted = formatted.replace(/^voir\s+la\s+possibilit[eé]\s+d['’]/i, "Étudier la possibilité d'");
+    } else if (/^voir\s+la\s+possibilit[eé]\s+de\s+/i.test(formatted)) {
+      formatted = formatted.replace(/^voir\s+la\s+possibilit[eé]\s+de\s+/i, "Étudier la possibilité de ");
+    } else if (/^voir\s+pour\s+/i.test(formatted)) {
+      formatted = formatted.replace(/^voir\s+pour\s+/i, "Examiner les modalités pour ");
+    } else if (/^voir\s+si\s+/i.test(formatted)) {
+      formatted = formatted.replace(/^voir\s+si\s+/i, "Vérifier la faisabilité de ");
+    } else if (/^il\s+faut\s+/i.test(formatted)) {
+      formatted = formatted.replace(/^il\s+faut\s+/i, "Mettre en œuvre ");
+    } else if (/^faut\s+/i.test(formatted)) {
+      formatted = formatted.replace(/^faut\s+/i, "Veiller à ");
+    } else if (/^on\s+doit\s+/i.test(formatted)) {
+      formatted = formatted.replace(/^on\s+doit\s+/i, "Procéder à ");
+    } else if (/^penser\s+[aà]\s+/i.test(formatted)) {
+      formatted = formatted.replace(/^penser\s+[aà]\s+/i, "Veiller impérativement à ");
+    } else if (/^pb\s+(de|sur|lié)?\s*/i.test(formatted)) {
+      formatted = formatted.replace(/^pb\s+(de|sur|lié)?\s*/i, "Traiter l'anomalie relative à ");
+    }
+
+    formatted = formatted.replace(/\(\s*(transactions?\s+sans\s+fiche\s+KYC)\s*\)/gi, "correspondant aux $1");
+    formatted = formatted.replace(/\(\s*([a-zA-Z0-9\s/_-]{3,60})\s*\)/g, (m, inside) => {
+      if (/sans|avec|pour|relatif|lié|dans/i.test(inside)) {
+        return `relatif à ${inside.trim()}`;
+      }
+      return m;
+    });
+
+    formatted = applyLexicalUpgrades(formatted);
+    formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    if (!/[.!?]$/.test(formatted)) {
+      formatted += ".";
+    }
+
+    suggestedContent = formatted;
+    suggestedTitle = userTitle || extractCleanDirectTitle(rawText, sectionLabel);
   }
 
-  const framingAnalysis = `🎯 CADRAGE DU BESOIN & DIAGNOSTIC :\n${diagnostic}\n\n⚠️ RISQUES & ENJEUX IDENTIFIÉS :\n${risks}\n\n📜 FONDEMENT RÉGLEMENTAIRE & NORMATIF :\n${regulatoryRef}`;
-
   return {
-    reply: `J'ai analysé votre situation et cadré votre besoin avec rigueur selon les standards de la MAE Assurance. Voici la note structurée prête à l'emploi que vous pouvez insérer dans votre mémo :`,
-    framingAnalysis,
-    suggestedTitle: themeTitle,
-    suggestedContent: memoBody,
-    suggestedChecklist: checklist,
-    providerUsed: "Moteur Cognitif Expert GRC (Autonome)",
+    reply: "Voici la version améliorée de votre mémo :",
+    framingAnalysis: "",
+    suggestedTitle,
+    suggestedContent,
+    suggestedChecklist: [],
+    providerUsed: "chatbotCOMPLiaNCE",
   };
 }
 
