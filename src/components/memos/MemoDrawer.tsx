@@ -64,6 +64,8 @@ export const MemoDrawer: React.FC = () => {
         m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         m.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
         m.authorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (m.updatedByName && m.updatedByName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (m.updatedBy && m.updatedBy.toLowerCase().includes(searchQuery.toLowerCase())) ||
         m.associatedSectionLabel.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesPillar = filterPillar === "ALL" || m.pillar === filterPillar;

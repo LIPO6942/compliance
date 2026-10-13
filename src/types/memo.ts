@@ -22,6 +22,8 @@ export interface ComplianceMemo {
   createdAt: string; // ISO string
   updatedAt?: string;
   updatedBy?: string;
+  updatedByName?: string;
+  updatedByEmail?: string;
   associatedSectionHref: string;
   associatedSectionLabel: string;
   checklists?: MemoChecklistItem[];

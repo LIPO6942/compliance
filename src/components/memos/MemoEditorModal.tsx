@@ -464,6 +464,7 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
       extractFaithfulTitle(content, pillar, associatedSectionLabel);
 
     if (isEditing && memoToEdit) {
+      const modifierName = user?.name || "Collaborateur";
       await updateMemo(memoToEdit.id, {
         title: finalTitle,
         content: content.trim(),
@@ -473,10 +474,13 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
         associatedSectionHref,
         associatedSectionLabel,
         checklists,
+        updatedBy: modifierName,
+        updatedByName: modifierName,
+        updatedByEmail: user?.authEmail || user?.email || "",
       });
       toast({
         title: "Mémo mis à jour",
-        description: `Le mémo "${finalTitle}" a été modifié avec succès.`,
+        description: `Le mémo "${finalTitle}" a été modifié avec succès par ${modifierName}.`,
       });
     } else {
       await addMemo({
@@ -618,6 +622,30 @@ export const MemoEditorModal: React.FC<MemoEditorModalProps> = ({
                MODE POST-IT : FORMULAIRE CLASSIQUE AMÉLIORÉ
                ══════════════════════════════════════════════════════════════════════ */
             <div className="space-y-4">
+              {/* Informations d'audit : Auteur initial & Date de création (préservés) + Dernière modification */}
+              {isEditing && memoToEdit && (
+                <div className="p-3 rounded-2xl !bg-white/80 dark:!bg-slate-800/80 border border-amber-300 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between gap-3 flex-wrap shadow-xs">
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <span className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1">
+                      👤 Créé par {memoToEdit.authorName || "Équipe Conformité"}
+                    </span>
+                    <span className="text-slate-400">•</span>
+                    <span className="text-slate-500 font-mono text-[11px]">
+                      le {new Date(memoToEdit.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })} à {new Date(memoToEdit.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                  {memoToEdit.updatedAt && (
+                    <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-semibold text-[11px]">
+                      <span>✏️ Modifié par {memoToEdit.updatedByName || memoToEdit.updatedBy || "Collaborateur"}</span>
+                      <span className="text-slate-400">•</span>
+                      <span className="font-mono">
+                        le {new Date(memoToEdit.updatedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })} à {new Date(memoToEdit.updatedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Champ Titre du Mémo (Résumé synthétique du sujet) */}
               {!isManualTitleOpen && !isEditing ? (
                 <div className="p-3 rounded-2xl !bg-[#fef3c7] dark:!bg-slate-800 border border-amber-300 dark:border-amber-700 flex items-center justify-between gap-3 shadow-xs">

@@ -185,17 +185,38 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateMemo = useCallback(
     async (id: string, updates: Partial<ComplianceMemo>): Promise<void> => {
-      const updatedData = { ...updates, updatedAt: new Date().toISOString() };
-      const updated = rawMemos.map((m) => (m.id === id ? { ...m, ...updatedData } : m));
+      const modifierName = updates.updatedByName || updates.updatedBy || user?.name || user?.email || "Collaborateur";
+      const modifierEmail = updates.updatedByEmail || user?.authEmail || user?.email || "";
+      const now = new Date().toISOString();
+
+      const updated = rawMemos.map((m) => {
+        if (m.id === id) {
+          return {
+            ...m,
+            ...updates,
+            // RÈGLE FORMELLE : Préserver impérativement l'auteur initial et la date de création originale
+            createdAt: m.createdAt,
+            authorName: m.authorName || "Équipe Conformité",
+            authorEmail: m.authorEmail || "conformite@mae.tn",
+            // Enregistrer la modification au nom de l'utilisateur qui l'a effectuée (même via l'IA)
+            updatedAt: now,
+            updatedBy: modifierName,
+            updatedByName: modifierName,
+            updatedByEmail: modifierEmail,
+          };
+        }
+        return m;
+      });
+
       setRawMemos(updated);
       await saveMemosToCloud(updated);
 
       toast({
         title: "Mémo mis à jour",
-        description: "Les modifications ont été enregistrées.",
+        description: `Modifications enregistrées au nom de ${modifierName}.`,
       });
     },
-    [rawMemos, toast]
+    [rawMemos, user, toast]
   );
 
   const deleteMemo = useCallback(
