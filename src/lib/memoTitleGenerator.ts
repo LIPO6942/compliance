@@ -14,6 +14,12 @@ export function extractFaithfulTitle(content: string, pillar?: MemoPillar, secti
 
   // 1. Détection de sujets techniques et métiers précis
   const lowerAll = raw.toLowerCase();
+  if ((/aml|lcb-?ft|regrow|regtools|blanchiment/i.test(lowerAll) || /flagged|sender/i.test(lowerAll)) && /filtre|export|transaction/i.test(lowerAll)) {
+    return "Optimisation des filtres et exports des transactions AML";
+  }
+  if (/importer.*[eé]tat.*(ligne.*invalide|transaction.*sans.*kyc)/i.test(lowerAll) || (lowerAll.includes("invalide") && lowerAll.includes("kyc"))) {
+    return "État des transactions sans fiche KYC";
+  }
   if (/calcul de risque|score de risque|scoring/i.test(lowerAll) && /ne s'adapte pas|pas mis à jour|incohéren|erreur|bloqu/i.test(lowerAll)) {
     return "Non-adaptation du calcul de risque après révision de décision";
   }
@@ -39,6 +45,10 @@ export function extractFaithfulTitle(content: string, pillar?: MemoPillar, secti
   // 3. Nettoyer les amorces conversationnelles et préfixes génériques
   const conversationalPrefixes = [
     /^(actions requises|action requise|points d'attention|à faire|constat)\s*[:,.]?\s*/i,
+    /^[aà]\s+revoir\s+(la\s+r[eé]f[eé]rence\s+de\s+|le\s+|la\s+|les\s+|l['’])?/i,
+    /^[aà]\s+clarifier\s+/i,
+    /^[aà]\s+v[eé]rifier\s+/i,
+    /^[aà]\s+ajouter\s+/i,
     /^bonjour\s*,?\s*(l'équipe|à tous|équipe)?\s*[:,.]?\s*/i,
     /^(bonsoir|salut|hello)\s*,?\s*/i,
     /^(prière de|merci de|veuillez|il faut|il conviendrait de|il est nécessaire de|nous devons|on doit|je vous prie de)\s+/i,

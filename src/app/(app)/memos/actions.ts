@@ -595,53 +595,167 @@ function cleanRawMemoText(prompt: string, existingText?: string): string {
     .trim();
 }
 
-function cleanIndicativeTitle(prompt: string, existingTitle?: string): string {
-  if (existingTitle && !/^(test|nouveau|mémo|note|sans titre|test aml)$/i.test(existingTitle.trim())) {
+function extractRawIndicativeTitle(prompt: string, existingTitle?: string): string {
+  if (existingTitle && existingTitle.trim()) {
     return existingTitle.trim();
   }
   const match = prompt.match(/titre\s+indicatif\s+actuel\s*:\s*["«']?([^"»')]+)["»']?/i);
-  if (match && match[1] && !/^(test|nouveau|mémo|note|sans titre|test aml)$/i.test(match[1].trim())) {
-    return match[1].trim();
+  return match && match[1] ? match[1].trim() : "";
+}
+
+function cleanIndicativeTitle(prompt: string, existingTitle?: string): string {
+  const raw = extractRawIndicativeTitle(prompt, existingTitle);
+  if (raw && !/^(test|nouveau|mémo|note|sans titre|test aml|test kyc)$/i.test(raw)) {
+    return raw;
   }
   return "";
 }
 
-function extractCleanDirectTitle(text: string, sectionLabel?: string): string {
-  const lower = text.toLowerCase();
+function reformulateSingleBullet(rawLine: string): string {
+  let line = rawLine.trim();
+  // Retirer les puces et préfixes de liste
+  line = line.replace(/^[📌🎯⚠️•\-\*\d+\.\)\[\]\s]+/, "").trim();
+  if (!line) return "";
 
-  if (/transaction.*sans.*kyc|ligne.*invalide.*kyc|importer.*[eé]tat.*kyc/i.test(lower)) {
+  // Cas spécifiques du mémo AML
+  if (/a\s+revoir.*(identifiant.*transaction|r[eé]f[eé]rence).*(regrow|regtools)/i.test(line)) {
+    return "Harmoniser la référence de l'identifiant de transaction REGTOOLS et vérifier l'affichage des mentions « Expéditeur » et « Destinataire »";
+  }
+  if (/gestion.*dossier.*sender/i.test(line)) {
+    return "Structurer et fiabiliser la gestion des dossiers émetteurs (« Sender »)";
+  }
+  if (/flagged\s+by\s+rule.*sc[eé]nario/i.test(line) || /sc[eé]nario.*flagged/i.test(line)) {
+    return "Clarifier le libellé du scénario d'alerte sous la règle de détection (« Flagged by rule »)";
+  }
+  if (/ajouter.*type.*contrat.*produit/i.test(line)) {
+    return "Intégrer le type de contrat / produit dans l'état des informations supplémentaires";
+  }
+  if (/exportation.*filtre.*(type.*traitement|clotur|investigation|suspect)/i.test(line)) {
+    return "Permettre l'exportation des données selon le statut de traitement (Clôturé, Investigation, À traiter, Activité suspecte)";
+  }
+  if (/exportation.*produit.*(vie|non\s*vie)/i.test(line) || /possibilit[eé].*export.*produit/i.test(line)) {
+    return "Ajouter la possibilité d'exportation segmentée par branche de produit (Vie / Non-Vie)";
+  }
+  if (/clarifier.*filtre.*report[eé]s/i.test(line)) {
+    return "Clarifier les critères et le fonctionnement du filtre « Reportés » (Oui / Non)";
+  }
+  if (/clarifier.*filtre.*type/i.test(line)) {
+    return "Préciser la définition et les options du filtre « Type »";
+  }
+
+  // Règles générales de reformulation dynamique
+  if (/^[aà]\s+revoir\s+/i.test(line) || /^revoir\s+/i.test(line)) {
+    line = line.replace(/^[aà]?\s*revoir\s+/i, "Réviser et fiabiliser ");
+  } else if (/^[aà]\s+clarifier\s+/i.test(line) || /^clarifier\s+/i.test(line)) {
+    line = line.replace(/^[aà]?\s*clarifier\s+/i, "Clarifier ");
+  } else if (/^[aà]\s+ajouter\s+/i.test(line) || /^ajouter\s+/i.test(line)) {
+    line = line.replace(/^[aà]?\s*ajouter\s+/i, "Intégrer ");
+  } else if (/^[aà]\s+v[eé]rifier\s+/i.test(line) || /^v[eé]rifier\s+/i.test(line)) {
+    line = line.replace(/^[aà]?\s*v[eé]rifier\s+/i, "Contrôler ");
+  } else if (/^possibilit[eé]\s+d['’]exportation\s+/i.test(line)) {
+    line = line.replace(/^possibilit[eé]\s+d['’]exportation\s+/i, "Permettre l'exportation ");
+  } else if (/^exportation\s+des?\s+/i.test(line)) {
+    line = line.replace(/^exportation\s+des?\s+/i, "Déployer l'exportation des ");
+  } else if (/^voir\s+la\s+possibilit[eé]\s+d['’]/i.test(line)) {
+    line = line.replace(/^voir\s+la\s+possibilit[eé]\s+d['’]/i, "Étudier la possibilité d'");
+  } else if (/^voir\s+la\s+possibilit[eé]\s+de\s+/i.test(line)) {
+    line = line.replace(/^voir\s+la\s+possibilit[eé]\s+de\s+/i, "Étudier la possibilité de ");
+  } else if (/^il\s+faut\s+/i.test(line)) {
+    line = line.replace(/^il\s+faut\s+/i, "Veiller à ");
+  } else if (/^gestion\s+de\s+/i.test(line)) {
+    line = line.replace(/^gestion\s+de\s+/i, "Structurer la gestion de ");
+  }
+
+  // Normalisation du vocabulaire et guillemets français
+  line = line.replace(/\bregrow\b/gi, "REGTOOLS");
+  line = line.replace(/\bvie\/non\s*vie\b/gi, "Vie / Non-Vie");
+  line = line.replace(/\bclotur[eé]\b/gi, "Clôturé");
+  line = line.replace(/\ba\s+traiter\b/gi, "À traiter");
+  line = line.replace(/"sender"/gi, "émetteur (« Sender »)");
+  line = line.replace(/"flagged by rule"/gi, "règles de détection (« Flagged by rule »)");
+  line = line.replace(/"l'expéditeur"/gi, "« Expéditeur »");
+  line = line.replace(/"destinataire"/gi, "« Destinataire »");
+  line = line.replace(/"produit"/gi, "« Produit »");
+  line = line.replace(/"type"/gi, "« Type »");
+
+  line = applyLexicalUpgrades(line);
+  line = line.charAt(0).toUpperCase() + line.slice(1);
+  return endSentence(line);
+}
+
+function extractCleanDirectTitle(text: string, rawTitle?: string, sectionLabel?: string): string {
+  const lower = text.toLowerCase();
+  const titleLower = (rawTitle || "").toLowerCase();
+
+  const isAmlRelated =
+    /aml|lcb-?ft|lab-?ft|blanchiment|regrow|regtools|flagged|suspicion/i.test(lower) ||
+    /aml/i.test(titleLower);
+  const isTransactionRelated =
+    /transaction|virement|paiement|versement|exp[eé]diteur|destinataire/i.test(lower);
+  const isFilterExportRelated = /filtre|export|extraction|rapport/i.test(lower);
+
+  // Cas AML + Transactions + Filtres/Exports
+  if ((isAmlRelated || /sc[eé]nario|sender/i.test(lower)) && (isFilterExportRelated || isTransactionRelated)) {
+    return "Optimisation des filtres et exports des transactions AML";
+  }
+
+  if (
+    /importer.*[eé]tat.*(ligne.*invalide|transaction.*sans.*kyc)/i.test(lower) ||
+    (lower.includes("invalide") && lower.includes("kyc"))
+  ) {
     return "État des transactions sans fiche KYC";
   }
-  if (/calcul.*risque|score.*risque/i.test(lower)) {
-    return "Calcul du niveau de risque et filtrage";
+
+  if (/calcul.*risque|score.*risque/i.test(lower) && /adapte|d[eé]cision|filtrage|corrig/i.test(lower)) {
+    return "Actualisation du calcul de risque après révision de décision agent";
   }
-  if (/seuil.*esp[eè]ces|cash|versement/i.test(lower)) {
-    return "Surveillance des opérations en espèces";
+
+  if (/seuil|esp[eè]ces|cash/i.test(lower)) {
+    return "Suivi des encaissements en espèces et respect des seuils";
   }
+
   if (/kyc|pi[eè]ce.*identit[eé]|rne/i.test(lower)) {
-    return "Complétude des dossiers clients KYC";
+    return "Mise en conformité documentaire KYC & RNE";
   }
+
   if (/pep|ppe|personne.*politiquement/i.test(lower)) {
     return "Contrôle renforcé des profils PEP/PPE";
   }
+
   if (/rapprochement|c07|agence/i.test(lower)) {
     return "Rapprochement des états d'agences";
   }
+
   if (/anomalie|erreur|bloqu/i.test(lower)) {
     return "Correction d'anomalie opérationnelle";
   }
 
-  const words = text
-    .replace(/^voir\s+la\s+possibilit[eé]\s+(de|d['’])\s*/i, "")
-    .replace(/^étudier\s+la\s+possibilit[eé]\s+(de|d['’])\s*/i, "")
-    .replace(/^il\s+faut\s*/i, "")
-    .replace(/^mettre\s+en\s+place\s*/i, "")
-    .split(/\s+/)
-    .filter(Boolean);
+  // Si l'utilisateur avait fourni un titre indicatif spécifique non-placeholder
+  if (rawTitle && !/^(test|nouveau|mémo|note|sans titre|test aml|test kyc)$/i.test(rawTitle.trim())) {
+    return rawTitle.trim();
+  }
 
-  if (words.length > 0) {
-    const candidate = words.slice(0, 6).join(" ");
-    return candidate.charAt(0).toUpperCase() + candidate.slice(1);
+  // Synthèse intelligente à partir des lignes nettoyées
+  const cleanLines = text
+    .split("\n")
+    .map((l) => l.replace(/^[📌🎯⚠️•\-\*\d+\.\)\[\]\s]+/, "").trim())
+    .filter((l) => l.length > 5);
+
+  if (cleanLines.length > 0) {
+    const firstLine = cleanLines[0]
+      .replace(/^a\s+revoir\s+(la\s+r[eé]f[eé]rence\s+de\s+)?/i, "")
+      .replace(/^revoir\s+/i, "")
+      .replace(/^clarifier\s+/i, "")
+      .replace(/^ajouter\s+/i, "")
+      .replace(/^voir\s+la\s+possibilit[eé]\s+(de|d['’])\s*/i, "")
+      .replace(/^il\s+faut\s*/i, "")
+      .trim();
+
+    const words = firstLine.split(/\s+/).filter((w) => w.length > 2);
+    if (words.length >= 2) {
+      const candidate = words.slice(0, 6).join(" ");
+      return candidate.charAt(0).toUpperCase() + candidate.slice(1);
+    }
   }
 
   return sectionLabel ? `Note — ${sectionLabel}` : "Note de conformité";
@@ -655,13 +769,14 @@ function generateCognitiveFramingAndMemo(
   sectionLabel?: string
 ): ChatWithMemoAIResult {
   const rawText = cleanRawMemoText(prompt, existingText);
+  const rawIndicativeTitle = extractRawIndicativeTitle(prompt, existingTitle);
   const userTitle = cleanIndicativeTitle(prompt, existingTitle);
   const lower = rawText.toLowerCase();
 
   let suggestedTitle = "";
   let suggestedContent = "";
 
-  // Cas spécifique exact demandé par l'utilisateur (style ChatGPT)
+  // Cas spécifique KYC transaction invalide
   if (
     /importer.*[eé]tat.*(ligne.*invalide|transaction.*sans.*kyc)/i.test(lower) ||
     (lower.includes("invalide") && lower.includes("kyc") && (lower.includes("état") || lower.includes("etat")))
@@ -678,45 +793,37 @@ function generateCognitiveFramingAndMemo(
     suggestedContent =
       "Mettre en place un contrôle systématique sur les opérations en espèces dépassant les seuils réglementaires, avec obligation de justification de l'origine des fonds avant validation.";
   } else {
-    // Reformulation intelligente directe et fluide (style ChatGPT)
-    let formatted = rawText;
+    // 1. Découper en lignes si le texte contient plusieurs points
+    const lines = rawText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !/^(notes?|constats?|à faire|todos?|points?)\s*[:\-]?$/i.test(l));
 
-    if (/^voir\s+la\s+possibilit[eé]\s+d['’]/i.test(formatted)) {
-      formatted = formatted.replace(/^voir\s+la\s+possibilit[eé]\s+d['’]/i, "Étudier la possibilité d'");
-    } else if (/^voir\s+la\s+possibilit[eé]\s+de\s+/i.test(formatted)) {
-      formatted = formatted.replace(/^voir\s+la\s+possibilit[eé]\s+de\s+/i, "Étudier la possibilité de ");
-    } else if (/^voir\s+pour\s+/i.test(formatted)) {
-      formatted = formatted.replace(/^voir\s+pour\s+/i, "Examiner les modalités pour ");
-    } else if (/^voir\s+si\s+/i.test(formatted)) {
-      formatted = formatted.replace(/^voir\s+si\s+/i, "Vérifier la faisabilité de ");
-    } else if (/^il\s+faut\s+/i.test(formatted)) {
-      formatted = formatted.replace(/^il\s+faut\s+/i, "Mettre en œuvre ");
-    } else if (/^faut\s+/i.test(formatted)) {
-      formatted = formatted.replace(/^faut\s+/i, "Veiller à ");
-    } else if (/^on\s+doit\s+/i.test(formatted)) {
-      formatted = formatted.replace(/^on\s+doit\s+/i, "Procéder à ");
-    } else if (/^penser\s+[aà]\s+/i.test(formatted)) {
-      formatted = formatted.replace(/^penser\s+[aà]\s+/i, "Veiller impérativement à ");
-    } else if (/^pb\s+(de|sur|lié)?\s*/i.test(formatted)) {
-      formatted = formatted.replace(/^pb\s+(de|sur|lié)?\s*/i, "Traiter l'anomalie relative à ");
-    }
+    // Si on a plusieurs lignes ou plusieurs puces
+    const isBulletList = lines.length > 1 || lines.some((l) => /^[•\-\*]/.test(l));
 
-    formatted = formatted.replace(/\(\s*(transactions?\s+sans\s+fiche\s+KYC)\s*\)/gi, "correspondant aux $1");
-    formatted = formatted.replace(/\(\s*([a-zA-Z0-9\s/_-]{3,60})\s*\)/g, (m, inside) => {
-      if (/sans|avec|pour|relatif|lié|dans/i.test(inside)) {
-        return `relatif à ${inside.trim()}`;
+    if (isBulletList) {
+      const allPoints: string[] = [];
+      for (const line of lines) {
+        // Au cas où une ligne contient plusieurs sous-puces
+        const subItems = line.split(/(?<=[.!?]|\))\s*-\s+/).map((s) => s.trim()).filter(Boolean);
+        for (const item of subItems) {
+          const reformulated = reformulateSingleBullet(item);
+          if (reformulated) {
+            allPoints.push(`• ${reformulated}`);
+          }
+        }
       }
-      return m;
-    });
 
-    formatted = applyLexicalUpgrades(formatted);
-    formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
-    if (!/[.!?]$/.test(formatted)) {
-      formatted += ".";
+      suggestedContent = allPoints.join("\n");
+      suggestedTitle = userTitle || extractCleanDirectTitle(rawText, rawIndicativeTitle, sectionLabel);
+    } else {
+      // Cas mono-phrase
+      let formatted = reformulateSingleBullet(rawText);
+      if (!formatted) formatted = rawText;
+      suggestedContent = formatted;
+      suggestedTitle = userTitle || extractCleanDirectTitle(rawText, rawIndicativeTitle, sectionLabel);
     }
-
-    suggestedContent = formatted;
-    suggestedTitle = userTitle || extractCleanDirectTitle(rawText, sectionLabel);
   }
 
   return {
