@@ -99,13 +99,32 @@ export default function DashboardPage() {
 
   // Real-time Firestore listener for collaborative risk factor logs
   React.useEffect(() => {
+    const handleLogsCleared = () => {
+      setRiskFactorLogs([]);
+    };
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "risk_factor_logs") {
+        try {
+          setRiskFactorLogs(e.newValue ? JSON.parse(e.newValue) : []);
+        } catch {
+          setRiskFactorLogs([]);
+        }
+      }
+    };
+
+    window.addEventListener("risk_factor_logs_cleared", handleLogsCleared);
+    window.addEventListener("storage", handleStorage);
+
     if (!isFirebaseConfigured || !db) {
       // Fallback to localStorage if Firestore not configured
       try {
         const stored = localStorage.getItem("risk_factor_logs");
         if (stored) setRiskFactorLogs(JSON.parse(stored));
       } catch {}
-      return;
+      return () => {
+        window.removeEventListener("risk_factor_logs_cleared", handleLogsCleared);
+        window.removeEventListener("storage", handleStorage);
+      };
     }
     let unsubscribe: (() => void) | undefined;
     (async () => {
@@ -116,7 +135,11 @@ export default function DashboardPage() {
         setRiskFactorLogs(logs);
       });
     })();
-    return () => { if (unsubscribe) unsubscribe(); };
+    return () => {
+      if (unsubscribe) unsubscribe();
+      window.removeEventListener("risk_factor_logs_cleared", handleLogsCleared);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
 

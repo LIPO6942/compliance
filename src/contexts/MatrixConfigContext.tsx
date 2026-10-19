@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import {
-  doc, onSnapshot, setDoc, collection, addDoc
+  doc, onSnapshot, setDoc, collection, addDoc, getDocs, writeBatch
 } from 'firebase/firestore';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -176,6 +176,14 @@ function lsLoad<T>(key: string, fallback: T): T {
 }
 function lsSave(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* noop */ }
+}
+
+function appendLocalRiskLog(log: { date: string; user: string; factors: string[]; note: string }) {
+  try {
+    const s = localStorage.getItem('risk_factor_logs');
+    const logs = s ? JSON.parse(s) : [];
+    localStorage.setItem('risk_factor_logs', JSON.stringify([log, ...logs].slice(0, 100)));
+  } catch { /* noop */ }
 }
 
 // ── Provider ─────────────────────────────────────────────────────────────────
@@ -503,12 +511,14 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
             dist: "Voie de distribution / Vente",
             sale: "Voie de distribution / Vente",
           };
-          await addDoc(collection(db, "riskFactorLogs"), {
+          const logPayload = {
             date: new Date().toISOString(),
             user: author || 'Utilisateur',
             factors: [dashboardCategoryMap[category] || category],
             note: `Modification sur « ${displayName} » : ${fieldNames}`,
-          });
+          };
+          appendLocalRiskLog(logPayload);
+          await addDoc(collection(db, "riskFactorLogs"), logPayload);
         } catch (logErr) {
           console.error('[MatrixConfig] Failed to write live log:', logErr);
         }
@@ -558,12 +568,14 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
           await setDoc(ref, { history: updatedHistory }, { merge: true });
 
           try {
-            await addDoc(collection(db, "riskFactorLogs"), {
+            const logPayload = {
               date: new Date().toISOString(),
               user: author,
               factors: [catLabel[category] || category],
               note: `Ajout de l'élément « ${item.name} » dans la catégorie ${catLabel[category] || category}`,
-            });
+            };
+            appendLocalRiskLog(logPayload);
+            await addDoc(collection(db, "riskFactorLogs"), logPayload);
           } catch (logErr) {
             console.error('[MatrixConfig] Failed to write live log:', logErr);
           }
@@ -631,12 +643,14 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
           await setDoc(ref, { history: updatedHistory }, { merge: true });
 
           try {
-            await addDoc(collection(db, "riskFactorLogs"), {
+            const logPayload = {
               date: new Date().toISOString(),
               user: author,
               factors: [catLabel[category] || category],
               note: `Suppression de l'élément « ${itemName} » dans la catégorie ${catLabel[category] || category}`,
-            });
+            };
+            appendLocalRiskLog(logPayload);
+            await addDoc(collection(db, "riskFactorLogs"), logPayload);
           } catch (logErr) {
             console.error('[MatrixConfig] Failed to write live log:', logErr);
           }
@@ -726,14 +740,16 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
               dist: "Voie de distribution / Vente",
               sale: "Voie de distribution / Vente",
             };
-            await addDoc(collection(db, "riskFactorLogs"), {
+            const logPayload = {
               date: new Date().toISOString(),
               user: author,
               factors: [dashboardCategoryMap[category] || category],
               note: category === 'all' 
                 ? "Réinitialisation complète de toutes les personnalisations de la matrice KYC" 
                 : `Réinitialisation de tous les paramètres personnalisés pour : ${category}`,
-            });
+            };
+            appendLocalRiskLog(logPayload);
+            await addDoc(collection(db, "riskFactorLogs"), logPayload);
           } catch (logErr) {
             console.error('[MatrixConfig] Failed to write live log:', logErr);
           }
@@ -768,16 +784,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
         sale: {}
       };
 
-      const consolidatedHistory: MatrixHistoryEntry[] = [
-        {
-          id: String(Date.now()),
-          date: new Date().toISOString(),
-          user: author,
-          field: 'Consolidation Admin : Matrice de référence officielle fixée',
-          oldValue: 'Modifications de configuration',
-          newValue: 'Base officielle',
-        }
-      ];
+      const consolidatedHistory: MatrixHistoryEntry[] = [];
 
       setBaselineOverrides(newBaseline);
       setOverrides(emptyOverrides);
@@ -786,6 +793,17 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
       lsSave(LS_BASELINE_OVERRIDES, newBaseline);
       lsSave(LS_OVERRIDES, emptyOverrides);
       lsSave(LS_HISTORY, consolidatedHistory);
+
+      // Purge local storage logs and notify any listening components (e.g. main dashboard)
+      try {
+        localStorage.removeItem("risk_factor_logs");
+        localStorage.setItem("risk_factor_logs", JSON.stringify([]));
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("risk_factor_logs_cleared"));
+        }
+      } catch (lsErr) {
+        console.error('[MatrixConfig] Error clearing localStorage risk_factor_logs:', lsErr);
+      }
 
       if (isFirebaseConfigured && db) {
         try {
@@ -804,15 +822,20 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
           const ref = doc(db, MATRIX_DOC);
           await setDoc(ref, { history: consolidatedHistory }, { merge: true });
 
+          // Purge all documents from riskFactorLogs collection so the main dashboard widget resets to zero
           try {
-            await addDoc(collection(db, "riskFactorLogs"), {
-              date: new Date().toISOString(),
-              user: author,
-              factors: ["Matrice des Risques"],
-              note: "Consolidation et fixation de la matrice de référence officielle par l'administrateur.",
-            });
+            const logsSnap = await getDocs(collection(db, "riskFactorLogs"));
+            if (!logsSnap.empty) {
+              const BATCH_SIZE = 400;
+              for (let i = 0; i < logsSnap.docs.length; i += BATCH_SIZE) {
+                const batch = writeBatch(db);
+                const chunk = logsSnap.docs.slice(i, i + BATCH_SIZE);
+                chunk.forEach((d) => batch.delete(d.ref));
+                await batch.commit();
+              }
+            }
           } catch (logErr) {
-            console.error('[MatrixConfig] Failed to write live log:', logErr);
+            console.error('[MatrixConfig] Failed to purge riskFactorLogs from Firestore:', logErr);
           }
         } catch (e) {
           console.error('[MatrixConfig] Consolidate baseline error:', e);

@@ -4154,6 +4154,7 @@ export function RiskMatrixTab() {
               <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-300 text-[11px]">
                 <li>Les modifications actuelles deviennent la <strong>norme par défaut</strong> de l&apos;application.</li>
                 <li>L&apos;historique des modifications temporaires sera réinitialisé pour conserver une base propre.</li>
+                <li>Le widget des modifications sur le tableau de bord principal sera remis à zéro (<strong>0 MAJ</strong>).</li>
                 <li>Le <strong>reporting</strong> utilisera ce tableau comme base officielle sans marquer ces ajustements comme des modifications utilisateur.</li>
               </ul>
             </AlertDialogDescription>
@@ -4170,7 +4171,7 @@ export function RiskMatrixTab() {
                 await consolidateAsBaseline(authorName);
                 toast({
                   title: "✅ Matrice officielle consolidée",
-                  description: "L'état actuel a été fixé comme la nouvelle matrice de référence officielle."
+                  description: "L'état actuel a été fixé comme référence officielle et les compteurs de modifications ont été réinitialisés à zéro."
                 });
                 setConsolidateDialogOpen(false);
               }}
