@@ -63,17 +63,17 @@ Texte à analyser : \n\n${regulationText}`;
 }
 
 async function callGroqChatCompletion(prompt: string, customKnowledgeBase?: string): Promise<string> {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY || process.env.GROQ_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY;
   if (!apiKey) {
     console.error('[AI] Missing GROQ_API_KEY');
     return '';
   }
 
-  const model = process.env.GROQ_MODEL || 'llama3-8b-8192';
+  const model = process.env.GROQ_MODEL || 'qwen/qwen3.8-27b';
   const baseToUse = customKnowledgeBase && customKnowledgeBase.trim() !== '' ? customKnowledgeBase : LEGAL_KNOWLEDGE_BASE;
 
   try {
-    const res = await fetch('https://api.completions.groq.com/openai/v1/chat/completions', { // Note: changed URL if it was wrong
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

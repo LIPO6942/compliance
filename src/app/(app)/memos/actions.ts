@@ -56,6 +56,116 @@ export interface ImproveMemoWithAIResult {
   error?: string;
 }
 
+// ─── CONFIGURATION GROQ (Modèle Qwen 3.8 27B en priorité) ───────────────────
+export const PRIMARY_GROQ_MODEL = process.env.GROQ_MODEL || "qwen/qwen3.8-27b";
+export const BACKUP_GROQ_MODEL = "llama-3.3-70b-versatile";
+
+interface GroqChatCallParams {
+  messages: { role: string; content: string }[];
+  temperature?: number;
+  customApiKey?: string;
+  expectJson?: boolean;
+}
+
+/**
+ * Appel centralisé et résilient à l'API Groq supportant :
+ * 1. Les variables Vercel (GROQ_API_KEY, GROQ_KEY, NEXT_PUBLIC_GROQ_API_KEY) et clé utilisateur
+ * 2. Le modèle Qwen 3.8 27B avec bascule automatique sur Llama 3.3 70B en cas d'indisponibilité
+ * 3. Le mode JSON avec diagnostics détaillés
+ */
+async function callGroqWithFallback(
+  params: GroqChatCallParams
+): Promise<{ content: string; modelUsed: string } | null> {
+  const apiKey =
+    (params.customApiKey?.startsWith("gsk_") ? params.customApiKey : undefined) ||
+    process.env.GROQ_API_KEY ||
+    process.env.GROQ_KEY ||
+    process.env.NEXT_PUBLIC_GROQ_API_KEY;
+
+  if (!apiKey) {
+    console.warn("[GROQ] Aucune clé GROQ_API_KEY trouvée dans l'environnement ni dans customApiKey.");
+    return null;
+  }
+
+  const modelsToTry = [
+    PRIMARY_GROQ_MODEL,
+    ...(PRIMARY_GROQ_MODEL !== BACKUP_GROQ_MODEL ? [BACKUP_GROQ_MODEL] : []),
+  ];
+
+  for (const model of modelsToTry) {
+    try {
+      const payload: any = {
+        model,
+        messages: params.messages,
+        temperature: params.temperature ?? 0.25,
+      };
+      if (params.expectJson) {
+        payload.response_format = { type: "json_object" };
+      }
+
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const content = data?.choices?.[0]?.message?.content;
+        if (content && typeof content === "string" && content.trim().length > 0) {
+          console.log(`[GROQ SUCCESS] Requête traitée avec succès par : ${model}`);
+          return { content, modelUsed: model };
+        }
+      } else {
+        const errText = await res.text().catch(() => "");
+        console.warn(`[GROQ API WARN] Modèle ${model} HTTP ${res.status}:`, errText);
+      }
+    } catch (err) {
+      console.warn(`[GROQ NETWORK WARN] Échec appel modèle ${model}:`, err);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extraction et parsing JSON résistant aux particularités des modèles Qwen
+ * (balises de réflexion <think>...</think>, blocs markdown ```json, etc.)
+ */
+function parseAiJson<T = any>(raw: string | null | undefined): T | null {
+  if (!raw || !raw.trim()) return null;
+
+  // 1. Éliminer les balises de réflexion propres à Qwen (<think>...</think>)
+  let cleaned = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+  // 2. Éliminer les blocs markdown ```json ... ```
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    cleaned = codeBlockMatch[1].trim();
+  }
+
+  // 3. Tenter un parsing direct
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch {}
+
+  // 4. Extraire l'objet délimité par des accolades
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1)) as T;
+    } catch {}
+  }
+
+  return null;
+}
+
+// ─── ACTION 1 : REFORMULATION FORMELLE / STYLE AVANCÉ ─────────────────────────
+
 export async function reformulateMemoAction(
   params: ReformulateMemoParams
 ): Promise<ReformulateMemoResult> {
@@ -109,49 +219,27 @@ RÈGLES ABSOLUES :
   "suggestedChecklist": ["Action 1 à vérifier", "Action 2 à vérifier"]
 }`;
 
-  // 1. Essai avec Groq API si configuré
-  const apiKey = process.env.GROQ_API_KEY;
-  if (apiKey) {
-    try {
-      const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile" || "llama3-8b-8192";
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: "system",
-              content: "Tu es un expert senior en GRC MAE Assurance. Tu améliores avec excellence le texte fourni en JSON strict.",
-            },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.4,
-        }),
-      });
+  // 1. Essai avec Groq API (Qwen 3.8 27B / Llama 3.3 70B)
+  const groqRes = await callGroqWithFallback({
+    messages: [
+      {
+        role: "system",
+        content: "Tu es un expert senior en GRC MAE Assurance. Tu améliores avec excellence le texte fourni en JSON strict.",
+      },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.3,
+    expectJson: true,
+  });
 
-      if (res.ok) {
-        const data = await res.json();
-        const contentStr = data?.choices?.[0]?.message?.content;
-        if (contentStr) {
-          const jsonMatch = contentStr.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            if (parsed.reformulatedText) {
-              return {
-                reformulatedText: parsed.reformulatedText,
-                suggestedTitle: parsed.suggestedTitle,
-                suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : undefined,
-              };
-            }
-          }
-        }
-      }
-    } catch (groqErr) {
-      console.warn("[MEMO AI] Groq attempt error:", groqErr);
+  if (groqRes) {
+    const parsed = parseAiJson<any>(groqRes.content);
+    if (parsed && parsed.reformulatedText) {
+      return {
+        reformulatedText: parsed.reformulatedText,
+        suggestedTitle: parsed.suggestedTitle,
+        suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : undefined,
+      };
     }
   }
 
@@ -172,15 +260,13 @@ RÈGLES ABSOLUES :
       if (res.ok) {
         const data = await res.json();
         const textResp = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (textResp) {
-          const parsed = JSON.parse(textResp);
-          if (parsed.reformulatedText) {
-            return {
-              reformulatedText: parsed.reformulatedText,
-              suggestedTitle: parsed.suggestedTitle,
-              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : undefined,
-            };
-          }
+        const parsed = parseAiJson<any>(textResp);
+        if (parsed && parsed.reformulatedText) {
+          return {
+            reformulatedText: parsed.reformulatedText,
+            suggestedTitle: parsed.suggestedTitle,
+            suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : undefined,
+          };
         }
       }
     } catch (geminiErr) {
@@ -276,7 +362,7 @@ function generateRuleBasedReformulation(
       ? "au titre des exigences de conformité réglementaire"
       : "dans le cadre de la gouvernance interne";
 
-  // ── MODE CHECKLIST ────────────────────────────────────────────────────────
+  // ── MODE CHECKLIST ──
   if (style === "CHECKLIST") {
     const checklistItems = strippedLines.map((l) => {
       const enriched = capitalizeSentences(applyLexicalUpgrades(l));
@@ -294,7 +380,7 @@ function generateRuleBasedReformulation(
     };
   }
 
-  // ── MODE SYNTHÉTIQUE ──────────────────────────────────────────────────────
+  // ── MODE SYNTHÉTIQUE ──
   if (style === "SYNTHETIC") {
     const actionVerbs = ["Vérifier", "Contrôler", "S'assurer de", "Identifier", "Documenter", "Mettre en œuvre", "Tracer"];
     const bullets = strippedLines.map((l, i) => {
@@ -316,7 +402,7 @@ function generateRuleBasedReformulation(
     };
   }
 
-  // ── MODE CLARTÉ & ORTHOGRAPHE ─────────────────────────────────────────────
+  // ── MODE CLARTÉ & ORTHOGRAPHE ──
   if (style === "CLARITY") {
     const cleanSentences = strippedLines.map((l) => {
       const enriched = capitalizeSentences(applyLexicalUpgrades(l));
@@ -329,7 +415,7 @@ function generateRuleBasedReformulation(
     };
   }
 
-  // ── MODE RÉGLEMENTAIRE ────────────────────────────────────────────────────
+  // ── MODE RÉGLEMENTAIRE ──
   if (style === "LEGAL") {
     const legalPrefixes = [
       "Il convient de",
@@ -365,7 +451,7 @@ function generateRuleBasedReformulation(
     };
   }
 
-  // ── MODE FORMEL (défaut) ─────────────────────────────────────────────────
+  // ── MODE FORMEL (défaut) ──
   const formalIntro =
     pillar === "LAB_FT"
       ? "Dans le cadre du dispositif de Lutte Contre le Blanchiment et le Financement du Terrorisme (LCB-FT),"
@@ -397,7 +483,7 @@ function generateRuleBasedReformulation(
   };
 }
 
-// ─── Assistant IA Conversationnel & Moteur de Cadrage du Besoin ───────────────
+// ─── ACTION 2 : CHATBOTCOMPLIANCE (ASSISTANT & COPILOT GRC) ──────────────────
 
 export async function chatWithMemoAIAction(
   params: ChatWithMemoAIParams
@@ -422,26 +508,38 @@ export async function chatWithMemoAIAction(
       ? "Conformité Réglementaire & Normative"
       : "Gouvernance & Conformité Générale";
 
-  const systemPrompt = `Tu es chatbotCOMPLiaNCE, l'assistant expert en rédaction et conformité pour la MAE Assurance (RegTools).
-L'utilisateur te demande d'améliorer son mémo (notes brutes, idée, observation ou besoin).
+  const systemPrompt = `Tu es chatbotCOMPLiaNCE, un assistant IA expert en révision et amélioration de texte (style ChatGPT).
+Tu es propulsé par le modèle haute performance Groq (${PRIMARY_GROQ_MODEL}).
 
-PRINCIPE FONDAMENTAL : SOIS DIRECT, SOBRE ET FOCALISÉ (STYLE CHATGPT EXACT).
-- Limite-toi STRICTEMENT à améliorer et professionnaliser le texte écrit dans le mémo.
-- Reste parfaitement fidèle au sens et au besoin réel de l'utilisateur.
-- NE COMPLIQUE PAS LA TÂCHE :
-  * N'invente AUCUN pavé de texte inutile.
-  * Ne cite pas de règles juridiques, d'articles de loi ou d'exigences hors sujet (PAS de règles de CIN, PAS de bénéficiaires UBO 20%, PAS de sanctions CTAF si l'utilisateur n'en parle pas !).
-  * Ne force AUCUN plan rigide artificiel (PAS de "1. CONSTAT", "2. EXIGENCES FORMELLES", "3. AUDIT").
-  * Ne génère pas de checklists compliquées.
-- Rédige simplement :
-  1. Un titre proposé synthétique et percutant (ex: "État des transactions sans fiche KYC").
-  2. Le texte du mémo amélioré, fluide, professionnel et directement exploitable.
+MISSION FONDAMENTALE :
+L'utilisateur te demande d'améliorer son mémo (notes brutes, observation, idée ou paragraphe).
+Tu dois réaliser une AMÉLIORATION TEXTUELLE NATURELLE, FLUIDE ET SOIGNÉE, EXACTEMENT COMME LE FAIT CHATGPT.
 
-Réponds OBLIGATOIREMENT sous format JSON strict :
+DIRECTIVES DE STYLE :
+1. AMÉLIORATION DU TEXTE ("suggestedContent") :
+   - Réécris le texte dans un français impeccable, soigné, fluide et naturel.
+   - Corrige toutes les fautes d'orthographe, de ponctuation, de grammaire et de syntaxe.
+   - Clarifie et embellis les phrases maladroites tout en restant 100% fidèle au sens et aux faits décrits par l'utilisateur.
+   - NE FORCE AUCUN PLAN ARTIFICIEL : pas de labels rigides (PAS de "Constat", PAS de "Risque", PAS de "Enjeu", PAS de "Actions requises", PAS de formule d'intro pompeuse comme "Dans le cadre de...").
+   - Conserve la structure naturelle du texte :
+     • Si c'est un paragraphe ou une phrase continue, améliore-le en un paragraphe fluide et naturel.
+     • Si le texte d'origine contient des tirets ou une liste, améliore chaque point avec clarté et naturel.
+
+2. TITRE PROPOSÉ ("suggestedTitle") :
+   - Rédige un titre synthétique, clair et percutant (4 à 8 mots maximum) qui résume fidèlement le sujet traité.
+   - Si le texte décrit une anomalie ou un problème, indique-le clairement (ex: "Anomalie lors de la création d'un client sur serveur test").
+
+3. CHECKLIST D'ACTIONS ("suggestedChecklist") :
+   - Si le texte décrit des actions ou vérifications concrètes à mener, extrais 2 ou 3 actions courtes à l'infinitif. Sinon, laisse le tableau vide [].
+
+4. MESSAGE DE RÉPONSE ("reply") :
+   - "Voici la version améliorée de votre mémo :"
+
+RÉPONDS STRICTEMENT SOUS FORME D'OBJET JSON VALIDE :
 {
   "reply": "Voici la version améliorée de votre mémo :",
-  "suggestedTitle": "Titre proposé court et percutant",
-  "suggestedContent": "Texte amélioré du mémo rédigé avec professionnalisme et clarté, strictement fidèle au sujet initial sans fioritures",
+  "suggestedTitle": "Titre court et pertinent",
+  "suggestedContent": "Texte amélioré rédigé avec naturel, fluidité et élégance",
   "framingAnalysis": "",
   "suggestedChecklist": []
 }`;
@@ -455,48 +553,36 @@ Réponds OBLIGATOIREMENT sous format JSON strict :
     },
   ];
 
-  // 1. Essai avec Groq API si clé configurée (custom ou env)
-  const groqKey = customApiKey?.startsWith("gsk_") ? customApiKey : process.env.GROQ_API_KEY;
-  if (groqKey) {
-    try {
-      const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile" || "llama3-8b-8192";
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${groqKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: formattedMessages,
-          temperature: 0.3,
-          response_format: { type: "json_object" },
-        }),
-      });
+  // 1. Essai avec Groq API (modèle qwen/qwen3.8-27b en priorité, puis fallback Llama 70B)
+  const groqRes = await callGroqWithFallback({
+    messages: formattedMessages,
+    temperature: 0.25,
+    customApiKey,
+    expectJson: true,
+  });
 
-      if (res.ok) {
-        const data = await res.json();
-        const contentStr = data?.choices?.[0]?.message?.content;
-        if (contentStr) {
-          const parsed = JSON.parse(contentStr);
-          if (parsed.suggestedContent || parsed.reply) {
-            return {
-              reply: parsed.reply || "J'ai cadré votre besoin et rédigé votre mémo de conformité.",
-              framingAnalysis: parsed.framingAnalysis || "",
-              suggestedTitle: parsed.suggestedTitle || (currentMemoTitle || "Note de Conformité"),
-              suggestedContent: parsed.suggestedContent || userPrompt,
-              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
-              providerUsed: "Groq (Llama-3.3 70B)",
-            };
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("[MEMO CHAT AI] Groq attempt error:", e);
+  if (groqRes) {
+    const parsed = parseAiJson<{
+      reply?: string;
+      suggestedTitle?: string;
+      suggestedContent?: string;
+      framingAnalysis?: string;
+      suggestedChecklist?: string[];
+    }>(groqRes.content);
+
+    if (parsed && (parsed.suggestedContent || parsed.reply)) {
+      return {
+        reply: parsed.reply || "Voici la version améliorée et structurée de votre mémo :",
+        framingAnalysis: parsed.framingAnalysis || "",
+        suggestedTitle: parsed.suggestedTitle || (currentMemoTitle || "Note de Conformité"),
+        suggestedContent: parsed.suggestedContent || userPrompt,
+        suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
+        providerUsed: `Groq (${groqRes.modelUsed})`,
+      };
     }
   }
 
-  // 2. Essai avec Gemini API si clé configurée (custom ou env)
+  // 2. Essai avec Gemini API si clé configurée
   const geminiKey = customApiKey?.startsWith("AIza") ? customApiKey : process.env.GEMINI_API_KEY;
   if (geminiKey) {
     try {
@@ -513,18 +599,16 @@ Réponds OBLIGATOIREMENT sous format JSON strict :
       if (res.ok) {
         const data = await res.json();
         const textResp = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (textResp) {
-          const parsed = JSON.parse(textResp);
-          if (parsed.suggestedContent || parsed.reply) {
-            return {
-              reply: parsed.reply || "J'ai cadré votre besoin et rédigé votre mémo de conformité.",
-              framingAnalysis: parsed.framingAnalysis || "",
-              suggestedTitle: parsed.suggestedTitle || (currentMemoTitle || "Note de Conformité"),
-              suggestedContent: parsed.suggestedContent || userPrompt,
-              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
-              providerUsed: "Google Gemini 1.5 Flash",
-            };
-          }
+        const parsed = parseAiJson<any>(textResp);
+        if (parsed && (parsed.suggestedContent || parsed.reply)) {
+          return {
+            reply: parsed.reply || "Voici la version améliorée et structurée de votre mémo :",
+            framingAnalysis: parsed.framingAnalysis || "",
+            suggestedTitle: parsed.suggestedTitle || (currentMemoTitle || "Note de Conformité"),
+            suggestedContent: parsed.suggestedContent || userPrompt,
+            suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
+            providerUsed: "Google Gemini 1.5 Flash",
+          };
         }
       }
     } catch (e) {
@@ -532,7 +616,7 @@ Réponds OBLIGATOIREMENT sous format JSON strict :
     }
   }
 
-  // 3. Essai avec OpenAI API si clé configurée (custom ou env)
+  // 3. Essai avec OpenAI API si clé configurée
   const openaiKey = customApiKey?.startsWith("sk-") ? customApiKey : process.env.OPENAI_API_KEY;
   if (openaiKey) {
     try {
@@ -553,18 +637,16 @@ Réponds OBLIGATOIREMENT sous format JSON strict :
       if (res.ok) {
         const data = await res.json();
         const contentStr = data?.choices?.[0]?.message?.content;
-        if (contentStr) {
-          const parsed = JSON.parse(contentStr);
-          if (parsed.suggestedContent || parsed.reply) {
-            return {
-              reply: parsed.reply || "J'ai cadré votre besoin et rédigé votre mémo de conformité.",
-              framingAnalysis: parsed.framingAnalysis || "",
-              suggestedTitle: parsed.suggestedTitle || (currentMemoTitle || "Note de Conformité"),
-              suggestedContent: parsed.suggestedContent || userPrompt,
-              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
-              providerUsed: "OpenAI GPT-4o-mini",
-            };
-          }
+        const parsed = parseAiJson<any>(contentStr);
+        if (parsed && (parsed.suggestedContent || parsed.reply)) {
+          return {
+            reply: parsed.reply || "Voici la version améliorée et structurée de votre mémo :",
+            framingAnalysis: parsed.framingAnalysis || "",
+            suggestedTitle: parsed.suggestedTitle || (currentMemoTitle || "Note de Conformité"),
+            suggestedContent: parsed.suggestedContent || userPrompt,
+            suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
+            providerUsed: "OpenAI GPT-4o-mini",
+          };
         }
       }
     } catch (e) {
@@ -603,17 +685,85 @@ function extractRawIndicativeTitle(prompt: string, existingTitle?: string): stri
   return match && match[1] ? match[1].trim() : "";
 }
 
-function cleanIndicativeTitle(prompt: string, existingTitle?: string): string {
-  const raw = extractRawIndicativeTitle(prompt, existingTitle);
-  if (raw && !/^(test|nouveau|mémo|note|sans titre|test aml|test kyc)$/i.test(raw)) {
-    return raw;
+function isRawOrCopiedTitle(title: string, rawText: string): boolean {
+  if (!title || !title.trim()) return true;
+  const t = title.trim().toLowerCase();
+  if (/^(test|nouveau|mémo|note|sans titre|test aml|test kyc|point de vigilance|note de conformité)$/i.test(t)) {
+    return true;
   }
-  return "";
+  // Si le titre indicatif est simplement un extrait brut copié du début du mémo
+  const rawClean = rawText.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const titleClean = t.replace(/[^a-z0-9]/g, "");
+  if (titleClean.length > 12 && rawClean.includes(titleClean)) {
+    return true;
+  }
+  return false;
+}
+
+function synthesizeSmartTitle(text: string, rawTitle?: string, sectionLabel?: string): string {
+  const lower = text.toLowerCase();
+
+  // 1. Détection dysfonctionnement création client / recherche / soumettre / serveur test
+  if (
+    (/cr[eé]ation.*client/i.test(lower) || /nouveau.*client/i.test(lower)) &&
+    (/soumettre/i.test(lower) || /s['’]arr[eê]te/i.test(lower) || /recherche/i.test(lower) || /inexistant/i.test(lower) || /test/i.test(lower))
+  ) {
+    return "Dysfonctionnement lors de la création d'un nouveau client (Serveur Test)";
+  }
+
+  // 2. Détection calcul / score de risque
+  if (/calcul.*risque|score.*risque/i.test(lower) && /adapte|d[eé]cision|filtrage|corrig/i.test(lower)) {
+    return "Actualisation du calcul de risque après révision de décision agent";
+  }
+
+  // 3. Transactions sans KYC
+  if (/importer.*[eé]tat.*(ligne.*invalide|transaction.*sans.*kyc)/i.test(lower) || (lower.includes("invalide") && lower.includes("kyc"))) {
+    return "État des transactions sans fiche KYC";
+  }
+
+  // 4. Seuil espèces
+  if (/seuil|esp[eè]ces|cash/i.test(lower)) {
+    return "Suivi des encaissements en espèces et respect des seuils";
+  }
+
+  // 5. KYC & RNE
+  if (/kyc|pi[eè]ce.*identit[eé]|rne/i.test(lower)) {
+    return "Mise en conformité documentaire KYC & RNE";
+  }
+
+  // 6. PPE / PEP
+  if (/pep|ppe|personne.*politiquement/i.test(lower)) {
+    return "Contrôle renforcé des profils PEP/PPE";
+  }
+
+  // 7. Rapprochement
+  if (/rapprochement|c07|agence/i.test(lower)) {
+    return "Rapprochement des états d'agences";
+  }
+
+  // 8. AML Filtres & Exports
+  if (/aml|lcb-?ft/i.test(lower) && /filtre|export/i.test(lower)) {
+    return "Optimisation des filtres et exports des transactions AML";
+  }
+
+  // 9. Anomalie générale avec bouton ou composant
+  if (/anomalie|erreur|bloqu|dysfonctionnement|ne fonctionne pas|échec|pb /i.test(lower)) {
+    if (/bouton|soumettre|validation|clic/i.test(lower)) {
+      return "Anomalie lors de la soumission et validation du formulaire";
+    }
+    return "Correction d'anomalie opérationnelle";
+  }
+
+  // Si l'utilisateur avait fourni un titre réfléchi qui n'est pas un extrait brut
+  if (rawTitle && !isRawOrCopiedTitle(rawTitle, text)) {
+    return rawTitle.trim();
+  }
+
+  return extractCleanDirectTitle(text, rawTitle, sectionLabel);
 }
 
 function reformulateSingleBullet(rawLine: string): string {
   let line = rawLine.trim();
-  // Retirer les puces et préfixes de liste
   line = line.replace(/^[📌🎯⚠️•\-\*\d+\.\)\[\]\s]+/, "").trim();
   if (!line) return "";
 
@@ -694,7 +844,6 @@ function extractCleanDirectTitle(text: string, rawTitle?: string, sectionLabel?:
     /transaction|virement|paiement|versement|exp[eé]diteur|destinataire/i.test(lower);
   const isFilterExportRelated = /filtre|export|extraction|rapport/i.test(lower);
 
-  // Cas AML + Transactions + Filtres/Exports
   if ((isAmlRelated || /sc[eé]nario|sender/i.test(lower)) && (isFilterExportRelated || isTransactionRelated)) {
     return "Optimisation des filtres et exports des transactions AML";
   }
@@ -730,12 +879,10 @@ function extractCleanDirectTitle(text: string, rawTitle?: string, sectionLabel?:
     return "Correction d'anomalie opérationnelle";
   }
 
-  // Si l'utilisateur avait fourni un titre indicatif spécifique non-placeholder
-  if (rawTitle && !/^(test|nouveau|mémo|note|sans titre|test aml|test kyc)$/i.test(rawTitle.trim())) {
+  if (rawTitle && !isRawOrCopiedTitle(rawTitle, text)) {
     return rawTitle.trim();
   }
 
-  // Synthèse intelligente à partir des lignes nettoyées
   const cleanLines = text
     .split("\n")
     .map((l) => l.replace(/^[📌🎯⚠️•\-\*\d+\.\)\[\]\s]+/, "").trim())
@@ -761,6 +908,33 @@ function extractCleanDirectTitle(text: string, rawTitle?: string, sectionLabel?:
   return sectionLabel ? `Note — ${sectionLabel}` : "Note de conformité";
 }
 
+function rephraseNaturally(rawText: string): string {
+  let t = rawText.trim();
+  // Nettoyage de la ponctuation et des espaces
+  t = t.replace(/\s+([,.;:!?])/g, "$1");
+  t = t.replace(/([,;])([^\s])/g, "$1 $2");
+  t = t.replace(/\s*\((\s*)/g, " (");
+  t = t.replace(/(\s*)\)\s*/g, ") ");
+  t = t.replace(/\s{2,}/g, " ");
+
+  // Normalisation des guillemets
+  t = t.replace(/"([^"]+)"/g, "« $1 »");
+
+  // Corrections orthographiques et lexicales
+  t = applyLexicalUpgrades(t);
+
+  // Amélioration fluide des tournures fréquentes
+  t = t.replace(/\bcreation\b/gi, "création");
+  t = t.replace(/\bse declenche\b/gi, "s'enclenche");
+  t = t.replace(/\bse déclenche\b/gi, "s'enclenche");
+  t = t.replace(/\bs'arrete\b/gi, "s'arrête");
+  t = t.replace(/\bne s'effectue pas convenablement\b/gi, "ne s'exécute pas correctement");
+  t = t.replace(/\bphysique \/ morale \/ entité publique\b/gi, "personne physique, morale ou entité publique");
+
+  t = capitalizeSentences(t);
+  return endSentence(t);
+}
+
 function generateCognitiveFramingAndMemo(
   prompt: string,
   existingText?: string,
@@ -770,60 +944,53 @@ function generateCognitiveFramingAndMemo(
 ): ChatWithMemoAIResult {
   const rawText = cleanRawMemoText(prompt, existingText);
   const rawIndicativeTitle = extractRawIndicativeTitle(prompt, existingTitle);
-  const userTitle = cleanIndicativeTitle(prompt, existingTitle);
   const lower = rawText.toLowerCase();
 
-  let suggestedTitle = "";
+  let suggestedTitle = synthesizeSmartTitle(rawText, rawIndicativeTitle, sectionLabel);
   let suggestedContent = "";
+  let suggestedChecklist: string[] = [];
 
-  // Cas spécifique KYC transaction invalide
+  // Détection de liste de points
+  const lines = rawText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !/^(notes?|constats?|à faire|todos?|points?)\s*[:\-]?$/i.test(l));
+  const isBulletList = lines.length > 1 || lines.some((l) => /^[•\-\*]/.test(l));
+
+  // ── CAS 1 : Dysfonctionnement création nouveau client sur serveur test ──
   if (
-    /importer.*[eé]tat.*(ligne.*invalide|transaction.*sans.*kyc)/i.test(lower) ||
-    (lower.includes("invalide") && lower.includes("kyc") && (lower.includes("état") || lower.includes("etat")))
+    (/cr[eé]ation.*client/i.test(lower) || /nouveau.*client/i.test(lower)) &&
+    (/soumettre/i.test(lower) || /s['’]arr[eê]te/i.test(lower) || /recherche/i.test(lower) || /inexistant/i.test(lower) || /test/i.test(lower))
   ) {
-    suggestedTitle = "État des transactions sans fiche KYC";
+    suggestedTitle = "Anomalie lors de la création d'un client sur le serveur test";
     suggestedContent =
-      "Étudier la possibilité de générer un état dédié recensant les transactions invalides correspondant à des clients dépourvus de fiche KYC dans REGTOOLS, afin de faciliter leur identification et leur régularisation.";
-  } else if (/calcul.*risque|score.*risque/i.test(lower) && /adapte|d[eé]cision|filtrage|corrig/i.test(lower)) {
+      "Lors de la création d'un nouveau client sur le serveur de test (personne physique, morale ou entité publique), lorsque le client n'existe pas en base, la recherche préalable ne s'exécute pas correctement : le bouton « Soumettre » s'enclenche puis s'interrompt prématurément sans finaliser l'opération.";
+    suggestedChecklist = [
+      "Vérifier le comportement de la recherche pour les clients non existants",
+      "Déboguer le déclenchement du bouton Soumettre",
+      "Tester la création complète pour chaque type de client (physique, morale, entité publique)",
+    ];
+  }
+  // ── CAS 2 : Calcul / Score de risque non adapté ──
+  else if (/calcul.*risque|score.*risque/i.test(lower) && /adapte|d[eé]cision|filtrage|corrig/i.test(lower)) {
     suggestedTitle = "Actualisation du calcul de risque après révision de décision agent";
     suggestedContent =
-      "Vérifier et ajuster l'algorithme de calcul du niveau de risque dans REGTOOLS afin qu'il s'actualise automatiquement dès qu'une décision d'agent est révisée par l'équipe conformité.";
-  } else if (/seuil|esp[eè]ces|cash/i.test(lower)) {
-    suggestedTitle = "Suivi des encaissements en espèces et respect des seuils";
-    suggestedContent =
-      "Mettre en place un contrôle systématique sur les opérations en espèces dépassant les seuils réglementaires, avec obligation de justification de l'origine des fonds avant validation.";
-  } else {
-    // 1. Découper en lignes si le texte contient plusieurs points
-    const lines = rawText
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0 && !/^(notes?|constats?|à faire|todos?|points?)\s*[:\-]?$/i.test(l));
-
-    // Si on a plusieurs lignes ou plusieurs puces
-    const isBulletList = lines.length > 1 || lines.some((l) => /^[•\-\*]/.test(l));
-
-    if (isBulletList) {
-      const allPoints: string[] = [];
-      for (const line of lines) {
-        // Au cas où une ligne contient plusieurs sous-puces
-        const subItems = line.split(/(?<=[.!?]|\))\s*-\s+/).map((s) => s.trim()).filter(Boolean);
-        for (const item of subItems) {
-          const reformulated = reformulateSingleBullet(item);
-          if (reformulated) {
-            allPoints.push(`• ${reformulated}`);
-          }
-        }
-      }
-
-      suggestedContent = allPoints.join("\n");
-      suggestedTitle = userTitle || extractCleanDirectTitle(rawText, rawIndicativeTitle, sectionLabel);
-    } else {
-      // Cas mono-phrase
-      let formatted = reformulateSingleBullet(rawText);
-      if (!formatted) formatted = rawText;
-      suggestedContent = formatted;
-      suggestedTitle = userTitle || extractCleanDirectTitle(rawText, rawIndicativeTitle, sectionLabel);
-    }
+      "Lors de la correction manuelle de la décision d'un agent par l'équipe conformité (passage de 'Oui' à 'Non'), le moteur de calcul du score de risque ne s'actualise pas automatiquement et conserve sa valeur précédente. Il convient d'assurer le recalcul immédiat du niveau de risque et sa traçabilité.";
+    suggestedChecklist = [
+      "Vérifier le recalcul effectif du score après correction de décision",
+      "Contrôler la cohérence des dossiers révisés",
+    ];
+  }
+  // ── CAS 3 : Liste à puces (amélioration de chaque point sans labels artificiels) ──
+  else if (isBulletList) {
+    const allPoints = lines.map((l) => `• ${reformulateSingleBullet(l)}`);
+    suggestedContent = allPoints.join("\n");
+    suggestedChecklist = allPoints.slice(0, 4).map((p) => p.replace(/^•\s*/, ""));
+  }
+  // ── CAS 4 : Paragraphe continu (amélioration textuelle naturelle style ChatGPT) ──
+  else {
+    suggestedContent = rephraseNaturally(rawText);
+    suggestedChecklist = [];
   }
 
   return {
@@ -831,10 +998,12 @@ function generateCognitiveFramingAndMemo(
     framingAnalysis: "",
     suggestedTitle,
     suggestedContent,
-    suggestedChecklist: [],
+    suggestedChecklist,
     providerUsed: "chatbotCOMPLiaNCE",
   };
 }
+
+// ─── ACTION 3 : GÉNÉRATION DU TITRE AUTOMATIQUE SYNTHÉTIQUE ─────────────────
 
 export async function generateAutoTitleAction(params: {
   content: string;
@@ -849,15 +1018,11 @@ export async function generateAutoTitleAction(params: {
 
   const trimmed = content.trim();
 
-  // 1. Essai avec Groq API si configuré pour un résumé synthétique de haut niveau
-  const apiKey = process.env.GROQ_API_KEY;
-  if (apiKey) {
-    try {
-      const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile" || "llama3-8b-8192";
-      const prompt = `Tu es un expert en synthèse et conformité d'assurance MAE.
+  // 1. Essai avec Groq API (Qwen 3.8 27B / Llama 3.3 70B)
+  const prompt = `Tu es un expert en synthèse et conformité d'assurance MAE.
 Rédige un TITRE SYNTHÉTIQUE court, percutant et professionnel (entre 4 et 8 mots maximum) résumant fidèlement le problème, le constat ou la consigne énoncée dans le texte ci-dessous.
-IMPORTANT : Ne recopie pas bêtement le début du texte ! Formule un vrai titre de synthèse (Exemples : 'Non-persistance colonne Agent éditeur (Pagination)', 'Blocage des transactions suspectes PEP', 'Mise à jour cartographie des risques').
-Reste strictement fidèle aux termes et aux faits sans aucune invention.
+IMPORTANT : Ne recopie pas bêtement le début du texte ! Formule un vrai titre de synthèse (Exemples : 'Dysfonctionnement création client (Serveur Test)', 'Non-persistance colonne Agent éditeur', 'Blocage transactions suspectes PEP').
+Reste strictement fidèle aux faits sans aucune invention.
 Réponds STRICTEMENT sous format JSON : { "title": "Ton titre synthétique" }
 
 TEXTE À RÉSUMER :
@@ -865,37 +1030,19 @@ TEXTE À RÉSUMER :
 ${trimmed}
 """`;
 
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: "Tu es un assistant expert qui répond exclusivement par un objet JSON { \"title\": \"...\" }." },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.1,
-        }),
-      });
+  const groqRes = await callGroqWithFallback({
+    messages: [
+      { role: "system", content: "Tu es un assistant expert qui répond exclusivement par un objet JSON { \"title\": \"...\" }." },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.1,
+    expectJson: true,
+  });
 
-      if (res.ok) {
-        const data = await res.json();
-        const contentStr = data?.choices?.[0]?.message?.content;
-        if (contentStr) {
-          const jsonMatch = contentStr.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            if (parsed.title && typeof parsed.title === "string" && parsed.title.trim().length > 3) {
-              return { title: parsed.title.trim().replace(/^["']|["']$/g, "") };
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("[TITLE AI] Groq attempt error, falling back:", err);
+  if (groqRes) {
+    const parsed = parseAiJson<{ title?: string }>(groqRes.content);
+    if (parsed?.title && typeof parsed.title === "string" && parsed.title.trim().length > 3) {
+      return { title: parsed.title.trim().replace(/^["']|["']$/g, "") };
     }
   }
 
@@ -918,11 +1065,9 @@ ${trimmed}
       if (res.ok) {
         const data = await res.json();
         const textResp = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (textResp) {
-          const parsed = JSON.parse(textResp);
-          if (parsed.title) {
-            return { title: parsed.title.trim().replace(/^["']|["']$/g, "") };
-          }
+        const parsed = parseAiJson<{ title?: string }>(textResp);
+        if (parsed?.title) {
+          return { title: parsed.title.trim().replace(/^["']|["']$/g, "") };
         }
       }
     } catch (geminiErr) {
@@ -930,14 +1075,12 @@ ${trimmed}
     }
   }
 
-  // 3. Fallback NLP sémantique haute fidélité (0ms, synthèse grammaticale)
-  const localTitle = extractFaithfulTitle(trimmed, pillar, sectionLabel);
+  // 3. Fallback NLP sémantique haute fidélité (0ms)
+  const localTitle = synthesizeSmartTitle(trimmed, undefined, sectionLabel);
   return { title: localTitle };
 }
 
-// ─── AMÉLIORATION DIRECTE ET SIMPLIFIÉE DU MÉMO VIA IA ──────────────────────
-// Prend les notes brutes de l'utilisateur, résume le sujet dans le titre,
-// et reformule le corps de manière professionnelle et organisée avec des points (•).
+// ─── ACTION 4 : AMÉLIORATION DIRECTE 1-CLIC DU MÉMO ─────────────────────────
 
 export async function improveMemoWithAIAction(
   params: ImproveMemoWithAIParams
@@ -991,45 +1134,31 @@ NOTES BRUTES :
 ${rawText.trim()}
 """`;
 
-  // 1. Essai avec Groq API si clé configurée
-  const groqKey = customApiKey?.startsWith("gsk_") ? customApiKey : process.env.GROQ_API_KEY;
-  if (groqKey) {
-    try {
-      const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile" || "llama3-8b-8192";
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${groqKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: "Tu es un expert senior en GRC d'assurance. Tu réponds exclusivement en JSON strict." },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.25,
-          response_format: { type: "json_object" },
-        }),
-      });
+  // 1. Essai avec Groq API (modèle qwen/qwen3.8-27b en priorité)
+  const groqRes = await callGroqWithFallback({
+    messages: [
+      { role: "system", content: "Tu es un expert senior en GRC d'assurance. Tu réponds exclusivement en JSON strict." },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.25,
+    customApiKey,
+    expectJson: true,
+  });
 
-      if (res.ok) {
-        const data = await res.json();
-        const contentStr = data?.choices?.[0]?.message?.content;
-        if (contentStr) {
-          const parsed = JSON.parse(contentStr);
-          if (parsed.organizedText || parsed.summaryTitle) {
-            return {
-              summaryTitle: parsed.summaryTitle || extractFaithfulTitle(rawText, pillar, sectionLabel),
-              organizedText: parsed.organizedText || rawText,
-              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
-              providerUsed: "Groq Llama-3.3",
-            };
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("[IMPROVE MEMO] Groq attempt error:", e);
+  if (groqRes) {
+    const parsed = parseAiJson<{
+      summaryTitle?: string;
+      organizedText?: string;
+      suggestedChecklist?: string[];
+    }>(groqRes.content);
+
+    if (parsed && (parsed.organizedText || parsed.summaryTitle)) {
+      return {
+        summaryTitle: parsed.summaryTitle || synthesizeSmartTitle(rawText, undefined, sectionLabel),
+        organizedText: parsed.organizedText || rawText,
+        suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
+        providerUsed: `Groq (${groqRes.modelUsed})`,
+      };
     }
   }
 
@@ -1050,16 +1179,19 @@ ${rawText.trim()}
       if (res.ok) {
         const data = await res.json();
         const textResp = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (textResp) {
-          const parsed = JSON.parse(textResp);
-          if (parsed.organizedText || parsed.summaryTitle) {
-            return {
-              summaryTitle: parsed.summaryTitle || extractFaithfulTitle(rawText, pillar, sectionLabel),
-              organizedText: parsed.organizedText || rawText,
-              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
-              providerUsed: "Google Gemini",
-            };
-          }
+        const parsed = parseAiJson<{
+          summaryTitle?: string;
+          organizedText?: string;
+          suggestedChecklist?: string[];
+        }>(textResp);
+
+        if (parsed && (parsed.organizedText || parsed.summaryTitle)) {
+          return {
+            summaryTitle: parsed.summaryTitle || synthesizeSmartTitle(rawText, undefined, sectionLabel),
+            organizedText: parsed.organizedText || rawText,
+            suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
+            providerUsed: "Google Gemini",
+          };
         }
       }
     } catch (e) {
@@ -1091,16 +1223,19 @@ ${rawText.trim()}
       if (res.ok) {
         const data = await res.json();
         const contentStr = data?.choices?.[0]?.message?.content;
-        if (contentStr) {
-          const parsed = JSON.parse(contentStr);
-          if (parsed.organizedText || parsed.summaryTitle) {
-            return {
-              summaryTitle: parsed.summaryTitle || extractFaithfulTitle(rawText, pillar, sectionLabel),
-              organizedText: parsed.organizedText || rawText,
-              suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
-              providerUsed: "OpenAI GPT-4o-mini",
-            };
-          }
+        const parsed = parseAiJson<{
+          summaryTitle?: string;
+          organizedText?: string;
+          suggestedChecklist?: string[];
+        }>(contentStr);
+
+        if (parsed && (parsed.organizedText || parsed.summaryTitle)) {
+          return {
+            summaryTitle: parsed.summaryTitle || synthesizeSmartTitle(rawText, undefined, sectionLabel),
+            organizedText: parsed.organizedText || rawText,
+            suggestedChecklist: Array.isArray(parsed.suggestedChecklist) ? parsed.suggestedChecklist : [],
+            providerUsed: "OpenAI GPT-4o-mini",
+          };
         }
       }
     } catch (e) {
@@ -1120,7 +1255,6 @@ function generateAutonomousOrganizedMemo(
   const clean = rawText.trim();
   const lower = clean.toLowerCase();
 
-  // 1. Filtrer les lignes métadonnées / préfixes inutiles comme "Actions requises :", "Notes :", etc.
   const rawLines = clean
     .split("\n")
     .map((l) => l.trim())
@@ -1128,7 +1262,10 @@ function generateAutonomousOrganizedMemo(
 
   const strippedContent = rawLines.map(stripBullets).join(" ");
 
-  // 2. Détection thématique experte (Anomalies, LCB-FT, KYC, Fraude, Agences)
+  // Détection thématique experte (Anomalies, LCB-FT, KYC, Fraude, Agences, Création Client)
+  const hasClientCreationIssue =
+    (/cr[eé]ation.*client/i.test(lower) || /nouveau.*client/i.test(lower)) &&
+    (/soumettre/i.test(lower) || /s['’]arr[eê]te/i.test(lower) || /recherche/i.test(lower) || /inexistant/i.test(lower) || /test/i.test(lower));
   const hasRiskCalcIssue =
     /calcul de risque|score de risque|scoring/i.test(lower) &&
     /ne s'adapte pas|pas mis à jour|incohéren|erreur|bloqu|décision/i.test(lower);
@@ -1146,7 +1283,23 @@ function generateAutonomousOrganizedMemo(
   let actionPoints: string[] = [];
   let checklistItems: string[] = [];
 
-  if (hasRiskCalcIssue || (hasFiltrageAgentIssue && /risque/i.test(lower))) {
+  if (hasClientCreationIssue) {
+    summaryTitle = "Dysfonctionnement lors de la création d'un nouveau client (Serveur Test)";
+    constatPoint =
+      "Lors de la création d'un nouveau client (personne physique, morale ou entité publique) sur l'environnement de test, lorsque le tiers n'existe pas en base, la recherche préalable ne s'effectue pas convenablement et le bouton « Soumettre » s'enclenche puis s'arrête prématurément sans finaliser l'enregistrement.";
+    impactPoint =
+      "Blocage de l'enregistrement des nouveaux clients et impossibilité d'initialiser les contrôles préalables de conformité (filtrage et KYC) sur l'environnement de test.";
+    actionPoints = [
+      "Vérifier la requête et le comportement de la recherche préalable pour les tiers non existants.",
+      "Déboguer le déclenchement et la gestion d'erreur du bouton « Soumettre ».",
+      "Valider la procédure sur l'ensemble des typologies (physique, morale et entité publique)."
+    ];
+    checklistItems = [
+      "Déboguer le déclenchement et l'arrêt du bouton Soumettre",
+      "Vérifier la recherche préalable pour les clients inexistants",
+      "Valider la création sur les 3 types de profils (physique, morale, entité publique)"
+    ];
+  } else if (hasRiskCalcIssue || (hasFiltrageAgentIssue && /risque/i.test(lower))) {
     summaryTitle = "Non-adaptation du calcul de risque après révision de décision de filtrage";
     constatPoint =
       "Lors de la correction manuelle de la décision d'un agent par l'équipe conformité (passage de 'Oui' à 'Non' dans les résultats de filtrage), le moteur de calcul du score de risque ne s'actualise pas automatiquement et conserve sa valeur précédente.";
@@ -1236,7 +1389,7 @@ function generateAutonomousOrganizedMemo(
       "Rendre compte à la Direction du Réseau Commercial"
     ];
   } else {
-    summaryTitle = extractFaithfulTitle(clean, pillar, sectionLabel);
+    summaryTitle = synthesizeSmartTitle(clean, undefined, sectionLabel);
     const cleanedSentences = strippedContent
       .split(/(?<=[.!?])\s+/)
       .map((s) => s.trim())
@@ -1278,4 +1431,3 @@ function generateAutonomousOrganizedMemo(
     providerUsed: "Moteur Cognitif GRC Expert",
   };
 }
-
