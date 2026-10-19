@@ -57,8 +57,8 @@ export interface ImproveMemoWithAIResult {
 }
 
 // ─── CONFIGURATION GROQ (Modèle Qwen 3.8 27B en priorité) ───────────────────
-export const PRIMARY_GROQ_MODEL = process.env.GROQ_MODEL || "qwen/qwen3.8-27b";
-export const BACKUP_GROQ_MODEL = "llama-3.3-70b-versatile";
+const PRIMARY_GROQ_MODEL = process.env.GROQ_MODEL || "qwen/qwen3.8-27b";
+const BACKUP_GROQ_MODEL = "llama-3.3-70b-versatile";
 
 interface GroqChatCallParams {
   messages: { role: string; content: string }[];
