@@ -1,4 +1,4 @@
-ation matr"use server";
+"use server";
 
 import { MemoPillar } from "@/types/memo";
 import { extractFaithfulTitle } from "@/lib/memoTitleGenerator";

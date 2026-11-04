@@ -531,9 +531,9 @@ const exportToExcel = async (risks: RiskMappingItem[], logAction: any, user: any
       toast({ title: 'Export réussi', description: 'Le fichier Excel a été téléchargé avec succès.' });
     }
   } catch (err: any) {
-    console.error('Erreur lors de l''exportation Excel :', err);
+    console.error("Erreur lors de l'exportation Excel :", err);
     if (toast) {
-      toast({ title: 'Erreur d''exportation', description: 'Impossible d''exporter le fichier Excel.', variant: 'destructive' });
+      toast({ title: "Erreur d'exportation", description: "Impossible d'exporter le fichier Excel.", variant: 'destructive' });
     }
   }
 };
