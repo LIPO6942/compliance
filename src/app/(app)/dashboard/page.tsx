@@ -8,6 +8,7 @@ import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Acti
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { db, isFirebaseConfigured } from "@/lib/firebase";
 import { getAgencyGeography } from "@/data/agencyGeography";
+import { COUNTRIES_DATA, computeCountryRisk } from "@/data/countriesData";
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
@@ -96,6 +97,121 @@ export default function DashboardPage() {
   ];
   const [riskFactorLogs, setRiskFactorLogs] = React.useState<any[]>([]);
   const [showAllRiskLogs, setShowAllRiskLogs] = React.useState(false);
+
+  // Computed / inferred risk transitions for matrix modification logs
+  const riskTransitionsMap = React.useMemo(() => {
+    const map: Record<string, { oldRisk: string; newRisk: string }> = {};
+    if (!riskFactorLogs || riskFactorLogs.length === 0) return map;
+
+    // 1. Direct fields or note regex first
+    const unparsedLogs: any[] = [];
+    riskFactorLogs.forEach((log) => {
+      const key = log.id || log.date;
+      if (log.oldRisk && log.newRisk) {
+        map[key] = { oldRisk: log.oldRisk, newRisk: log.newRisk };
+        return;
+      }
+      if (log.note) {
+        const match = log.note.match(/\b(RE|RM|RF)\s*(?:→|->)\s*(RE|RM|RF)\b/i);
+        if (match) {
+          map[key] = { oldRisk: match[1].toUpperCase(), newRisk: match[2].toUpperCase() };
+          return;
+        }
+      }
+      unparsedLogs.push(log);
+    });
+
+    // 2. Inferred transitions for country logs (sorted chronologically: oldest first)
+    const chronological = [...unparsedLogs].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    const countryStates: Record<string, any> = {};
+
+    chronological.forEach((log) => {
+      const key = log.id || log.date;
+      const note = log.note || "";
+      const m = note.match(/Modification sur\s*[«"]([^»"]+)[»"]\s*:\s*([^()]+)/i);
+      if (!m) return;
+      const rawCountryName = m[1].trim();
+      const rawFields = m[2].trim().toLowerCase();
+
+      const baseCountry = COUNTRIES_DATA.find(
+        (c) => c.name.toLowerCase() === rawCountryName.toLowerCase() || c.alpha3.toLowerCase() === rawCountryName.toLowerCase()
+      );
+      if (!baseCountry) return;
+
+      if (!countryStates[baseCountry.name]) {
+        countryStates[baseCountry.name] = {
+          gafi: Boolean(baseCountry.gafi),
+          corruption: Boolean(baseCountry.corruption),
+          oecd: Boolean(baseCountry.oecd),
+          terrorism: Boolean(baseCountry.terrorism),
+          otherDominant: Boolean(baseCountry.otherDominant),
+        };
+      }
+
+      const state = countryStates[baseCountry.name];
+      const oldRisk = computeCountryRisk(state);
+
+      if (rawFields.includes("gafi") && rawFields.includes("otherdominant")) {
+        state.gafi = false;
+        state.otherDominant = true;
+      } else {
+        if (rawFields.includes("gafi")) state.gafi = !state.gafi;
+        if (rawFields.includes("corruption")) state.corruption = !state.corruption;
+        if (rawFields.includes("terrorism")) state.terrorism = !state.terrorism;
+        if (rawFields.includes("oecd")) state.oecd = !state.oecd;
+        if (rawFields.includes("otherdominant")) state.otherDominant = !state.otherDominant;
+      }
+
+      const newRisk = computeCountryRisk(state);
+      map[key] = { oldRisk, newRisk };
+    });
+
+    return map;
+  }, [riskFactorLogs]);
+
+  const renderRiskTransition = (transition?: { oldRisk: string; newRisk: string }) => {
+    if (!transition || !transition.oldRisk || !transition.newRisk) return null;
+    const isElevated = transition.newRisk === "RE" && transition.oldRisk !== "RE";
+    const isReduced = (transition.oldRisk === "RE" && transition.newRisk !== "RE") || (transition.oldRisk === "RM" && transition.newRisk === "RF");
+
+    const getRiskChip = (r: string) => {
+      switch (r) {
+        case "RE":
+          return "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800";
+        case "RM":
+          return "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800";
+        case "RF":
+          return "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800";
+        default:
+          return "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+      }
+    };
+
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black border shadow-2xs tracking-tight",
+          isReduced
+            ? "bg-emerald-50/70 border-emerald-200/80 dark:bg-emerald-950/20 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200"
+            : isElevated
+            ? "bg-rose-50/70 border-rose-200/80 dark:bg-rose-950/20 dark:border-rose-800/60 text-rose-900 dark:text-rose-200"
+            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300"
+        )}
+        title={`Transition de risque : ${transition.oldRisk} → ${transition.newRisk}`}
+      >
+        <span className={cn("px-1.5 py-0.2 rounded font-black border text-[8.5px]", getRiskChip(transition.oldRisk))}>
+          {transition.oldRisk}
+        </span>
+        <span className="text-slate-400 dark:text-slate-500 font-black text-[9px]">→</span>
+        <span className={cn("px-1.5 py-0.2 rounded font-black border text-[8.5px]", getRiskChip(transition.newRisk))}>
+          {transition.newRisk}
+        </span>
+      </span>
+    );
+  };
 
   // Real-time Firestore listener for collaborative risk factor logs
   React.useEffect(() => {
@@ -1523,12 +1639,13 @@ export default function DashboardPage() {
                                 {new Date(log.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                               </span>
                             </div>
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               {log.factors && log.factors.map((f: string) => (
                                 <span key={f} className="text-[8px] font-black uppercase px-2 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 rounded-lg border border-amber-200/50 dark:border-amber-800/50">
                                   {f}
                                 </span>
                               ))}
+                              {renderRiskTransition(riskTransitionsMap[log.id || log.date])}
                             </div>
                             {log.note && (
                               <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-relaxed break-words">&ldquo;{log.note}&rdquo;</p>
@@ -2125,12 +2242,13 @@ export default function DashboardPage() {
                             {new Date(log.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </span>
                         </div>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           {log.factors && log.factors.map((f: string) => (
                             <span key={f} className="text-[8px] font-black uppercase px-2 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 rounded-lg border border-amber-200/50 dark:border-amber-800/50">
                               {f}
                             </span>
                           ))}
+                          {renderRiskTransition(riskTransitionsMap[log.id || log.date])}
                         </div>
                         {log.note && (
                           <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed break-words">&ldquo;{log.note}&rdquo;</p>

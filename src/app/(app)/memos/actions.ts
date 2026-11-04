@@ -1,4 +1,4 @@
-"use server";
+ation matr"use server";
 
 import { MemoPillar } from "@/types/memo";
 import { extractFaithfulTitle } from "@/lib/memoTitleGenerator";
@@ -150,7 +150,7 @@ function parseAiJson<T = any>(raw: string | null | undefined): T | null {
   // 3. Tenter un parsing direct
   try {
     return JSON.parse(cleaned) as T;
-  } catch {}
+  } catch { }
 
   // 4. Extraire l'objet délimité par des accolades
   const firstBrace = cleaned.indexOf("{");
@@ -158,7 +158,7 @@ function parseAiJson<T = any>(raw: string | null | undefined): T | null {
   if (firstBrace !== -1 && lastBrace > firstBrace) {
     try {
       return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1)) as T;
-    } catch {}
+    } catch { }
   }
 
   return null;
@@ -179,19 +179,19 @@ export async function reformulateMemoAction(
     pillar === "LAB_FT"
       ? "Lutte Anti-Blanchiment et Financement du Terrorisme (LAB/FT)"
       : pillar === "CONFORMITE_REGLEMENTAIRE"
-      ? "Conformité Réglementaire & Normative"
-      : "Gouvernance & Conformité Générale";
+        ? "Conformité Réglementaire & Normative"
+        : "Gouvernance & Conformité Générale";
 
   const styleInstruction =
     style === "FORMAL"
       ? `FORMEL & DIRECTION — Transforme ce texte brut en note de synthèse professionnelle de haut niveau pour la direction générale et le comité de contrôle. Phrases complètes, articulation logique (Constat / Analyse / Recommandation), vocabulaire châtié et précis de conformité d'assurance.`
       : style === "SYNTHETIC"
-      ? `SYNTHÉTIQUE & ACTIONS — Reformate en points d'action concis, percutants et hiérarchisés par priorité. Chaque point commence par "•" avec un verbe d'action fort à l'infinitif. Supprime tout mot superflu. Format : "📌 Points d'attention :\n• Action 1\n• Action 2"`
-      : style === "LEGAL"
-      ? `RÉGLEMENTAIRE & LCB-FT — Reformule chaque constat ou consigne sous l'angle des obligations normatives et réglementaires applicables (circulaires CTAF, directives CGA, décrets-lois LCB-FT et conformité prudentielle). Utilise des formules juridiques formelles ("Il est requis de", "En application de", "Il y a lieu de procéder à").`
-      : style === "CLARITY"
-      ? `CLARTÉ & ORTHOGRAPHE — Corrige toutes les fautes d'orthographe, de ponctuation, de grammaire et d'accord. Élimine les maladresses et tournures familières tout en préservant fidèlement la concision, la structure et le sens original de la note.`
-      : `PLAN D'ACTIONS & CHECKLIST — Transforme le texte en un plan de contrôle pratique avec une brève introduction suivie d'une liste claire de tâches de vérification ou d'actions concrètes à cocher. Renseigne impérativement le tableau "suggestedChecklist" avec les actions à cocher.`;
+        ? `SYNTHÉTIQUE & ACTIONS — Reformate en points d'action concis, percutants et hiérarchisés par priorité. Chaque point commence par "•" avec un verbe d'action fort à l'infinitif. Supprime tout mot superflu. Format : "📌 Points d'attention :\n• Action 1\n• Action 2"`
+        : style === "LEGAL"
+          ? `RÉGLEMENTAIRE & LCB-FT — Reformule chaque constat ou consigne sous l'angle des obligations normatives et réglementaires applicables (circulaires CTAF, directives CGA, décrets-lois LCB-FT et conformité prudentielle). Utilise des formules juridiques formelles ("Il est requis de", "En application de", "Il y a lieu de procéder à").`
+          : style === "CLARITY"
+            ? `CLARTÉ & ORTHOGRAPHE — Corrige toutes les fautes d'orthographe, de ponctuation, de grammaire et d'accord. Élimine les maladresses et tournures familières tout en préservant fidèlement la concision, la structure et le sens original de la note.`
+            : `PLAN D'ACTIONS & CHECKLIST — Transforme le texte en un plan de contrôle pratique avec une brève introduction suivie d'une liste claire de tâches de vérification ou d'actions concrètes à cocher. Renseigne impérativement le tableau "suggestedChecklist" avec les actions à cocher.`;
 
   const prompt = `Tu es un expert senior en Gouvernance, Risque et Conformité (GRC) pour la MAE Assurance (Tunisie).
 Ta mission est de TRANSFORMER et d'AMÉLIORER SIGNIFICATIVEMENT le texte brut ci-dessous selon le style demandé. Le résultat doit être impeccable, structuré et immédiatement exploitable.
@@ -359,8 +359,8 @@ function generateRuleBasedReformulation(
     pillar === "LAB_FT"
       ? "dans le cadre du dispositif LCB-FT"
       : pillar === "CONFORMITE_REGLEMENTAIRE"
-      ? "au titre des exigences de conformité réglementaire"
-      : "dans le cadre de la gouvernance interne";
+        ? "au titre des exigences de conformité réglementaire"
+        : "dans le cadre de la gouvernance interne";
 
   // ── MODE CHECKLIST ──
   if (style === "CHECKLIST") {
@@ -394,7 +394,7 @@ function generateRuleBasedReformulation(
     });
     const pillarTag =
       pillar === "LAB_FT" ? "[LCB-FT]" :
-      pillar === "CONFORMITE_REGLEMENTAIRE" ? "[Conformité Réglementaire]" : "[Gouvernance]";
+        pillar === "CONFORMITE_REGLEMENTAIRE" ? "[Conformité Réglementaire]" : "[Gouvernance]";
     return {
       title: `${pillarTag} ${enrichedTitle}`,
       text: `📌 Points de vigilance — Actions requises :\n\n${bullets.join("\n")}`,
@@ -442,8 +442,8 @@ function generateRuleBasedReformulation(
       pillar === "LAB_FT"
         ? "En application des dispositions LCB-FT en vigueur (Circulaire CTAF, Loi n° 2015-26), les obligations suivantes ont été identifiées :"
         : pillar === "CONFORMITE_REGLEMENTAIRE"
-        ? "En vertu des exigences réglementaires applicables au secteur de l'assurance, les obligations suivantes ont été identifiées :"
-        : "Conformément aux règles de gouvernance interne de MAE Assurance, les obligations suivantes ont été identifiées :";
+          ? "En vertu des exigences réglementaires applicables au secteur de l'assurance, les obligations suivantes ont été identifiées :"
+          : "Conformément aux règles de gouvernance interne de MAE Assurance, les obligations suivantes ont été identifiées :";
     return {
       title: `[Obligation Réglementaire] ${enrichedTitle}`,
       text: `${legalIntro}\n\n${numbered}`,
@@ -456,8 +456,8 @@ function generateRuleBasedReformulation(
     pillar === "LAB_FT"
       ? "Dans le cadre du dispositif de Lutte Contre le Blanchiment et le Financement du Terrorisme (LCB-FT),"
       : pillar === "CONFORMITE_REGLEMENTAIRE"
-      ? "Dans le cadre du programme de conformité réglementaire de MAE Assurance,"
-      : "Dans le cadre du suivi de gouvernance et de conformité interne,";
+        ? "Dans le cadre du programme de conformité réglementaire de MAE Assurance,"
+        : "Dans le cadre du suivi de gouvernance et de conformité interne,";
 
   const sentences = strippedLines.map((l) => {
     const enriched = applyLexicalUpgrades(l);
@@ -505,8 +505,8 @@ export async function chatWithMemoAIAction(
     pillar === "LAB_FT"
       ? "Lutte Anti-Blanchiment et Financement du Terrorisme (LCB-FT)"
       : pillar === "CONFORMITE_REGLEMENTAIRE"
-      ? "Conformité Réglementaire & Normative"
-      : "Gouvernance & Conformité Générale";
+        ? "Conformité Réglementaire & Normative"
+        : "Gouvernance & Conformité Générale";
 
   const systemPrompt = `Tu es chatbotCOMPLiaNCE, un assistant IA expert en révision et amélioration de texte (style ChatGPT).
 Tu es propulsé par le modèle haute performance Groq (${PRIMARY_GROQ_MODEL}).
@@ -1052,7 +1052,7 @@ ${trimmed}
     try {
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
       const geminiPrompt = `Rédige un TITRE COURT ET SYNTHÉTIQUE (4 à 8 mots max) résumant ce constat de conformité : "${trimmed}". Réponds uniquement par { "title": "..." } au format JSON.`;
-      
+
       const res = await fetch(geminiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1100,8 +1100,8 @@ export async function improveMemoWithAIAction(
     pillar === "LAB_FT"
       ? "Lutte Anti-Blanchiment et Financement du Terrorisme (LCB-FT)"
       : pillar === "CONFORMITE_REGLEMENTAIRE"
-      ? "Conformité Réglementaire & Normative"
-      : "Gouvernance & Conformité Générale";
+        ? "Conformité Réglementaire & Normative"
+        : "Gouvernance & Conformité Générale";
 
   const prompt = `Tu es un expert senior en Gouvernance, Risque et Conformité (GRC) pour la MAE Assurance (Tunisie).
 L'utilisateur a écrit des notes informelles ou du texte brut ci-dessous.
@@ -1403,10 +1403,10 @@ function generateAutonomousOrganizedMemo(
     actionPoints = cleanedSentences.length > 1
       ? cleanedSentences.slice(1).map((s) => `Prendre en compte : ${endSentence(s)}`)
       : [
-          "Appliquer les mesures correctives nécessaires selon les procédures en vigueur.",
-          "Documenter l'état d'avancement et tracer les étapes de traitement.",
-          "Assurer le suivi régulier auprès du responsable de section concerné."
-        ];
+        "Appliquer les mesures correctives nécessaires selon les procédures en vigueur.",
+        "Documenter l'état d'avancement et tracer les étapes de traitement.",
+        "Assurer le suivi régulier auprès du responsable de section concerné."
+      ];
     checklistItems = [
       "Vérifier l'application des consignes transmises",
       "Contrôler la conformité de l'opération dans le système",

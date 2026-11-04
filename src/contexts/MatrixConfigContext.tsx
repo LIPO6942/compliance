@@ -1,10 +1,11 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import {
   doc, onSnapshot, setDoc, collection, addDoc, getDocs, writeBatch
 } from 'firebase/firestore';
+import { COUNTRIES_DATA, computeCountryRisk } from '@/data/countriesData';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export type KycFactor = {
@@ -24,6 +25,8 @@ export type MatrixHistoryEntry = {
   field: string;
   oldValue: string;
   newValue: string;
+  oldRisk?: string;
+  newRisk?: string;
 };
 
 export type OverrideCategory = 'profession' | 'moral' | 'country' | 'gov' | 'product' | 'dist' | 'sale';
@@ -104,11 +107,11 @@ interface MatrixConfigContextType {
   kycFactors: KycFactor[];
   kycHistory: MatrixHistoryEntry[];
   loading: boolean;
-  
+
   overrides: Record<OverrideCategory, Record<string, Record<string, boolean | string>>>;
   baselineOverrides: Record<OverrideCategory, Record<string, Record<string, boolean | string>>>;
   professionOverrides: Record<string, Record<string, boolean>>; // alias
-  
+
   customItems: Record<string, any[]>;
   deletedItems: Record<string, string[]>;
   addCustomItem: (category: string, item: any, author: string) => Promise<void>;
@@ -120,32 +123,33 @@ interface MatrixConfigContextType {
     newValue: string,
     author: string
   ) => Promise<void>;
-  
+
   resetFactors: (author: string) => Promise<void>;
-  
+
   updateOverride: (
     category: OverrideCategory,
     itemId: string,
     fieldOrFields: string | Record<string, boolean | string>,
-    valueOrAuthor?: boolean | string,
-    authorParam?: string,
-    itemNameParam?: string
+    valueOrAuthor?: boolean | string | { oldRisk?: string; newRisk?: string },
+    authorParam?: string | { oldRisk?: string; newRisk?: string },
+    itemNameParam?: string | { oldRisk?: string; newRisk?: string },
+    riskTransitionParam?: { oldRisk: string; newRisk: string }
   ) => Promise<void>;
-  
+
   resetOverrides: (
     category: OverrideCategory | 'all',
     author: string
   ) => Promise<void>;
 
   consolidateAsBaseline: (author: string) => Promise<void>;
-  
+
   updateProfessionFactor: (
     professionName: string,
     field: string,
     value: boolean,
     author: string
   ) => Promise<void>;
-  
+
   resetProfessionOverrides: (author: string) => Promise<void>;
 }
 
@@ -193,6 +197,10 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
   const [kycHistory, setKycHistory] = useState<MatrixHistoryEntry[]>(() => lsLoad(LS_HISTORY, []));
   const [overrides, setOverrides] = useState<Record<OverrideCategory, Record<string, Record<string, boolean | string>>>>(() => lsLoad(LS_OVERRIDES, DEFAULT_OVERRIDES));
   const [baselineOverrides, setBaselineOverrides] = useState<Record<OverrideCategory, Record<string, Record<string, boolean | string>>>>(() => lsLoad(LS_BASELINE_OVERRIDES, DEFAULT_OVERRIDES));
+  const overridesRef = useRef(overrides);
+  overridesRef.current = overrides;
+  const baselineOverridesRef = useRef(baselineOverrides);
+  baselineOverridesRef.current = baselineOverrides;
   const [customItems, setCustomItems] = useState<Record<string, any[]>>(() => {
     const raw = lsLoad<Record<string, any[]>>('matrixKycCustomItems', {});
     return {
@@ -416,25 +424,66 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
       category: OverrideCategory,
       itemId: string,
       fieldOrFields: string | Record<string, boolean | string>,
-      valueOrAuthor?: boolean | string,
-      authorParam?: string,
-      itemNameParam?: string
+      valueOrAuthor?: boolean | string | { oldRisk?: string; newRisk?: string },
+      authorParam?: string | { oldRisk?: string; newRisk?: string },
+      itemNameParam?: string | { oldRisk?: string; newRisk?: string },
+      riskTransitionParam?: { oldRisk: string; newRisk: string }
     ) => {
       let fieldsToUpdate: Record<string, boolean | string> = {};
       let author = '';
       let itemName: string | undefined;
+      let explicitTransition: { oldRisk: string; newRisk: string } | undefined;
+
+      // Extract explicit transition if passed in any position
+      if (typeof riskTransitionParam === 'object' && riskTransitionParam?.oldRisk) {
+        explicitTransition = riskTransitionParam;
+      } else if (typeof itemNameParam === 'object' && (itemNameParam as any)?.oldRisk) {
+        explicitTransition = itemNameParam as any;
+      } else if (typeof authorParam === 'object' && (authorParam as any)?.oldRisk) {
+        explicitTransition = authorParam as any;
+      } else if (typeof valueOrAuthor === 'object' && valueOrAuthor !== null && 'oldRisk' in valueOrAuthor) {
+        explicitTransition = valueOrAuthor as any;
+      }
 
       if (typeof fieldOrFields === 'object' && fieldOrFields !== null) {
         fieldsToUpdate = fieldOrFields;
-        author = typeof valueOrAuthor === 'string' ? valueOrAuthor : (authorParam || '');
-        itemName = authorParam || itemNameParam;
+        author = typeof valueOrAuthor === 'string' ? valueOrAuthor : (typeof authorParam === 'string' ? authorParam : '');
+        itemName = typeof authorParam === 'string' ? authorParam : (typeof itemNameParam === 'string' ? itemNameParam : undefined);
       } else {
         fieldsToUpdate = { [fieldOrFields as string]: valueOrAuthor as boolean | string };
-        author = authorParam || '';
-        itemName = itemNameParam;
+        author = typeof authorParam === 'string' ? authorParam : '';
+        itemName = typeof itemNameParam === 'string' ? itemNameParam : undefined;
       }
 
       const displayName = itemName || itemId;
+
+      // Compute oldRisk and newRisk for country
+      let oldRisk = explicitTransition?.oldRisk;
+      let newRisk = explicitTransition?.newRisk;
+
+      if ((!oldRisk || !newRisk) && category === 'country') {
+        const base = COUNTRIES_DATA.find(c => c.name === itemId || c.name === displayName || c.alpha3 === itemId);
+        if (base) {
+          const curItemOv = (overridesRef.current?.country?.[itemId] || overridesRef.current?.country?.[base.name] || {}) as Record<string, any>;
+          const baseItemOv = (baselineOverridesRef.current?.country?.[itemId] || baselineOverridesRef.current?.country?.[base.name] || {}) as Record<string, any>;
+
+          const oldState = {
+            gafi: curItemOv.gafi !== undefined ? Boolean(curItemOv.gafi) : (baseItemOv.gafi !== undefined ? Boolean(baseItemOv.gafi) : Boolean(base.gafi)),
+            corruption: curItemOv.corruption !== undefined ? Boolean(curItemOv.corruption) : (baseItemOv.corruption !== undefined ? Boolean(baseItemOv.corruption) : Boolean(base.corruption)),
+            oecd: curItemOv.oecd !== undefined ? Boolean(curItemOv.oecd) : (baseItemOv.oecd !== undefined ? Boolean(baseItemOv.oecd) : Boolean(base.oecd)),
+            terrorism: curItemOv.terrorism !== undefined ? Boolean(curItemOv.terrorism) : (baseItemOv.terrorism !== undefined ? Boolean(baseItemOv.terrorism) : Boolean(base.terrorism)),
+            otherDominant: curItemOv.otherDominant !== undefined ? Boolean(curItemOv.otherDominant) : (baseItemOv.otherDominant !== undefined ? Boolean(baseItemOv.otherDominant) : Boolean(base.otherDominant)),
+          };
+
+          const newState = {
+            ...oldState,
+            ...fieldsToUpdate,
+          };
+
+          if (!oldRisk) oldRisk = computeCountryRisk(oldState);
+          if (!newRisk) newRisk = computeCountryRisk(newState);
+        }
+      }
 
       setOverrides((prevOverrides) => {
         const categoryObj = prevOverrides[category] || {};
@@ -456,8 +505,8 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
 
         if (isFirebaseConfigured && db) {
           try {
-            const overridesRef = doc(db, MATRIX_OVERRIDES_DOC);
-            setDoc(overridesRef, { [category]: updatedOverrides[category] }, { merge: true }).catch(err =>
+            const overridesRefDoc = doc(db, MATRIX_OVERRIDES_DOC);
+            setDoc(overridesRefDoc, { [category]: updatedOverrides[category] }, { merge: true }).catch(err =>
               console.error('[MatrixConfig] override Firestore setDoc error:', err)
             );
           } catch (e) {
@@ -479,15 +528,18 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
       };
 
       const fieldNames = Object.keys(fieldsToUpdate).join(', ');
+      const riskTransitionSuffix = oldRisk && newRisk ? ` (${oldRisk} → ${newRisk})` : '';
 
       setKycHistory(prevHistory => {
         const entry: MatrixHistoryEntry = {
           id: String(Date.now()),
           date: new Date().toISOString(),
           user: author || 'Utilisateur',
-          field: `${catLabel[category] || category} [${displayName}] → ${fieldNames}`,
-          oldValue: 'Précédent',
-          newValue: 'Mis à jour',
+          field: `${catLabel[category] || category} [${displayName}] → ${fieldNames}${riskTransitionSuffix}`,
+          oldValue: oldRisk || 'Précédent',
+          newValue: newRisk || 'Mis à jour',
+          oldRisk,
+          newRisk,
         };
         const updatedHistory = [entry, ...prevHistory].slice(0, 200);
         lsSave(LS_HISTORY, updatedHistory);
@@ -511,12 +563,18 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
             dist: "Voie de distribution / Vente",
             sale: "Voie de distribution / Vente",
           };
-          const logPayload = {
+          const logPayload: any = {
             date: new Date().toISOString(),
             user: author || 'Utilisateur',
             factors: [dashboardCategoryMap[category] || category],
-            note: `Modification sur « ${displayName} » : ${fieldNames}`,
+            note: `Modification sur « ${displayName} » : ${fieldNames}${riskTransitionSuffix}`,
           };
+          if (oldRisk && newRisk) {
+            logPayload.oldRisk = oldRisk;
+            logPayload.newRisk = newRisk;
+            logPayload.countryName = displayName;
+            logPayload.category = category;
+          }
           appendLocalRiskLog(logPayload);
           await addDoc(collection(db, "riskFactorLogs"), logPayload);
         } catch (logErr) {
@@ -592,7 +650,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
     async (category: string, itemKey: string, itemName: string, author: string) => {
       const updatedCustom = { ...customItems };
       const wasCustom = updatedCustom[category]?.some(item => String(item.code || item.name) === itemKey);
-      
+
       if (wasCustom) {
         updatedCustom[category] = updatedCustom[category].filter(item => String(item.code || item.name) !== itemKey);
       }
@@ -626,7 +684,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
       setCustomItems(updatedCustom);
       setDeletedItems(updatedDeleted);
       setKycHistory(updatedHistory);
-      
+
       lsSave('matrixKycCustomItems', updatedCustom);
       lsSave('matrixKycDeletedItems', updatedDeleted);
       lsSave(LS_HISTORY, updatedHistory);
@@ -634,7 +692,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
       if (isFirebaseConfigured && db) {
         try {
           const overridesRef = doc(db, MATRIX_OVERRIDES_DOC);
-          await setDoc(overridesRef, { 
+          await setDoc(overridesRef, {
             customItems: updatedCustom,
             deletedItems: updatedDeleted
           }, { merge: true });
@@ -668,7 +726,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
       const updatedOverrides = { ...overrides };
       const updatedCustom = { ...customItems };
       const updatedDeleted = { ...deletedItems };
-      
+
       if (category === 'all') {
         Object.keys(DEFAULT_OVERRIDES).forEach((cat) => {
           updatedOverrides[cat as OverrideCategory] = {};
@@ -702,7 +760,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
       setCustomItems(updatedCustom);
       setDeletedItems(updatedDeleted);
       setKycHistory(updatedHistory);
-      
+
       lsSave(LS_OVERRIDES, updatedOverrides);
       lsSave('matrixKycCustomItems', updatedCustom);
       lsSave('matrixKycDeletedItems', updatedDeleted);
@@ -718,7 +776,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
               deletedItems: { dist: [], sale: [], moral: [], profession: [] }
             });
           } else {
-            await setDoc(overridesRef, { 
+            await setDoc(overridesRef, {
               [category]: {},
               customItems: updatedCustom,
               deletedItems: updatedDeleted
@@ -744,8 +802,8 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
               date: new Date().toISOString(),
               user: author,
               factors: [dashboardCategoryMap[category] || category],
-              note: category === 'all' 
-                ? "Réinitialisation complète de toutes les personnalisations de la matrice KYC" 
+              note: category === 'all'
+                ? "Réinitialisation complète de toutes les personnalisations de la matrice KYC"
                 : `Réinitialisation de tous les paramètres personnalisés pour : ${category}`,
             };
             appendLocalRiskLog(logPayload);

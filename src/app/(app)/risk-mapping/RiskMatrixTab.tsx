@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Search, Globe, MapPin, Package, Layers, Grid, Users, Landmark,
-  Download, FileText, History, CheckCircle2, Clock, Save, Plus, Trash2, ShieldCheck, Pencil
+  Download, FileText, History, CheckCircle2, Clock, Save, Plus, Trash2, ShieldCheck, Pencil, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -44,255 +44,8 @@ const RISK_LEVELS = [
 ];
 
 // ── 1. Pays ──
-export const COUNTRIES_DATA = [
-  { numeric: 4, alpha3: "AFG", name: "Afghanistan", gafi: false, corruption: true, oecd: false, terrorism: true, other: "", risk: "RE" },
-  { numeric: 8, alpha3: "ALB", name: "Albanie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 10, alpha3: "ATA", name: "Antarctique", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 12, alpha3: "DZA", name: "Algérie", gafi: true, corruption: false, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 16, alpha3: "ASM", name: "Samoa américaines", gafi: false, corruption: false, oecd: true, terrorism: false, other: "", risk: "RM" },
-  { numeric: 20, alpha3: "AND", name: "Andorre", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 24, alpha3: "AGO", name: "Angola", gafi: true, corruption: false, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 28, alpha3: "ATG", name: "Antigua-et-Barbuda", gafi: false, corruption: false, oecd: true, terrorism: false, other: "", risk: "RM" },
-  { numeric: 31, alpha3: "AZE", name: "Azerbaïdjan", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 32, alpha3: "ARG", name: "Argentine", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 36, alpha3: "AUS", name: "Australie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 40, alpha3: "AUT", name: "Autriche", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 44, alpha3: "BHS", name: "Bahamas", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 48, alpha3: "BHR", name: "Bahreïn", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 50, alpha3: "BGD", name: "Bangladesh", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 51, alpha3: "ARM", name: "Arménie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 52, alpha3: "BRB", name: "Barbade", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 56, alpha3: "BEL", name: "Belgique", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 60, alpha3: "BMU", name: "Bermudes", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 64, alpha3: "BTN", name: "Bhoutan", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 68, alpha3: "BOL", name: "Bolivie", gafi: true, corruption: true, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 70, alpha3: "BIH", name: "Bosnie-Herzégovine", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 72, alpha3: "BWA", name: "Botswana", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 74, alpha3: "BVT", name: "Ile Bouvet", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 76, alpha3: "BRA", name: "Brésil", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 84, alpha3: "BLZ", name: "Belize", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 86, alpha3: "IOT", name: "Territoire britannique de l’Océan Indien", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 90, alpha3: "SLB", name: "Iles Salomon", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 92, alpha3: "VGB", name: "British Virgin Islands", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 96, alpha3: "BRN", name: "Brunei Darussalam", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 100, alpha3: "BGR", name: "Bulgarie", gafi: true, corruption: false, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 104, alpha3: "MMR", name: "Myanmar", gafi: true, corruption: true, oecd: false, terrorism: true, other: "", risk: "RE" },
-  { numeric: 108, alpha3: "BDI", name: "Burundi", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 112, alpha3: "BLR", name: "Biélorussie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 116, alpha3: "KHM", name: "Cambodge", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 120, alpha3: "CMR", name: "Cameroun", gafi: true, corruption: true, oecd: false, terrorism: true, other: "", risk: "RE" },
-  { numeric: 124, alpha3: "CAN", name: "Canada", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 132, alpha3: "CPV", name: "Cap-Vert", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 136, alpha3: "CYM", name: "Iles Cayman", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 140, alpha3: "CAF", name: "République centrafricaine", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 144, alpha3: "LKA", name: "Sri Lanka", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 148, alpha3: "TCD", name: "Tchad", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 152, alpha3: "CHL", name: "Chili", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 156, alpha3: "CHN", name: "Chine", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 158, alpha3: "TWN", name: "Taiwan", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 162, alpha3: "CXR", name: "Ile Christmas", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 166, alpha3: "CCK", name: "Iles Cocos", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 170, alpha3: "COL", name: "Colombie", gafi: false, corruption: false, oecd: false, terrorism: true, other: "", risk: "RM" },
-  { numeric: 174, alpha3: "COM", name: "Comores", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 175, alpha3: "MYT", name: "Mayotte", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 178, alpha3: "COG", name: "République du Congo", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 180, alpha3: "COD", name: "République démocratique du Congo", gafi: true, corruption: true, oecd: false, terrorism: true, other: "", risk: "RE" },
-  { numeric: 184, alpha3: "COK", name: "Iles Cook", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 188, alpha3: "CRI", name: "Costa Rica", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 191, alpha3: "HRV", name: "Croatie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 192, alpha3: "CUB", name: "Cuba", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 196, alpha3: "CYP", name: "Chypre", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 203, alpha3: "CZE", name: "République tchèque", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 204, alpha3: "BEN", name: "Bénin", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 208, alpha3: "DNK", name: "Danemark", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 212, alpha3: "DMA", name: "Dominique", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 214, alpha3: "DOM", name: "République dominicaine", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 218, alpha3: "ECU", name: "Equateur", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 222, alpha3: "SLV", name: "Salvador", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 226, alpha3: "GNQ", name: "Guinée équatoriale", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 231, alpha3: "ETH", name: "Ethiopie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 232, alpha3: "ERI", name: "Erythrée", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 233, alpha3: "EST", name: "Estonie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 234, alpha3: "FRO", name: "Iles Féroé", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 238, alpha3: "FLK", name: "Iles Falkland", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 239, alpha3: "SGS", name: "Géorgie du Sud et les îles Sandwich du Sud", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 242, alpha3: "FJI", name: "Fidji", gafi: false, corruption: false, oecd: true, terrorism: false, other: "", risk: "RM" },
-  { numeric: 246, alpha3: "FIN", name: "Finlande", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 248, alpha3: "ALA", name: "Iles Åland", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 250, alpha3: "FRA", name: "France", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 254, alpha3: "GUF", name: "Guyane française", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 258, alpha3: "PYF", name: "Polynésie française", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 260, alpha3: "ATF", name: "Terres australes et antarctiques françaises", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 262, alpha3: "DJI", name: "Djibouti", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 266, alpha3: "GAB", name: "Gabon", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 268, alpha3: "GEO", name: "Géorgie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 270, alpha3: "GMB", name: "Gambie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 275, alpha3: "PSE", name: "Palestine", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 276, alpha3: "DEU", name: "Allemagne", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 288, alpha3: "GHA", name: "Ghana", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 292, alpha3: "GIB", name: "Gibraltar", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 296, alpha3: "KIR", name: "Kiribati", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 300, alpha3: "GRC", name: "Grèce", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 304, alpha3: "GRL", name: "Groenland", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 308, alpha3: "GRD", name: "Grenade", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 312, alpha3: "GLP", name: "Guadeloupe", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 316, alpha3: "GUM", name: "Guam", gafi: false, corruption: false, oecd: true, terrorism: false, other: "", risk: "RM" },
-  { numeric: 320, alpha3: "GTM", name: "Guatemala", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 324, alpha3: "GIN", name: "Guinée", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 328, alpha3: "GUY", name: "Guyane", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 332, alpha3: "HTI", name: "Haïti", gafi: true, corruption: true, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 334, alpha3: "HMD", name: "Iles Heard-et-MacDonald", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 336, alpha3: "VAT", name: "Saint-Siège (Vatican)", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 340, alpha3: "HND", name: "Honduras", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 344, alpha3: "HKG", name: "Hong Kong", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 348, alpha3: "HUN", name: "Hongrie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 352, alpha3: "ISL", name: "Islande", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 356, alpha3: "IND", name: "Inde", gafi: false, corruption: false, oecd: false, terrorism: true, other: "", risk: "RM" },
-  { numeric: 360, alpha3: "IDN", name: "Indonésie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 364, alpha3: "IRN", name: "Iran", gafi: true, corruption: true, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 368, alpha3: "IRQ", name: "Irak", gafi: false, corruption: false, oecd: false, terrorism: true, other: "", risk: "RM" },
-  { numeric: 372, alpha3: "IRL", name: "Irlande", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 376, alpha3: "ISR", name: "Israël", gafi: false, corruption: false, oecd: false, terrorism: true, other: "Situation politique", risk: "RE" },
-  { numeric: 380, alpha3: "ITA", name: "Italie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 384, alpha3: "CIV", name: "Côte d’Ivoire", gafi: true, corruption: false, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 388, alpha3: "JAM", name: "Jamaïque", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 392, alpha3: "JPN", name: "Japon", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 398, alpha3: "KAZ", name: "Kazakhstan", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 400, alpha3: "JOR", name: "Jordanie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 404, alpha3: "KEN", name: "Kenya", gafi: true, corruption: false, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 408, alpha3: "PRK", name: "Corée du Nord", gafi: true, corruption: true, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 410, alpha3: "KOR", name: "Corée du Sud", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 414, alpha3: "KWT", name: "Koweït", gafi: true, corruption: false, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 417, alpha3: "KGZ", name: "Kirghizistan", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 418, alpha3: "LAO", name: "Laos", gafi: true, corruption: true, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 422, alpha3: "LBN", name: "Liban", gafi: true, corruption: true, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 426, alpha3: "LSO", name: "Lesotho", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 428, alpha3: "LVA", name: "Lettonie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 430, alpha3: "LBR", name: "Libéria", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 434, alpha3: "LBY", name: "Libye", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 438, alpha3: "LIE", name: "Liechtenstein", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 440, alpha3: "LTU", name: "Lituanie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 442, alpha3: "LUX", name: "Luxembourg", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 446, alpha3: "MAC", name: "Macao", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 450, alpha3: "MDG", name: "Madagascar", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 454, alpha3: "MWI", name: "Malawi", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 458, alpha3: "MYS", name: "Malaisie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 462, alpha3: "MDV", name: "Maldives", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 466, alpha3: "MLI", name: "Mali", gafi: false, corruption: true, oecd: false, terrorism: true, other: "", risk: "RE" },
-  { numeric: 470, alpha3: "MLT", name: "Malte", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 474, alpha3: "MTQ", name: "Martinique", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 478, alpha3: "MRT", name: "Mauritanie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 480, alpha3: "MUS", name: "Maurice", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 484, alpha3: "MEX", name: "Mexique", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 492, alpha3: "MCO", name: "Monaco", gafi: true, corruption: false, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 496, alpha3: "MNG", name: "Mongolie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 498, alpha3: "MDA", name: "Moldavie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 499, alpha3: "MNE", name: "Monténégro", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 500, alpha3: "MSR", name: "Montserrat", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 504, alpha3: "MAR", name: "Maroc", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 508, alpha3: "MOZ", name: "Mozambique", gafi: false, corruption: true, oecd: false, terrorism: true, other: "", risk: "RE" },
-  { numeric: 512, alpha3: "OMN", name: "Oman", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 516, alpha3: "NAM", name: "Namibie", gafi: true, corruption: false, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 520, alpha3: "NRU", name: "Nauru", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 524, alpha3: "NPL", name: "Népal", gafi: true, corruption: false, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 528, alpha3: "NLD", name: "Pays-Bas", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 533, alpha3: "ABW", name: "Aruba", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 534, alpha3: "SXM", name: "Saint-Martin (Pays-Bas)", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 540, alpha3: "NCL", name: "Nouvelle-Calédonie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 548, alpha3: "VUT", name: "Vanuatu", gafi: false, corruption: false, oecd: true, terrorism: false, other: "", risk: "RM" },
-  { numeric: 554, alpha3: "NZL", name: "Nouvelle-Zélande", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 558, alpha3: "NIC", name: "Nicaragua", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 562, alpha3: "NER", name: "Niger", gafi: false, corruption: false, oecd: false, terrorism: true, other: "Situation politique", risk: "RE" },
-  { numeric: 566, alpha3: "NGA", name: "Nigeria", gafi: false, corruption: true, oecd: false, terrorism: true, other: "", risk: "RE" },
-  { numeric: 570, alpha3: "NIU", name: "Niue", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 574, alpha3: "NFK", name: "Ile Norfolk", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 578, alpha3: "NOR", name: "Norvège", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 580, alpha3: "MNP", name: "Iles Mariannes du Nord", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 581, alpha3: "UMI", name: "Iles mineures éloignées des Etats-Unis", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 583, alpha3: "FSM", name: "Micronésie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 584, alpha3: "MHL", name: "Iles Marshall", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 585, alpha3: "PLW", name: "Palau", gafi: false, corruption: false, oecd: true, terrorism: false, other: "", risk: "RM" },
-  { numeric: 586, alpha3: "PAK", name: "Pakistan", gafi: false, corruption: true, oecd: false, terrorism: true, other: "", risk: "RE" },
-  { numeric: 591, alpha3: "PAN", name: "Panama", gafi: false, corruption: false, oecd: true, terrorism: false, other: "", risk: "RE" },
-  { numeric: 598, alpha3: "PNG", name: "Papouasie-Nouvelle-Guinée", gafi: true, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 600, alpha3: "PRY", name: "Paraguay", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 604, alpha3: "PER", name: "Pérou", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 608, alpha3: "PHL", name: "Philippines", gafi: true, corruption: false, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 612, alpha3: "PCN", name: "Pitcairn", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 616, alpha3: "POL", name: "Pologne", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 620, alpha3: "PRT", name: "Portugal", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 624, alpha3: "GNB", name: "Guinée-Bissau", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 626, alpha3: "TLS", name: "Timor-Leste", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 630, alpha3: "PRI", name: "Puerto Rico", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 634, alpha3: "QAT", name: "Qatar", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 638, alpha3: "REU", name: "Réunion", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 642, alpha3: "ROU", name: "Roumanie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 643, alpha3: "RUS", name: "Russie", gafi: false, corruption: true, oecd: true, terrorism: false, other: "", risk: "RE" },
-  { numeric: 646, alpha3: "RWA", name: "Rwanda", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 652, alpha3: "BLM", name: "Saint-Barthélemy", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 654, alpha3: "SHN", name: "Sainte-Hélène", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 659, alpha3: "KNA", name: "Saint-Kitts-et-Nevis", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 660, alpha3: "AIA", name: "Anguilla", gafi: false, corruption: false, oecd: true, terrorism: false, other: "", risk: "RM" },
-  { numeric: 662, alpha3: "LCA", name: "Sainte-Lucie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 663, alpha3: "MAF", name: "Saint-Martin (partie française)", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 666, alpha3: "SPM", name: "Saint-Pierre-et-Miquelon", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 670, alpha3: "VCT", name: "Saint-Vincent-et-les Grenadines", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 674, alpha3: "SMR", name: "Saint-Marin", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 678, alpha3: "STP", name: "Sao Tomé-et-Principe", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 682, alpha3: "SAU", name: "Arabie Saoudite", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 686, alpha3: "SEN", name: "Sénégal", gafi: false, corruption: false, oecd: false, terrorism: false, other: "Situation politique", risk: "RM" },
-  { numeric: 688, alpha3: "SRB", name: "Serbie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 690, alpha3: "SYC", name: "Seychelles", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 694, alpha3: "SLE", name: "Sierra Leone", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 702, alpha3: "SGP", name: "Singapour", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 703, alpha3: "SVK", name: "Slovaquie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 704, alpha3: "VNM", name: "Viêt Nam", gafi: true, corruption: false, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 705, alpha3: "SVN", name: "Slovénie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 706, alpha3: "SOM", name: "Somalie", gafi: false, corruption: true, oecd: false, terrorism: true, other: "", risk: "RE" },
-  { numeric: 710, alpha3: "ZAF", name: "Afrique du Sud", gafi: true, corruption: false, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 716, alpha3: "ZWE", name: "Zimbabwe", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 724, alpha3: "ESP", name: "Espagne", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 728, alpha3: "SSD", name: "Sud-Soudan", gafi: true, corruption: true, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 732, alpha3: "ESH", name: "Sahara occidental", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 736, alpha3: "SDN", name: "Soudan", gafi: false, corruption: true, oecd: false, terrorism: true, other: "Situation politique", risk: "RE" },
-  { numeric: 740, alpha3: "SUR", name: "Suriname", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 744, alpha3: "SJM", name: "Svalbard et Jan Mayen", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 748, alpha3: "SWZ", name: "Swaziland", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 752, alpha3: "SWE", name: "Suède", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 756, alpha3: "CHE", name: "Suisse", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 760, alpha3: "SYR", name: "Syrie", gafi: true, corruption: true, oecd: false, terrorism: true, other: "", risk: "RE" },
-  { numeric: 762, alpha3: "TJK", name: "Tadjikistan", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 764, alpha3: "THA", name: "Thaïlande", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 768, alpha3: "TGO", name: "Togo", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 772, alpha3: "TKL", name: "Tokelau", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 776, alpha3: "TON", name: "Tonga", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 780, alpha3: "TTO", name: "Trinité-et-Tobago", gafi: false, corruption: false, oecd: true, terrorism: false, other: "", risk: "RM" },
-  { numeric: 784, alpha3: "ARE", name: "Emirats Arabes Unis", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 788, alpha3: "TUN", name: "Tunisie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 792, alpha3: "TUR", name: "Turquie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 795, alpha3: "TKM", name: "Turkménistan", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 796, alpha3: "TCA", name: "Iles Turques-et-Caïques", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 798, alpha3: "TUV", name: "Tuvalu", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 800, alpha3: "UGA", name: "Ouganda", gafi: false, corruption: true, oecd: false, terrorism: false, other: "", risk: "RM" },
-  { numeric: 804, alpha3: "UKR", name: "Ukraine", gafi: false, corruption: false, oecd: false, terrorism: false, other: "Situation politique", risk: "RE" },
-  { numeric: 807, alpha3: "MKD", name: "Macédoine", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 818, alpha3: "EGY", name: "Egypte", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 826, alpha3: "GBR", name: "Royaume-Uni", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 831, alpha3: "GGY", name: "Guernesey", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 832, alpha3: "JEY", name: "Jersey", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 833, alpha3: "IMN", name: "Ile de Man", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 834, alpha3: "TZA", name: "Tanzanie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 840, alpha3: "USA", name: "Etats-Unis", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 850, alpha3: "VIR", name: "Iles Vierges américaines", gafi: true, corruption: false, oecd: true, terrorism: false, other: "", risk: "RE" },
-  { numeric: 854, alpha3: "BFA", name: "Burkina Faso", gafi: true, corruption: false, oecd: false, terrorism: true, other: "Situation politique", risk: "RE" },
-  { numeric: 858, alpha3: "URY", name: "Uruguay", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 860, alpha3: "UZB", name: "Ouzbékistan", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 862, alpha3: "VEN", name: "Venezuela", gafi: true, corruption: true, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 876, alpha3: "WLF", name: "Wallis-et-Futuna", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" },
-  { numeric: 882, alpha3: "WSM", name: "Samoa", gafi: false, corruption: false, oecd: true, terrorism: false, other: "", risk: "RM" },
-  { numeric: 887, alpha3: "YEM", name: "Yémen", gafi: true, corruption: true, oecd: false, terrorism: false, other: "", risk: "RE" },
-  { numeric: 894, alpha3: "ZMB", name: "Zambie", gafi: false, corruption: false, oecd: false, terrorism: false, other: "", risk: "RF" }
-];
+import { COUNTRIES_DATA, computeCountryRisk, type CountryData } from '@/data/countriesData';
+export { COUNTRIES_DATA, computeCountryRisk, type CountryData };
 
 // ── 2. Gouvernorats ──
 const GOVERNORATES_DATA = [
@@ -438,6 +191,8 @@ export function RiskMatrixTab() {
 
   const [subTab, setSubTab] = React.useState<"params" | "countries" | "govs" | "products" | "dist" | "moral" | "physical">("params");
   const [consolidateDialogOpen, setConsolidateDialogOpen] = React.useState(false);
+  const [isExportingExcel, setIsExportingExcel] = React.useState(false);
+  const [isExportingPDF, setIsExportingPDF] = React.useState(false);
 
   // State for Add Item Modal
   const [addItemModalOpen, setAddItemModalOpen] = React.useState(false);
@@ -719,14 +474,18 @@ export function RiskMatrixTab() {
     const oldValueStr = !value ? 'Oui' : 'Non (—)';
     const newValueStr = value ? 'Oui' : 'Non (—)';
 
+    const currentCountry = category === 'country' ? resolvedCountries.find(c => c.name === itemId) : null;
+    const oldCountryRisk = currentCountry ? (currentCountry.risk || computeCountryRisk(currentCountry)) : undefined;
+
     // Special behavior 1: Deselecting GAFI for a country
     if (category === 'country' && field === 'gafi' && value === false) {
       const defaultComment = "Après avoir été retiré de la liste GAFI";
+      const newCountryRisk = currentCountry ? computeCountryRisk({ ...currentCountry, gafi: false, otherDominant: true }) : 'RM';
       await updateOverride('country', itemId, {
         gafi: false,
         otherDominant: true,
         other: defaultComment
-      }, authorName, itemName);
+      }, authorName, itemName, { oldRisk: oldCountryRisk || 'RE', newRisk: newCountryRisk });
 
       toast({
         title: "Retrait GAFI enregistré",
@@ -751,10 +510,11 @@ export function RiskMatrixTab() {
 
     // Special behavior 2: Disabling (supprimer le "Oui") of Autre facteur dominant for a country
     if (category === 'country' && field === 'otherDominant' && value === false) {
+      const newCountryRisk = currentCountry ? computeCountryRisk({ ...currentCountry, otherDominant: false }) : 'RF';
       await updateOverride('country', itemId, {
         otherDominant: false,
         other: ''
-      }, authorName, itemName);
+      }, authorName, itemName, { oldRisk: oldCountryRisk || 'RE', newRisk: newCountryRisk });
 
       toast({
         title: "Facteur désactivé",
@@ -781,10 +541,11 @@ export function RiskMatrixTab() {
     if (category === 'country' && field === 'otherDominant' && value === true) {
       const currentCountry = resolvedCountries.find(c => c.name === itemId);
       const comment = currentCountry?.other || 'Autre critère spécifique';
+      const newCountryRisk = currentCountry ? computeCountryRisk({ ...currentCountry, otherDominant: true }) : 'RM';
       await updateOverride('country', itemId, {
         otherDominant: true,
         other: comment
-      }, authorName, itemName);
+      }, authorName, itemName, { oldRisk: oldCountryRisk || 'RM', newRisk: newCountryRisk });
 
       toast({
         title: "Facteur activé",
@@ -807,7 +568,19 @@ export function RiskMatrixTab() {
       return;
     }
 
-    await updateOverride(category, itemId, field, value, authorName, itemName);
+    const newCountryRisk = (category === 'country' && currentCountry)
+      ? computeCountryRisk({ ...currentCountry, [field]: value })
+      : undefined;
+
+    await updateOverride(
+      category,
+      itemId,
+      field,
+      value,
+      authorName,
+      itemName,
+      oldCountryRisk && newCountryRisk ? { oldRisk: oldCountryRisk, newRisk: newCountryRisk } : undefined
+    );
 
     const fieldLabels: Record<string, string> = {
       border: "Zone frontalière",
@@ -1326,105 +1099,253 @@ export function RiskMatrixTab() {
 
   // ── Export Excel (matrice des risques) ──
   const exportMatrixExcel = async () => {
-    // Mot de passe de protection des feuilles Excel
-    const EXCEL_PROTECTION_PASSWORD = "conformite2026!";
+    setIsExportingExcel(true);
+    try {
+      // Mot de passe de protection des feuilles Excel
+      const EXCEL_PROTECTION_PASSWORD = "conformite2026!";
 
-    const wb = new ExcelJS.Workbook();
-    wb.creator = "Compliance Navigator";
+      const wb = new ExcelJS.Workbook();
+      wb.creator = "Compliance Navigator";
 
-    // Helper to get Excel column letter (e.g. 1 -> A, 26 -> Z, 27 -> AA)
-    const getColLetter = (colIndex: number): string => {
-      let temp = colIndex;
-      let letter = "";
-      while (temp > 0) {
-        const mod = (temp - 1) % 26;
-        letter = String.fromCharCode(65 + mod) + letter;
-        temp = Math.floor((temp - 1) / 26);
-      }
-      return letter;
-    };
+      // Helper to get Excel column letter (e.g. 1 -> A, 26 -> Z, 27 -> AA)
+      const getColLetter = (colIndex: number): string => {
+        let temp = colIndex;
+        let letter = "";
+        while (temp > 0) {
+          const mod = (temp - 1) % 26;
+          letter = String.fromCharCode(65 + mod) + letter;
+          temp = Math.floor((temp - 1) / 26);
+        }
+        return letter;
+      };
 
-    // Styles global apply helper
-    const applyGlobalSheetStyles = async (
-      ws: ExcelJS.Worksheet,
-      factorConfig?: { factorStartCol: string; factorEndCol: string; gafiCol?: string }
-    ) => {
-      // Header row style
-      const headerRow = ws.getRow(1);
-      headerRow.height = 30;
-      headerRow.eachCell((cell) => {
+      // Styles global apply helper
+      const applyGlobalSheetStyles = async (
+        ws: ExcelJS.Worksheet,
+        factorConfig?: { factorStartCol: string; factorEndCol: string; gafiCol?: string }
+      ) => {
+        // Header row style
+        const headerRow = ws.getRow(1);
+        headerRow.height = 30;
+        headerRow.eachCell((cell) => {
+          cell.font = { name: "Segoe UI", bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF6D28D9" } }; // Theme violet header
+          cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFC7D2FE" } },
+            bottom: { style: "medium", color: { argb: "FF4F46E5" } },
+            left: { style: "thin", color: { argb: "FFC7D2FE" } },
+            right: { style: "thin", color: { argb: "FFC7D2FE" } }
+          };
+        });
+
+        // Data rows style
+        const riskBg: Record<string, string> = { RE: "FFFFE4E6", RM: "FFFEF9C3", RF: "FFD1FAE5", "Élevé": "FFFFE4E6", "Moyen": "FFFEF9C3", "Faible": "FFD1FAE5" };
+        const riskText: Record<string, string> = { RE: "FF9F1239", RM: "FF92400E", RF: "FF065F46", "Élevé": "FF9F1239", "Moyen": "FF92400E", "Faible": "FF065F46" };
+
+        // Find risk column index dynamically by key
+        const riskColIndex = (ws.columns || []).findIndex((col) => col && col.key === "risk") + 1;
+
+        ws.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return;
+          row.height = 24;
+          const isEven = rowNumber % 2 === 0;
+          const bg = isEven ? "FFF8FAFC" : "FFFFFFFF"; // Alternating slate-50 rows
+
+          let rawRiskVal = "";
+          if (riskColIndex > 0) {
+            const cellVal = row.getCell(riskColIndex).value;
+            if (typeof cellVal === "string") {
+              rawRiskVal = cellVal;
+            } else if (cellVal && typeof cellVal === "object" && "result" in cellVal) {
+              rawRiskVal = String((cellVal as any).result || "");
+            }
+          }
+
+          // Apply formula for risk column if factorConfig is provided
+          if (riskColIndex > 0 && factorConfig) {
+            const riskCell = row.getCell(riskColIndex);
+            const r = rowNumber;
+            const { factorStartCol, factorEndCol, gafiCol } = factorConfig;
+            let formulaStr = "";
+            if (gafiCol) {
+              formulaStr = `IF(${gafiCol}${r}="Oui","Élevé",IF(COUNTIF(${factorStartCol}${r}:${factorEndCol}${r},"Oui*")>=2,"Élevé",IF(COUNTIF(${factorStartCol}${r}:${factorEndCol}${r},"Oui*")=1,"Moyen","Faible")))`;
+            } else {
+              formulaStr = `IF(COUNTIF(${factorStartCol}${r}:${factorEndCol}${r},"Oui*")>=2,"Élevé",IF(COUNTIF(${factorStartCol}${r}:${factorEndCol}${r},"Oui*")=1,"Moyen","Faible"))`;
+            }
+
+            const resultText = rawRiskVal === "RE" ? "Élevé" : rawRiskVal === "RM" ? "Moyen" : (rawRiskVal === "RF" ? "Faible" : (rawRiskVal || "Faible"));
+
+            riskCell.value = {
+              formula: formulaStr,
+              result: resultText
+            };
+            rawRiskVal = resultText;
+          }
+
+          // Attach Data Validation dropdown list ("Oui", "—") to all factor cells
+          if (factorConfig) {
+            const startColLetter = factorConfig.gafiCol || factorConfig.factorStartCol;
+            const startColIdx = startColLetter.charCodeAt(0) - 64;
+            const endColIdx = factorConfig.factorEndCol.charCodeAt(0) - 64;
+
+            for (let c = startColIdx; c <= endColIdx; c++) {
+              const factorCell = row.getCell(c);
+              factorCell.dataValidation = {
+                type: "list",
+                allowBlank: true,
+                formulae: ['"Oui, —"']
+              };
+            }
+          }
+
+          row.eachCell((cell, colNumber) => {
+            cell.font = { name: "Segoe UI", size: 9, color: { argb: "FF1E293B" } };
+            cell.border = {
+              top: { style: "thin", color: { argb: "FFE2E8F0" } },
+              bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+              left: { style: "thin", color: { argb: "FFE2E8F0" } },
+              right: { style: "thin", color: { argb: "FFE2E8F0" } }
+            };
+
+            // Apply cell alignment
+            const column = ws.columns ? ws.columns[colNumber - 1] : undefined;
+            const colKey = column?.key;
+            const isCenter = colKey === "code" ||
+              colKey === "numeric" ||
+              colKey === "alpha3" ||
+              colKey === "coeff" ||
+              colKey === "agregation" ||
+              colKey === "risk" ||
+              cell.value === "Oui" ||
+              cell.value === "—";
+            cell.alignment = {
+              vertical: "middle",
+              horizontal: isCenter ? "center" : "left",
+              wrapText: true
+            };
+
+            // Background fill & custom fonts for risk levels
+            if (colNumber === riskColIndex) {
+              const bgKey = rawRiskVal in riskBg ? rawRiskVal : (rawRiskVal === "RE" ? "RE" : rawRiskVal === "RM" ? "RM" : "RF");
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: riskBg[bgKey] || "FFD1FAE5" } };
+              cell.font = { name: "Segoe UI", size: 9, bold: true, color: { argb: riskText[bgKey] || "FF065F46" } };
+            } else {
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+            }
+          });
+        });
+
+        // Add Excel Conditional Formatting if risk column exists
+        try {
+          if (riskColIndex > 0 && ws.rowCount > 1) {
+            const riskColLetter = getColLetter(riskColIndex);
+            const range = `${riskColLetter}2:${riskColLetter}${ws.rowCount}`;
+
+            ws.addConditionalFormatting({
+              ref: range,
+              rules: [
+                {
+                  type: "cellIs",
+                  operator: "equal",
+                  formulae: ['"Élevé"'],
+                  style: {
+                    fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFFFE4E6" } },
+                    font: { color: { argb: "FF9F1239" }, bold: true }
+                  }
+                },
+                {
+                  type: "cellIs",
+                  operator: "equal",
+                  formulae: ['"Moyen"'],
+                  style: {
+                    fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFFEF9C3" } },
+                    font: { color: { argb: "FF92400E" }, bold: true }
+                  }
+                },
+                {
+                  type: "cellIs",
+                  operator: "equal",
+                  formulae: ['"Faible"'],
+                  style: {
+                    fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFD1FAE5" } },
+                    font: { color: { argb: "FF065F46" }, bold: true }
+                  }
+                }
+              ]
+            });
+          }
+
+        } catch (cfErr) {
+          console.warn("Could not apply conditional formatting:", cfErr);
+        }
+
+        // Solution 2: Protect worksheet against editing (Read-Only audit protection)
+        try {
+          await ws.protect(EXCEL_PROTECTION_PASSWORD, {
+            selectLockedCells: true,
+            selectUnlockedCells: true,
+            formatCells: false,
+            formatColumns: false,
+            formatRows: false,
+            insertColumns: false,
+            insertRows: false,
+            insertHyperlinks: false,
+            deleteColumns: false,
+            deleteRows: false,
+            sort: false,
+            autoFilter: false,
+            pivotTables: false
+          });
+        } catch (protErr) {
+          console.warn("Could not protect worksheet:", protErr);
+        }
+      };
+
+      // ── Sheet 1: Légende & Cotation ──
+      const wsL = wb.addWorksheet("Légende & Cotation");
+      wsL.views = [{ showGridLines: true }];
+
+      wsL.mergeCells("A2:C2");
+      const titleCell = wsL.getCell("A2");
+      titleCell.value = "Compliance Navigator — Légende de la Matrice des Risques";
+      titleCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FF4F46E5" } };
+      titleCell.alignment = { vertical: "middle", horizontal: "left" };
+      wsL.getRow(2).height = 32;
+
+      wsL.mergeCells("A3:C3");
+      const subCell = wsL.getCell("A3");
+      subCell.value = `Exporté le : ${new Date().toLocaleDateString("fr-FR")} — Document de référence des cotations KYC et paramètres de risques`;
+      subCell.font = { name: "Segoe UI", size: 10, italic: true, color: { argb: "FF64748B" } };
+      wsL.getRow(3).height = 20;
+
+      wsL.mergeCells("A4:C4");
+      const certCell = wsL.getCell("A4");
+      certCell.value = "🔒 Document officiel certifié en lecture seule. Toute modification du paramétrage doit être effectuée directement depuis l'application Web Compliance Navigator.";
+      certCell.font = { name: "Segoe UI", size: 9, bold: true, color: { argb: "FF991B1B" } };
+      certCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } };
+      certCell.alignment = { vertical: "middle", horizontal: "left" };
+      wsL.getRow(4).height = 24;
+
+      wsL.getRow(6).values = ["Niveau de Risque", "Représentation", "Critère de calcul automatique"];
+      wsL.getRow(6).height = 26;
+      wsL.getRow(6).eachCell((cell) => {
         cell.font = { name: "Segoe UI", bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF6D28D9" } }; // Theme violet header
-        cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
-        cell.border = {
-          top: { style: "thin", color: { argb: "FFC7D2FE" } },
-          bottom: { style: "medium", color: { argb: "FF4F46E5" } },
-          left: { style: "thin", color: { argb: "FFC7D2FE" } },
-          right: { style: "thin", color: { argb: "FFC7D2FE" } }
-        };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
       });
 
-      // Data rows style
-      const riskBg: Record<string, string> = { RE: "FFFFE4E6", RM: "FFFEF9C3", RF: "FFD1FAE5", "Élevé": "FFFFE4E6", "Moyen": "FFFEF9C3", "Faible": "FFD1FAE5" };
-      const riskText: Record<string, string> = { RE: "FF9F1239", RM: "FF92400E", RF: "FF065F46", "Élevé": "FF9F1239", "Moyen": "FF92400E", "Faible": "FF065F46" };
+      const legendData = [
+        { level: "Risque Élevé (RE)", repr: "Rouge", rule: "Au moins 2 facteurs qualifiés de 'Oui' (>= 2 Oui)" },
+        { level: "Risque Moyen (RM)", repr: "Orange", rule: "Exactement 1 facteur qualifié de 'Oui' (1 Oui)" },
+        { level: "Risque Faible (RF)", repr: "Vert", rule: "Aucun facteur qualifié de 'Oui' (0 Oui, que des tirets)" }
+      ];
 
-      // Find risk column index dynamically by key
-      const riskColIndex = ws.columns.findIndex((col) => col.key === "risk") + 1;
-
-      ws.eachRow((row, rowNumber) => {
-        if (rowNumber === 1) return;
-        row.height = 24;
-        const isEven = rowNumber % 2 === 0;
-        const bg = isEven ? "FFF8FAFC" : "FFFFFFFF"; // Alternating slate-50 rows
-
-        let rawRiskVal = "";
-        if (riskColIndex > 0) {
-          const cellVal = row.getCell(riskColIndex).value;
-          if (typeof cellVal === "string") {
-            rawRiskVal = cellVal;
-          } else if (cellVal && typeof cellVal === "object" && "result" in cellVal) {
-            rawRiskVal = String((cellVal as any).result || "");
-          }
-        }
-
-        // Apply formula for risk column if factorConfig is provided
-        if (riskColIndex > 0 && factorConfig) {
-          const riskCell = row.getCell(riskColIndex);
-          const r = rowNumber;
-          const { factorStartCol, factorEndCol, gafiCol } = factorConfig;
-          let formulaStr = "";
-          if (gafiCol) {
-            formulaStr = `IF(${gafiCol}${r}="Oui","Élevé",IF(COUNTIF(${factorStartCol}${r}:${factorEndCol}${r},"Oui*")>=2,"Élevé",IF(COUNTIF(${factorStartCol}${r}:${factorEndCol}${r},"Oui*")=1,"Moyen","Faible")))`;
-          } else {
-            formulaStr = `IF(COUNTIF(${factorStartCol}${r}:${factorEndCol}${r},"Oui*")>=2,"Élevé",IF(COUNTIF(${factorStartCol}${r}:${factorEndCol}${r},"Oui*")=1,"Moyen","Faible"))`;
-          }
-
-          const resultText = rawRiskVal === "RE" ? "Élevé" : rawRiskVal === "RM" ? "Moyen" : (rawRiskVal === "RF" ? "Faible" : (rawRiskVal || "Faible"));
-
-          riskCell.value = {
-            formula: formulaStr,
-            result: resultText
-          };
-          rawRiskVal = resultText;
-        }
-
-        // Attach Data Validation dropdown list ("Oui", "—") to all factor cells
-        if (factorConfig) {
-          const startColLetter = factorConfig.gafiCol || factorConfig.factorStartCol;
-          const startColIdx = startColLetter.charCodeAt(0) - 64;
-          const endColIdx = factorConfig.factorEndCol.charCodeAt(0) - 64;
-
-          for (let c = startColIdx; c <= endColIdx; c++) {
-            const factorCell = row.getCell(c);
-            factorCell.dataValidation = {
-              type: "list",
-              allowBlank: true,
-              formulae: ['"Oui, —"']
-            };
-          }
-        }
-
-        row.eachCell((cell, colNumber) => {
+      legendData.forEach((row, i) => {
+        const r = wsL.addRow([row.level, row.repr, row.rule]);
+        r.height = 24;
+        const rowNum = 7 + i;
+        r.eachCell((cell, col) => {
           cell.font = { name: "Segoe UI", size: 9, color: { argb: "FF1E293B" } };
           cell.border = {
             top: { style: "thin", color: { argb: "FFE2E8F0" } },
@@ -1432,396 +1353,278 @@ export function RiskMatrixTab() {
             left: { style: "thin", color: { argb: "FFE2E8F0" } },
             right: { style: "thin", color: { argb: "FFE2E8F0" } }
           };
+          cell.alignment = { vertical: "middle", horizontal: col === 3 ? "left" : "center" };
 
-          // Apply cell alignment
-          const column = ws.columns[colNumber - 1];
-          const isCenter = column.key === "code" ||
-            column.key === "numeric" ||
-            column.key === "alpha3" ||
-            column.key === "coeff" ||
-            column.key === "agregation" ||
-            column.key === "risk" ||
-            cell.value === "Oui" ||
-            cell.value === "—";
-          cell.alignment = {
-            vertical: "middle",
-            horizontal: isCenter ? "center" : "left",
-            wrapText: true
-          };
-
-          // Background fill & custom fonts for risk levels
-          if (colNumber === riskColIndex) {
-            const bgKey = rawRiskVal in riskBg ? rawRiskVal : (rawRiskVal === "RE" ? "RE" : rawRiskVal === "RM" ? "RM" : "RF");
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: riskBg[bgKey] || "FFD1FAE5" } };
-            cell.font = { name: "Segoe UI", size: 9, bold: true, color: { argb: riskText[bgKey] || "FF065F46" } };
-          } else {
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+          if (rowNum === 7) {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE4E6" } };
+            if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF9F1239" } };
+          } else if (rowNum === 8) {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF9C3" } };
+            if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF92400E" } };
+          } else if (rowNum === 9) {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD1FAE5" } };
+            if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF065F46" } };
           }
         });
       });
 
-      // Add Excel Conditional Formatting if risk column exists
-      if (riskColIndex > 0 && ws.rowCount > 1) {
-        const riskColLetter = getColLetter(riskColIndex);
-        const range = `${riskColLetter}2:${riskColLetter}${ws.rowCount}`;
+      wsL.getColumn(1).width = 25;
+      wsL.getColumn(2).width = 18;
+      wsL.getColumn(3).width = 50;
 
-        ws.addConditionalFormatting({
-          ref: range,
-          rules: [
-            {
-              type: "cellIs",
-              operator: "equal",
-              formulae: ['"Élevé"'],
-              style: {
-                fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFFFE4E6" } },
-                font: { color: { argb: "FF9F1239" }, bold: true }
-              }
-            },
-            {
-              type: "cellIs",
-              operator: "equal",
-              formulae: ['"Moyen"'],
-              style: {
-                fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFFEF9C3" } },
-                font: { color: { argb: "FF92400E" }, bold: true }
-              }
-            },
-            {
-              type: "cellIs",
-              operator: "equal",
-              formulae: ['"Faible"'],
-              style: {
-                fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFD1FAE5" } },
-                font: { color: { argb: "FF065F46" }, bold: true }
-              }
-            }
-          ]
-        });
+      try {
+        await wsL.protect(EXCEL_PROTECTION_PASSWORD, { selectLockedCells: true, selectUnlockedCells: true });
+      } catch (protErr) {
+        console.warn("Could not protect legend worksheet:", protErr);
       }
 
-      // Solution 2: Protect worksheet against editing (Read-Only audit protection)
-      await ws.protect(EXCEL_PROTECTION_PASSWORD, {
-        selectLockedCells: true,
-        selectUnlockedCells: true,
-        formatCells: false,
-        formatColumns: false,
-        formatRows: false,
-        insertColumns: false,
-        insertRows: false,
-        insertHyperlinks: false,
-        deleteColumns: false,
-        deleteRows: false,
-        sort: false,
-        autoFilter: false,
-        pivotTables: false
+      // ── Sheet 2: Structure & Pondérations ──
+      const wsP = wb.addWorksheet("Pondérations & Structure");
+      wsP.views = [{ showGridLines: true }];
+      wsP.columns = [
+        { header: "Facteur d'évaluation", key: "facteur", width: 35 },
+        { header: "KYC Physique", key: "kycPhys", width: 45 },
+        { header: "KYC Morale", key: "kycMorale", width: 35 },
+        { header: "KYC OBNL", key: "kycObnl", width: 35 },
+        { header: "Coeff", key: "coeff", width: 10 },
+        { header: "Agrégation", key: "agregation", width: 15 }
+      ];
+      kycFactors.forEach((f) => wsP.addRow(f));
+      await applyGlobalSheetStyles(wsP);
+
+      // ── Sheet 3: Pays ──
+      const wsC = wb.addWorksheet("1. Pays");
+      wsC.views = [{ showGridLines: true }];
+      wsC.columns = [
+        { header: "ISO Num", key: "numeric", width: 10 },
+        { header: "ISO Alpha-3", key: "alpha3", width: 15 },
+        { header: "Pays", key: "name", width: 35 },
+        { header: "GAFI", key: "gafi", width: 12 },
+        { header: "Corruption (CPI < 30)", key: "corruption", width: 22 },
+        { header: "Paradis Fiscal", key: "oecd", width: 15 },
+        { header: "Terrorisme (GTI > 6)", key: "terrorism", width: 20 },
+        { header: "Autre facteur dominant (Remarque)", key: "other", width: 45 },
+        { header: "Risque", key: "risk", width: 12 }
+      ];
+      resolvedCountries.forEach((c) => {
+        wsC.addRow({
+          numeric: c.numeric,
+          alpha3: c.alpha3,
+          name: c.name,
+          gafi: c.gafi ? "Oui" : "—",
+          corruption: c.corruption ? "Oui" : "—",
+          oecd: c.oecd ? "Oui" : "—",
+          terrorism: c.terrorism ? "Oui" : "—",
+          other: c.otherDominant ? "Oui" + (c.other ? " - " + c.other : "") : "—",
+          risk: c.risk
+        });
       });
-    };
+      await applyGlobalSheetStyles(wsC, { gafiCol: "D", factorStartCol: "E", factorEndCol: "H" });
 
-    // ── Sheet 1: Légende & Cotation ──
-    const wsL = wb.addWorksheet("Légende & Cotation");
-    wsL.views = [{ showGridLines: true }];
-
-    wsL.mergeCells("A2:C2");
-    const titleCell = wsL.getCell("A2");
-    titleCell.value = "Compliance Navigator — Légende de la Matrice des Risques";
-    titleCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FF4F46E5" } };
-    titleCell.alignment = { vertical: "middle", horizontal: "left" };
-    wsL.getRow(2).height = 32;
-
-    wsL.mergeCells("A3:C3");
-    const subCell = wsL.getCell("A3");
-    subCell.value = `Exporté le : ${new Date().toLocaleDateString("fr-FR")} — Document de référence des cotations KYC et paramètres de risques`;
-    subCell.font = { name: "Segoe UI", size: 10, italic: true, color: { argb: "FF64748B" } };
-    wsL.getRow(3).height = 20;
-
-    wsL.mergeCells("A4:C4");
-    const certCell = wsL.getCell("A4");
-    certCell.value = "🔒 Document officiel certifié en lecture seule. Toute modification du paramétrage doit être effectuée directement depuis l'application Web Compliance Navigator.";
-    certCell.font = { name: "Segoe UI", size: 9, bold: true, color: { argb: "FF991B1B" } };
-    certCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } };
-    certCell.alignment = { vertical: "middle", horizontal: "left" };
-    wsL.getRow(4).height = 24;
-
-    wsL.getRow(6).values = ["Niveau de Risque", "Représentation", "Critère de calcul automatique"];
-    wsL.getRow(6).height = 26;
-    wsL.getRow(6).eachCell((cell) => {
-      cell.font = { name: "Segoe UI", bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } };
-      cell.alignment = { vertical: "middle", horizontal: "center" };
-    });
-
-    const legendData = [
-      { level: "Risque Élevé (RE)", repr: "Rouge", rule: "Au moins 2 facteurs qualifiés de 'Oui' (>= 2 Oui)" },
-      { level: "Risque Moyen (RM)", repr: "Orange", rule: "Exactement 1 facteur qualifié de 'Oui' (1 Oui)" },
-      { level: "Risque Faible (RF)", repr: "Vert", rule: "Aucun facteur qualifié de 'Oui' (0 Oui, que des tirets)" }
-    ];
-
-    legendData.forEach((row, i) => {
-      const r = wsL.addRow([row.level, row.repr, row.rule]);
-      r.height = 24;
-      const rowNum = 7 + i;
-      r.eachCell((cell, col) => {
-        cell.font = { name: "Segoe UI", size: 9, color: { argb: "FF1E293B" } };
-        cell.border = {
-          top: { style: "thin", color: { argb: "FFE2E8F0" } },
-          bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
-          left: { style: "thin", color: { argb: "FFE2E8F0" } },
-          right: { style: "thin", color: { argb: "FFE2E8F0" } }
-        };
-        cell.alignment = { vertical: "middle", horizontal: col === 3 ? "left" : "center" };
-
-        if (rowNum === 7) {
-          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE4E6" } };
-          if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF9F1239" } };
-        } else if (rowNum === 8) {
-          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF9C3" } };
-          if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF92400E" } };
-        } else if (rowNum === 9) {
-          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD1FAE5" } };
-          if (col === 1) cell.font = { name: "Segoe UI", bold: true, color: { argb: "FF065F46" } };
-        }
+      // ── Sheet 4: Gouvernorats (TN) ──
+      const wsG = wb.addWorksheet("2. Gouvernorats");
+      wsG.views = [{ showGridLines: true }];
+      wsG.columns = [
+        { header: "Code", key: "id", width: 10 },
+        { header: "Gouvernorat (FR)", key: "name", width: 25 },
+        { header: "Gouvernorat (AR)", key: "nameAr", width: 20 },
+        { header: "Zone frontalière", key: "border", width: 18 },
+        { header: "Port International", key: "port", width: 18 },
+        { header: "Aéroport", key: "airport", width: 15 },
+        { header: "Contrebande", key: "market", width: 15 },
+        { header: "Autres critères", key: "other", width: 35 },
+        { header: "Risque", key: "risk", width: 12 }
+      ];
+      resolvedGovs.forEach((g) => {
+        const otherVal = g.other && g.other.trim() !== "" ? (g.other.startsWith("Oui") ? g.other : "Oui - " + g.other) : "—";
+        wsG.addRow({
+          id: g.id,
+          name: g.name,
+          nameAr: g.nameAr,
+          border: g.border ? "Oui" : "—",
+          port: g.port ? "Oui" : "—",
+          airport: g.airport ? "Oui" : "—",
+          market: g.market ? "Oui" : "—",
+          other: otherVal,
+          risk: g.risk
+        });
       });
-    });
+      await applyGlobalSheetStyles(wsG, { factorStartCol: "D", factorEndCol: "H" });
 
-    wsL.getColumn(1).width = 25;
-    wsL.getColumn(2).width = 18;
-    wsL.getColumn(3).width = 50;
-
-    await wsL.protect(EXCEL_PROTECTION_PASSWORD, { selectLockedCells: true, selectUnlockedCells: true });
-
-    // ── Sheet 2: Structure & Pondérations ──
-    const wsP = wb.addWorksheet("Pondérations & Structure");
-    wsP.views = [{ showGridLines: true }];
-    wsP.columns = [
-      { header: "Facteur d'évaluation", key: "facteur", width: 35 },
-      { header: "KYC Physique", key: "kycPhys", width: 45 },
-      { header: "KYC Morale", key: "kycMorale", width: 35 },
-      { header: "KYC OBNL", key: "kycObnl", width: 35 },
-      { header: "Coeff", key: "coeff", width: 10 },
-      { header: "Agrégation", key: "agregation", width: 15 }
-    ];
-    kycFactors.forEach((f) => wsP.addRow(f));
-    await applyGlobalSheetStyles(wsP);
-
-    // ── Sheet 3: Pays ──
-    const wsC = wb.addWorksheet("1. Pays");
-    wsC.views = [{ showGridLines: true }];
-    wsC.columns = [
-      { header: "ISO Num", key: "numeric", width: 10 },
-      { header: "ISO Alpha-3", key: "alpha3", width: 15 },
-      { header: "Pays", key: "name", width: 35 },
-      { header: "GAFI", key: "gafi", width: 12 },
-      { header: "Corruption (CPI < 30)", key: "corruption", width: 22 },
-      { header: "Paradis Fiscal", key: "oecd", width: 15 },
-      { header: "Terrorisme (GTI > 6)", key: "terrorism", width: 20 },
-      { header: "Autre facteur dominant (Remarque)", key: "other", width: 45 },
-      { header: "Risque", key: "risk", width: 12 }
-    ];
-    resolvedCountries.forEach((c) => {
-      wsC.addRow({
-        numeric: c.numeric,
-        alpha3: c.alpha3,
-        name: c.name,
-        gafi: c.gafi ? "Oui" : "—",
-        corruption: c.corruption ? "Oui" : "—",
-        oecd: c.oecd ? "Oui" : "—",
-        terrorism: c.terrorism ? "Oui" : "—",
-        other: c.otherDominant ? "Oui" + (c.other ? " - " + c.other : "") : "—",
-        risk: c.risk
+      // ── Sheet 5: Produits d'Assurance ──
+      const wsPr = wb.addWorksheet("3. Produits d'Assurance");
+      wsPr.views = [{ showGridLines: true }];
+      wsPr.columns = [
+        { header: "Code", key: "code", width: 10 },
+        { header: "Contrat d'Assurance", key: "name", width: 40 },
+        { header: "Liquidité", key: "liquid", width: 15 },
+        { header: "Devises / Étranger", key: "forex", width: 20 },
+        { header: "Capital Élevé", key: "highValue", width: 18 },
+        { header: "Fraude / Sinistralité", key: "fraud", width: 20 },
+        { header: "Capitalisation", key: "cap", width: 18 },
+        { header: "Commentaire réglementaire", key: "comment", width: 45 },
+        { header: "Risque", key: "risk", width: 12 }
+      ];
+      resolvedProducts.forEach((p) => {
+        wsPr.addRow({
+          code: p.code,
+          name: p.name,
+          liquid: p.liquid ? "Oui" : "—",
+          forex: p.forex ? "Oui" : "—",
+          highValue: p.highValue ? "Oui" : "—",
+          fraud: p.fraud ? "Oui" : "—",
+          cap: p.cap ? "Oui" : "—",
+          comment: p.comment || "—",
+          risk: p.risk
+        });
       });
-    });
-    await applyGlobalSheetStyles(wsC, { gafiCol: "D", factorStartCol: "E", factorEndCol: "H" });
+      await applyGlobalSheetStyles(wsPr, { factorStartCol: "C", factorEndCol: "G" });
 
-    // ── Sheet 4: Gouvernorats (TN) ──
-    const wsG = wb.addWorksheet("2. Gouvernorats");
-    wsG.views = [{ showGridLines: true }];
-    wsG.columns = [
-      { header: "Code", key: "id", width: 10 },
-      { header: "Gouvernorat (FR)", key: "name", width: 25 },
-      { header: "Gouvernorat (AR)", key: "nameAr", width: 20 },
-      { header: "Zone frontalière", key: "border", width: 18 },
-      { header: "Port International", key: "port", width: 18 },
-      { header: "Aéroport", key: "airport", width: 15 },
-      { header: "Contrebande", key: "market", width: 15 },
-      { header: "Autres critères", key: "other", width: 35 },
-      { header: "Risque", key: "risk", width: 12 }
-    ];
-    resolvedGovs.forEach((g) => {
-      const otherVal = g.other && g.other.trim() !== "" ? (g.other.startsWith("Oui") ? g.other : "Oui - " + g.other) : "—";
-      wsG.addRow({
-        id: g.id,
-        name: g.name,
-        nameAr: g.nameAr,
-        border: g.border ? "Oui" : "—",
-        port: g.port ? "Oui" : "—",
-        airport: g.airport ? "Oui" : "—",
-        market: g.market ? "Oui" : "—",
-        other: otherVal,
-        risk: g.risk
+      // ── Sheet 6: Canaux de Distribution ──
+      const wsD = wb.addWorksheet("4. Canaux");
+      wsD.views = [{ showGridLines: true }];
+      wsD.columns = [
+        { header: "Code", key: "code", width: 10 },
+        { header: "Voie de distribution", key: "name", width: 45 },
+        { header: "Complexité / difficulté du contrôle", key: "complex", width: 30 },
+        { header: "Risque de non soumission aux règles de la compagnie", key: "nonCompliance", width: 40 },
+        { header: "Manque de la culture de conformité", key: "noCulture", width: 30 },
+        { header: "Risque", key: "risk", width: 12 },
+        { header: "Commentaire", key: "comment", width: 35 }
+      ];
+      resolvedDist.forEach((d) => {
+        wsD.addRow({
+          code: d.code,
+          name: d.name,
+          complex: d.complex ? "Oui" : "—",
+          nonCompliance: d.nonCompliance ? "Oui" : "—",
+          noCulture: d.noCulture ? "Oui" : "—",
+          risk: d.risk,
+          comment: d.comment || ""
+        });
       });
-    });
-    await applyGlobalSheetStyles(wsG, { factorStartCol: "D", factorEndCol: "H" });
+      await applyGlobalSheetStyles(wsD, { factorStartCol: "C", factorEndCol: "E" });
 
-    // ── Sheet 5: Produits d'Assurance ──
-    const wsPr = wb.addWorksheet("3. Produits d'Assurance");
-    wsPr.views = [{ showGridLines: true }];
-    wsPr.columns = [
-      { header: "Code", key: "code", width: 10 },
-      { header: "Contrat d'Assurance", key: "name", width: 40 },
-      { header: "Liquidité", key: "liquid", width: 15 },
-      { header: "Devises / Étranger", key: "forex", width: 20 },
-      { header: "Capital Élevé", key: "highValue", width: 18 },
-      { header: "Fraude / Sinistralité", key: "fraud", width: 20 },
-      { header: "Capitalisation", key: "cap", width: 18 },
-      { header: "Commentaire réglementaire", key: "comment", width: 45 },
-      { header: "Risque", key: "risk", width: 12 }
-    ];
-    resolvedProducts.forEach((p) => {
-      wsPr.addRow({
-        code: p.code,
-        name: p.name,
-        liquid: p.liquid ? "Oui" : "—",
-        forex: p.forex ? "Oui" : "—",
-        highValue: p.highValue ? "Oui" : "—",
-        fraud: p.fraud ? "Oui" : "—",
-        cap: p.cap ? "Oui" : "—",
-        comment: p.comment || "—",
-        risk: p.risk
+      // ── Sheet 7: Techniques de Vente ──
+      const wsS = wb.addWorksheet("5. Techniques de Vente");
+      wsS.views = [{ showGridLines: true }];
+      wsS.columns = [
+        { header: "Code", key: "code", width: 10 },
+        { header: "Technique de vente", key: "name", width: 30 },
+        { header: "Absence du contact direct avec le client", key: "noContact", width: 35 },
+        { header: "Impossibilité de vérifier les documents originaux", key: "noOriginals", width: 40 },
+        { header: "Risque", key: "risk", width: 12 },
+        { header: "Commentaire", key: "comment", width: 35 }
+      ];
+      resolvedSales.forEach((s) => {
+        wsS.addRow({
+          code: s.code,
+          name: s.name,
+          noContact: s.noContact ? "Oui" : "—",
+          noOriginals: s.noOriginals ? "Oui" : "—",
+          risk: s.risk,
+          comment: s.comment || ""
+        });
       });
-    });
-    await applyGlobalSheetStyles(wsPr, { factorStartCol: "C", factorEndCol: "G" });
+      await applyGlobalSheetStyles(wsS, { factorStartCol: "C", factorEndCol: "D" });
 
-    // ── Sheet 6: Canaux de Distribution ──
-    const wsD = wb.addWorksheet("4. Canaux");
-    wsD.views = [{ showGridLines: true }];
-    wsD.columns = [
-      { header: "Code", key: "code", width: 10 },
-      { header: "Voie de distribution", key: "name", width: 45 },
-      { header: "Complexité / difficulté du contrôle", key: "complex", width: 30 },
-      { header: "Risque de non soumission aux règles de la compagnie", key: "nonCompliance", width: 40 },
-      { header: "Manque de la culture de conformité", key: "noCulture", width: 30 },
-      { header: "Risque", key: "risk", width: 12 },
-      { header: "Commentaire", key: "comment", width: 35 }
-    ];
-    resolvedDist.forEach((d) => {
-      wsD.addRow({
-        code: d.code,
-        name: d.name,
-        complex: d.complex ? "Oui" : "—",
-        nonCompliance: d.nonCompliance ? "Oui" : "—",
-        noCulture: d.noCulture ? "Oui" : "—",
-        risk: d.risk,
-        comment: d.comment || ""
+      // ── Sheet 8: Activités Morales (PM) ──
+      const wsM = wb.addWorksheet("6. Activités Morales");
+      wsM.views = [{ showGridLines: true }];
+      wsM.columns = [
+        { header: "Code", key: "code", width: 10 },
+        { header: "Activité", key: "name", width: 40 },
+        { header: "Liquide", key: "cash", width: 12 },
+        { header: "Objets précieux", key: "objects", width: 18 },
+        { header: "Volume d'affaires", key: "volume", width: 18 },
+        { header: "Manque Info", key: "noInfo", width: 15 },
+        { header: "Complexe", key: "complexEval", width: 15 },
+        { header: "Intermédiation", key: "intermediary", width: 18 },
+        { header: "Corruption", key: "corruption", width: 15 },
+        { header: "Remarque", key: "comment", width: 40 },
+        { header: "Risque", key: "risk", width: 12 }
+      ];
+      resolvedMoralActivities.forEach((a) => {
+        wsM.addRow({
+          code: a.code,
+          name: a.name,
+          cash: a.cash ? "Oui" : "—",
+          objects: a.objects ? "Oui" : "—",
+          volume: a.volume ? "Oui" : "—",
+          noInfo: a.noInfo ? "Oui" : "—",
+          complexEval: a.complexEval ? "Oui" : "—",
+          intermediary: a.intermediary ? "Oui" : "—",
+          corruption: a.corruption ? "Oui" : "—",
+          comment: a.comment || "—",
+          risk: a.risk
+        });
       });
-    });
-    await applyGlobalSheetStyles(wsD, { factorStartCol: "C", factorEndCol: "E" });
+      await applyGlobalSheetStyles(wsM, { factorStartCol: "C", factorEndCol: "I" });
 
-    // ── Sheet 7: Techniques de Vente ──
-    const wsS = wb.addWorksheet("5. Techniques de Vente");
-    wsS.views = [{ showGridLines: true }];
-    wsS.columns = [
-      { header: "Code", key: "code", width: 10 },
-      { header: "Technique de vente", key: "name", width: 30 },
-      { header: "Absence du contact direct avec le client", key: "noContact", width: 35 },
-      { header: "Impossibilité de vérifier les documents originaux", key: "noOriginals", width: 40 },
-      { header: "Risque", key: "risk", width: 12 },
-      { header: "Commentaire", key: "comment", width: 35 }
-    ];
-    resolvedSales.forEach((s) => {
-      wsS.addRow({
-        code: s.code,
-        name: s.name,
-        noContact: s.noContact ? "Oui" : "—",
-        noOriginals: s.noOriginals ? "Oui" : "—",
-        risk: s.risk,
-        comment: s.comment || ""
+      // ── Sheet 9: Professions PP ──
+      const wsPh = wb.addWorksheet("7. Professions PP");
+      wsPh.views = [{ showGridLines: true }];
+      wsPh.columns = [
+        { header: "Domaine / Secteur", key: "domain", width: 30 },
+        { header: "Profession", key: "name", width: 35 },
+        { header: "Liquide", key: "cash", width: 12 },
+        { header: "Objets précieux", key: "objects", width: 18 },
+        { header: "Volume d'affaires", key: "volume", width: 18 },
+        { header: "Manque Info", key: "noInfo", width: 15 },
+        { header: "Complexe", key: "complexEval", width: 15 },
+        { header: "Intermédiation", key: "intermediary", width: 18 },
+        { header: "Corruption", key: "corruption", width: 15 },
+        { header: "Risque", key: "risk", width: 12 }
+      ];
+      resolvedPhysicalProfessions.forEach((p) => {
+        wsPh.addRow({
+          domain: p.domain,
+          name: p.name,
+          cash: p.cash ? "Oui" : "—",
+          objects: p.objects ? "Oui" : "—",
+          volume: p.volume ? "Oui" : "—",
+          noInfo: p.noInfo ? "Oui" : "—",
+          complexEval: p.complexEval ? "Oui" : "—",
+          intermediary: p.intermediary ? "Oui" : "—",
+          corruption: p.corruption ? "Oui" : "—",
+          risk: p.risk
+        });
       });
-    });
-    await applyGlobalSheetStyles(wsS, { factorStartCol: "C", factorEndCol: "D" });
+      await applyGlobalSheetStyles(wsPh, { factorStartCol: "C", factorEndCol: "I" });
 
-    // ── Sheet 8: Activités Morales (PM) ──
-    const wsM = wb.addWorksheet("6. Activités Morales");
-    wsM.views = [{ showGridLines: true }];
-    wsM.columns = [
-      { header: "Code", key: "code", width: 10 },
-      { header: "Activité", key: "name", width: 40 },
-      { header: "Liquide", key: "cash", width: 12 },
-      { header: "Objets précieux", key: "objects", width: 18 },
-      { header: "Volume d'affaires", key: "volume", width: 18 },
-      { header: "Manque Info", key: "noInfo", width: 15 },
-      { header: "Complexe", key: "complexEval", width: 15 },
-      { header: "Intermédiation", key: "intermediary", width: 18 },
-      { header: "Corruption", key: "corruption", width: 15 },
-      { header: "Remarque", key: "comment", width: 40 },
-      { header: "Risque", key: "risk", width: 12 }
-    ];
-    resolvedMoralActivities.forEach((a) => {
-      wsM.addRow({
-        code: a.code,
-        name: a.name,
-        cash: a.cash ? "Oui" : "—",
-        objects: a.objects ? "Oui" : "—",
-        volume: a.volume ? "Oui" : "—",
-        noInfo: a.noInfo ? "Oui" : "—",
-        complexEval: a.complexEval ? "Oui" : "—",
-        intermediary: a.intermediary ? "Oui" : "—",
-        corruption: a.corruption ? "Oui" : "—",
-        comment: a.comment || "—",
-        risk: a.risk
+      // Write file to user
+      const today = new Date().toISOString().split("T")[0];
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Matrice_des_Risques_KYC_${today}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      logAction({
+        userEmail: user?.authEmail || user?.email || '',
+        userName: user?.name || 'Utilisateur',
+        action: 'EXPORT_DATA',
+        label: 'Export Excel : Matrice des Risques KYC',
+        detail: 'Export complet des facteurs Pays, Activités, Produits et Canaux',
+        module: 'Matrice des Risques'
       });
-    });
-    await applyGlobalSheetStyles(wsM, { factorStartCol: "C", factorEndCol: "I" });
 
-    // ── Sheet 9: Professions PP ──
-    const wsPh = wb.addWorksheet("7. Professions PP");
-    wsPh.views = [{ showGridLines: true }];
-    wsPh.columns = [
-      { header: "Domaine / Secteur", key: "domain", width: 30 },
-      { header: "Profession", key: "name", width: 35 },
-      { header: "Liquide", key: "cash", width: 12 },
-      { header: "Objets précieux", key: "objects", width: 18 },
-      { header: "Volume d'affaires", key: "volume", width: 18 },
-      { header: "Manque Info", key: "noInfo", width: 15 },
-      { header: "Complexe", key: "complexEval", width: 15 },
-      { header: "Intermédiation", key: "intermediary", width: 18 },
-      { header: "Corruption", key: "corruption", width: 15 },
-      { header: "Risque", key: "risk", width: 12 }
-    ];
-    resolvedPhysicalProfessions.forEach((p) => {
-      wsPh.addRow({
-        domain: p.domain,
-        name: p.name,
-        cash: p.cash ? "Oui" : "—",
-        objects: p.objects ? "Oui" : "—",
-        volume: p.volume ? "Oui" : "—",
-        noInfo: p.noInfo ? "Oui" : "—",
-        complexEval: p.complexEval ? "Oui" : "—",
-        intermediary: p.intermediary ? "Oui" : "—",
-        corruption: p.corruption ? "Oui" : "—",
-        risk: p.risk
+      toast({ title: "Export réussi", description: "La matrice des risques a été exportée au format Excel complet." });
+    } catch (err: any) {
+      console.error("Erreur lors de l'exportation de la matrice des risques :", err);
+      toast({
+        title: "Erreur d'exportation",
+        description: "Une erreur est survenue lors de l'export Excel de la matrice des risques.",
+        variant: "destructive"
       });
-    });
-    await applyGlobalSheetStyles(wsPh, { factorStartCol: "C", factorEndCol: "I" });
-
-    // Write file to user
-    const today = new Date().toISOString().split("T")[0];
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = URL.createObjectURL(blob);
-    a.download = `Matrice_des_Risques_KYC_${today}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    logAction({
-      userEmail: user?.authEmail || user?.email || '',
-      userName: user?.name || 'Utilisateur',
-      action: 'EXPORT_DATA',
-      label: 'Export Excel : Matrice des Risques KYC',
-      detail: 'Export complet des facteurs Pays, Activités, Produits et Canaux',
-      module: 'Matrice des Risques'
-    });
-
-    toast({ title: "Export réussi", description: "La matrice des risques a été exportée au format Excel complet." });
+    } finally {
+      setIsExportingExcel(false);
+    }
   };
 
   // ── Helper HTML Builder for Full Matrix PDF Export ──
@@ -2247,8 +2050,8 @@ export function RiskMatrixTab() {
     </thead>
     <tbody>
       ${resolvedGovs.map(g => {
-        const otherVal = g.other && g.other.trim() !== "" ? (g.other.startsWith("Oui") ? g.other : "Oui - " + g.other) : "—";
-        return `
+      const otherVal = g.other && g.other.trim() !== "" ? (g.other.startsWith("Oui") ? g.other : "Oui - " + g.other) : "—";
+      return `
         <tr>
           <td style="text-align: center; font-weight: 800;">${g.id}</td>
           <td style="font-weight: 700;">${g.name}</td>
@@ -2459,6 +2262,7 @@ export function RiskMatrixTab() {
   };
 
   const exportMatrixPDF = () => {
+    setIsExportingPDF(true);
     try {
       logAction({
         userEmail: user?.authEmail || user?.email || '',
@@ -2472,17 +2276,18 @@ export function RiskMatrixTab() {
       const htmlContent = buildMatrixPrintHTML();
       const iframe = document.createElement("iframe");
       iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
+      iframe.style.left = "-9999px";
+      iframe.style.top = "-9999px";
+      iframe.style.width = "1024px";
+      iframe.style.height = "768px";
       iframe.style.border = "0";
-      iframe.style.visibility = "hidden";
+      iframe.style.opacity = "0";
       document.body.appendChild(iframe);
 
       const doc = iframe.contentWindow?.document;
       if (!doc) {
         window.print();
+        setIsExportingPDF(false);
         return;
       }
 
@@ -2499,14 +2304,39 @@ export function RiskMatrixTab() {
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
         setTimeout(() => {
-          document.body.removeChild(iframe);
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+          setIsExportingPDF(false);
         }, 3000);
       }, 500);
     } catch (err: any) {
       console.error("Erreur lors de la génération du PDF de la matrice :", err);
+      setIsExportingPDF(false);
       window.print();
     }
   };
+
+  // Calculated preview risk transition for modal
+  const pendingTransition = React.useMemo(() => {
+    if (!pendingChange || pendingChange.category !== 'country') return null;
+    const c = resolvedCountries.find(x => x.name === pendingChange.itemId);
+    if (!c) return null;
+    const oldRisk = c.risk || computeCountryRisk(c);
+    let newObj = { ...c };
+    if (pendingChange.field === 'gafi' && pendingChange.value === false) {
+      newObj.gafi = false;
+      newObj.otherDominant = true;
+    } else if (pendingChange.field === 'otherDominant' && pendingChange.value === false) {
+      newObj.otherDominant = false;
+    } else if (pendingChange.field === 'otherDominant' && pendingChange.value === true) {
+      newObj.otherDominant = true;
+    } else {
+      newObj[pendingChange.field] = pendingChange.value;
+    }
+    const newRisk = computeCountryRisk(newObj);
+    return { oldRisk, newRisk };
+  }, [pendingChange, resolvedCountries]);
 
   return (
     <div className="space-y-6">
@@ -2598,9 +2428,15 @@ export function RiskMatrixTab() {
             size="sm"
             variant="outline"
             onClick={exportMatrixPDF}
+            disabled={isExportingPDF}
             className="h-9 px-4 rounded-xl border-2 border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02] dark:bg-rose-950/20 dark:border-rose-900 dark:text-rose-400"
           >
-            <FileText className="mr-1.5 h-3.5 w-3.5" /> Rapport PDF
+            {isExportingPDF ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <FileText className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {isExportingPDF ? "Préparation..." : "Rapport PDF"}
           </Button>
 
           {/* Export Excel */}
@@ -2608,9 +2444,15 @@ export function RiskMatrixTab() {
             size="sm"
             variant="outline"
             onClick={exportMatrixExcel}
+            disabled={isExportingExcel}
             className="h-9 px-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] shadow-sm transition-all hover:scale-[1.02] dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-400"
           >
-            <Download className="mr-1.5 h-3.5 w-3.5" /> Exporter Excel
+            {isExportingExcel ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {isExportingExcel ? "Export en cours..." : "Exporter Excel"}
           </Button>
         </div>
       </div>
@@ -3951,8 +3793,8 @@ export function RiskMatrixTab() {
                       type="button"
                       onClick={() => setNewItemData(d => ({ ...d, [field]: !d[field] }))}
                       className={`text-[10px] font-bold py-2 px-3 rounded-xl border transition-all text-left flex items-center gap-2 ${newItemData[field]
-                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
-                          : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
+                        : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
                         }`}
                     >
                       <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center text-[8px] font-black border ${newItemData[field] ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
@@ -3971,8 +3813,8 @@ export function RiskMatrixTab() {
                       type="button"
                       onClick={() => setNewItemData(d => ({ ...d, [field]: !d[field] }))}
                       className={`text-[10px] font-bold py-2 px-3 rounded-xl border transition-all text-left flex items-center gap-2 ${newItemData[field]
-                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
-                          : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
+                        : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
                         }`}
                     >
                       <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center text-[8px] font-black border ${newItemData[field] ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
@@ -3996,8 +3838,8 @@ export function RiskMatrixTab() {
                       type="button"
                       onClick={() => setNewItemData(d => ({ ...d, [field]: !d[field] }))}
                       className={`text-[10px] font-bold py-2 px-3 rounded-xl border transition-all text-left flex items-center gap-2 ${newItemData[field]
-                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
-                          : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
+                        : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
                         }`}
                     >
                       <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center text-[8px] font-black border ${newItemData[field] ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
@@ -4117,6 +3959,31 @@ export function RiskMatrixTab() {
                 "Voulez-vous vraiment modifier ce paramètre ? Cette modification mettra à jour la cotation de risque de manière automatique et sera synchronisée en temps réel pour tous les utilisateurs."
               )}
             </AlertDialogDescription>
+
+            {pendingTransition && (
+              <div className="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                  Impact sur la cotation du pays :
+                </span>
+                <span className="inline-flex items-center gap-1.5 font-black text-xs">
+                  <span className={cn("px-2 py-0.5 rounded border text-[10px] font-black",
+                    pendingTransition.oldRisk === "RE" ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300" :
+                    pendingTransition.oldRisk === "RM" ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300" :
+                    "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300"
+                  )}>
+                    {pendingTransition.oldRisk}
+                  </span>
+                  <span className="text-slate-400">→</span>
+                  <span className={cn("px-2 py-0.5 rounded border text-[10px] font-black",
+                    pendingTransition.newRisk === "RE" ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300" :
+                    pendingTransition.newRisk === "RM" ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300" :
+                    "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300"
+                  )}>
+                    {pendingTransition.newRisk}
+                  </span>
+                </span>
+              </div>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-6 flex gap-2 justify-end">
             <AlertDialogCancel

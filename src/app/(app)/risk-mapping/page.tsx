@@ -102,23 +102,23 @@ const PDFViewerFallback = ({ url, anchor, title }: { url: string, anchor?: strin
   const fullSrc = React.useMemo(() => {
     if (!url) return "";
     let baseUrl = url;
-    
+
     const isExcel = url.toLowerCase().match(/\.(xlsx|xls|csv)$/) || url.includes('excel');
-    
+
     // Cas A : Fichiers Excel -> On utilise le lecteur Microsoft officiel
     if (isExcel) {
       // On a besoin d'un lien 'direct' pour le lecteur Microsoft
       let directLink = url;
       if (url.includes('dropbox.com')) directLink = url.replace('dl=0', 'raw=1');
       if (url.includes('drive.google.com')) directLink = url.replace('/file/d/', '/uc?export=download&id=').split('/')[0];
-      
+
       return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(directLink)}`;
     }
 
     // Cas B : PDF et autres -> On passe par NOTRE passerelle (Proxy)
     // Cela garantit : 1. Pas d'erreur 400/404, 2. Pagination fonctionnelle
     const proxyUrl = `/api/proxy-document?url=${encodeURIComponent(url)}`;
-    
+
     if (!anchor) return proxyUrl;
     return `${proxyUrl}#page=${anchor}`;
   }, [url, anchor]);
@@ -139,9 +139,9 @@ const PDFViewerFallback = ({ url, anchor, title }: { url: string, anchor?: strin
         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic">
           Lecteur Direct {anchor ? `• Page ${anchor}` : ''}
         </span>
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          variant="ghost"
+          size="sm"
           className="h-7 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
           onClick={() => window.open(fullSrc, '_blank')}
         >
@@ -164,246 +164,182 @@ const PDFViewerFallback = ({ url, anchor, title }: { url: string, anchor?: strin
 };
 
 const ReportCover = () => (
-    <div className="hidden print:flex flex-col items-center justify-center h-[26cm] w-full p-20 text-center mb-[20cm] border-[30px] border-double border-slate-50 relative">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] scale-[3] pointer-events-none">
-            <img src="/mae_logo.png" alt="" className="h-64 object-contain" />
-        </div>
-        
-        <div className="mb-20">
-            <img src="/mae_logo.png" alt="MAE Logo" className="h-48 object-contain" />
-        </div>
-        
-        <div className="space-y-8 relative z-10">
-            <div className="space-y-2">
-                <p className="text-primary font-black uppercase tracking-[0.4em] text-sm">Gouvernance & Risk Management</p>
-                <div className="h-1 w-20 bg-primary mx-auto rounded-full" />
-            </div>
-            
-            <h1 className="text-7xl font-black uppercase tracking-tighter text-slate-900 italic leading-none">
-                Cartographie des <br />
-                <span className="text-primary tracking-normal not-italic">Risques</span>
-            </h1>
-            
-            <p className="text-2xl font-bold text-slate-500 uppercase tracking-[0.2em] pt-8">Rapport Officiel de Conformité</p>
-            
-            <div className="pt-20 grid grid-cols-2 gap-20 text-left">
-                <div className="border-l-4 border-slate-100 pl-6 py-2">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Entité</p>
-                    <p className="text-lg font-black text-slate-800 uppercase italic">MAE Assurance</p>
-                </div>
-                <div className="border-l-4 border-slate-100 pl-6 py-2">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Date d'évaluation</p>
-                    <p className="text-lg font-black text-slate-800">{new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                </div>
-            </div>
-        </div>
-        
-        <div className="absolute bottom-20 left-0 right-0">
-            <p className="text-sm font-black text-slate-300 uppercase tracking-[0.5em]">MAE - Mutuelle Assurance de l'Enseignement</p>
-        </div>
+  <div className="hidden print:flex flex-col items-center justify-center h-[26cm] w-full p-20 text-center mb-[20cm] border-[30px] border-double border-slate-50 relative">
+    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] scale-[3] pointer-events-none">
+      <img src="/mae_logo.png" alt="" className="h-64 object-contain" />
     </div>
+
+    <div className="mb-20">
+      <img src="/mae_logo.png" alt="MAE Logo" className="h-48 object-contain" />
+    </div>
+
+    <div className="space-y-8 relative z-10">
+      <div className="space-y-2">
+        <p className="text-primary font-black uppercase tracking-[0.4em] text-sm">Gouvernance & Risk Management</p>
+        <div className="h-1 w-20 bg-primary mx-auto rounded-full" />
+      </div>
+
+      <h1 className="text-7xl font-black uppercase tracking-tighter text-slate-900 italic leading-none">
+        Cartographie des <br />
+        <span className="text-primary tracking-normal not-italic">Risques</span>
+      </h1>
+
+      <p className="text-2xl font-bold text-slate-500 uppercase tracking-[0.2em] pt-8">Rapport Officiel de Conformité</p>
+
+      <div className="pt-20 grid grid-cols-2 gap-20 text-left">
+        <div className="border-l-4 border-slate-100 pl-6 py-2">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Entité</p>
+          <p className="text-lg font-black text-slate-800 uppercase italic">MAE Assurance</p>
+        </div>
+        <div className="border-l-4 border-slate-100 pl-6 py-2">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Date d'évaluation</p>
+          <p className="text-lg font-black text-slate-800">{new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        </div>
+      </div>
+    </div>
+
+    <div className="absolute bottom-20 left-0 right-0">
+      <p className="text-sm font-black text-slate-300 uppercase tracking-[0.5em]">MAE - Mutuelle Assurance de l'Enseignement</p>
+    </div>
+  </div>
 );
 
-const exportToExcel = async (risks: RiskMappingItem[], logAction: any, user: any, maePositions: Record<number, string>, documents: any[], mode: 'principal' | 'dmr' | 'plan-actions' | 'combined' = 'principal') => {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "Compliance Navigator";
-  wb.created = new Date();
+const exportToExcel = async (risks: RiskMappingItem[], logAction: any, user: any, maePositions: Record<number, string>, documents: any[], mode: 'principal' | 'dmr' | 'plan-actions' | 'combined' = 'principal', toast?: any) => {
+  try {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Compliance Navigator";
+    wb.created = new Date();
 
-  const probLabels: Record<number, string> = { 1: "Improbable", 2: "Rarement", 3: "Fréquent", 4: "Souvent" };
-  const impLabels: Record<number, string> = { 1: "Faible", 2: "Modéré", 3: "Élevé", 4: "Très élevé" };
-  const effLabels: Record<number, string> = { 1: "Très efficace", 2: "Moyennement efficace", 3: "Peu efficace", 4: "Défaillant" };
+    const probLabels: Record<number, string> = { 1: "Improbable", 2: "Rarement", 3: "Fréquent", 4: "Souvent" };
+    const impLabels: Record<number, string> = { 1: "Faible", 2: "Modéré", 3: "Élevé", 4: "Très élevé" };
+    const effLabels: Record<number, string> = { 1: "Très efficace", 2: "Moyennement efficace", 3: "Peu efficace", 4: "Défaillant" };
 
-  // ── Risk level styles ───────────────────────────────────────────────────────
-  type ExcelColor = { argb: string };
-  const levelBg: Record<string, ExcelColor> = {
-    "Faible": { argb: "FFD1FAE5" },  // emerald-100
-    "Modéré": { argb: "FFFEF9C3" },  // yellow-100
-    "Élevé": { argb: "FFFFEDD5" },  // orange-100
-    "Très élevé": { argb: "FFFFE4E6" },  // rose-100
-  };
-  const levelFont: Record<string, ExcelColor> = {
-    "Faible": { argb: "FF065F46" },
-    "Modéré": { argb: "FF78350F" },
-    "Élevé": { argb: "FF9A3412" },
-    "Très élevé": { argb: "FF881337" },
-  };
+    // ── Risk level styles ───────────────────────────────────────────────────────
+    type ExcelColor = { argb: string };
+    const levelBg: Record<string, ExcelColor> = {
+      "Faible": { argb: "FFD1FAE5" },  // emerald-100
+      "Modéré": { argb: "FFFEF9C3" },  // yellow-100
+      "Élevé": { argb: "FFFFEDD5" },  // orange-100
+      "Très élevé": { argb: "FFFFE4E6" },  // rose-100
+    };
+    const levelFont: Record<string, ExcelColor> = {
+      "Faible": { argb: "FF065F46" },
+      "Modéré": { argb: "FF78350F" },
+      "Élevé": { argb: "FF9A3412" },
+      "Très élevé": { argb: "FF881337" },
+    };
 
-  const getMAEPosForScore = (score: number): string => {
-    if (score <= 4) return maePositions[1];
-    if (score <= 8) return maePositions[2];
-    if (score <= 12) return maePositions[3];
-    return maePositions[4];
-  };
+    const getMAEPosForScore = (score: number): string => {
+      if (score <= 4) return maePositions[1];
+      if (score <= 8) return maePositions[2];
+      if (score <= 12) return maePositions[3];
+      return maePositions[4];
+    };
 
-  const applyBorder = (cell: ExcelJS.Cell, color = "FFE2E8F0") => {
-    const side = { style: "thin" as const, color: { argb: color } };
-    cell.border = { top: side, bottom: side, left: side, right: side };
-  };
+    const applyBorder = (cell: ExcelJS.Cell, color = "FFE2E8F0") => {
+      const side = { style: "thin" as const, color: { argb: color } };
+      cell.border = { top: side, bottom: side, left: side, right: side };
+    };
 
-  // ── SHEET 1 : Cartographie/DMR ──────────────────────────────────────────────
-  const sheetName = mode === 'principal' ? "Cartographie" : (mode === 'dmr' ? "DMR" : "Cartographie & DMR");
-  const ws1 = wb.addWorksheet(sheetName);
+    // ── SHEET 1 : Cartographie/DMR ──────────────────────────────────────────────
+    const sheetName = mode === 'principal' ? "Cartographie" : (mode === 'dmr' ? "DMR" : "Cartographie & DMR");
+    const ws1 = wb.addWorksheet(sheetName);
 
-  const columns: any[] = [{ header: "N°", key: "num", width: 5 }];
-
-  if (mode === 'principal' || mode === 'combined') {
-    columns.push(
-      { header: "Facteurs de risques", key: "desc", width: 45 },
-      { header: "Sous facteurs de risques", key: "sub", width: 45 },
-      { header: "Catégorie", key: "cat", width: 25 },
-      { header: "Direction", key: "dept", width: 15 },
-      { header: "Probabilité (V)", key: "pv", width: 12 },
-      { header: "Impact (V)", key: "iv", width: 10 },
-      { header: "Score Brut", key: "scoreBrut", width: 10 },
-      { header: "Niveau Brut", key: "levelBrut", width: 15 },
-      { header: "Mesure d'atténuation", key: "action", width: 45 }
-    );
-  }
-
-  if (mode === 'dmr') {
-    columns.push({ header: "Facteurs de risques", key: "desc", width: 45 });
-  }
-  if (mode === 'dmr' || mode === 'combined') {
-    columns.push(
-      { header: "Efficacité DMR (V)", key: "effV", width: 15 },
-      { header: "Efficacité DMR (L)", key: "effL", width: 20 },
-      { header: "Probabilité DMR", key: "dmrProb", width: 15 },
-      { header: "Score Résiduel", key: "scoreRes", width: 15 },
-      { header: "Niveau Résiduel", key: "levelRes", width: 15 },
-      { header: "Position MAE", key: "maePos", width: 45 },
-      { header: "Liens & Justifs", key: "justification", width: 35 }
-    );
-  }
-
-  // Removed separate push for action at the end
-
-
-  ws1.columns = columns;
-
-  // Style header row
-  const headerRow = ws1.getRow(1);
-  headerRow.height = 32;
-  headerRow.eachCell((cell: any) => {
-    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
-    cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
-    applyBorder(cell, "FF94A3B8");
-  });
-
-  // Data rows
-  risks.forEach((risk, i) => {
-    const scoreBrut = calculateRiskScore(risk.probabilite, risk.impact);
-    const levelBrut = calculateRiskLevel(risk.probabilite, risk.impact);
-    const dmrEff = (risk as any).dmrEfficiency || 2;
-    const dmrProb = (risk as any).dmrProbability || risk.probabilite || 2;
-    const scoreRes = dmrEff * dmrProb;
-    const styleRes = getRiskScoreStyle(scoreRes);
-    const maePos = getMAEPosition(scoreRes, maePositions);
-
-    const rowData: any = { num: i + 1, desc: risk.riskDescription };
+    const columns: any[] = [{ header: "N°", key: "num", width: 5 }];
 
     if (mode === 'principal' || mode === 'combined') {
-      rowData.sub = risk.subFactors || "-";
-      rowData.cat = risk.category;
-      rowData.dept = risk.department;
-      rowData.pv = risk.probabilite;
-      rowData.iv = risk.impact;
-      rowData.scoreBrut = scoreBrut;
-      rowData.levelBrut = levelBrut;
-      rowData.action = risk.expectedAction;
+      columns.push(
+        { header: "Facteurs de risques", key: "desc", width: 45 },
+        { header: "Sous facteurs de risques", key: "sub", width: 45 },
+        { header: "Catégorie", key: "cat", width: 25 },
+        { header: "Direction", key: "dept", width: 15 },
+        { header: "Probabilité (V)", key: "pv", width: 12 },
+        { header: "Impact (V)", key: "iv", width: 10 },
+        { header: "Score Brut", key: "scoreBrut", width: 10 },
+        { header: "Niveau Brut", key: "levelBrut", width: 15 },
+        { header: "Mesure d'atténuation", key: "action", width: 45 }
+      );
+    }
+
+    if (mode === 'dmr') {
+      columns.push({ header: "Facteurs de risques", key: "desc", width: 45 });
     }
     if (mode === 'dmr' || mode === 'combined') {
-      const docName = risk.documentId ? documents.find((d: any) => d.id === risk.documentId)?.name : "";
-      rowData.effV = dmrEff;
-      rowData.effL = effLabels[dmrEff] ?? "";
-      rowData.dmrProb = dmrProb;
-      rowData.scoreRes = scoreRes;
-      rowData.levelRes = styleRes.label;
-      rowData.maePos = maePos;
-      rowData.justification = (docName ? `[Document: ${docName}] ` : "") + ((risk as any).justification || "-");
+      columns.push(
+        { header: "Efficacité DMR (V)", key: "effV", width: 15 },
+        { header: "Efficacité DMR (L)", key: "effL", width: 20 },
+        { header: "Probabilité DMR", key: "dmrProb", width: 15 },
+        { header: "Score Résiduel", key: "scoreRes", width: 15 },
+        { header: "Niveau Résiduel", key: "levelRes", width: 15 },
+        { header: "Position MAE", key: "maePos", width: 45 },
+        { header: "Liens & Justifs", key: "justification", width: 35 }
+      );
     }
 
-    const row = ws1.addRow(rowData);
-    row.height = 40;
-    const rowBg = i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
+    // Removed separate push for action at the end
 
-    row.eachCell((cell: any, colNumber: number) => {
-      cell.alignment = { vertical: "middle", wrapText: true, horizontal: "left" };
-      applyBorder(cell);
-      const colKey = columns[colNumber - 1]?.key;
 
-      if (colKey === "levelBrut") {
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[levelBrut] || { argb: "FFFFFFFF" } };
-        cell.font = { bold: true, color: levelFont[levelBrut] || { argb: "FF000000" }, size: 9 };
-        cell.alignment = { vertical: "middle", horizontal: "center" };
-      } else if (colKey === "levelRes") {
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[styleRes.label] || { argb: "FFFFFFFF" } };
-        cell.font = { bold: true, color: levelFont[styleRes.label] || { argb: "FF000000" }, size: 9 };
-        cell.alignment = { vertical: "middle", horizontal: "center" };
-      } else {
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
-        cell.font = { color: { argb: "FF1E293B" }, size: 9 };
-      }
-    });
-  });
+    ws1.columns = columns;
 
-  // ── SHEET : Plan d'actions ──────────────────────────────────────────────────
-  if (mode === 'plan-actions' || mode === 'combined') {
-    const wsPlan = wb.addWorksheet("Plan d'actions");
-    wsPlan.columns = [
-      { header: "N°", key: "num", width: 5 },
-      { header: "Description du risque", key: "desc", width: 40 },
-      { header: "Sous-facteurs", key: "sub", width: 40 },
-      { header: "Catégorie", key: "cat", width: 25 },
-      { header: "Direction", key: "dept", width: 15 },
-      { header: "Point de faiblesse", key: "weakness", width: 35 },
-      { header: "Action corrective prévue", key: "action", width: 45 },
-      { header: "Échéance", key: "deadline", width: 15 },
-      { header: "Responsable", key: "resp", width: 20 },
-      { header: "Niveau d'avancement", key: "comp", width: 20 }
-    ];
-
-    // Style header
-    const planHeaderRow = wsPlan.getRow(1);
-    planHeaderRow.height = 32;
-    planHeaderRow.eachCell((cell: any) => {
+    // Style header row
+    const headerRow = ws1.getRow(1);
+    headerRow.height = 32;
+    headerRow.eachCell((cell: any) => {
       cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
       cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
       applyBorder(cell, "FF94A3B8");
     });
 
-    // Plan Data
+    // Data rows
     risks.forEach((risk, i) => {
-      const row = wsPlan.addRow({
-        num: i + 1,
-        desc: risk.riskDescription,
-        sub: risk.subFactors || "-",
-        cat: risk.category,
-        dept: risk.department,
-        weakness: risk.weaknessPoint || "-",
-        action: (risk as any).actionCorrective || "-",
-        deadline: risk.deadline || "-",
-        resp: risk.responsible || "-",
-        comp: `${risk.completionLevel || 0}%`
-      });
-      row.height = 35;
+      const scoreBrut = calculateRiskScore(risk.probabilite, risk.impact);
+      const levelBrut = calculateRiskLevel(risk.probabilite, risk.impact);
+      const dmrEff = (risk as any).dmrEfficiency || 2;
+      const dmrProb = (risk as any).dmrProbability || risk.probabilite || 2;
+      const scoreRes = dmrEff * dmrProb;
+      const styleRes = getRiskScoreStyle(scoreRes);
+      const maePos = getMAEPosition(scoreRes, maePositions);
+
+      const rowData: any = { num: i + 1, desc: risk.riskDescription };
+
+      if (mode === 'principal' || mode === 'combined') {
+        rowData.sub = risk.subFactors || "-";
+        rowData.cat = risk.category;
+        rowData.dept = risk.department;
+        rowData.pv = risk.probabilite;
+        rowData.iv = risk.impact;
+        rowData.scoreBrut = scoreBrut;
+        rowData.levelBrut = levelBrut;
+        rowData.action = risk.expectedAction;
+      }
+      if (mode === 'dmr' || mode === 'combined') {
+        const docName = risk.documentId ? documents.find((d: any) => d.id === risk.documentId)?.name : "";
+        rowData.effV = dmrEff;
+        rowData.effL = effLabels[dmrEff] ?? "";
+        rowData.dmrProb = dmrProb;
+        rowData.scoreRes = scoreRes;
+        rowData.levelRes = styleRes.label;
+        rowData.maePos = maePos;
+        rowData.justification = (docName ? `[Document: ${docName}] ` : "") + ((risk as any).justification || "-");
+      }
+
+      const row = ws1.addRow(rowData);
+      row.height = 40;
       const rowBg = i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
+
       row.eachCell((cell: any, colNumber: number) => {
         cell.alignment = { vertical: "middle", wrapText: true, horizontal: "left" };
         applyBorder(cell);
+        const colKey = columns[colNumber - 1]?.key;
 
-        // Color completion
-        if (wsPlan.columns[colNumber - 1]?.key === "comp") {
-          const lv = risk.completionLevel || 0;
-          let color = "FF94A3B8"; // gris
-          if (lv > 0 && lv <= 20) color = "FFF43F5E"; // rose
-          else if (lv > 20 && lv <= 40) color = "FFF97316"; // orange
-          else if (lv > 40 && lv <= 60) color = "FFF59E0B"; // ambre
-          else if (lv > 60 && lv <= 80) color = "FF84CC16"; // lime
-          else if (lv > 80 && lv <= 100) color = "FF10B981"; // emerald
-
-          cell.font = { bold: true, color: { argb: color }, size: 10 };
+        if (colKey === "levelBrut") {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[levelBrut] || { argb: "FFFFFFFF" } };
+          cell.font = { bold: true, color: levelFont[levelBrut] || { argb: "FF000000" }, size: 9 };
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+        } else if (colKey === "levelRes") {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[styleRes.label] || { argb: "FFFFFFFF" } };
+          cell.font = { bold: true, color: levelFont[styleRes.label] || { argb: "FF000000" }, size: 9 };
           cell.alignment = { vertical: "middle", horizontal: "center" };
         } else {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
@@ -411,118 +347,194 @@ const exportToExcel = async (risks: RiskMappingItem[], logAction: any, user: any
         }
       });
     });
-  }
 
-  // ── SHEET 2 : Légende ───────────────────────────────────────────────────────
-  const ws2 = wb.addWorksheet("Légende");
-  ws2.columns = [
-    { key: "a", width: 35 },
-    { key: "b", width: 20 },
-    { key: "c", width: 35 },
-    { key: "d", width: 33 },
-  ];
+    // ── SHEET : Plan d'actions ──────────────────────────────────────────────────
+    if (mode === 'plan-actions' || mode === 'combined') {
+      const wsPlan = wb.addWorksheet("Plan d'actions");
+      wsPlan.columns = [
+        { header: "N°", key: "num", width: 5 },
+        { header: "Description du risque", key: "desc", width: 40 },
+        { header: "Sous-facteurs", key: "sub", width: 40 },
+        { header: "Catégorie", key: "cat", width: 25 },
+        { header: "Direction", key: "dept", width: 15 },
+        { header: "Point de faiblesse", key: "weakness", width: 35 },
+        { header: "Action corrective prévue", key: "action", width: 45 },
+        { header: "Échéance", key: "deadline", width: 15 },
+        { header: "Responsable", key: "resp", width: 20 },
+        { header: "Niveau d'avancement", key: "comp", width: 20 }
+      ];
 
-  const addTitle = (text: string) => {
-    const r = ws2.addRow([text]);
-    r.height = 26;
-    const cell = r.getCell(1);
-    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
-    cell.alignment = { vertical: "middle" };
-  };
+      // Style header
+      const planHeaderRow = wsPlan.getRow(1);
+      planHeaderRow.height = 32;
+      planHeaderRow.eachCell((cell: any) => {
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+        cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+        applyBorder(cell, "FF94A3B8");
+      });
 
-  const addSubHeader = (cols: string[]) => {
-    const r = ws2.addRow(cols);
-    r.height = 22;
-    r.eachCell((cell: any) => {
-      cell.font = { bold: true, color: { argb: "FF1E293B" }, size: 10 };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCBD5E1" } };
-      cell.alignment = { vertical: "middle", horizontal: "center" };
-      applyBorder(cell, "FF94A3B8");
-    });
-  };
+      // Plan Data
+      risks.forEach((risk, i) => {
+        const row = wsPlan.addRow({
+          num: i + 1,
+          desc: risk.riskDescription,
+          sub: risk.subFactors || "-",
+          cat: risk.category,
+          dept: risk.department,
+          weakness: risk.weaknessPoint || "-",
+          action: (risk as any).actionCorrective || "-",
+          deadline: risk.deadline || "-",
+          resp: risk.responsible || "-",
+          comp: `${risk.completionLevel || 0}%`
+        });
+        row.height = 35;
+        const rowBg = i % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
+        row.eachCell((cell: any, colNumber: number) => {
+          cell.alignment = { vertical: "middle", wrapText: true, horizontal: "left" };
+          applyBorder(cell);
 
-  const addDataRow2 = (cols: (string | number)[], level?: string) => {
-    const r = ws2.addRow(cols);
-    r.height = 20;
-    r.eachCell((cell: any, col: number) => {
-      cell.alignment = { vertical: "middle", horizontal: col === 1 ? "center" : "left" };
-      applyBorder(cell);
-      if (level) {
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[level] || { argb: "FFFFFFFF" } };
-        cell.font = { bold: true, color: levelFont[level] || { argb: "FF000000" }, size: 10 };
-      } else {
-        cell.font = { color: { argb: "FF1E293B" }, size: 10 };
-      }
-    });
-  };
+          // Color completion
+          if (wsPlan.columns[colNumber - 1]?.key === "comp") {
+            const lv = risk.completionLevel || 0;
+            let color = "FF94A3B8"; // gris
+            if (lv > 0 && lv <= 20) color = "FFF43F5E"; // rose
+            else if (lv > 20 && lv <= 40) color = "FFF97316"; // orange
+            else if (lv > 40 && lv <= 60) color = "FFF59E0B"; // ambre
+            else if (lv > 60 && lv <= 80) color = "FF84CC16"; // lime
+            else if (lv > 80 && lv <= 100) color = "FF10B981"; // emerald
 
-  addTitle("LÉGENDE — RÉFÉRENTIEL DE GESTION DES RISQUES");
+            cell.font = { bold: true, color: { argb: color }, size: 10 };
+            cell.alignment = { vertical: "middle", horizontal: "center" };
+          } else {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+            cell.font = { color: { argb: "FF1E293B" }, size: 9 };
+          }
+        });
+      });
+    }
 
-  if (mode === 'principal' || mode === 'combined') {
-    ws2.addRow([]);
-    addTitle("1. GRILLE DE PROBABILITÉ / FRÉQUENCE");
-    addSubHeader(["Valeur", "Libellé", "Description", ""]);
-    addDataRow2(["1", "Improbable", "Une fois tous les 1 à 5 ans", ""]);
-    addDataRow2(["2", "Rarement", "Semestrielle / Annuelle", ""]);
-    addDataRow2(["3", "Fréquent", "Mensuelle à Semestrielle", ""]);
-    addDataRow2(["4", "Souvent", "Hebdomadaire / Quotidien", ""]);
+    // ── SHEET 2 : Légende ───────────────────────────────────────────────────────
+    const ws2 = wb.addWorksheet("Légende");
+    ws2.columns = [
+      { key: "a", width: 35 },
+      { key: "b", width: 20 },
+      { key: "c", width: 35 },
+      { key: "d", width: 33 },
+    ];
 
-    ws2.addRow([]);
-    addTitle("2. GRILLE D'IMPACT");
-    addSubHeader(["Valeur", "Libellé", "Description", ""]);
-    addDataRow2(["1", "Faible", "Menace mineure", ""]);
-    addDataRow2(["2", "Modéré", "Menace raisonnable", ""]);
-    addDataRow2(["3", "Élevé", "Menace importante", ""]);
-    addDataRow2(["4", "Très élevé", "Menace majeure", ""]);
+    const addTitle = (text: string) => {
+      const r = ws2.addRow([text]);
+      r.height = 26;
+      const cell = r.getCell(1);
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+      cell.alignment = { vertical: "middle" };
+    };
 
-    ws2.addRow([]);
-    addTitle("3. SCORE BRUT → NIVEAU DE RISQUE");
-    addSubHeader(["Score", "Niveau", "Couleur", "Interprétation"]);
-    addDataRow2(["≤ 4", "Faible", "Vert", "Risque acceptable"], "Faible");
-    addDataRow2(["5 – 8", "Modéré", "Jaune", "Surveillance recommandée"], "Modéré");
-    addDataRow2(["9 – 12", "Élevé", "Orange", "Action corrective requise"], "Élevé");
-    addDataRow2(["≥ 13", "Très élevé", "Rouge", "Escalade immédiate"], "Très élevé");
-  }
+    const addSubHeader = (cols: string[]) => {
+      const r = ws2.addRow(cols);
+      r.height = 22;
+      r.eachCell((cell: any) => {
+        cell.font = { bold: true, color: { argb: "FF1E293B" }, size: 10 };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCBD5E1" } };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+        applyBorder(cell, "FF94A3B8");
+      });
+    };
 
-  if (mode === 'dmr' || mode === 'combined') {
-    ws2.addRow([]);
-    addTitle((mode === 'combined' ? "4" : "1") + ". NIVEAU D'EFFICACITÉ (DMR)");
-    addSubHeader(["Valeur", "Libellé", "Description", ""]);
-    dmrEfficiencyLevels.forEach(l => {
-      addDataRow2([l.value, l.label, l.description, ""]);
-    });
+    const addDataRow2 = (cols: (string | number)[], level?: string) => {
+      const r = ws2.addRow(cols);
+      r.height = 20;
+      r.eachCell((cell: any, col: number) => {
+        cell.alignment = { vertical: "middle", horizontal: col === 1 ? "center" : "left" };
+        applyBorder(cell);
+        if (level) {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: levelBg[level] || { argb: "FFFFFFFF" } };
+          cell.font = { bold: true, color: levelFont[level] || { argb: "FF000000" }, size: 10 };
+        } else {
+          cell.font = { color: { argb: "FF1E293B" }, size: 10 };
+        }
+      });
+    };
 
-    ws2.addRow([]);
-    addTitle((mode === 'combined' ? "5" : "2") + ". POSITION DE LA MAE (RÉSIDUEL)");
-    addSubHeader(["Score", "Niveau", "Description", ""]);
-    addDataRow2(["≤ 4", "Faible", getMAEPosForScore(4), ""], "Faible");
-    addDataRow2(["5 – 8", "Modéré", getMAEPosForScore(8), ""], "Modéré");
-    addDataRow2(["9 – 12", "Élevé", getMAEPosForScore(12), ""], "Élevé");
-    addDataRow2(["≥ 13", "Très élevé", getMAEPosForScore(16), ""], "Très élevé");
-  }
+    addTitle("LÉGENDE — RÉFÉRENTIEL DE GESTION DES RISQUES");
 
-  // ── Download ────────────────────────────────────────────────────────────────
-  const today = new Date().toISOString().split("T")[0];
-  const buffer = await wb.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  const filename = mode === 'principal' ? 'Cartographie' : (mode === 'dmr' ? 'DMR' : (mode === 'plan-actions' ? 'Plan_Actions' : 'Cartographie_Complet'));
-  a.download = `${filename}_${today}.xlsx`;
-  a.click();
-  URL.revokeObjectURL(url);
+    if (mode === 'principal' || mode === 'combined') {
+      ws2.addRow([]);
+      addTitle("1. GRILLE DE PROBABILITÉ / FRÉQUENCE");
+      addSubHeader(["Valeur", "Libellé", "Description", ""]);
+      addDataRow2(["1", "Improbable", "Une fois tous les 1 à 5 ans", ""]);
+      addDataRow2(["2", "Rarement", "Semestrielle / Annuelle", ""]);
+      addDataRow2(["3", "Fréquent", "Mensuelle à Semestrielle", ""]);
+      addDataRow2(["4", "Souvent", "Hebdomadaire / Quotidien", ""]);
 
-  // LOG ACTION
-  if (user) {
-    logAction({
-      userEmail: user.email,
-      userName: user.name,
-      action: 'OTHER',
-      label: `A exporté ${mode === 'principal' ? 'la cartographie' : (mode === 'dmr' ? 'le tableau DMR' : (mode === 'plan-actions' ? 'le plan d\'actions' : 'le tableau complet'))} (${risks.length} lignes)`,
-      module: 'Cartographie des Risques'
-    });
+      ws2.addRow([]);
+      addTitle("2. GRILLE D'IMPACT");
+      addSubHeader(["Valeur", "Libellé", "Description", ""]);
+      addDataRow2(["1", "Faible", "Menace mineure", ""]);
+      addDataRow2(["2", "Modéré", "Menace raisonnable", ""]);
+      addDataRow2(["3", "Élevé", "Menace importante", ""]);
+      addDataRow2(["4", "Très élevé", "Menace majeure", ""]);
+
+      ws2.addRow([]);
+      addTitle("3. SCORE BRUT → NIVEAU DE RISQUE");
+      addSubHeader(["Score", "Niveau", "Couleur", "Interprétation"]);
+      addDataRow2(["≤ 4", "Faible", "Vert", "Risque acceptable"], "Faible");
+      addDataRow2(["5 – 8", "Modéré", "Jaune", "Surveillance recommandée"], "Modéré");
+      addDataRow2(["9 – 12", "Élevé", "Orange", "Action corrective requise"], "Élevé");
+      addDataRow2(["≥ 13", "Très élevé", "Rouge", "Escalade immédiate"], "Très élevé");
+    }
+
+    if (mode === 'dmr' || mode === 'combined') {
+      ws2.addRow([]);
+      addTitle((mode === 'combined' ? "4" : "1") + ". NIVEAU D'EFFICACITÉ (DMR)");
+      addSubHeader(["Valeur", "Libellé", "Description", ""]);
+      dmrEfficiencyLevels.forEach(l => {
+        addDataRow2([l.value, l.label, l.description, ""]);
+      });
+
+      ws2.addRow([]);
+      addTitle((mode === 'combined' ? "5" : "2") + ". POSITION DE LA MAE (RÉSIDUEL)");
+      addSubHeader(["Score", "Niveau", "Description", ""]);
+      addDataRow2(["≤ 4", "Faible", getMAEPosForScore(4), ""], "Faible");
+      addDataRow2(["5 – 8", "Modéré", getMAEPosForScore(8), ""], "Modéré");
+      addDataRow2(["9 – 12", "Élevé", getMAEPosForScore(12), ""], "Élevé");
+      addDataRow2(["≥ 13", "Très élevé", getMAEPosForScore(16), ""], "Très élevé");
+    }
+
+    // ── Download ────────────────────────────────────────────────────────────────
+    const today = new Date().toISOString().split("T")[0];
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const filename = mode === 'principal' ? 'Cartographie' : (mode === 'dmr' ? 'DMR' : (mode === 'plan-actions' ? 'Plan_Actions' : 'Cartographie_Complet'));
+    a.download = `${filename}_${today}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // LOG ACTION
+    if (user) {
+      logAction({
+        userEmail: user.email,
+        userName: user.name,
+        action: 'OTHER',
+        label: `A exporté ${mode === 'principal' ? 'la cartographie' : (mode === 'dmr' ? 'le tableau DMR' : (mode === 'plan-actions' ? 'le plan d\'actions' : 'le tableau complet'))} (${risks.length} lignes)`,
+        module: 'Cartographie des Risques'
+      });
+    }
+    if (toast) {
+      toast({ title: 'Export réussi', description: 'Le fichier Excel a été téléchargé avec succès.' });
+    }
+  } catch (err: any) {
+    console.error('Erreur lors de l''exportation Excel :', err);
+    if (toast) {
+      toast({ title: 'Erreur d''exportation', description: 'Impossible d''exporter le fichier Excel.', variant: 'destructive' });
+    }
   }
 };
 
@@ -565,10 +577,10 @@ const formatMitigationMeasures = (text: string) => {
 // ────────────────────────────────────────────────────────────────────────────
 
 const actionStatusConfig: Record<number, { label: string; short: string; color: string; bg: string; border: string }> = {
-  0:   { label: 'Non initié', short: '0%',   color: 'text-slate-500',   bg: 'bg-slate-100 dark:bg-slate-800',        border: 'border-slate-200 dark:border-slate-700' },
-  33:  { label: 'Initié',     short: '33%',  color: 'text-blue-600',    bg: 'bg-blue-50 dark:bg-blue-900/30',        border: 'border-blue-200 dark:border-blue-800' },
-  66:  { label: 'En cours',   short: '66%',  color: 'text-orange-600',  bg: 'bg-orange-50 dark:bg-orange-900/30',    border: 'border-orange-200 dark:border-orange-800' },
-  100: { label: 'Réalisé',    short: '100%', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30',  border: 'border-emerald-200 dark:border-emerald-800' },
+  0: { label: 'Non initié', short: '0%', color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-slate-800', border: 'border-slate-200 dark:border-slate-700' },
+  33: { label: 'Initié', short: '33%', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/30', border: 'border-blue-200 dark:border-blue-800' },
+  66: { label: 'En cours', short: '66%', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-200 dark:border-orange-800' },
+  100: { label: 'Réalisé', short: '100%', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-200 dark:border-emerald-800' },
 };
 
 const cycleActionStatus = (s: number): 0 | 33 | 66 | 100 => {
@@ -583,10 +595,10 @@ const parseActionItems = (text?: string): ActionItem[] => {
   if (!text) return [];
   // Use a hash-like ID for stability across renders instead of random/Date.now
   const items = text.split(/[\n\+;•]+/).map(item => item.trim()).filter(item => item.length > 0);
-  return items.map((t, i) => ({ 
-    id: `mig-${i}-${t.substring(0, 10).replace(/\s/g, '-')}`, 
-    text: t.replace(/^[-–]\s*/, ''), 
-    status: 0 as 0 | 33 | 66 | 100 
+  return items.map((t, i) => ({
+    id: `mig-${i}-${t.substring(0, 10).replace(/\s/g, '-')}`,
+    text: t.replace(/^[-–]\s*/, ''),
+    status: 0 as 0 | 33 | 66 | 100
   }));
 };
 
@@ -784,7 +796,7 @@ export default function RiskMappingPage() {
       const prevRisk = dialogState.data;
       const previousItems = prevRisk ? getActionItems(prevRisk) : [];
       const newTextItems = parseActionItems(values.actionCorrective || "");
-      
+
       let mergedItems = newTextItems;
       if (dialogState.mode === "edit") {
         mergedItems = newTextItems.map(ni => {
@@ -902,14 +914,14 @@ export default function RiskMappingPage() {
     const matchesLevel = filterRiskLevel === "all" || calculateRiskLevel(risk.probabilite, risk.impact) === filterRiskLevel;
     const matchesDept = filterDepartment === "all" || risk.department === filterDepartment;
     const matchesCategory = filterCategory === "all" || risk.category === filterCategory;
-    
+
     let matchesActionStatus = true;
     if (viewMode === "plan-actions" && filterActionStatus !== "all") {
-        const avg = getRiskAvgCompletion(risk);
-        const statusLabel = avg === 0 ? 'Non initié' : avg === 100 ? 'Réalisé' : avg >= 50 ? 'En cours' : 'Initié';
-        matchesActionStatus = statusLabel === filterActionStatus;
+      const avg = getRiskAvgCompletion(risk);
+      const statusLabel = avg === 0 ? 'Non initié' : avg === 100 ? 'Réalisé' : avg >= 50 ? 'En cours' : 'Initié';
+      matchesActionStatus = statusLabel === filterActionStatus;
     }
-    
+
     return matchesSearch && matchesLevel && matchesDept && matchesCategory && matchesActionStatus;
   }), [risks, searchQuery, filterRiskLevel, filterDepartment, filterCategory, viewMode, filterActionStatus]);
 
@@ -964,7 +976,7 @@ export default function RiskMappingPage() {
                 <DropdownMenuContent align="end" className="w-64 rounded-xl shadow-2xl p-2 border-none">
                   <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 px-3 py-2">Choisir le format d'export</DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
-                  <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'principal')} className="rounded-lg py-3 cursor-pointer group">
+                  <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'principal', toast)} className="rounded-lg py-3 cursor-pointer group">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
                         <List className="h-4 w-4" />
@@ -975,7 +987,7 @@ export default function RiskMappingPage() {
                       </div>
                     </div>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'dmr')} className="rounded-lg py-3 cursor-pointer group">
+                  <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'dmr', toast)} className="rounded-lg py-3 cursor-pointer group">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
                         <ShieldCheck className="h-4 w-4" />
@@ -986,7 +998,7 @@ export default function RiskMappingPage() {
                       </div>
                     </div>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'plan-actions')} className="rounded-lg py-3 cursor-pointer group">
+                  <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'plan-actions', toast)} className="rounded-lg py-3 cursor-pointer group">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
                         <Target className="h-4 w-4" />
@@ -998,7 +1010,7 @@ export default function RiskMappingPage() {
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
-                  <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'combined')} className="rounded-lg py-3 cursor-pointer group bg-slate-50 hover:bg-slate-100">
+                  <DropdownMenuItem onClick={() => exportToExcel(filteredRisks, logAction, user, maePositions, documents, 'combined', toast)} className="rounded-lg py-3 cursor-pointer group bg-slate-50 hover:bg-slate-100">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                         <LayoutGrid className="h-4 w-4" />
@@ -1151,89 +1163,89 @@ export default function RiskMappingPage() {
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full">
         {/* Navigation & Advanced Filters */}
         {viewMode !== "matrix" && (
-        <div className="flex flex-col xl:flex-row items-center gap-4 mb-6">
-          <TabsList className="bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl h-12 w-full xl:w-auto border border-slate-200 dark:border-slate-800 shrink-0 overflow-x-auto flex-wrap sm:flex-nowrap">
-            <TabsTrigger value="table" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <List className="h-3.5 w-3.5 mr-1.5" /> Inventaire
-            </TabsTrigger>
-            <TabsTrigger value="heatmap" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <LayoutGrid className="h-3.5 w-3.5 mr-1.5" /> Heatmap
-            </TabsTrigger>
-            <TabsTrigger value="dmr" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> DMR
-            </TabsTrigger>
-            <TabsTrigger value="plan-actions" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <ClipboardList className="h-3.5 w-3.5 mr-1.5" /> Plan d&apos;actions
-            </TabsTrigger>
-            <TabsTrigger value="matrix" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
-              <Grid className="h-3.5 w-3.5 mr-1.5" /> Matrice KYC
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col xl:flex-row items-center gap-4 mb-6">
+            <TabsList className="bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl h-12 w-full xl:w-auto border border-slate-200 dark:border-slate-800 shrink-0 overflow-x-auto flex-wrap sm:flex-nowrap">
+              <TabsTrigger value="table" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+                <List className="h-3.5 w-3.5 mr-1.5" /> Inventaire
+              </TabsTrigger>
+              <TabsTrigger value="heatmap" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+                <LayoutGrid className="h-3.5 w-3.5 mr-1.5" /> Heatmap
+              </TabsTrigger>
+              <TabsTrigger value="dmr" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+                <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> DMR
+              </TabsTrigger>
+              <TabsTrigger value="plan-actions" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+                <ClipboardList className="h-3.5 w-3.5 mr-1.5" /> Plan d&apos;actions
+              </TabsTrigger>
+              <TabsTrigger value="matrix" className="rounded-lg px-5 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm font-bold text-[11px] uppercase tracking-wider transition-all">
+                <Grid className="h-3.5 w-3.5 mr-1.5" /> Matrice KYC
+              </TabsTrigger>
+            </TabsList>
 
-          <div className="flex-1 flex flex-nowrap items-center gap-3 w-full bg-white/50 dark:bg-slate-900/50 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800">
-            <div className="relative flex-1 min-w-[350px] xl:max-w-[600px]">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Rechercher un risque, une catégorie, une direction..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-11 pl-11 pr-4 rounded-xl border-none bg-slate-100 dark:bg-slate-800 font-bold text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/20 w-full"
-              />
-            </div>
+            <div className="flex-1 flex flex-nowrap items-center gap-3 w-full bg-white/50 dark:bg-slate-900/50 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <div className="relative flex-1 min-w-[350px] xl:max-w-[600px]">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Rechercher un risque, une catégorie, une direction..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-11 pl-11 pr-4 rounded-xl border-none bg-slate-100 dark:bg-slate-800 font-bold text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/20 w-full"
+                />
+              </div>
 
-            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block shrink-0" />
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block shrink-0" />
 
-            <div className="flex items-center gap-3">
-              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                <SelectTrigger className="h-11 w-[220px] shrink-0 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-xs font-black uppercase tracking-widest shadow-none">
-                  <SelectValue placeholder="Ttes Directions" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl">
-                  <SelectItem value="all" className="text-xs font-black uppercase">Ttes Directions</SelectItem>
-                  {departmentOptions.map(d => <SelectItem key={d} value={d} className="text-xs font-black uppercase">{d}</SelectItem>)}
-                </SelectContent>
-              </Select>
-
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="h-11 w-[220px] shrink-0 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-xs font-black uppercase tracking-widest shadow-none">
-                  <SelectValue placeholder="Ttes Catégories" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl">
-                  <SelectItem value="all" className="text-xs font-black uppercase">Ttes Catégories</SelectItem>
-                  {categoryOptions.map(c => <SelectItem key={c} value={c} className="text-xs font-black uppercase">{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-
-              <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
-                <SelectTrigger className="h-11 w-[200px] shrink-0 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-xs font-black uppercase tracking-widest shadow-none">
-                  <SelectValue placeholder="Ts Niveaux" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl">
-                  <SelectItem value="all" className="text-xs font-black uppercase">Ts Niveaux</SelectItem>
-                  <SelectItem value="Faible" className="text-xs font-black uppercase text-emerald-600">Faible</SelectItem>
-                  <SelectItem value="Modéré" className="text-xs font-black uppercase text-yellow-600">Modéré</SelectItem>
-                  <SelectItem value="Élevé" className="text-xs font-black uppercase text-orange-600">Élevé</SelectItem>
-                  <SelectItem value="Très élevé" className="text-xs font-black uppercase text-rose-600">Très élevé</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {viewMode === "plan-actions" && (
-                <Select value={filterActionStatus} onValueChange={setFilterActionStatus}>
-                  <SelectTrigger className="h-11 w-[200px] shrink-0 rounded-xl border-none bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-xs font-black uppercase tracking-widest shadow-none">
-                    <SelectValue placeholder="Ts Statuts" />
+              <div className="flex items-center gap-3">
+                <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+                  <SelectTrigger className="h-11 w-[220px] shrink-0 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-xs font-black uppercase tracking-widest shadow-none">
+                    <SelectValue placeholder="Ttes Directions" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl">
-                    <SelectItem value="all" className="text-xs font-black uppercase">Ts Statuts</SelectItem>
-                    <SelectItem value="Non initié" className="text-xs font-black uppercase text-slate-500">Non initié</SelectItem>
-                    <SelectItem value="Initié" className="text-xs font-black uppercase text-blue-600">Initié</SelectItem>
-                    <SelectItem value="En cours" className="text-xs font-black uppercase text-amber-600">En cours</SelectItem>
-                    <SelectItem value="Réalisé" className="text-xs font-black uppercase text-emerald-600">Réalisé</SelectItem>
+                    <SelectItem value="all" className="text-xs font-black uppercase">Ttes Directions</SelectItem>
+                    {departmentOptions.map(d => <SelectItem key={d} value={d} className="text-xs font-black uppercase">{d}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              )}
+
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="h-11 w-[220px] shrink-0 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-xs font-black uppercase tracking-widest shadow-none">
+                    <SelectValue placeholder="Ttes Catégories" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl">
+                    <SelectItem value="all" className="text-xs font-black uppercase">Ttes Catégories</SelectItem>
+                    {categoryOptions.map(c => <SelectItem key={c} value={c} className="text-xs font-black uppercase">{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterRiskLevel} onValueChange={setFilterRiskLevel}>
+                  <SelectTrigger className="h-11 w-[200px] shrink-0 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-xs font-black uppercase tracking-widest shadow-none">
+                    <SelectValue placeholder="Ts Niveaux" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl">
+                    <SelectItem value="all" className="text-xs font-black uppercase">Ts Niveaux</SelectItem>
+                    <SelectItem value="Faible" className="text-xs font-black uppercase text-emerald-600">Faible</SelectItem>
+                    <SelectItem value="Modéré" className="text-xs font-black uppercase text-yellow-600">Modéré</SelectItem>
+                    <SelectItem value="Élevé" className="text-xs font-black uppercase text-orange-600">Élevé</SelectItem>
+                    <SelectItem value="Très élevé" className="text-xs font-black uppercase text-rose-600">Très élevé</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {viewMode === "plan-actions" && (
+                  <Select value={filterActionStatus} onValueChange={setFilterActionStatus}>
+                    <SelectTrigger className="h-11 w-[200px] shrink-0 rounded-xl border-none bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-xs font-black uppercase tracking-widest shadow-none">
+                      <SelectValue placeholder="Ts Statuts" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl">
+                      <SelectItem value="all" className="text-xs font-black uppercase">Ts Statuts</SelectItem>
+                      <SelectItem value="Non initié" className="text-xs font-black uppercase text-slate-500">Non initié</SelectItem>
+                      <SelectItem value="Initié" className="text-xs font-black uppercase text-blue-600">Initié</SelectItem>
+                      <SelectItem value="En cours" className="text-xs font-black uppercase text-amber-600">En cours</SelectItem>
+                      <SelectItem value="Réalisé" className="text-xs font-black uppercase text-emerald-600">Réalisé</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
           </div>
-        </div>
         )}
 
         <TabsContent value="plan-actions" className="mt-0 focus-visible:ring-0">
@@ -1332,7 +1344,7 @@ export default function RiskMappingPage() {
                                   <TableCell className="py-3 px-4">
                                     <div className="flex items-start gap-2">
                                       <div className="flex flex-col gap-0.5 flex-1">
-                                        <span 
+                                        <span
                                           className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight hover:text-primary transition-colors hover:underline cursor-pointer flex items-center gap-1 group/link"
                                           onClick={() => openDialog('edit', risk)}
                                         >
@@ -1370,7 +1382,7 @@ export default function RiskMappingPage() {
                                     </div>
                                   </TableCell>
                                   <TableCell className="py-3 px-4 text-center">
-                                    <button 
+                                    <button
                                       className={cn("inline-flex flex-col items-center justify-center w-10 h-10 rounded-lg border hover:scale-110 transition-transform cursor-pointer shadow-sm relative group", styleRes.bg, styleRes.text, styleRes.border)}
                                       onClick={() => openDialog('edit', risk)}
                                     >
@@ -1398,8 +1410,8 @@ export default function RiskMappingPage() {
                                   <TableCell className="py-3 px-4">
                                     <Sheet>
                                       <SheetTrigger asChild>
-                                        <Button 
-                                          variant="ghost" 
+                                        <Button
+                                          variant="ghost"
                                           className="h-auto p-3 flex flex-col items-start gap-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 w-full group border border-transparent hover:border-slate-200 dark:hover:border-slate-800 rounded-xl transition-all"
                                         >
                                           <div className="flex items-center justify-between w-full">
@@ -1415,7 +1427,7 @@ export default function RiskMappingPage() {
                                               <PlusCircle className="h-3 w-3 text-slate-400" />
                                             </div>
                                           </div>
-                                          
+
                                           <div className="w-full text-left space-y-1">
                                             {getActionItems(risk).length > 0 ? (
                                               <>
@@ -1440,13 +1452,13 @@ export default function RiskMappingPage() {
                                       <SheetContent className="sm:max-w-md w-full sm:w-[500px] border-l-4 border-l-primary p-0 flex flex-col overflow-hidden">
                                         <SheetHeader className="p-6 border-b border-slate-100 dark:border-slate-800 shrink-0 bg-slate-50/50">
                                           <div className="flex items-center gap-3 mb-4">
-                                              <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
-                                                <Target className="h-5 w-5 text-primary" />
-                                              </div>
-                                              <div>
-                                                <SheetTitle className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Actions Correctives</SheetTitle>
-                                                <SheetDescription className="text-xs font-medium text-slate-500 italic">Dispositif de mise en conformité</SheetDescription>
-                                              </div>
+                                            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+                                              <Target className="h-5 w-5 text-primary" />
+                                            </div>
+                                            <div>
+                                              <SheetTitle className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Actions Correctives</SheetTitle>
+                                              <SheetDescription className="text-xs font-medium text-slate-500 italic">Dispositif de mise en conformité</SheetDescription>
+                                            </div>
                                           </div>
                                           <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
                                             <div className="flex items-center gap-2 mb-2">
@@ -1456,7 +1468,7 @@ export default function RiskMappingPage() {
                                             <p className="text-sm font-bold text-slate-800 dark:text-slate-200 leading-tight">{risk.riskDescription}</p>
                                           </div>
                                         </SheetHeader>
-                                        
+
                                         <div className="flex-1 overflow-hidden flex flex-col">
                                           <ScrollArea className="flex-1 px-6 py-6">
                                             <div className="space-y-6">
@@ -1468,7 +1480,7 @@ export default function RiskMappingPage() {
                                                     Avancement : {getRiskAvgCompletion(risk)}%
                                                   </div>
                                                 </div>
-                                                
+
                                                 {getActionItems(risk).length === 0 ? (
                                                   <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl bg-slate-50/30">
                                                     <ClipboardList className="h-10 w-10 text-slate-200 mb-3" />
@@ -1505,7 +1517,7 @@ export default function RiskMappingPage() {
                                                               <span className="text-xs font-black">{cfg.short}</span>
                                                               <span className="text-[7px] font-bold uppercase">{cfg.label.split(' ')[0]}</span>
                                                             </button>
-                                                            
+
                                                             <div className="flex-1 min-w-0">
                                                               <Textarea
                                                                 defaultValue={item.text}
@@ -1536,7 +1548,7 @@ export default function RiskMappingPage() {
                                                                 }}
                                                               />
                                                             </div>
-                                                            
+
                                                             <Button
                                                               variant="ghost"
                                                               size="icon"
@@ -1564,7 +1576,7 @@ export default function RiskMappingPage() {
                                               </div>
                                             </div>
                                           </ScrollArea>
-                                          
+
                                           {/* Footer: Ajout d'action */}
                                           <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 shrink-0">
                                             <div className="flex flex-col gap-3">
@@ -1697,9 +1709,9 @@ export default function RiskMappingPage() {
         <TabsContent value="heatmap" className="mt-0 focus-visible:ring-0">
           <RiskKPIs risks={filteredRisks} />
           <div className="mt-6">
-            <RiskHeatmap 
-              risks={filteredRisks} 
-              onEditRisk={(risk) => openDialog('edit', risk)} 
+            <RiskHeatmap
+              risks={filteredRisks}
+              onEditRisk={(risk) => openDialog('edit', risk)}
               mode={heatmapMode}
               onModeChange={setHeatmapMode}
             />
@@ -1952,7 +1964,7 @@ export default function RiskMappingPage() {
                                                         e.stopPropagation();
                                                         const url = linkedDoc.url || "";
                                                         const anchor = (risk as any).documentAnchor || "";
-                                                        
+
                                                         // Option collaborative : On ouvre le panneau latéral
                                                         setViewerConfig({
                                                           url: url,
@@ -2692,7 +2704,7 @@ export default function RiskMappingPage() {
               </div>
             </div>
           </SheetHeader>
-          
+
           <div className="flex-1 bg-slate-100 dark:bg-slate-950 relative overflow-hidden">
             <PDFViewerFallback url={viewerConfig.url} anchor={viewerConfig.anchor} title={viewerConfig.title} />
           </div>
