@@ -97,13 +97,13 @@ export default function DashboardPage() {
   ];
   const [riskFactorLogs, setRiskFactorLogs] = React.useState<any[]>([]);
   const [showAllRiskLogs, setShowAllRiskLogs] = React.useState(false);
+  const [riskLogsModalView, setRiskLogsModalView] = React.useState<'consolidated' | 'all'>('consolidated');
 
-  // Computed / inferred risk transitions for matrix modification logs
+  // Computed / inferred risk transitions for individual matrix modification logs
   const riskTransitionsMap = React.useMemo(() => {
     const map: Record<string, { oldRisk: string; newRisk: string }> = {};
     if (!riskFactorLogs || riskFactorLogs.length === 0) return map;
 
-    // 1. Direct fields or note regex first
     const unparsedLogs: any[] = [];
     riskFactorLogs.forEach((log) => {
       const key = log.id || log.date;
@@ -121,7 +121,6 @@ export default function DashboardPage() {
       unparsedLogs.push(log);
     });
 
-    // 2. Inferred transitions for country logs (sorted chronologically: oldest first)
     const chronological = [...unparsedLogs].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
@@ -172,7 +171,159 @@ export default function DashboardPage() {
     return map;
   }, [riskFactorLogs]);
 
-  const renderRiskTransition = (transition?: { oldRisk: string; newRisk: string }) => {
+  // Consolidate logs by country per day to only display the finality (e.g. RE -> RM)
+  const consolidatedRiskLogs = React.useMemo(() => {
+    if (!riskFactorLogs || riskFactorLogs.length === 0) return [];
+
+    const chronological = [...riskFactorLogs].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    const countryStates: Record<string, any> = {};
+    const stepData: Record<string, { oldRisk?: string; newRisk?: string; countryName?: string; fields: string[] }> = {};
+
+    chronological.forEach((log) => {
+      const key = log.id || log.date;
+      const note = log.note || "";
+      const m = note.match(/Modification sur\s*[«"]([^»"]+)[»"]\s*:\s*([^()]+)/i);
+
+      let countryName = log.countryName;
+      let fields: string[] = [];
+
+      if (m) {
+        if (!countryName) countryName = m[1].trim();
+        fields = m[2]
+          .split(",")
+          .map((s: string) => s.trim().replace(/\s*\([^)]*\)/, ""))
+          .filter(Boolean);
+      }
+
+      const baseCountry = countryName
+        ? COUNTRIES_DATA.find(
+            (c) =>
+              c.name.toLowerCase() === countryName!.toLowerCase() ||
+              c.alpha3.toLowerCase() === countryName!.toLowerCase()
+          )
+        : null;
+
+      if (baseCountry) {
+        const canonicalName = baseCountry.name;
+        if (!countryStates[canonicalName]) {
+          countryStates[canonicalName] = {
+            gafi: Boolean(baseCountry.gafi),
+            corruption: Boolean(baseCountry.corruption),
+            oecd: Boolean(baseCountry.oecd),
+            terrorism: Boolean(baseCountry.terrorism),
+            otherDominant: Boolean(baseCountry.otherDominant),
+          };
+        }
+
+        const state = countryStates[canonicalName];
+        const oldRisk = log.oldRisk || riskTransitionsMap[key]?.oldRisk || computeCountryRisk(state);
+
+        const rawFields = fields.map((f) => f.toLowerCase()).join(" ");
+        if (rawFields.includes("gafi") && rawFields.includes("otherdominant")) {
+          state.gafi = false;
+          state.otherDominant = true;
+        } else {
+          if (rawFields.includes("gafi")) state.gafi = !state.gafi;
+          if (rawFields.includes("corruption")) state.corruption = !state.corruption;
+          if (rawFields.includes("terrorism")) state.terrorism = !state.terrorism;
+          if (rawFields.includes("oecd")) state.oecd = !state.oecd;
+          if (rawFields.includes("otherdominant")) state.otherDominant = !state.otherDominant;
+        }
+
+        const newRisk = log.newRisk || riskTransitionsMap[key]?.newRisk || computeCountryRisk(state);
+        stepData[key] = { oldRisk, newRisk, countryName: canonicalName, fields };
+      } else {
+        stepData[key] = {
+          oldRisk: log.oldRisk || riskTransitionsMap[key]?.oldRisk,
+          newRisk: log.newRisk || riskTransitionsMap[key]?.newRisk,
+          countryName: undefined,
+          fields,
+        };
+      }
+    });
+
+    const buckets = new Map<string, any>();
+
+    chronological.forEach((log) => {
+      const key = log.id || log.date;
+      const step = stepData[key];
+      const logDate = new Date(log.date);
+      const dayKey = `${logDate.getFullYear()}-${String(logDate.getMonth() + 1).padStart(2, "0")}-${String(
+        logDate.getDate()
+      ).padStart(2, "0")}`;
+
+      if (step?.countryName) {
+        const groupKey = `country:${step.countryName.toLowerCase()}:${dayKey}`;
+        if (!buckets.has(groupKey)) {
+          buckets.set(groupKey, {
+            isCountryGroup: true,
+            countryName: step.countryName,
+            dayKey,
+            startRisk: step.oldRisk,
+            endRisk: step.newRisk,
+            fields: [...step.fields],
+            latestLog: log,
+            count: 1,
+          });
+        } else {
+          const bucket = buckets.get(groupKey);
+          bucket.count += 1;
+          bucket.endRisk = step.newRisk;
+          step.fields.forEach((f) => {
+            if (!bucket.fields.some((x: string) => x.toLowerCase() === f.toLowerCase())) {
+              bucket.fields.push(f);
+            }
+          });
+          bucket.latestLog = log;
+        }
+      } else {
+        const groupKey = `item:${key}`;
+        buckets.set(groupKey, {
+          isCountryGroup: false,
+          latestLog: log,
+          startRisk: step?.oldRisk,
+          endRisk: step?.newRisk,
+          count: 1,
+        });
+      }
+    });
+
+    const consolidated: any[] = [];
+    buckets.forEach((bucket) => {
+      if (bucket.isCountryGroup) {
+        const latest = bucket.latestLog;
+        const fieldsStr = bucket.fields.join(", ");
+        consolidated.push({
+          ...latest,
+          id: `consolidated-${bucket.countryName}-${bucket.dayKey}`,
+          date: latest.date,
+          user: latest.user,
+          factors: latest.factors || ["PAYS"],
+          countryName: bucket.countryName,
+          oldRisk: bucket.startRisk,
+          newRisk: bucket.endRisk,
+          note: `Modification sur « ${bucket.countryName} » : ${fieldsStr}`,
+          groupedCount: bucket.count,
+        });
+      } else {
+        consolidated.push({
+          ...bucket.latestLog,
+          oldRisk: bucket.startRisk,
+          newRisk: bucket.endRisk,
+          groupedCount: 1,
+        });
+      }
+    });
+
+    return consolidated.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  }, [riskFactorLogs, riskTransitionsMap]);
+
+  const renderRiskTransition = (transition?: { oldRisk?: string; newRisk?: string }) => {
     if (!transition || !transition.oldRisk || !transition.newRisk) return null;
     const isElevated = transition.newRisk === "RE" && transition.oldRisk !== "RE";
     const isReduced = (transition.oldRisk === "RE" && transition.newRisk !== "RE") || (transition.oldRisk === "RM" && transition.newRisk === "RF");
@@ -1616,17 +1767,18 @@ export default function DashboardPage() {
                     Modifications Matrice
                   </CardTitle>
                   <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-0.5">
-                    {riskFactorLogs.length} MAJ
+                    {consolidatedRiskLogs.length} MAJ
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-0.5">Dernières modifications des facteurs et paramètres KYC</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Dernières modifications des facteurs et paramètres KYC (finalités)</p>
               </CardHeader>
               <CardContent className="p-4 space-y-4">
-                {/* Live logs list */}
-                {riskFactorLogs.length > 0 ? (
+                {/* Live logs list - Consolidated to only display the finality */}
+                {consolidatedRiskLogs.length > 0 ? (
                   <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-                    {riskFactorLogs.slice(0, 6).map((log: any) => {
+                    {consolidatedRiskLogs.slice(0, 6).map((log: any) => {
                       const userInitial = String(log.user || "U").trim().charAt(0).toUpperCase();
+                      const trans = (log.oldRisk && log.newRisk) ? { oldRisk: log.oldRisk, newRisk: log.newRisk } : riskTransitionsMap[log.id || log.date];
                       return (
                         <div key={log.id || log.date} className="bg-slate-50/80 dark:bg-slate-800/40 rounded-xl p-3 border border-slate-100 dark:border-slate-800/80 flex gap-3 hover:bg-slate-100/50 dark:hover:bg-slate-800/60 transition-colors">
                           <div className="h-8 w-8 rounded-full bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-black shrink-0 shadow-inner">
@@ -1645,7 +1797,12 @@ export default function DashboardPage() {
                                   {f}
                                 </span>
                               ))}
-                              {renderRiskTransition(riskTransitionsMap[log.id || log.date])}
+                              {renderRiskTransition(trans)}
+                              {log.groupedCount > 1 && (
+                                <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-slate-200/70 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 rounded border border-slate-300/60 dark:border-slate-600/60">
+                                  Finalité ({log.groupedCount})
+                                </span>
+                              )}
                             </div>
                             {log.note && (
                               <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-relaxed break-words">&ldquo;{log.note}&rdquo;</p>
@@ -1662,12 +1819,12 @@ export default function DashboardPage() {
                 )}
 
                 {/* View All Button */}
-                {riskFactorLogs.length > 6 && (
+                {consolidatedRiskLogs.length > 6 && (
                   <button
                     onClick={() => setShowAllRiskLogs(true)}
                     className="w-full py-2 text-center text-xs font-bold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/30 dark:hover:bg-slate-800/60 rounded-xl transition-all border border-slate-200/60 dark:border-slate-800/60 flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    Voir l&apos;historique complet ({riskFactorLogs.length} modifications)
+                    Voir l&apos;historique complet ({consolidatedRiskLogs.length} modifications)
                   </button>
                 )}
               </CardContent>
@@ -2223,13 +2380,42 @@ export default function DashboardPage() {
                     <p className="text-[10px] text-slate-400">Journal d&apos;audit de la matrice des risques KYC</p>
                   </div>
                 </div>
-                <button onClick={() => setShowAllRiskLogs(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg text-slate-400 hover:text-slate-600 transition-colors">✕</button>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setRiskLogsModalView('consolidated')}
+                      className={cn(
+                        "px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all",
+                        riskLogsModalView === 'consolidated'
+                          ? "bg-white dark:bg-slate-900 shadow-xs text-slate-800 dark:text-white"
+                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                      )}
+                    >
+                      Finalités ({consolidatedRiskLogs.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRiskLogsModalView('all')}
+                      className={cn(
+                        "px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all",
+                        riskLogsModalView === 'all'
+                          ? "bg-white dark:bg-slate-900 shadow-xs text-slate-800 dark:text-white"
+                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                      )}
+                    >
+                      Toutes les étapes ({riskFactorLogs.length})
+                    </button>
+                  </div>
+                  <button onClick={() => setShowAllRiskLogs(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg text-slate-400 hover:text-slate-600 transition-colors">✕</button>
+                </div>
               </div>
 
               {/* Scrollable list */}
               <div className="p-5 overflow-y-auto space-y-3 flex-1">
-                {riskFactorLogs.map((log: any) => {
+                {(riskLogsModalView === 'consolidated' ? consolidatedRiskLogs : riskFactorLogs).map((log: any) => {
                   const userInitial = String(log.user || "U").trim().charAt(0).toUpperCase();
+                  const trans = (log.oldRisk && log.newRisk) ? { oldRisk: log.oldRisk, newRisk: log.newRisk } : riskTransitionsMap[log.id || log.date];
                   return (
                     <div key={`modal-log-${log.id || log.date}`} className="bg-slate-50/80 dark:bg-slate-800/40 rounded-xl p-3 border border-slate-100 dark:border-slate-800/80 flex gap-3 hover:bg-slate-100/50 dark:hover:bg-slate-800/60 transition-colors">
                       <div className="h-8 w-8 rounded-full bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-black shrink-0">
@@ -2248,7 +2434,12 @@ export default function DashboardPage() {
                               {f}
                             </span>
                           ))}
-                          {renderRiskTransition(riskTransitionsMap[log.id || log.date])}
+                          {renderRiskTransition(trans)}
+                          {log.groupedCount > 1 && (
+                            <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-slate-200/70 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 rounded border border-slate-300/60 dark:border-slate-600/60">
+                              Finalité ({log.groupedCount})
+                            </span>
+                          )}
                         </div>
                         {log.note && (
                           <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed break-words">&ldquo;{log.note}&rdquo;</p>
