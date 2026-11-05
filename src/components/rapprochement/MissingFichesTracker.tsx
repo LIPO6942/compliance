@@ -644,6 +644,27 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                             const isClientExp = expandedClientRow === rowKey;
                             const isPersistentClient = Boolean(client.identifiant && prevIds.has(client.identifiant));
 
+                            // Point 4 — Compter les mois consecutifs d'absence
+                            // On remonte dans orderedMonthKeys depuis le dernier mois
+                            // en verifiant si l'identifiant du client apparait dans entry.months[mk].identifiants
+                            // Cout zero : ces donnees sont deja calculees dans le useMemo principal
+                            const consecutiveAbsentMonths = (() => {
+                              if (!client.identifiant) return 1;
+                              let count = 0;
+                              for (let idx = orderedMonthKeys.length - 1; idx >= 0; idx--) {
+                                const mk = orderedMonthKeys[idx];
+                                const idsThisMonth = entry.months[mk]?.identifiants || [];
+                                if (idsThisMonth.includes(client.identifiant)) {
+                                  count++;
+                                } else {
+                                  break; // La chaine consecutive est rompue
+                                }
+                              }
+                              return Math.max(count, 1);
+                            })();
+                            // Alerte rouge si absent depuis 3 mois ou plus
+                            const isLongAbsent = consecutiveAbsentMonths >= 3;
+
                             // Resolve display name from allFields (NOM_CLIENT fallback)
                             const nomKey = Object.keys(client.allFields).find(k => {
                               const kn = k.toLowerCase().replace(/[_\s]/g, "");
@@ -667,7 +688,9 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                               <div key={rowKey}
                                 className={cn(
                                   "rounded-xl border overflow-hidden transition-colors",
-                                  isPersistentClient
+                                  isLongAbsent
+                                    ? "border-red-400 dark:border-red-700 bg-red-50/60 dark:bg-red-950/20"
+                                    : isPersistentClient
                                     ? "border-amber-200 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-950/10"
                                     : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900"
                                 )}>
@@ -686,8 +709,17 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                                       {cinVal}
                                     </span>
                                   )}
+                                  {/* Badge: absent depuis 3+ mois consecutifs */}
+                                  {isLongAbsent && (
+                                    <span
+                                      title={`Absent depuis ${consecutiveAbsentMonths} mois consecutifs - priorite d'investigation`}
+                                      className="shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-red-600 text-white text-[8px] font-black shadow-sm shadow-red-600/40"
+                                    >
+                                      ⚠ {consecutiveAbsentMonths}m
+                                    </span>
+                                  )}
                                   {/* Persistent badge */}
-                                  {isPersistentClient && (
+                                  {isPersistentClient && !isLongAbsent && (
                                     <span
                                       title="Persistant - absent egalement le mois precedent"
                                       className="shrink-0 h-4 w-4 flex items-center justify-center rounded-full bg-amber-500 text-white text-[8px] font-black shadow-sm shadow-amber-500/40"
@@ -699,6 +731,13 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                                 </button>
                                 {isClientExp && (
                                   <div className="px-3 pb-2 space-y-1">
+                                    {/* Alerte longue absence */}
+                                    {isLongAbsent && (
+                                      <p className="text-[8px] font-black text-red-600 dark:text-red-400 flex items-center gap-1 bg-red-50 dark:bg-red-950/30 px-2 py-1 rounded-lg border border-red-200 dark:border-red-800">
+                                        <span className="text-[9px]">⚠</span>
+                                        Client absent depuis <strong>{consecutiveAbsentMonths} mois consecutifs</strong> - Priorite d'investigation maximale
+                                      </p>
+                                    )}
                                     {isPersistentClient && (
                                       <p className="text-[8px] font-black text-amber-600 dark:text-amber-400 flex items-center gap-1">
                                         <span className="h-3.5 w-3.5 flex items-center justify-center rounded-full bg-amber-500 text-white text-[7px] font-black">P</span>
