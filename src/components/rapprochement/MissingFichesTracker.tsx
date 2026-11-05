@@ -404,10 +404,12 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
 
       {/* Global KPIs */}
       <div className="grid grid-cols-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        {/* Fiches absentes */}
         <div className="px-4 py-3 text-center border-r border-slate-100 dark:border-slate-800">
           <p className="text-lg font-black text-rose-600">{totalLastMonth.toLocaleString("fr-FR")}</p>
           <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Fiches absentes actuelles</p>
         </div>
+        {/* Tendance */}
         <div className="px-4 py-3 text-center border-r border-slate-100 dark:border-slate-800">
           <div className="flex items-center justify-center gap-1">
             <p className={cn("text-lg font-black", globalTrend < 0 ? "text-emerald-600" : globalTrend > 0 ? "text-rose-600" : "text-slate-600")}>
@@ -417,14 +419,42 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
           </div>
           <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">vs. mois precedent</p>
         </div>
-        <div className="px-4 py-3 text-center border-r border-slate-100 dark:border-slate-800">
-          <p className="text-lg font-black text-amber-600">{filteredEntries.filter(e => (e.months[lastMonthKey]?.stillAbsent || 0) > 0).length}</p>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Agences persistantes</p>
-        </div>
-        <div className="px-4 py-3 text-center">
-          <p className="text-lg font-black text-emerald-600">{filteredEntries.filter(e => (e.months[prevMonthKey]?.missingCount || 0) > 0 && (e.months[lastMonthKey]?.missingCount || 0) === 0).length}</p>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Agences regularisees</p>
-        </div>
+        {/* Agences persistantes — cliquable */}
+        <button
+          onClick={() => setStatusFilter(statusFilter === "PERSISTENT" ? "ALL" : "PERSISTENT")}
+          className={cn(
+            "px-4 py-3 text-center border-r border-slate-100 dark:border-slate-800 transition-all hover:bg-amber-50 dark:hover:bg-amber-950/20 group",
+            statusFilter === "PERSISTENT" && "bg-amber-50 dark:bg-amber-950/20 ring-2 ring-inset ring-amber-400"
+          )}
+          title="Cliquer pour filtrer les agences persistantes"
+        >
+          <p className="text-lg font-black text-amber-600 group-hover:scale-110 transition-transform">
+            {trackerEntries.filter(e => (e.months[lastMonthKey]?.stillAbsent || 0) > 0).length}
+          </p>
+          <p className={cn("text-[9px] font-bold uppercase tracking-wider transition-colors",
+            statusFilter === "PERSISTENT" ? "text-amber-600" : "text-slate-500 group-hover:text-amber-500"
+          )}>
+            Agences persistantes {statusFilter === "PERSISTENT" ? "✓" : ""}
+          </p>
+        </button>
+        {/* Agences regularisees — cliquable */}
+        <button
+          onClick={() => setStatusFilter(statusFilter === "RESOLVED" ? "ALL" : "RESOLVED")}
+          className={cn(
+            "px-4 py-3 text-center transition-all hover:bg-emerald-50 dark:hover:bg-emerald-950/20 group",
+            statusFilter === "RESOLVED" && "bg-emerald-50 dark:bg-emerald-950/20 ring-2 ring-inset ring-emerald-400"
+          )}
+          title="Cliquer pour filtrer les agences regularisees"
+        >
+          <p className="text-lg font-black text-emerald-600 group-hover:scale-110 transition-transform">
+            {trackerEntries.filter(e => (e.months[prevMonthKey]?.missingCount || 0) > 0 && (e.months[lastMonthKey]?.missingCount || 0) === 0).length}
+          </p>
+          <p className={cn("text-[9px] font-bold uppercase tracking-wider transition-colors",
+            statusFilter === "RESOLVED" ? "text-emerald-600" : "text-slate-500 group-hover:text-emerald-500"
+          )}>
+            Agences regularisees {statusFilter === "RESOLVED" ? "✓" : ""}
+          </p>
+        </button>
       </div>
 
       {/* Month timeline */}
