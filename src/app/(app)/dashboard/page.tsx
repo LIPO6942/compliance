@@ -364,6 +364,152 @@ export default function DashboardPage() {
     );
   };
 
+  const getMatrixFactorConfig = (factorName?: string) => {
+    const norm = (factorName || "").toLowerCase().trim();
+    if (norm.includes("pays") || norm.includes("country") || norm.includes("géo") || norm.includes("geo")) {
+      return {
+        label: "PAYS",
+        icon: "🌍",
+        badgeClass: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-700 shadow-2xs",
+        borderClass: "border-l-blue-500",
+        avatarClass: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+        cardBg: "bg-blue-50/30 dark:bg-blue-950/10",
+      };
+    }
+    if (norm.includes("profession") || norm.includes("pp")) {
+      return {
+        label: "PROFESSION",
+        icon: "👤",
+        badgeClass: "bg-cyan-100 text-cyan-800 border-cyan-300 dark:bg-cyan-950/70 dark:text-cyan-300 dark:border-cyan-700 shadow-2xs",
+        borderClass: "border-l-cyan-500",
+        avatarClass: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300",
+        cardBg: "bg-cyan-50/30 dark:bg-cyan-950/10",
+      };
+    }
+    if (norm.includes("activité") || norm.includes("activite") || norm.includes("morale") || norm.includes("pm")) {
+      return {
+        label: "ACTIVITÉ PM",
+        icon: "🏢",
+        badgeClass: "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-700 shadow-2xs",
+        borderClass: "border-l-rose-500",
+        avatarClass: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+        cardBg: "bg-rose-50/30 dark:bg-rose-950/10",
+      };
+    }
+    if (norm.includes("gouv") || norm.includes("gov")) {
+      return {
+        label: "GOUVERNORAT",
+        icon: "🗺️",
+        badgeClass: "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-950/70 dark:text-violet-300 dark:border-violet-700 shadow-2xs",
+        borderClass: "border-l-violet-500",
+        avatarClass: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+        cardBg: "bg-violet-50/30 dark:bg-violet-950/10",
+      };
+    }
+    if (norm.includes("produit")) {
+      return {
+        label: "PRODUIT",
+        icon: "📦",
+        badgeClass: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-700 shadow-2xs",
+        borderClass: "border-l-amber-500",
+        avatarClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+        cardBg: "bg-amber-50/30 dark:bg-amber-950/10",
+      };
+    }
+    if (norm.includes("voie") || norm.includes("canal") || norm.includes("dist") || norm.includes("vente")) {
+      return {
+        label: "DISTRIBUTION",
+        icon: "🔗",
+        badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-700 shadow-2xs",
+        borderClass: "border-l-emerald-500",
+        avatarClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+        cardBg: "bg-emerald-50/30 dark:bg-emerald-950/10",
+      };
+    }
+    return {
+      label: (factorName || "MATRICE").toUpperCase(),
+      icon: "⚙️",
+      badgeClass: "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 shadow-2xs",
+      borderClass: "border-l-slate-400",
+      avatarClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+      cardBg: "bg-slate-50/40 dark:bg-slate-900/10",
+    };
+  };
+
+  const renderHighlightedNote = (note: string) => {
+    if (!note) return null;
+    const m = note.match(/Modification sur\s*[«"]([^»"]+)[»"]\s*:\s*(.+)/i);
+    if (!m) {
+      return (
+        <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-relaxed break-words">
+          &ldquo;{note}&rdquo;
+        </p>
+      );
+    }
+
+    const itemName = m[1].trim();
+    const rawParams = m[2].trim();
+    const params = rawParams
+      .split(",")
+      .map(p => p.trim())
+      .filter(Boolean);
+
+    const criteriaLabels: Record<string, string> = {
+      gafi: "GAFI",
+      otherdominant: "Autre facteur dominant",
+      other: "Autre critère",
+      corruption: "Corruption",
+      oecd: "OCDE",
+      terrorism: "Terrorisme",
+      border: "Zone frontalière",
+      port: "Port int.",
+      airport: "Aéroport",
+      market: "Contrebande",
+      cash: "Argent liquide",
+      objects: "Objets valeur",
+      volume: "Volume élevé",
+      noinfo: "Manque info",
+      complexeval: "Éval. difficile",
+      intermediary: "Intermédiation",
+      liquid: "Liquidité",
+      forex: "Devises",
+      highvalue: "Capital élevé",
+      fraud: "Fraude",
+      cap: "Capitalisation",
+      complex: "Contrôle complexe",
+      noncompliance: "Non-soumission",
+      noculture: "Pas de culture",
+      nocontact: "Sans contact",
+      nooriginals: "Sans originaux",
+    };
+
+    return (
+      <div className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-relaxed break-words space-y-1">
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          <span className="text-slate-500 dark:text-slate-400">Sur</span>
+          <span className="font-extrabold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 shadow-2xs">
+            « {itemName} »
+          </span>
+          <span className="text-slate-400 font-bold">:</span>
+          <div className="inline-flex flex-wrap gap-1">
+            {params.map((param, idx) => {
+              const cleanParam = param.toLowerCase().replace(/\s*\([^)]*\)/, "");
+              const displayLabel = criteriaLabels[cleanParam] || param;
+              return (
+                <span
+                  key={idx}
+                  className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-900 dark:text-amber-200 border border-amber-300/60 dark:border-amber-700/60 shadow-2xs"
+                >
+                  {displayLabel}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Real-time Firestore listener for collaborative risk factor logs
   React.useEffect(() => {
     const handleLogsCleared = () => {
@@ -1779,9 +1925,18 @@ export default function DashboardPage() {
                     {consolidatedRiskLogs.slice(0, 6).map((log: any) => {
                       const userInitial = String(log.user || "U").trim().charAt(0).toUpperCase();
                       const trans = (log.oldRisk && log.newRisk) ? { oldRisk: log.oldRisk, newRisk: log.newRisk } : riskTransitionsMap[log.id || log.date];
+                      const mainFactor = (log.factors && log.factors[0]) || (log.countryName ? "PAYS" : "MATRICE");
+                      const factorCfg = getMatrixFactorConfig(mainFactor);
                       return (
-                        <div key={log.id || log.date} className="bg-slate-50/80 dark:bg-slate-800/40 rounded-xl p-3 border border-slate-100 dark:border-slate-800/80 flex gap-3 hover:bg-slate-100/50 dark:hover:bg-slate-800/60 transition-colors">
-                          <div className="h-8 w-8 rounded-full bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-black shrink-0 shadow-inner">
+                        <div
+                          key={log.id || log.date}
+                          className={cn(
+                            "rounded-xl p-3 border border-slate-100 dark:border-slate-800/80 border-l-[3.5px] flex gap-3 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 transition-all shadow-2xs",
+                            factorCfg.borderClass,
+                            factorCfg.cardBg
+                          )}
+                        >
+                          <div className={cn("h-8 w-8 rounded-full flex items-center justify-center text-xs font-black shrink-0 shadow-inner", factorCfg.avatarClass)}>
                             {userInitial}
                           </div>
                           <div className="space-y-1.5 flex-1 min-w-0">
@@ -1792,21 +1947,18 @@ export default function DashboardPage() {
                               </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-1.5">
-                              {log.factors && log.factors.map((f: string) => (
-                                <span key={f} className="text-[8px] font-black uppercase px-2 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 rounded-lg border border-amber-200/50 dark:border-amber-800/50">
-                                  {f}
-                                </span>
-                              ))}
+                              <span className={cn("text-[8.5px] font-black uppercase px-2 py-0.5 rounded-md border flex items-center gap-1 tracking-wider shadow-2xs", factorCfg.badgeClass)}>
+                                <span>{factorCfg.icon}</span>
+                                <span>{factorCfg.label}</span>
+                              </span>
                               {renderRiskTransition(trans)}
                               {log.groupedCount > 1 && (
-                                <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-slate-200/70 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 rounded border border-slate-300/60 dark:border-slate-600/60">
+                                <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 rounded border border-slate-300 dark:border-slate-600 shadow-2xs">
                                   Finalité ({log.groupedCount})
                                 </span>
                               )}
                             </div>
-                            {log.note && (
-                              <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-relaxed break-words">&ldquo;{log.note}&rdquo;</p>
-                            )}
+                            {renderHighlightedNote(log.note)}
                           </div>
                         </div>
                       );
@@ -2416,9 +2568,18 @@ export default function DashboardPage() {
                 {(riskLogsModalView === 'consolidated' ? consolidatedRiskLogs : riskFactorLogs).map((log: any) => {
                   const userInitial = String(log.user || "U").trim().charAt(0).toUpperCase();
                   const trans = (log.oldRisk && log.newRisk) ? { oldRisk: log.oldRisk, newRisk: log.newRisk } : riskTransitionsMap[log.id || log.date];
+                  const mainFactor = (log.factors && log.factors[0]) || (log.countryName ? "PAYS" : "MATRICE");
+                  const factorCfg = getMatrixFactorConfig(mainFactor);
                   return (
-                    <div key={`modal-log-${log.id || log.date}`} className="bg-slate-50/80 dark:bg-slate-800/40 rounded-xl p-3 border border-slate-100 dark:border-slate-800/80 flex gap-3 hover:bg-slate-100/50 dark:hover:bg-slate-800/60 transition-colors">
-                      <div className="h-8 w-8 rounded-full bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-black shrink-0">
+                    <div
+                      key={`modal-log-${log.id || log.date}`}
+                      className={cn(
+                        "rounded-xl p-3 border border-slate-100 dark:border-slate-800/80 border-l-[3.5px] flex gap-3 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 transition-all shadow-2xs",
+                        factorCfg.borderClass,
+                        factorCfg.cardBg
+                      )}
+                    >
+                      <div className={cn("h-8 w-8 rounded-full flex items-center justify-center text-xs font-black shrink-0", factorCfg.avatarClass)}>
                         {userInitial}
                       </div>
                       <div className="space-y-1.5 flex-1 min-w-0">
@@ -2429,21 +2590,18 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5">
-                          {log.factors && log.factors.map((f: string) => (
-                            <span key={f} className="text-[8px] font-black uppercase px-2 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 rounded-lg border border-amber-200/50 dark:border-amber-800/50">
-                              {f}
-                            </span>
-                          ))}
+                          <span className={cn("text-[8.5px] font-black uppercase px-2 py-0.5 rounded-md border flex items-center gap-1 tracking-wider shadow-2xs", factorCfg.badgeClass)}>
+                            <span>{factorCfg.icon}</span>
+                            <span>{factorCfg.label}</span>
+                          </span>
                           {renderRiskTransition(trans)}
                           {log.groupedCount > 1 && (
-                            <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-slate-200/70 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 rounded border border-slate-300/60 dark:border-slate-600/60">
+                            <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 rounded border border-slate-300 dark:border-slate-600 shadow-2xs">
                               Finalité ({log.groupedCount})
                             </span>
                           )}
                         </div>
-                        {log.note && (
-                          <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed break-words">&ldquo;{log.note}&rdquo;</p>
-                        )}
+                        {renderHighlightedNote(log.note)}
                       </div>
                     </div>
                   );
