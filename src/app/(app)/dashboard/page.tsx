@@ -4,7 +4,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle, X, Zap, ChevronDown, Award, ClipboardEdit, PenLine } from "lucide-react";
+import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map as LucideMapIcon, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle, X, Zap, ChevronDown, Award, ClipboardEdit, PenLine } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { db, isFirebaseConfigured } from "@/lib/firebase";
 import { getAgencyGeography } from "@/data/agencyGeography";
@@ -245,7 +245,7 @@ export default function DashboardPage() {
       }
     });
 
-    const buckets = new Map<string, any>();
+    const buckets: Record<string, any> = {};
 
     chronological.forEach((log) => {
       const key = log.id || log.date;
@@ -257,8 +257,8 @@ export default function DashboardPage() {
 
       if (step?.countryName) {
         const groupKey = `country:${step.countryName.toLowerCase()}:${dayKey}`;
-        if (!buckets.has(groupKey)) {
-          buckets.set(groupKey, {
+        if (!buckets[groupKey]) {
+          buckets[groupKey] = {
             isCountryGroup: true,
             countryName: step.countryName,
             dayKey,
@@ -267,9 +267,9 @@ export default function DashboardPage() {
             fields: [...step.fields],
             latestLog: log,
             count: 1,
-          });
+          };
         } else {
-          const bucket = buckets.get(groupKey);
+          const bucket = buckets[groupKey];
           bucket.count += 1;
           bucket.endRisk = step.newRisk;
           step.fields.forEach((f) => {
@@ -281,18 +281,18 @@ export default function DashboardPage() {
         }
       } else {
         const groupKey = `item:${key}`;
-        buckets.set(groupKey, {
+        buckets[groupKey] = {
           isCountryGroup: false,
           latestLog: log,
           startRisk: step?.oldRisk,
           endRisk: step?.newRisk,
           count: 1,
-        });
+        };
       }
     });
 
     const consolidated: any[] = [];
-    buckets.forEach((bucket) => {
+    Object.values(buckets).forEach((bucket) => {
       if (bucket.isCountryGroup) {
         const latest = bucket.latestLog;
         const fieldsStr = bucket.fields.join(", ");
@@ -2361,7 +2361,7 @@ export default function DashboardPage() {
         {/* Action shortcuts */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <ModernActionCard icon={ShieldCheck} title="Alertes GRC" href="/alerts" color="bg-rose-500" />
-          <ModernActionCard icon={Map} title="Risques" href="/risk-mapping" color="bg-amber-500" />
+          <ModernActionCard icon={LucideMapIcon} title="Risques" href="/risk-mapping" color="bg-amber-500" />
           <ModernActionCard icon={FileText} title="Documents" href="/documents" color="bg-indigo-500" />
           <ModernActionCard icon={Users} title="Équipe" href="/team" color="bg-emerald-500" />
         </div>
