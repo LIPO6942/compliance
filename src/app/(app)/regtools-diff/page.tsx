@@ -475,13 +475,31 @@ const normalizeForMatching = (str: string): string => {
   return res;
 };
 
-// Excel Date formatting helper
+// CAT_I mapping table
+const CAT_I_MAP: Record<string, string> = {
+  "1": "CARTE D'IDENTITE",
+  "2": "PASSPORT",
+  "3": "CARTE CONSULAIRE",
+  "4": "CARTE DE SEJOUR",
+  "5": "CARTE PROFESSIONNELLE",
+  "6": "MATRICULE FISCAL",
+};
+
+// Excel Date + CAT_I formatting helper
 const formatExcelValue = (colName: string, val: any): string => {
   if (val === undefined || val === null || val === "") return "";
   const strVal = String(val).trim();
-  const colLower = colName.toLowerCase();
-  
-  if (colLower.includes("date") || colLower.includes("sous")) {
+  const colLower = colName.toLowerCase().replace(/[_\s]/g, "");
+
+  // --- CAT_I mapping ---
+  if (colLower === "cati" || colLower === "cat_i" || colLower === "cati") {
+    const label = CAT_I_MAP[strVal];
+    return label ? `${strVal} - ${label}` : strVal;
+  }
+
+  // --- Date columns ---
+  if (colLower.includes("date") || colLower.includes("sous") || colLower.includes("naiss") || colLower.includes("avt")) {
+    // Case 1 : Excel serial number (float like 46083.000243...)
     const num = Number(strVal);
     if (!isNaN(num) && num > 10000 && num < 100000) {
       const days = num - (num > 59 ? 25569 : 25568);
@@ -491,7 +509,16 @@ const formatExcelValue = (colName: string, val: any): string => {
       const year = date.getUTCFullYear();
       return `${day}/${month}/${year}`;
     }
+    // Case 2 : Space-separated "D M YYYY" or "DD MM YYYY" (e.g. "2 10 2026")
+    const spaceMatch = strVal.match(/^(\d{1,2})\s+(\d{1,2})\s+(\d{4})$/);
+    if (spaceMatch) {
+      const d = spaceMatch[1].padStart(2, '0');
+      const m = spaceMatch[2].padStart(2, '0');
+      const y = spaceMatch[3];
+      return `${d}/${m}/${y}`;
+    }
   }
+
   return strVal;
 };
 
