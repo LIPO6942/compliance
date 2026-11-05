@@ -51,6 +51,74 @@ const formatFieldValue = (key: string, val: string): string => {
   return val;
 };
 
+// --- Point 3 : Detection OBNL et score de risque LCB-FT ---
+
+// Mots-cles pour detecter une OBNL dans le nom du client (contexte tunisien)
+const OBNL_KEYWORDS = [
+  "association", " ass ", "ass.", "ass-",
+  "organisation", "organization",
+  "fondation", "foundation",
+  "comite", "comité",
+  "amicale",
+  "club",
+  "ligue",
+  "federation", "fédération",
+  "groupement",
+  "cooperative", "coopérative",
+  "section sportive",
+  "bureau",
+  "ong ",
+  "jemaia", "jamia",
+  "rabita",
+];
+
+// Detecte si le nom indique une OBNL
+const detectIsOBNL = (name: string): boolean => {
+  if (!name) return false;
+  const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return OBNL_KEYWORDS.some(kw => n.includes(kw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+};
+
+// Detecte le type d'entite selon le masque de l'identifiant
+// - 8 chiffres purs -> Personne Physique (CIN)
+// - 7 chiffres + 1 lettre -> Personne Morale (Matricule Fiscal)
+// - autre -> Passeport ou inconnu
+const detectEntityType = (identifiant: string, catI?: string): "PP" | "PM" | "PASSEPORT" | "INCONNU" => {
+  if (!identifiant) return "INCONNU";
+  const id = identifiant.trim().toUpperCase();
+  if (/^\d{8}$/.test(id)) return "PP";           // 8 chiffres -> CIN -> Personne Physique
+  if (/^\d{7}[A-Z]$/.test(id)) return "PM";      // 7 chiffres + lettre -> Personne Morale
+  if (catI === "6") return "PM";                  // CAT_I=6 (Matricule Fiscal) -> Personne Morale
+  return "PASSEPORT";                             // Autre (passeport, etc.)
+};
+
+// Calcule le score de risque LCB-FT d'un client absent
+// Retourne: "CRITIQUE" | "ELEVE" | "MOYEN" | "FAIBLE"
+const computeRiskLevel = (
+  identifiant: string,
+  name: string,
+  consecutiveMonths: number,
+  catI?: string
+): { level: "CRITIQUE" | "ELEVE" | "MOYEN" | "FAIBLE"; label: string; color: string; bg: string } => {
+  const entityType = detectEntityType(identifiant, catI);
+  const isOBNL = detectIsOBNL(name);
+
+  // CRITIQUE : OBNL absent depuis 3+ mois
+  if (isOBNL && consecutiveMonths >= 3) {
+    return { level: "CRITIQUE", label: "CRITIQUE", color: "text-red-700 dark:text-red-300", bg: "bg-red-100 dark:bg-red-900/40 border-red-300 dark:border-red-700" };
+  }
+  // ELEVE : OBNL absent (quel que soit le nb de mois) OU Personne Morale absente 3+ mois
+  if (isOBNL || (entityType === "PM" && consecutiveMonths >= 3)) {
+    return { level: "ELEVE", label: "ELEVE", color: "text-orange-700 dark:text-orange-300", bg: "bg-orange-100 dark:bg-orange-900/40 border-orange-300 dark:border-orange-700" };
+  }
+  // MOYEN : Personne Morale absente
+  if (entityType === "PM") {
+    return { level: "MOYEN", label: "MOYEN", color: "text-amber-700 dark:text-amber-300", bg: "bg-amber-100 dark:bg-amber-900/40 border-amber-300 dark:border-amber-700" };
+  }
+  // FAIBLE : Personne Physique
+  return { level: "FAIBLE", label: "FAIBLE", color: "text-slate-500 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700" };
+};
+
 // --- Types ---
 interface AbsentClient {
   identifiant: string;
@@ -684,6 +752,17 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                             });
                             const cinVal = cinKey ? client.allFields[cinKey] : client.identifiant;
 
+                            // Point 3 : Score de risque LCB-FT
+                            // - Detecte OBNL via mots-cles dans le nom (association, club, etc.)
+                            // - Detecte type entite via masque identifiant (8 chiffres=PP, 7+lettre=PM)
+                            // - Calcule niveau: CRITIQUE / ELEVE / MOYEN / FAIBLE
+                            const catIVal = (() => {
+                              const k = Object.keys(client.allFields).find(ck => ck.toLowerCase().replace(/[_\s]/g,"") === "cati");
+                              return k ? client.allFields[k] : undefined;
+                            })();
+                            const riskInfo = computeRiskLevel(client.identifiant, displayName, consecutiveAbsentMonths, catIVal);
+                            const isOBNLClient = detectIsOBNL(displayName);
+
                             return (
                               <div key={rowKey}
                                 className={cn(
@@ -727,6 +806,18 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                                       P
                                     </span>
                                   )}
+                                  {/* Badge risque LCB-FT (Point 3) */}
+                                  {riskInfo.level !== "FAIBLE" && (
+                                    <span
+                                      title={`Risque LCB-FT ${riskInfo.level}${isOBNLClient ? " - Entite OBNL detectee" : ""}`}
+                                      className={cn(
+                                        "shrink-0 px-1.5 py-0.5 rounded-md text-[7px] font-black border",
+                                        riskInfo.bg, riskInfo.color
+                                      )}
+                                    >
+                                      {isOBNLClient ? "OBNL" : "PM"} {riskInfo.label}
+                                    </span>
+                                  )}
                                   {isClientExp ? <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" /> : <ChevronRight className="h-3 w-3 text-slate-300 shrink-0" />}
                                 </button>
                                 {isClientExp && (
@@ -737,6 +828,17 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                                         <span className="text-[9px]">⚠</span>
                                         Client absent depuis <strong>{consecutiveAbsentMonths} mois consecutifs</strong> - Priorite d'investigation maximale
                                       </p>
+                                    )}
+                                    {/* Score de risque LCB-FT (Point 3) */}
+                                    {riskInfo.level !== "FAIBLE" && (
+                                      <div className={cn("flex items-center gap-2 px-2 py-1 rounded-lg border text-[8px] font-bold", riskInfo.bg, riskInfo.color)}>
+                                        <span className="font-black">Risque LCB-FT : {riskInfo.label}</span>
+                                        <span className="font-normal opacity-80">
+                                          {isOBNLClient
+                                            ? `Entite OBNL detectee (mot-cle dans le nom) · ${consecutiveAbsentMonths} mois absent`
+                                            : `Personne Morale · ${consecutiveAbsentMonths} mois absent`}
+                                        </span>
+                                      </div>
                                     )}
                                     {isPersistentClient && (
                                       <p className="text-[8px] font-black text-amber-600 dark:text-amber-400 flex items-center gap-1">
