@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// â”€â”€â”€ Helpers de formatage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Helpers de formatage ---
 const CAT_I_LABELS: Record<string, string> = {
   "1": "CARTE D'IDENTITE",
   "2": "PASSPORT",
@@ -22,28 +22,36 @@ const formatFieldValue = (key: string, val: string): string => {
   if (!val) return val;
   const kLower = key.toLowerCase().replace(/[_\s]/g, "");
 
-  // CAT_I
+  // CAT_I mapping
   if (kLower === "cati" || kLower === "cat") {
     const label = CAT_I_LABELS[val.trim()];
     return label ? `${val.trim()} - ${label}` : val;
   }
 
-  // Date fields (serial number or "D M YYYY")
-  if (kLower.includes("date") || kLower.includes("sous") || kLower.includes("naiss") || kLower.includes("avt")) {
+  // Date fields: serial number OR "D M YYYY" string
+  if (
+    kLower.includes("date") ||
+    kLower.includes("sous") ||
+    kLower.includes("naiss") ||
+    kLower.includes("avt") ||
+    kLower.includes("avn")
+  ) {
     const num = Number(val);
+    // Excel serial date (e.g. 46083.000243...)
     if (!isNaN(num) && num > 10000 && num < 100000) {
       const days = num - (num > 59 ? 25569 : 25568);
       const d = new Date(days * 24 * 3600 * 1000);
-      return `${String(d.getUTCDate()).padStart(2,"0")}/${String(d.getUTCMonth()+1).padStart(2,"0")}/${d.getUTCFullYear()}`;
+      return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
     }
+    // Space-separated "D M YYYY"
     const m = val.trim().match(/^(\d{1,2})\s+(\d{1,2})\s+(\d{4})$/);
-    if (m) return `${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[3]}`;
+    if (m) return `${m[1].padStart(2, "0")}/${m[2].padStart(2, "0")}/${m[3]}`;
   }
 
   return val;
 };
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Types ---
 interface AbsentClient {
   identifiant: string;
   name: string;
@@ -77,9 +85,9 @@ interface TrackerEntry {
     monthLabel: string;
     missingCount: number;
     identifiants: string[];
-    resolvedFromPrev: number;  // clients absent month M-1 now present in M
-    stillAbsent: number;       // clients absent in M-1 still absent in M
-    newAbsent: number;         // new absences in M not in M-1
+    resolvedFromPrev: number;
+    stillAbsent: number;
+    newAbsent: number;
   }>;
 }
 
@@ -90,7 +98,7 @@ interface MissingFichesTrackerProps {
   isExternalLoading?: boolean;
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Helpers ---
 // Returns sorted unique BASE month keys (e.g. "052026"), merging NS+VIE duplicates
 const sortedMonthKeys = (reports: any[]): string[] => {
   const bases = new Set<string>();
@@ -108,7 +116,6 @@ const mergeReportsForBaseKey = (reports: any[], baseKey: string): any => {
   );
   if (matching.length === 0) return null;
   if (matching.length === 1) return matching[0];
-  // Merge: combine missingRows and similarRows from all matching
   const merged = { ...matching[0] };
   const allMissing: any[] = [];
   const allSimilar: any[] = [];
@@ -132,15 +139,12 @@ const buildAgencyEcartForMonth = (
   const processRows = (rows: any[], idCol: string, agenceCol: string, nameCol: string) => {
     if (!rows || !Array.isArray(rows)) return;
     for (const row of rows) {
-      // missingRows contains ONLY absent clients (matchType="Aucun" from the comparison engine)
-      // No need to filter by matchType â€” if it's in missingRows, it IS absent
-
       const agRaw = row[agenceCol] || row["N_GESTIONNAIRE"] || "";
       const agInfo = resolveAgencyInfo(agRaw);
       const key = agInfo.code || String(agRaw).trim() || "UNKNOWN";
 
       const identifiant = String(row[idCol] || row["Identifiant"] || "").trim();
-      const rawName = row[nameCol] || row["NOM_CLIENT"] || row["nom_client"] || row["Nom et pr\u00e9nom du souscripteur"] || "";
+      const rawName = row[nameCol] || row["NOM_CLIENT"] || row["nom_client"] || row["Nom et prénom du souscripteur"] || "";
 
       const allFields: Record<string, string> = {};
       Object.entries(row).forEach(([k, v]) => {
@@ -173,10 +177,10 @@ const buildAgencyEcartForMonth = (
   const rType = report.reconciliationType || "NS";
   const nsIdCol = report.mapping?.nsId || "Identifiant";
   const nsAgCol = report.mapping?.nsAgence || "N_GESTIONNAIRE";
-  const nsNameCol = (report.columnsNS || []).find((c: string) => /nom/i.test(c) && !/num|n_|n\u00b0/i.test(c)) || "NOM_CLIENT";
-  const vieIdCol = report.mapping?.vieId || "Num\u00e9ro de carte d identit\u00e9 ou matricule fiscal";
+  const nsNameCol = (report.columnsNS || []).find((c: string) => /nom/i.test(c) && !/num|n_|n°/i.test(c)) || "NOM_CLIENT";
+  const vieIdCol = report.mapping?.vieId || "Numéro de carte d identité ou matricule fiscal";
   const vieAgCol = report.mapping?.vieAgence || "Canal de souscription";
-  const vieNameCol = (report.columnsVIE || []).find((c: string) => /nom/i.test(c) && !/num|n_|n\u00b0/i.test(c)) || "Nom et pr\u00e9nom du souscripteur";
+  const vieNameCol = (report.columnsVIE || []).find((c: string) => /nom/i.test(c) && !/num|n_|n°/i.test(c)) || "Nom et prénom du souscripteur";
 
   if (rType === "BOTH") {
     processRows((report.missingRows || []).filter((r: any) => r.__sourcePortfolio !== "VIE"), nsIdCol, nsAgCol, nsNameCol);
@@ -190,7 +194,7 @@ const buildAgencyEcartForMonth = (
   return Object.values(agencyMap).sort((a, b) => b.missingCount - a.missingCount);
 };
 
-// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Main Component ---
 export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
   savedReports,
   resolveAgencyInfo,
@@ -206,7 +210,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
 
   const effectivelyLoading = isExternalLoading || isLoading;
 
-  // â”€â”€â”€ Load full report data / unminify Firestore data on mount â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Load full report data / unminify Firestore data on mount
   useEffect(() => {
     setIsLoading(true);
 
@@ -260,11 +264,10 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
     return bases.size;
   }, [savedReports]);
 
-  // â”€â”€â”€ Build month-by-month per-agency ecart data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Build month-by-month per-agency ecart data
   const { months, trackerEntries, orderedMonthKeys } = useMemo(() => {
     const orderedKeys = sortedMonthKeys(enrichedReports);
 
-    // Map monthKey -> { agenceCode -> Set<identifiant> }
     const monthAgencyIds: Record<string, Record<string, Set<string>>> = {};
     const monthEcartByReport: Record<string, AgencyEcart[]> = {};
 
@@ -280,7 +283,6 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
       }
     }
 
-    // Collect all unique agencies
     const allAgencies: Record<string, { name: string; type: string }> = {};
     Object.values(monthEcartByReport).forEach(ecarts => {
       ecarts.forEach(ag => {
@@ -288,7 +290,6 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
       });
     });
 
-    // Build tracker entries
     const entries: TrackerEntry[] = Object.entries(allAgencies).map(([code, info]) => {
       const monthsData: TrackerEntry["months"] = {};
 
@@ -305,12 +306,8 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
         if (idx > 0) {
           const prevMk = orderedKeys[idx - 1];
           const prevIds = monthAgencyIds[prevMk]?.[code] || new Set<string>();
-
-          // Resolved = in prevIds but not in currentIds
           resolvedFromPrev = [...prevIds].filter(id => id && !currentIds.has(id)).length;
-          // Still absent = in both
           stillAbsent = [...prevIds].filter(id => id && currentIds.has(id)).length;
-          // New = in current but not in prev
           newAbsent = [...currentIds].filter(id => id && !prevIds.has(id)).length;
         } else {
           newAbsent = currentIds.size;
@@ -335,13 +332,11 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
       };
     });
 
-    // Sort by total missing (last month) desc
     const lastMk = orderedKeys[orderedKeys.length - 1] || "";
     entries.sort((a, b) =>
       (b.months[lastMk]?.missingCount || 0) - (a.months[lastMk]?.missingCount || 0)
     );
 
-    // Build months summary for the header
     const monthsSummary: MonthEcartReport[] = orderedKeys.map(mk => {
       const report = mergeReportsForBaseKey(enrichedReports, mk);
       const ecarts = monthEcartByReport[mk] || [];
@@ -367,18 +362,15 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
         const prevData = e.months[prevMonthKey];
         if (!lastData && !prevData) return false;
         if (statusFilter === "RESOLVED") {
-          // Was absent in prev, now 0 missing
           return (prevData?.missingCount || 0) > 0 && (lastData?.missingCount || 0) === 0;
         }
         if (statusFilter === "PERSISTENT") {
-          // Still has missing in latest AND had missing in prev
           return (lastData?.stillAbsent || 0) > 0;
         }
         if (statusFilter === "NEW") {
           return (lastData?.newAbsent || 0) > 0;
         }
       }
-      // Only show agencies that have at least 1 missing in any month
       return Object.values(e.months).some(m => m.missingCount > 0);
     });
   }, [trackerEntries, typeFilter, statusFilter, lastMonthKey, prevMonthKey]);
@@ -397,9 +389,9 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
             <ClipboardList className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h2 className="text-sm font-black text-slate-900 dark:text-white">Suivi des Fiches Absentes (Ã‰cart)</h2>
+            <h2 className="text-sm font-black text-slate-900 dark:text-white">Suivi des Fiches Absentes (Ecart)</h2>
             <p className="text-[10px] text-slate-500 mt-0.5 font-medium">
-              VÃ©rification mois aprÃ¨s mois â€” rÃ©solutions et persistances
+              Verification mois apres mois - resolutions et persistances
             </p>
           </div>
         </div>
@@ -423,7 +415,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
             </p>
             {globalTrend < 0 ? <TrendingDown className="h-4 w-4 text-emerald-500" /> : globalTrend > 0 ? <TrendingUp className="h-4 w-4 text-rose-500" /> : <Minus className="h-4 w-4 text-slate-400" />}
           </div>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">vs. mois prÃ©cÃ©dent</p>
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">vs. mois precedent</p>
         </div>
         <div className="px-4 py-3 text-center border-r border-slate-100 dark:border-slate-800">
           <p className="text-lg font-black text-amber-600">{filteredEntries.filter(e => (e.months[lastMonthKey]?.stillAbsent || 0) > 0).length}</p>
@@ -431,14 +423,14 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
         </div>
         <div className="px-4 py-3 text-center">
           <p className="text-lg font-black text-emerald-600">{filteredEntries.filter(e => (e.months[prevMonthKey]?.missingCount || 0) > 0 && (e.months[lastMonthKey]?.missingCount || 0) === 0).length}</p>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Agences rÃ©gularisÃ©es</p>
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Agences regularisees</p>
         </div>
       </div>
 
       {/* Month timeline */}
       {months.length > 0 && (
         <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
-          <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 mb-2">Timeline des Ã©carts</p>
+          <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 mb-2">Timeline des ecarts</p>
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {months.map((m, i) => (
               <React.Fragment key={m.monthKey}>
@@ -474,7 +466,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
           ["ALL", "Tous", "slate"],
           ["PERSISTENT", "Persistantes", "amber"],
           ["NEW", "Nouvelles", "rose"],
-          ["RESOLVED", "RÃ©gularisÃ©es", "emerald"],
+          ["RESOLVED", "Regularisees", "emerald"],
         ] as const).map(([val, label, color]) => (
           <button key={val} onClick={() => setStatusFilter(val as any)}
             className={cn("px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all",
@@ -497,11 +489,11 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
         ) : effectivelyLoading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
             <Loader2 className="h-8 w-8 animate-spin text-rose-400" />
-            <p className="text-xs font-semibold">Chargement des donnÃ©es depuis Firestore...</p>
+            <p className="text-xs font-semibold">Chargement des donnees depuis Firestore...</p>
           </div>
         ) : filteredEntries.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-xs font-semibold">
-            Aucune agence avec Ã©cart trouvÃ©e pour ce filtre.
+            Aucune agence avec ecart trouvee pour ce filtre.
           </div>
         ) : filteredEntries.map(entry => {
           const isExpanded = expandedAgency === entry.agenceCode;
@@ -534,7 +526,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-lg">{entry.agenceType}</span>
                     <span className="text-[9px] text-slate-400 font-mono">#{entry.agenceCode}</span>
-                    {isResolved && <span className="flex items-center gap-1 text-[9px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800"><CheckCircle2 className="h-2.5 w-2.5" />RÃ©gularisÃ©e</span>}
+                    {isResolved && <span className="flex items-center gap-1 text-[9px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800"><CheckCircle2 className="h-2.5 w-2.5" />Regularisee</span>}
                     {isPersistent && <span className="flex items-center gap-1 text-[9px] font-black text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800"><AlertTriangle className="h-2.5 w-2.5" />Persistante ({lastData?.stillAbsent})</span>}
                     {hasNew && !isPersistent && <span className="flex items-center gap-1 text-[9px] font-black text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded-lg border border-rose-200 dark:border-rose-800"><XCircle className="h-2.5 w-2.5" />Nouveau ({lastData?.newAbsent})</span>}
                   </div>
@@ -552,7 +544,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                             : cnt > 50 ? "bg-rose-100 dark:bg-rose-950/40 text-rose-700 border-rose-200 dark:border-rose-900"
                             : "bg-amber-50 dark:bg-amber-950/30 text-amber-700 border-amber-200 dark:border-amber-900"
                         )}>
-                        {cnt > 99 ? "99+" : cnt || "âœ“"}
+                        {cnt > 99 ? "99+" : cnt || "OK"}
                       </div>
                     );
                   })}
@@ -564,14 +556,14 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
               {/* Expanded detail */}
               {isExpanded && (
                 <div className="px-3 pb-3 space-y-3">
-                  {/* Month-by-month status */}
+                  {/* Month-by-month status table */}
                   <div className="overflow-x-auto">
                     <table className="w-full text-[10px]">
                       <thead>
                         <tr className="text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
                           <th className="pb-2 pr-3">Mois</th>
                           <th className="pb-2 pr-3 text-right">Absents</th>
-                          <th className="pb-2 pr-3 text-right text-emerald-600">RÃ©solus</th>
+                          <th className="pb-2 pr-3 text-right text-emerald-600">Resolus</th>
                           <th className="pb-2 pr-3 text-right text-amber-600">Persistants</th>
                           <th className="pb-2 text-right text-rose-600">Nouveaux</th>
                         </tr>
@@ -586,8 +578,8 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                               <td className={cn("py-2 pr-3 text-right font-black", md.missingCount > 0 ? "text-rose-600" : "text-emerald-600")}>
                                 {md.missingCount}
                               </td>
-                              <td className="py-2 pr-3 text-right font-bold text-emerald-600">{idx === 0 ? "â€”" : md.resolvedFromPrev || 0}</td>
-                              <td className="py-2 pr-3 text-right font-bold text-amber-600">{idx === 0 ? "â€”" : md.stillAbsent || 0}</td>
+                              <td className="py-2 pr-3 text-right font-bold text-emerald-600">{idx === 0 ? "-" : md.resolvedFromPrev || 0}</td>
+                              <td className="py-2 pr-3 text-right font-bold text-amber-600">{idx === 0 ? "-" : md.stillAbsent || 0}</td>
                               <td className="py-2 text-right font-bold text-rose-600">{idx === 0 ? md.missingCount : (md.newAbsent || 0)}</td>
                             </tr>
                           );
@@ -600,10 +592,9 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                   {lastData && lastData.identifiants.length > 0 && (
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1.5 px-1">
-                        Clients encore absents â€” {lastData.monthLabel} ({lastData.missingCount})
+                        Clients encore absents - {lastData.monthLabel} ({lastData.missingCount})
                       </p>
                       <div className="space-y-1 max-h-40 overflow-y-auto">
-                        {/* Find client objects from the report */}
                         {(() => {
                           const report = mergeReportsForBaseKey(enrichedReports, lastMonthKey);
                           if (!report) return null;
@@ -611,7 +602,6 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                           const agEcart = ecarts.find(a => a.agenceCode === entry.agenceCode);
                           if (!agEcart) return null;
 
-                          // Build set of IDs absent in the PREVIOUS month for this agency
                           const prevReport = mergeReportsForBaseKey(enrichedReports, prevMonthKey);
                           const prevEcarts = prevReport ? buildAgencyEcartForMonth(prevReport, resolveAgencyInfo) : [];
                           const prevAgEcart = prevEcarts.find(a => a.agenceCode === entry.agenceCode);
@@ -622,8 +612,15 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                           return agEcart.clients.slice(0, 30).map((client, i) => {
                             const rowKey = `${entry.agenceCode}-${client.identifiant}-${i}`;
                             const isClientExp = expandedClientRow === rowKey;
-                            // A client is PERSISTENT if their ID was also absent the previous month
                             const isPersistentClient = Boolean(client.identifiant && prevIds.has(client.identifiant));
+
+                            // Try to find CIN/identifiant from allFields
+                            const cinKey = Object.keys(client.allFields).find(k => {
+                              const kn = k.toLowerCase().replace(/[_\s]/g, "");
+                              return kn === "cin" || kn === "cif" || kn === "identifiant";
+                            });
+                            const cinVal = cinKey ? client.allFields[cinKey] : client.identifiant;
+
                             return (
                               <div key={rowKey}
                                 className={cn(
@@ -637,20 +634,24 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                                   onClick={() => setExpandedClientRow(isClientExp ? null : rowKey)}
                                 >
                                   <Hash className="h-3 w-3 text-rose-400 shrink-0" />
+                                  {/* Client name */}
                                   <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 flex-1 truncate">
-                                    {client.name || "â€”"}
+                                    {client.name || "(sans nom)"}
                                   </span>
+                                  {/* CIN / identifiant badge */}
+                                  {cinVal && (
+                                    <span className="text-[9px] font-mono text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md shrink-0">
+                                      {cinVal}
+                                    </span>
+                                  )}
                                   {/* Persistent badge */}
                                   {isPersistentClient && (
                                     <span
-                                      title="Persistant â€” absent Ã©galement le mois prÃ©cÃ©dent"
+                                      title="Persistant - absent egalement le mois precedent"
                                       className="shrink-0 h-4 w-4 flex items-center justify-center rounded-full bg-amber-500 text-white text-[8px] font-black shadow-sm shadow-amber-500/40"
                                     >
                                       P
                                     </span>
-                                  )}
-                                  {client.identifiant && (
-                                    <span className="text-[9px] font-mono text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">{client.identifiant}</span>
                                   )}
                                   {isClientExp ? <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" /> : <ChevronRight className="h-3 w-3 text-slate-300 shrink-0" />}
                                 </button>
@@ -659,14 +660,19 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                                     {isPersistentClient && (
                                       <p className="text-[8px] font-black text-amber-600 dark:text-amber-400 flex items-center gap-1">
                                         <span className="h-3.5 w-3.5 flex items-center justify-center rounded-full bg-amber-500 text-white text-[7px] font-black">P</span>
-                                        Persistant â€” absent Ã©galement en {entry.months[prevMonthKey]?.monthLabel || "mois prÃ©cÃ©dent"}
+                                        Persistant - absent egalement en {entry.months[prevMonthKey]?.monthLabel || "mois precedent"}
                                       </p>
                                     )}
                                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                                       {Object.entries(client.allFields).slice(0, 12).map(([k, v]) => (
                                         <div key={k} className="flex items-start gap-1.5">
                                           <span className="text-[8px] font-black uppercase text-slate-400 shrink-0 mt-0.5">{k.substring(0, 14)}:</span>
-                                          <span className="text-[9px] text-slate-700 dark:text-slate-300 font-medium truncate">{v}</span>
+                                          <span
+                                            className="text-[9px] text-slate-700 dark:text-slate-300 font-medium truncate"
+                                            title={formatFieldValue(k, v)}
+                                          >
+                                            {formatFieldValue(k, v)}
+                                          </span>
                                         </div>
                                       ))}
                                     </div>
@@ -693,4 +699,3 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
     </div>
   );
 };
-
