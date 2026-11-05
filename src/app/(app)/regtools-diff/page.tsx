@@ -1477,6 +1477,8 @@ export default function RegtoolsDiffPage() {
   const [comparisonDone, setComparisonDone] = useState(false);
   const [dragOverRole, setDragOverRole] = useState<"regtools" | "ns" | "vie" | null>(null);
   const [resolvedByNameMatchCount, setResolvedByNameMatchCount] = useState(0);
+  // Seuil Jaro-Winkler ajustable (0.90 → 0.99, defaut 0.96)
+  const [jwThreshold, setJwThreshold] = useState(0.96);
 
   // Results state
   const [missingRows, setMissingRows] = useState<any[]>([]);
@@ -2253,7 +2255,7 @@ export default function RegtoolsDiffPage() {
                   }
                 }
 
-                if (bestScore > 0.96 && bestMatchItem) {
+                if (bestScore > jwThreshold && bestMatchItem) {
                   row.__matchType = `Similitude Nom (${Math.round(bestScore * 100)}%)`;
                   row.__associatedRegToolsId = bestMatchItem.id;
                   row.__associatedRegToolsName = String(bestMatchItem.row[regtoolsNameCol] || "").trim();
@@ -6188,6 +6190,33 @@ export default function RegtoolsDiffPage() {
                 <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
                   {comparisonDone ? "Comparaison exécutée avec succès." : "Fichiers prêts pour rapprochement."}
                 </span>
+              </div>
+              {/* Seuil Jaro-Winkler ajustable */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">Seuil similarité nom</span>
+                  <input
+                    type="range"
+                    min={0.90}
+                    max={0.99}
+                    step={0.01}
+                    value={jwThreshold}
+                    onChange={e => setJwThreshold(parseFloat(e.target.value))}
+                    className="w-24 accent-blue-600"
+                    title={`Seuil Jaro-Winkler : ${(jwThreshold * 100).toFixed(0)}%`}
+                  />
+                  <span className={cn(
+                    "text-[11px] font-black w-10 text-center",
+                    jwThreshold <= 0.92 ? "text-amber-600" : jwThreshold >= 0.98 ? "text-rose-600" : "text-blue-600"
+                  )}>
+                    {(jwThreshold * 100).toFixed(0)}%
+                  </span>
+                  {jwThreshold !== 0.96 && (
+                    <button onClick={() => setJwThreshold(0.96)} className="text-[9px] text-slate-400 hover:text-blue-500 font-bold underline whitespace-nowrap">
+                      reset
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <button

@@ -490,6 +490,51 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
     return { totalClients, agencyCount };
   }, [trackerEntries, lastMonthKey, orderedMonthKeys]);
 
+  // ─── Taux de regularisation global (dernier mois) ───────────────────────────
+  const globalRegularizationRate = useMemo(() => {
+    const totalResolved = trackerEntries.reduce((s, e) => s + (e.months[lastMonthKey]?.resolvedFromPrev || 0), 0);
+    const totalPrev = trackerEntries.reduce((s, e) => s + (e.months[prevMonthKey]?.missingCount || 0), 0);
+    return totalPrev > 0 ? Math.round((totalResolved / totalPrev) * 100) : null;
+  }, [trackerEntries, lastMonthKey, prevMonthKey]);
+
+  // ─── Lookup identifiant → { name } pour detection OBNL parmi nouveaux absents ─
+  const clientNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const baseKey of orderedMonthKeys) {
+      const report = mergeReportsForBaseKey(enrichedReports, baseKey);
+      if (!report) continue;
+      const ecarts = buildAgencyEcartForMonth(report, resolveAgencyInfo);
+      for (const ag of ecarts) {
+        for (const client of ag.clients) {
+          if (client.identifiant && !map[client.identifiant]) {
+            map[client.identifiant] = client.name || "";
+          }
+        }
+      }
+    }
+    return map;
+  }, [enrichedReports, resolveAgencyInfo, orderedMonthKeys]);
+
+  // ─── Nouveaux absents OBNL ce mois (premier mois d'absence = alerte immediate) ─
+  const newObnlAlerts = useMemo(() => {
+    const alerts: { agenceCode: string; agenceName: string; count: number; names: string[] }[] = [];
+    for (const entry of trackerEntries) {
+      const lastIds = entry.months[lastMonthKey]?.identifiants || [];
+      const prevIds = new Set(entry.months[prevMonthKey]?.identifiants || []);
+      // Nouveaux = presents dans lastMonth mais absents en prevMonth
+      const newIds = lastIds.filter(id => !prevIds.has(id));
+      const obnlNames: string[] = [];
+      for (const id of newIds) {
+        const name = clientNameMap[id] || "";
+        if (name && detectIsOBNL(name)) obnlNames.push(name);
+      }
+      if (obnlNames.length > 0) {
+        alerts.push({ agenceCode: entry.agenceCode, agenceName: entry.agenceName, count: obnlNames.length, names: obnlNames });
+      }
+    }
+    return alerts;
+  }, [trackerEntries, lastMonthKey, prevMonthKey, clientNameMap]);
+
   const totalLastMonth = months.find(m => m.monthKey === lastMonthKey)?.totalMissing || 0;
   const totalPrevMonth = months.find(m => m.monthKey === prevMonthKey)?.totalMissing || 0;
   const globalTrend = totalLastMonth - totalPrevMonth;
@@ -547,7 +592,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
       )}
 
       {/* Global KPIs */}
-      <div className="grid grid-cols-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+      <div className="grid grid-cols-5 border-b border-slate-100 dark:border-slate-800 shrink-0">
         {/* Fiches absentes */}
         <div className="px-4 py-3 text-center border-r border-slate-100 dark:border-slate-800">
           <p className="text-lg font-black text-rose-600">{totalLastMonth.toLocaleString("fr-FR")}</p>
@@ -599,7 +644,50 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
             Agences regularisees {statusFilter === "RESOLVED" ? "✓" : ""}
           </p>
         </button>
+        {/* Taux de regularisation global */}
+        <div className="px-4 py-3 text-center">
+          <p className={cn(
+            "text-lg font-black",
+            globalRegularizationRate === null ? "text-slate-400"
+              : globalRegularizationRate >= 70 ? "text-emerald-600"
+              : globalRegularizationRate >= 40 ? "text-amber-600"
+              : "text-rose-600"
+          )}>
+            {globalRegularizationRate === null ? "—" : `${globalRegularizationRate}%`}
+          </p>
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Taux regularisation</p>
+          {globalRegularizationRate !== null && (
+            <p className="text-[8px] text-slate-400 mt-0.5">
+              {trackerEntries.reduce((s, e) => s + (e.months[lastMonthKey]?.resolvedFromPrev || 0), 0)} resolu(s) / {totalPrevMonth} prev.
+            </p>
+          )}
+        </div>
       </div>
+
+      {/* Alerte : nouveaux absents OBNL ce mois */}
+      {newObnlAlerts.length > 0 && (
+        <div className="w-full flex items-start gap-3 px-5 py-2.5 border-b bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900 shrink-0">
+          <span className="text-base leading-none mt-0.5">🏛️</span>
+          <div className="flex-1 min-w-0">
+            <span className="text-[10px] font-black text-purple-700 dark:text-purple-300">
+              {newObnlAlerts.reduce((s, a) => s + a.count, 0)} nouvelle{newObnlAlerts.reduce((s, a) => s + a.count, 0) > 1 ? "s" : ""} OBNL absente{newObnlAlerts.reduce((s, a) => s + a.count, 0) > 1 ? "s" : ""} ce mois — fiche KYC manquante à priorité immédiate
+            </span>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {newObnlAlerts.flatMap(a => a.names).slice(0, 5).map((name, i) => (
+                <span key={i} className="text-[8px] font-bold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded-md border border-purple-200 dark:border-purple-800 truncate max-w-[180px]">
+                  {name}
+                </span>
+              ))}
+              {newObnlAlerts.reduce((s, a) => s + a.count, 0) > 5 && (
+                <span className="text-[8px] text-purple-500 font-semibold self-center">+{newObnlAlerts.reduce((s, a) => s + a.count, 0) - 5} autres</span>
+              )}
+            </div>
+          </div>
+          <span className="text-[8px] font-black px-2 py-1 rounded-lg bg-purple-600 text-white shrink-0 mt-0.5">
+            LCB-FT
+          </span>
+        </div>
+      )}
 
       {/* Month timeline */}
       {months.length > 0 && (
@@ -739,7 +827,8 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                           <th className="pb-2 pr-3 text-right">Absents</th>
                           <th className="pb-2 pr-3 text-right text-emerald-600">Resolus</th>
                           <th className="pb-2 pr-3 text-right text-amber-600">Persistants</th>
-                          <th className="pb-2 text-right text-rose-600">Nouveaux</th>
+                          <th className="pb-2 pr-3 text-right text-rose-600">Nouveaux</th>
+                          <th className="pb-2 text-right text-blue-600">Taux %</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -754,7 +843,25 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                               </td>
                               <td className="py-2 pr-3 text-right font-bold text-emerald-600">{idx === 0 ? "-" : md.resolvedFromPrev || 0}</td>
                               <td className="py-2 pr-3 text-right font-bold text-amber-600">{idx === 0 ? "-" : md.stillAbsent || 0}</td>
-                              <td className="py-2 text-right font-bold text-rose-600">{idx === 0 ? md.missingCount : (md.newAbsent || 0)}</td>
+                              <td className="py-2 pr-3 text-right font-bold text-rose-600">{idx === 0 ? md.missingCount : (md.newAbsent || 0)}</td>
+                              <td className="py-2 text-right font-black text-[9px]">
+                                {(() => {
+                                  if (idx === 0) return <span className="text-slate-300">—</span>;
+                                  const prevMk = orderedMonthKeys[idx - 1];
+                                  const prevCount = entry.months[prevMk]?.missingCount || 0;
+                                  const resolved = md.resolvedFromPrev || 0;
+                                  if (prevCount === 0) return <span className="text-slate-300">—</span>;
+                                  const rate = Math.round((resolved / prevCount) * 100);
+                                  return (
+                                    <span className={cn(
+                                      "px-1.5 py-0.5 rounded-md",
+                                      rate >= 70 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                        : rate >= 40 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                                        : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                                    )}>{rate}%</span>
+                                  );
+                                })()}
+                              </td>
                             </tr>
                           );
                         })}
