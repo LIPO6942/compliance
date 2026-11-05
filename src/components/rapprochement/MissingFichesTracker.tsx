@@ -650,8 +650,8 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
             "text-lg font-black",
             globalRegularizationRate === null ? "text-slate-400"
               : globalRegularizationRate >= 70 ? "text-emerald-600"
-              : globalRegularizationRate >= 40 ? "text-amber-600"
-              : "text-rose-600"
+                : globalRegularizationRate >= 40 ? "text-amber-600"
+                  : "text-rose-600"
           )}>
             {globalRegularizationRate === null ? "—" : `${globalRegularizationRate}%`}
           </p>
@@ -701,7 +701,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                   <div className={cn("mt-1 px-2.5 py-1 rounded-lg text-[10px] font-black border",
                     m.totalMissing === 0 ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
                       : m.totalMissing > 1000 ? "bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800"
-                      : "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                        : "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
                   )}>
                     {m.totalMissing.toLocaleString("fr-FR")}
                   </div>
@@ -778,8 +778,8 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                 <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center shrink-0",
                   isResolved ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600"
                     : isPersistent ? "bg-amber-100 dark:bg-amber-900/40 text-amber-600"
-                    : hasNew ? "bg-rose-100 dark:bg-rose-900/40 text-rose-600"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-500")}>
+                      : hasNew ? "bg-rose-100 dark:bg-rose-900/40 text-rose-600"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-500")}>
                   <Building2 className="h-4 w-4" />
                 </div>
 
@@ -804,7 +804,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                         className={cn("w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black border",
                           cnt === 0 ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 border-emerald-200 dark:border-emerald-900"
                             : cnt > 50 ? "bg-rose-100 dark:bg-rose-950/40 text-rose-700 border-rose-200 dark:border-rose-900"
-                            : "bg-amber-50 dark:bg-amber-950/30 text-amber-700 border-amber-200 dark:border-amber-900"
+                              : "bg-amber-50 dark:bg-amber-950/30 text-amber-700 border-amber-200 dark:border-amber-900"
                         )}>
                         {cnt > 99 ? "99+" : cnt || "OK"}
                       </div>
@@ -857,7 +857,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                                       "px-1.5 py-0.5 rounded-md",
                                       rate >= 70 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                                         : rate >= 40 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-                                        : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                                          : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
                                     )}>{rate}%</span>
                                   );
                                 })()}
@@ -940,7 +940,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                             // - Detecte type entite via masque identifiant (8 chiffres=PP, 7+lettre=PM)
                             // - Calcule niveau: CRITIQUE / ELEVE / MOYEN / FAIBLE
                             const catIVal = (() => {
-                              const k = Object.keys(client.allFields).find(ck => ck.toLowerCase().replace(/[_\s]/g,"") === "cati");
+                              const k = Object.keys(client.allFields).find(ck => ck.toLowerCase().replace(/[_\s]/g, "") === "cati");
                               return k ? client.allFields[k] : undefined;
                             })();
                             const riskInfo = computeRiskLevel(client.identifiant, displayName, consecutiveAbsentMonths, catIVal);
@@ -953,8 +953,8 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                                   isLongAbsent
                                     ? "border-red-400 dark:border-red-700 bg-red-50/60 dark:bg-red-950/20"
                                     : isPersistentClient
-                                    ? "border-amber-200 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-950/10"
-                                    : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900"
+                                      ? "border-amber-200 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-950/10"
+                                      : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900"
                                 )}>
                                 <button
                                   className="w-full flex items-center gap-2 px-3 py-2 text-left"
