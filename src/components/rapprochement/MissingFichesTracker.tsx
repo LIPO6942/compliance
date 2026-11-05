@@ -614,10 +614,22 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                             const isClientExp = expandedClientRow === rowKey;
                             const isPersistentClient = Boolean(client.identifiant && prevIds.has(client.identifiant));
 
-                            // Try to find CIN/identifiant from allFields
+                            // Resolve display name from allFields (NOM_CLIENT fallback)
+                            const nomKey = Object.keys(client.allFields).find(k => {
+                              const kn = k.toLowerCase().replace(/[_\s]/g, "");
+                              return kn === "nomclient" || kn === "nom" || kn === "nomprenom";
+                            });
+                            const displayName =
+                              client.name ||
+                              (nomKey ? client.allFields[nomKey] : "") ||
+                              client.allFields["NOM_CLIENT"] ||
+                              client.allFields["nom_client"] ||
+                              "";
+
+                            // Try to find CIN from allFields
                             const cinKey = Object.keys(client.allFields).find(k => {
                               const kn = k.toLowerCase().replace(/[_\s]/g, "");
-                              return kn === "cin" || kn === "cif" || kn === "identifiant";
+                              return kn === "cin" || kn === "cif";
                             });
                             const cinVal = cinKey ? client.allFields[cinKey] : client.identifiant;
 
@@ -634,9 +646,9 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
                                   onClick={() => setExpandedClientRow(isClientExp ? null : rowKey)}
                                 >
                                   <Hash className="h-3 w-3 text-rose-400 shrink-0" />
-                                  {/* Client name */}
+                                  {/* Client name from NOM_CLIENT */}
                                   <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 flex-1 truncate">
-                                    {client.name || "(sans nom)"}
+                                    {displayName || "(sans nom)"}
                                   </span>
                                   {/* CIN / identifiant badge */}
                                   {cinVal && (
