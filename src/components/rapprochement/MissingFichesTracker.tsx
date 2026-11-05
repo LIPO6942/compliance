@@ -55,21 +55,34 @@ const formatFieldValue = (key: string, val: string): string => {
 
 // Mots-cles pour detecter une OBNL dans le nom du client (contexte tunisien)
 const OBNL_KEYWORDS = [
-  "association", " ass ", "ass.", "ass-",
-  "organisation", "organization",
+  // Association (avec variantes de fautes de frappe)
+  "association", "assosiation", "associaton", "assocation", "assosciation",
+  " ass ", "ass.", "ass-", "l'ass", "laass",
+  // Organisations
+  "organisation", "organization", "org ",
+  // Fondations
   "fondation", "foundation",
+  // Comites
   "comite", "comité",
-  "amicale",
-  "club",
-  "ligue",
-  "federation", "fédération",
-  "groupement",
-  "cooperative", "coopérative",
+  // Amicales / clubs
+  "amicale", "club",
+  // Ligues / federations
+  "ligue", "federation", "fédération",
+  // Groupements / cooperatives
+  "groupement", "cooperative", "coopérative",
+  // Sections sportives
   "section sportive",
-  "bureau",
-  "ong ",
-  "jemaia", "jamia",
-  "rabita",
+  // Bureaux / ONG
+  "bureau", "ong ",
+  // Termes arabes tunisiens
+  "jemaia", "jamia", "rabita", "nadi",
+  // Sport
+  "sportif", "sportive", "sport ",
+  "stade",          // ex: Stade Africain de Menzel Bourguiba
+  "athletique", "athlétique",
+  "olympique",
+  "equipe",
+  "cercle",
 ];
 
 // Detecte si le nom indique une OBNL
@@ -275,6 +288,7 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
   const [expandedClientRow, setExpandedClientRow] = useState<string | null>(null);
   const [enrichedReports, setEnrichedReports] = useState<any[]>(savedReports);
   const [isLoading, setIsLoading] = useState(false);
+  const [filterLongAbsent, setFilterLongAbsent] = useState(false);
 
   const effectivelyLoading = isExternalLoading || isLoading;
 
@@ -425,6 +439,19 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
   const filteredEntries = useMemo(() => {
     return trackerEntries.filter(e => {
       if (typeFilter !== "ALL" && e.agenceType !== typeFilter) return false;
+      // Filtre absents 3+ mois
+      if (filterLongAbsent) {
+        const ids = e.months[lastMonthKey]?.identifiants || [];
+        const hasLongAbsent = ids.some(id => {
+          let count = 0;
+          for (let i = orderedMonthKeys.length - 1; i >= 0; i--) {
+            if (e.months[orderedMonthKeys[i]]?.identifiants.includes(id)) count++;
+            else break;
+          }
+          return count >= 3;
+        });
+        if (!hasLongAbsent) return false;
+      }
       if (statusFilter !== "ALL") {
         const lastData = e.months[lastMonthKey];
         const prevData = e.months[prevMonthKey];
@@ -441,7 +468,27 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
       }
       return Object.values(e.months).some(m => m.missingCount > 0);
     });
-  }, [trackerEntries, typeFilter, statusFilter, lastMonthKey, prevMonthKey]);
+  }, [trackerEntries, typeFilter, statusFilter, filterLongAbsent, lastMonthKey, prevMonthKey, orderedMonthKeys]);
+
+  // Compteur global des clients absents 3+ mois consecutifs
+  const longAbsentStats = useMemo(() => {
+    let totalClients = 0;
+    let agencyCount = 0;
+    for (const entry of trackerEntries) {
+      const ids = entry.months[lastMonthKey]?.identifiants || [];
+      let entryHasLong = false;
+      for (const id of ids) {
+        let count = 0;
+        for (let i = orderedMonthKeys.length - 1; i >= 0; i--) {
+          if (entry.months[orderedMonthKeys[i]]?.identifiants.includes(id)) count++;
+          else break;
+        }
+        if (count >= 3) { totalClients++; entryHasLong = true; }
+      }
+      if (entryHasLong) agencyCount++;
+    }
+    return { totalClients, agencyCount };
+  }, [trackerEntries, lastMonthKey, orderedMonthKeys]);
 
   const totalLastMonth = months.find(m => m.monthKey === lastMonthKey)?.totalMissing || 0;
   const totalPrevMonth = months.find(m => m.monthKey === prevMonthKey)?.totalMissing || 0;
@@ -469,6 +516,35 @@ export const MissingFichesTracker: React.FC<MissingFichesTrackerProps> = ({
           </button>
         )}
       </div>
+
+      {/* Alerte : clients absents 3+ mois */}
+      {longAbsentStats.totalClients > 0 && (
+        <button
+          onClick={() => setFilterLongAbsent(f => !f)}
+          className={cn(
+            "w-full flex items-center gap-3 px-5 py-2.5 border-b text-left transition-all shrink-0",
+            filterLongAbsent
+              ? "bg-red-100 dark:bg-red-950/40 border-red-300 dark:border-red-800"
+              : "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900 hover:bg-red-100 dark:hover:bg-red-950/30"
+          )}
+        >
+          <span className="text-base leading-none">⚠️</span>
+          <span className="text-[10px] font-black text-red-700 dark:text-red-300">
+            {longAbsentStats.totalClients} client{longAbsentStats.totalClients > 1 ? "s" : ""} absent{longAbsentStats.totalClients > 1 ? "s" : ""} depuis 3+ mois consecutifs
+          </span>
+          <span className="text-[9px] text-red-500 dark:text-red-400 font-semibold">
+            ({longAbsentStats.agencyCount} agence{longAbsentStats.agencyCount > 1 ? "s" : ""})
+          </span>
+          <span className={cn(
+            "ml-auto text-[9px] font-black px-2.5 py-1 rounded-lg transition-colors",
+            filterLongAbsent
+              ? "bg-red-600 text-white"
+              : "bg-red-100 dark:bg-red-900/60 text-red-600 dark:text-red-300"
+          )}>
+            {filterLongAbsent ? "Filtré ✓" : "Voir →"}
+          </span>
+        </button>
+      )}
 
       {/* Global KPIs */}
       <div className="grid grid-cols-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
