@@ -530,17 +530,57 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
       const fieldNames = Object.keys(fieldsToUpdate).join(', ');
       const riskTransitionSuffix = oldRisk && newRisk ? ` (${oldRisk} → ${newRisk})` : '';
 
+      // Calculer les valeurs AVANT modification pour toutes catégories
+      const categoryObj = overridesRef.current?.[category] || {};
+      const itemObj = (categoryObj[itemId] || {}) as Record<string, boolean | string>;
+
+      // Pour pays : utiliser oldState déjà calculé, sinon lire les overrides actuels
+      const getOldVal = (field: string): boolean => {
+        if (category === 'country') {
+          const base = COUNTRIES_DATA.find(c => c.name === itemId || c.name === displayName || c.alpha3 === itemId);
+          if (base) {
+            const curItemOv = (overridesRef.current?.country?.[itemId] || overridesRef.current?.country?.[base.name] || {}) as Record<string, any>;
+            const baseItemOv = (baselineOverridesRef.current?.country?.[itemId] || baselineOverridesRef.current?.country?.[base.name] || {}) as Record<string, any>;
+            const v = curItemOv[field] !== undefined ? curItemOv[field] : (baseItemOv[field] !== undefined ? baseItemOv[field] : (base as any)[field]);
+            return Boolean(v);
+          }
+        }
+        return Boolean(itemObj[field]);
+      };
+
+      // Transitions par champ : [{field, label, oldVal, newVal}]
+      const criteriaLabels: Record<string, string> = {
+        gafi: 'GAFI', otherdominant: 'Autre facteur dominant', otherDominant: 'Autre facteur dominant',
+        other: 'Autre critère', corruption: 'Corruption', oecd: 'OCDE', terrorism: 'Terrorisme',
+        border: 'Zone frontalière', port: 'Port int.', airport: 'Aéroport', market: 'Contrebande',
+        cash: 'Argent liquide', objects: 'Objets valeur', volume: 'Volume élevé', noinfo: 'Manque info',
+        complexeval: 'Éval. difficile', intermediary: 'Intermédiation', liquid: 'Liquidité',
+        forex: 'Devises', highvalue: 'Capital élevé', fraud: 'Fraude', cap: 'Capitalisation',
+        complex: 'Contrôle complexe', noncompliance: 'Non-soumission', noculture: 'Pas de culture',
+        nocontact: 'Sans contact', nooriginals: 'Sans originaux',
+        riskScore: 'Score de risque', customRisk: 'Risque personnalisé',
+      };
+      const fieldTransitions = Object.entries(fieldsToUpdate)
+        .filter(([, v]) => typeof v === 'boolean')
+        .map(([field, newVal]) => ({
+          field,
+          label: criteriaLabels[field] || field,
+          oldVal: getOldVal(field),
+          newVal: Boolean(newVal),
+        }));
+
       setKycHistory(prevHistory => {
         const entry: MatrixHistoryEntry = {
           id: String(Date.now()),
           date: new Date().toISOString(),
           user: author || 'Utilisateur',
-          field: `${catLabel[category] || category} [${displayName}] → ${fieldNames}${riskTransitionSuffix}`,
+          field: `${catLabel[category] || category} [${displayName}]${riskTransitionSuffix}`,
           oldValue: oldRisk || 'Précédent',
           newValue: newRisk || 'Mis à jour',
           oldRisk,
           newRisk,
-        };
+          fieldTransitions,
+        } as any;
         const updatedHistory = [entry, ...prevHistory].slice(0, 200);
         lsSave(LS_HISTORY, updatedHistory);
         if (isFirebaseConfigured && db) {
@@ -568,6 +608,12 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
             user: author || 'Utilisateur',
             factors: [dashboardCategoryMap[category] || category],
             note: `Modification sur « ${displayName} » : ${fieldNames}${riskTransitionSuffix}`,
+            // changedFields : valeurs finales de chaque champ modifié (true/false)
+            changedFields: Object.fromEntries(
+              Object.entries(fieldsToUpdate)
+                .filter(([, v]) => typeof v === 'boolean')
+                .map(([k, v]) => [k.toLowerCase(), Boolean(v)])
+            ),
           };
           if (oldRisk && newRisk) {
             logPayload.oldRisk = oldRisk;
@@ -575,7 +621,7 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
             logPayload.countryName = displayName;
             logPayload.category = category;
           }
-          // Passer les valeurs finales pour affichage filtré (uniquement paramètres à oui)
+          // Pour pays : enrichir avec finalValues (état complet après modification)
           if (category === 'country') {
             const base = COUNTRIES_DATA.find(c => c.name === itemId || c.name === displayName || c.alpha3 === itemId);
             if (base) {

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -2383,7 +2383,10 @@ export function RiskMatrixTab() {
                   {kycHistory.length === 0 && (
                     <p className="text-center text-slate-400 italic text-sm py-12">Aucune modification enregistrée</p>
                   )}
-                  {kycHistory.map(entry => (
+                  {kycHistory.map(entry => {
+                    const anyEntry = entry as any;
+                    const hasTransitions = Array.isArray(anyEntry.fieldTransitions) && anyEntry.fieldTransitions.length > 0;
+                    return (
                     <div key={entry.id} className="flex gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
                       <div className="h-8 w-8 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <CheckCircle2 className="h-4 w-4 text-violet-600" />
@@ -2397,14 +2400,33 @@ export function RiskMatrixTab() {
                           </span>
                         </div>
                         <p className="text-[10px] text-slate-500 mt-0.5">Par: <strong>{entry.user}</strong></p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] line-through text-rose-400 bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded">{entry.oldValue || "(vide)"}</span>
-                          <span className="text-[9px] text-slate-400">→</span>
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded">{entry.newValue || "(vide)"}</span>
-                        </div>
+                        {hasTransitions ? (
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {anyEntry.fieldTransitions.map((t: any, idx: number) => (
+                              <span key={idx} className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-lg border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                                <span className="text-slate-600 dark:text-slate-300">{t.label}</span>
+                                <span className="text-slate-300 dark:text-slate-600 mx-0.5">:</span>
+                                <span className={t.oldVal ? "text-emerald-700 dark:text-emerald-400 line-through" : "text-rose-400 dark:text-rose-500 line-through"}>
+                                  {t.oldVal ? 'Oui' : 'Non'}
+                                </span>
+                                <span className="text-slate-400 dark:text-slate-500">→</span>
+                                <span className={t.newVal ? "text-emerald-700 dark:text-emerald-400 font-black" : "text-rose-500 dark:text-rose-400 font-black"}>
+                                  {t.newVal ? 'Oui' : 'Non'}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] line-through text-rose-400 bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded">{entry.oldValue || "(vide)"}</span>
+                            <span className="text-[9px] text-slate-400">→</span>
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded">{entry.newValue || "(vide)"}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </ScrollArea>
             </DialogContent>

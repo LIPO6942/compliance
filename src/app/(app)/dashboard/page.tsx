@@ -296,8 +296,8 @@ export default function DashboardPage() {
       if (bucket.isCountryGroup) {
         const latest = bucket.latestLog;
         const fieldsStr = bucket.fields.join(", ");
-        // Récupérer l'état final (paramètres à true) : priorité aux finalValues du log Firebase, sinon état calculé localement
-        const finalState = latest.finalValues || countryStates[bucket.countryName] || null;
+        // État final : priorité à changedFields (tout type de catégorie), puis finalValues (pays uniquement), puis calcul local
+        const finalState = latest.changedFields || latest.finalValues || countryStates[bucket.countryName] || null;
         consolidated.push({
           ...latest,
           id: `consolidated-${bucket.countryName}-${bucket.dayKey}`,
@@ -312,12 +312,15 @@ export default function DashboardPage() {
           finalState,
         });
       } else {
+        const latestLog = bucket.latestLog;
+        // Pour les non-pays (gouvernorats, produits, etc.) : utiliser changedFields
+        const finalState = latestLog.changedFields || null;
         consolidated.push({
-          ...bucket.latestLog,
+          ...latestLog,
           oldRisk: bucket.startRisk,
           newRisk: bucket.endRisk,
           groupedCount: 1,
-          finalState: null,
+          finalState,
         });
       }
     });
