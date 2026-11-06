@@ -6182,6 +6182,35 @@ export default function RegtoolsDiffPage() {
             </div>
           </div>
 
+          {/* Seuil Jaro-Winkler — toujours visible */}
+          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 px-4 py-2.5 rounded-2xl flex-wrap">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">Seuil similarité nom (Jaro-Winkler)</span>
+            <input
+              type="range"
+              min={0.90}
+              max={0.99}
+              step={0.01}
+              value={jwThreshold}
+              onChange={e => setJwThreshold(parseFloat(e.target.value))}
+              className="w-32 accent-blue-600"
+              title={`Seuil Jaro-Winkler : ${(jwThreshold * 100).toFixed(0)}%`}
+            />
+            <span className={cn(
+              "text-[12px] font-black w-10",
+              jwThreshold <= 0.92 ? "text-amber-600" : jwThreshold >= 0.98 ? "text-rose-600" : "text-blue-600"
+            )}>
+              {(jwThreshold * 100).toFixed(0)}%
+            </span>
+            <span className="text-[9px] text-slate-400 font-medium">
+              {jwThreshold <= 0.92 ? "⚠ Permissif — plus de réconciliations, moins d'absents" : jwThreshold >= 0.98 ? "⚠ Strict — moins de réconciliations, plus d'absents" : "Défaut recommandé"}
+            </span>
+            {jwThreshold !== 0.96 && (
+              <button onClick={() => setJwThreshold(0.96)} className="text-[9px] text-blue-500 hover:text-blue-700 font-bold underline whitespace-nowrap">
+                reset (96%)
+              </button>
+            )}
+          </div>
+
           {/* Compare Control Bar */}
           {data.regtools && (data.ns || data.vie) && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 p-4 rounded-2xl flex items-center justify-between gap-4 flex-wrap">
@@ -6190,33 +6219,6 @@ export default function RegtoolsDiffPage() {
                 <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
                   {comparisonDone ? "Comparaison exécutée avec succès." : "Fichiers prêts pour rapprochement."}
                 </span>
-              </div>
-              {/* Seuil Jaro-Winkler ajustable */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">Seuil similarité nom</span>
-                  <input
-                    type="range"
-                    min={0.90}
-                    max={0.99}
-                    step={0.01}
-                    value={jwThreshold}
-                    onChange={e => setJwThreshold(parseFloat(e.target.value))}
-                    className="w-24 accent-blue-600"
-                    title={`Seuil Jaro-Winkler : ${(jwThreshold * 100).toFixed(0)}%`}
-                  />
-                  <span className={cn(
-                    "text-[11px] font-black w-10 text-center",
-                    jwThreshold <= 0.92 ? "text-amber-600" : jwThreshold >= 0.98 ? "text-rose-600" : "text-blue-600"
-                  )}>
-                    {(jwThreshold * 100).toFixed(0)}%
-                  </span>
-                  {jwThreshold !== 0.96 && (
-                    <button onClick={() => setJwThreshold(0.96)} className="text-[9px] text-slate-400 hover:text-blue-500 font-bold underline whitespace-nowrap">
-                      reset
-                    </button>
-                  )}
-                </div>
               </div>
               <div className="flex items-center gap-3">
                 <button
