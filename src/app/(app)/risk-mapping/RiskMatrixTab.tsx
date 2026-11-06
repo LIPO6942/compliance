@@ -2414,7 +2414,59 @@ export function RiskMatrixTab() {
                       parsedRiskTransition = legacyMatch[4]?.trim() || '';
                       parsedFields = rawFields ? rawFields.split(',').map(f => f.trim()).filter(Boolean) : [];
                     }
-                    const hasLegacyFields = !hasTransitions && parsedFields.length > 0;
+
+                    // Reconstruire les transitions par inversion du toggle :
+                    // si le champ a été "touché" et son état ACTUEL est X, alors avant il était !X
+                    const reconstructedTransitions: {label: string, oldVal: boolean, newVal: boolean}[] = [];
+                    if (!hasTransitions && parsedFields.length > 0 && parsedItem) {
+                      parsedFields.forEach(f => {
+                        const fNorm = f.toLowerCase().replace(/\s+/g, '');
+                        const label = legacyLabels[fNorm] || legacyLabels[f] || f;
+                        // Résoudre l'état actuel depuis COUNTRIES_DATA + overrides
+                        let currentVal: boolean | null = null;
+                        if (parsedCategory === 'Pays' || parsedCategory === 'country') {
+                          const base = COUNTRIES_DATA.find(c =>
+                            c.name.toLowerCase() === parsedItem.toLowerCase() ||
+                            (c as any).alpha3?.toLowerCase() === parsedItem.toLowerCase()
+                          );
+                          if (base) {
+                            const fieldMap: Record<string, string> = {
+                              gafi: 'gafi', corruption: 'corruption', oecd: 'oecd',
+                              terrorism: 'terrorism', otherdominant: 'otherDominant', other: 'otherDominant',
+                            };
+                            const baseKey = fieldMap[fNorm] || fNorm;
+                            const baseVal = Boolean((base as any)[baseKey]);
+                            const curOv = (overrides?.country?.[base.name] || {}) as Record<string, any>;
+                            const baseOv = (baselineOverrides?.country?.[base.name] || {}) as Record<string, any>;
+                            const resolvedKey = Object.keys({...curOv, ...baseOv}).find(k => k.toLowerCase() === fNorm || k === baseKey);
+                            if (resolvedKey !== undefined) {
+                              const v = curOv[resolvedKey] !== undefined ? curOv[resolvedKey] : (baseOv[resolvedKey] !== undefined ? baseOv[resolvedKey] : baseVal);
+                              currentVal = Boolean(v);
+                            } else {
+                              currentVal = baseVal;
+                            }
+                          }
+                        } else {
+                          // Autres catégories : lire depuis overrides
+                          const catMap: Record<string, keyof typeof overrides> = {
+                            'Gouvernorat': 'gov', 'Gouvernorats': 'gov',
+                            'Produit': 'product', 'Produits': 'product',
+                            'Canal': 'dist', 'Technique': 'sale',
+                            'Activité PM': 'moral', 'Prof. PP': 'profession',
+                          };
+                          const catKey = catMap[parsedCategory];
+                          if (catKey) {
+                            const itemOv = (overrides[catKey]?.[parsedItem] || {}) as Record<string, any>;
+                            const foundKey = Object.keys(itemOv).find(k => k.toLowerCase() === fNorm);
+                            if (foundKey !== undefined) currentVal = Boolean(itemOv[foundKey]);
+                          }
+                        }
+                        // Toggle : newVal = état actuel, oldVal = !newVal
+                        const newVal = currentVal !== null ? currentVal : true;
+                        reconstructedTransitions.push({ label, oldVal: !newVal, newVal });
+                      });
+                    }
+                    const hasLegacyFields = !hasTransitions && reconstructedTransitions.length > 0;
 
                     return (
                     <div key={entry.id} className="flex gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
@@ -2456,18 +2508,22 @@ export function RiskMatrixTab() {
                           </div>
                         )}
 
-                        {/* Anciens logs avec champs identifiables : afficher les tags sans direction (inconnue) */}
+                        {/* Anciens logs : transitions reconstituées par inversion du toggle */}
                         {hasLegacyFields && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {parsedFields.map((f, idx) => {
-                              const label = legacyLabels[f.toLowerCase().replace(/\s+/g,'')] || legacyLabels[f] || f;
-                              return (
-                                <span key={idx} className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 border border-amber-200/70 dark:border-amber-700/50">
-                                  {label}
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {reconstructedTransitions.map((t, idx) => (
+                              <span key={idx} className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-lg border bg-white dark:bg-slate-900 border-slate-200/70 dark:border-slate-700">
+                                <span className="text-slate-600 dark:text-slate-300">{t.label}</span>
+                                <span className="text-slate-300 dark:text-slate-600 mx-0.5">:</span>
+                                <span className={t.oldVal ? "text-emerald-600 dark:text-emerald-400 line-through opacity-60" : "text-rose-400 dark:text-rose-500 line-through opacity-60"}>
+                                  {t.oldVal ? 'Oui' : 'Non'}
                                 </span>
-                              );
-                            })}
-                            <span className="text-[9px] italic text-slate-400 self-center ml-1">(modifié)</span>
+                                <span className="text-slate-400 dark:text-slate-500 font-black">→</span>
+                                <span className={t.newVal ? "text-emerald-700 dark:text-emerald-400 font-black" : "text-rose-500 dark:text-rose-400 font-black"}>
+                                  {t.newVal ? 'Oui' : 'Non'}
+                                </span>
+                              </span>
+                            ))}
                           </div>
                         )}
 
