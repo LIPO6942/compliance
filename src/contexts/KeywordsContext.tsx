@@ -41,14 +41,14 @@ export const KeywordsProvider = ({ children }: { children: ReactNode }) => {
       if (docSnap.exists()) {
         setKeywords(docSnap.data().list ?? []);
       } else {
-        // If the document doesn't exist, create it with initial data
-        setDoc(keywordsDocRef, { list: initialMockKeywords });
-        setKeywords(initialMockKeywords);
+        // Document absent : initialiser avec liste vide, ne jamais injecter de mock
+        setDoc(keywordsDocRef, { list: [] });
+        setKeywords([]);
       }
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching keywords, falling back to mock data: ", error);
-      setKeywords(initialMockKeywords);
+      console.error("[Keywords] Erreur Firebase onSnapshot:", error.code, error.message);
+      // NE PAS remplacer par mock — conserver les données précédentes
       setLoading(false);
     });
 

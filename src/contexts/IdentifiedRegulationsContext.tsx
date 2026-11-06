@@ -45,16 +45,11 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
     const q = query(regulationsRef, orderBy("publicationDate", "desc"));
 
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-      // This logic ensures we don't re-seed if the user has already interacted with the data.
-      if (querySnapshot.empty && loading && initialMockRegulations.length > 0) {
-        console.log(`[${regulationsCollectionName}] collection is empty. Seeding with mock data.`);
-        const batch = writeBatch(db!);
-        initialMockRegulations.forEach((mockReg) => {
-          const { id, ...data } = mockReg;
-          const docRef = doc(collection(db!, regulationsCollectionName));
-          batch.set(docRef, data);
-        });
-        await batch.commit().catch(e => console.error(`Failed to seed ${regulationsCollectionName}:`, e));
+      // Collection réellement vide : NE PAS injecter de données fictives.
+      if (querySnapshot.empty) {
+        setIdentifiedRegulations([]);
+        setLoading(false);
+        console.info("[IdentifiedRegulations] Collection Firebase vide — aucune donnée fictive injectée.");
         return;
       }
 
@@ -62,8 +57,9 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
       setIdentifiedRegulations(regulationsData);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching regulations, falling back to mock data: ", error);
-      setIdentifiedRegulations(initialMockRegulations);
+      // Erreur Firebase : conserver les données précédemment chargées.
+      // NE PAS remplacer par des données fictives.
+      console.error("[IdentifiedRegulations] Erreur Firebase onSnapshot:", error.code, error.message);
       setLoading(false);
     });
 

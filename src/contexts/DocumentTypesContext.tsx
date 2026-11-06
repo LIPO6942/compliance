@@ -38,19 +38,21 @@ export const DocumentTypesProvider = ({ children }: { children: ReactNode }) => 
       console.warn("Firebase not configured. Document types will use mock data.");
       return;
     }
-
     const docRef = doc(db, documentTypesDocumentPath);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         setDocumentTypes(docSnap.data().list ?? []);
       } else {
-        setDoc(docRef, { list: initialMockDocumentTypes });
-        setDocumentTypes(initialMockDocumentTypes);
+        // Document absent (premier déploiement) : initialiser avec liste vide.
+        // NE PAS injecter de types fictifs automatiquement.
+        setDoc(docRef, { list: [] });
+        setDocumentTypes([]);
       }
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching document types, falling back to mock data: ", error);
-      setDocumentTypes(initialMockDocumentTypes);
+      // Erreur Firebase : conserver les données précédemment chargées.
+      // NE PAS remplacer par des données fictives.
+      console.error("[DocumentTypes] Erreur Firebase onSnapshot:", error.code, error.message);
       setLoading(false);
     });
 

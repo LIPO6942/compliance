@@ -1,17 +1,31 @@
 
 'use client';
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import type { Document, DocumentStatus } from '@/types/compliance';
-import { initialMockDocuments } from '@/data/mockDocuments';
+import { initialMockDocuments } from '@/data/mockDocuments'; // Utilisé UNIQUEMENT en mode démo (Firebase non configuré)
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, writeBatch, getDocs } from "firebase/firestore";
-import { useUser } from './UserContext'; // Assuming a user context exists for auth state
+import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy } from "firebase/firestore";
+import { useUser } from './UserContext';
+
+export type DataStatus = "loading" | "real" | "demo" | "error" | "empty";
 
 const documentsCollectionName = "documents";
 
 interface DocumentsContextType {
   documents: Document[];
   loading: boolean;
+  /** Statut de la source de données :
+   *  - "real"  : données Firebase synchronisées
+   *  - "demo"  : Firebase non configuré, données fictives affichées volontairement
+   *  - "error" : erreur de connexion Firebase (données précédentes conservées)
+   *  - "empty" : collection Firebase vide (aucune donnée fictive injectée)
+   *  - "loading" : chargement en cours
+   */
+  dataStatus: DataStatus;
+  /** Date de la dernière synchronisation Firebase réussie */
+  lastSyncAt: Date | null;
+  /** Relance la souscription Firebase */
+  retrySync: () => void;
   updateDocumentStatus: (documentId: string, newStatus: Document['status']) => Promise<void>;
   addDocument: (document: Omit<Document, 'id' | 'status' | 'lastUpdated'>) => Promise<void>;
   editDocument: (documentId: string, documentUpdate: Partial<Omit<Document, 'id' | 'status' | 'lastUpdated'>>) => Promise<void>;
@@ -23,61 +37,72 @@ const DocumentsContext = createContext<DocumentsContextType | undefined>(undefin
 export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dataStatus, setDataStatus] = useState<DataStatus>("loading");
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const { isLoaded } = useUser();
+
+  /** Relance la souscription Firebase (force re-mount du listener) */
+  const retrySync = useCallback(() => {
+    setLoading(true);
+    setDataStatus("loading");
+    setRetryKey(k => k + 1);
+  }, []);
 
   useEffect(() => {
     if (!isLoaded) return;
 
+    // ── Cas 1 : Firebase non configuré ──────────────────────────────────────
+    // Mode démonstration VOLONTAIRE : données fictives affichées, signalées clairement.
     if (!isFirebaseConfigured || !db) {
       setDocuments(initialMockDocuments);
+      setDataStatus("demo");
       setLoading(false);
-      console.warn("Firebase is not configured. Falling back to mock documents.");
+      console.warn("[Documents] Firebase non configuré — Mode Démonstration actif. Données fictives affichées.");
       return;
     }
 
+    // ── Cas 2 : Firebase configuré → souscription temps réel ────────────────
+    setLoading(true);
     const documentsRef = collection(db, documentsCollectionName);
     const q = query(documentsRef, orderBy("lastUpdated", "desc"));
 
-    const reseedData = async () => {
-      console.log(`[${documentsCollectionName}] collection is outdated or empty. Reseeding with fresh mock data.`);
-      const existingDocs = await getDocs(documentsRef);
-      const batch = writeBatch(db!);
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
 
-      // Delete old documents
-      existingDocs.forEach(doc => {
-        batch.delete(doc.ref);
-      });
-
-      // Add new documents
-      initialMockDocuments.forEach((mockDoc) => {
-        const { id, ...data } = mockDoc;
-        const docRef = doc(collection(db!, documentsCollectionName), id); // Use explicit ID
-        batch.set(docRef, data);
-      });
-
-      await batch.commit().catch(e => console.error(`Failed to reseed ${documentsCollectionName}:`, e));
-    };
-
-    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-      // Only seed when the collection is completely empty (first-time setup).
-      // NEVER reseed based on length comparison — that destroys user modifications.
+      // ── Cas 2a : Collection réellement vide ─────────────────────────────
+      // NE PAS injecter de données fictives. Afficher liste vide.
       if (querySnapshot.empty) {
-        await reseedData();
-        // The listener will be re-triggered by reseedData, so we can return here.
+        setDocuments([]);
+        setDataStatus("empty");
+        setLastSyncAt(new Date());
+        setLoading(false);
+        console.info("[Documents] Collection Firebase vide — aucune donnée fictive injectée.");
         return;
       }
 
-      const documentsData: Document[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Document));
+      // ── Cas 2b : Données réelles reçues ─────────────────────────────────
+      const documentsData: Document[] = querySnapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+      } as Document));
       setDocuments(documentsData);
+      setDataStatus("real");
+      setLastSyncAt(new Date());
       setLoading(false);
+
     }, (error) => {
-      console.error("Error fetching documents: ", error);
-      setDocuments(initialMockDocuments); // Fallback on error
+      // ── Cas 2c : Erreur Firebase ────────────────────────────────────────
+      // IMPORTANT : NE PAS remplacer les données par des données fictives.
+      // Les données précédemment chargées sont conservées en mémoire.
+      console.error("[Documents] Erreur Firebase onSnapshot:", error.code, error.message);
+      setDataStatus("error");
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [isLoaded]);
+  }, [isLoaded, retryKey]);
+
+  // ── CRUD — inchangé, sécurisé par la garde isFirebaseConfigured ──────────
 
   const updateDocumentStatus = async (documentId: string, newStatus: DocumentStatus) => {
     if (!isFirebaseConfigured || !db) return;
@@ -111,9 +136,18 @@ export const DocumentsProvider = ({ children }: { children: ReactNode }) => {
     await deleteDoc(doc(db, documentsCollectionName, documentId));
   };
 
-
   return (
-    <DocumentsContext.Provider value={{ documents, loading, updateDocumentStatus, addDocument, editDocument, removeDocument }}>
+    <DocumentsContext.Provider value={{
+      documents,
+      loading,
+      dataStatus,
+      lastSyncAt,
+      retrySync,
+      updateDocumentStatus,
+      addDocument,
+      editDocument,
+      removeDocument,
+    }}>
       {children}
     </DocumentsContext.Provider>
   );

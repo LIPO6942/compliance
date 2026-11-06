@@ -21,7 +21,7 @@ import {
   sampleReferenceTemplate
 } from '@/data/annualTrainingReportData';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, writeBatch, setDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { useUser } from './UserContext';
 
 // Helper function to calculate progress for UpcomingSession
@@ -143,21 +143,6 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
         return;
     }
     
-    const seedIfEmpty = (collectionName: string, mockData: any[], snapshot: any) => {
-        if (snapshot.empty && loading) {
-            console.log(`[${collectionName}] collection is empty. Seeding with mock data.`);
-            const batch = writeBatch(db!);
-            mockData.forEach((item) => {
-                const { id, ...data } = item;
-                const docRef = doc(collection(db!, collectionName));
-                batch.set(docRef, data);
-            });
-            batch.commit().catch(e => console.error(`Failed to seed ${collectionName}:`, e));
-            return true;
-        }
-        return false;
-    };
-    
     const loadedStatus = { registry: false, sessions: false, campaigns: false };
     const checkAllLoaded = () => {
       if (Object.values(loadedStatus).every(Boolean)) {
@@ -166,15 +151,19 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const unsubRegistry = onSnapshot(query(collection(db, registryCollectionName), orderBy("lastUpdated", "desc")), (snapshot) => {
-        if (seedIfEmpty(registryCollectionName, initialMockTrainingRegistry, snapshot)) return;
-        setTrainingRegistryItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TrainingRegistryItem)));
+        if (snapshot.empty) {
+            // Collection vide : ne pas seeder, afficher liste vide
+            setTrainingRegistryItems([]);
+        } else {
+            setTrainingRegistryItems(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as TrainingRegistryItem)));
+        }
         if (!loadedStatus.registry) {
             loadedStatus.registry = true;
             checkAllLoaded();
         }
     }, (error) => {
-        console.error(`Error with ${registryCollectionName}:`, error);
-        setTrainingRegistryItems(initialMockTrainingRegistry);
+        console.error(`[Training] Erreur ${registryCollectionName}:`, error.code, error.message);
+        // NE PAS remplacer par mock — conserver les données précédentes
         if (!loadedStatus.registry) {
             loadedStatus.registry = true;
             checkAllLoaded();
@@ -182,15 +171,18 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     const unsubSessions = onSnapshot(query(collection(db, sessionsCollectionName), orderBy("date", "desc")), (snapshot) => {
-        if (seedIfEmpty(sessionsCollectionName, initialMockUpcomingSessions, snapshot)) return;
-        setUpcomingSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UpcomingSession)));
+        if (snapshot.empty) {
+            setUpcomingSessions([]);
+        } else {
+            setUpcomingSessions(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as UpcomingSession)));
+        }
         if (!loadedStatus.sessions) {
             loadedStatus.sessions = true;
             checkAllLoaded();
         }
     }, (error) => {
-        console.error(`Error with ${sessionsCollectionName}:`, error);
-        setUpcomingSessions(initialMockUpcomingSessions);
+        console.error(`[Training] Erreur ${sessionsCollectionName}:`, error.code, error.message);
+        // NE PAS remplacer par mock — conserver les données précédentes
         if (!loadedStatus.sessions) {
             loadedStatus.sessions = true;
             checkAllLoaded();
@@ -198,15 +190,18 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     const unsubCampaigns = onSnapshot(query(collection(db, campaignsCollectionName), orderBy("launchDate", "desc")), (snapshot) => {
-        if (seedIfEmpty(campaignsCollectionName, initialMockSensitizationCampaigns, snapshot)) return;
-        setSensitizationCampaigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SensitizationCampaign)));
+        if (snapshot.empty) {
+            setSensitizationCampaigns([]);
+        } else {
+            setSensitizationCampaigns(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as SensitizationCampaign)));
+        }
         if (!loadedStatus.campaigns) {
             loadedStatus.campaigns = true;
             checkAllLoaded();
         }
     }, (error) => {
-        console.error(`Error with ${campaignsCollectionName}:`, error);
-        setSensitizationCampaigns(initialMockSensitizationCampaigns);
+        console.error(`[Training] Erreur ${campaignsCollectionName}:`, error.code, error.message);
+        // NE PAS remplacer par mock — conserver les données précédentes
         if (!loadedStatus.campaigns) {
             loadedStatus.campaigns = true;
             checkAllLoaded();
@@ -218,7 +213,7 @@ export const TrainingDataProvider = ({ children }: { children: ReactNode }) => {
       unsubSessions();
       unsubCampaigns();
     };
-  }, [isLoaded, loading]);
+  }, [isLoaded]);
 
   // Training Registry CRUD
   const addTrainingRegistryItem = async (item: Omit<TrainingRegistryItem, 'id' | 'lastUpdated' | 'progress'>) => {

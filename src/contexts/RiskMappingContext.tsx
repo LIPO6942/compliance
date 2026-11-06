@@ -1,12 +1,14 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import type { RiskMappingItem } from '@/types/compliance';
-import { initialMockRiskMapping } from '@/data/mockRiskMapping';
+import { initialMockRiskMapping } from '@/data/mockRiskMapping'; // Utilisé UNIQUEMENT en mode démo
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, writeBatch, setDoc, getDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, setDoc, getDoc } from "firebase/firestore";
 import { useUser } from './UserContext';
+
+export type DataStatus = "loading" | "real" | "demo" | "error" | "empty";
 
 const risksCollectionName = "riskMapping";
 const metaDocPath = "riskMappingMeta/global";
@@ -14,6 +16,18 @@ const metaDocPath = "riskMappingMeta/global";
 interface RiskMappingContextType {
   risks: RiskMappingItem[];
   loading: boolean;
+  /** Statut de la source de données :
+   *  - "real"  : données Firebase synchronisées
+   *  - "demo"  : Firebase non configuré, données fictives affichées volontairement
+   *  - "error" : erreur de connexion Firebase (données précédentes conservées)
+   *  - "empty" : collection Firebase vide (aucune donnée fictive injectée)
+   *  - "loading" : chargement en cours
+   */
+  dataStatus: DataStatus;
+  /** Date de la dernière synchronisation Firebase réussie */
+  lastSyncAt: Date | null;
+  /** Relance la souscription Firebase */
+  retrySync: () => void;
   globalDocumentIds: string[];
   maePositions: Record<number, string>;
   setGlobalDocumentIds: (ids: string[]) => Promise<void>;
@@ -35,21 +49,37 @@ const RiskMappingContext = createContext<RiskMappingContextType | undefined>(und
 export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   const [risks, setRisks] = useState<RiskMappingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dataStatus, setDataStatus] = useState<DataStatus>("loading");
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [globalDocumentIds, setGlobalDocumentIdsState] = useState<string[]>([]);
   const [maePositions, setMaePositionsState] = useState<Record<number, string>>(defaultMaePositions);
   const { isLoaded } = useUser();
 
+  /** Relance la souscription Firebase (force re-mount du listener) */
+  const retrySync = useCallback(() => {
+    setLoading(true);
+    setDataStatus("loading");
+    setRetryKey(k => k + 1);
+  }, []);
+
   useEffect(() => {
     if (!isLoaded) return;
 
+    // ── Cas 1 : Firebase non configuré ──────────────────────────────────────
+    // Mode démonstration VOLONTAIRE : données fictives affichées, signalées clairement.
     if (!isFirebaseConfigured || !db) {
       setRisks(initialMockRiskMapping);
+      setDataStatus("demo");
       setLoading(false);
-      console.warn("Firebase is not configured. Risk mapping data will use mock data.");
+      console.warn("[RiskMapping] Firebase non configuré — Mode Démonstration actif. Données fictives affichées.");
       return;
     }
 
-    // Listen for global meta (document IDs and MAE positions)
+    // ── Cas 2 : Firebase configuré → souscription temps réel ────────────────
+    setLoading(true);
+
+    // Listener sur les métadonnées (positions MAE, document IDs globaux)
     const metaRef = doc(db, metaDocPath);
     const unsubMeta = onSnapshot(metaRef, (snap) => {
       if (snap.exists()) {
@@ -60,33 +90,38 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     }, (error) => {
-      console.error("Error fetching risk mapping metadata:", error);
+      // Erreur sur meta : non bloquant, on conserve les valeurs par défaut
+      console.error("[RiskMapping] Erreur lecture métadonnées Firebase:", error.code, error.message);
     });
 
     const q = query(collection(db, risksCollectionName), orderBy("lastUpdated", "desc"));
-    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-      const dbRisks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RiskMappingItem));
 
-      // Only seed when the collection is completely empty (first-time setup).
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+
+      // ── Cas 2a : Collection réellement vide ─────────────────────────────
+      // NE PAS injecter de données fictives. L'administrateur peut créer les premiers risques manuellement.
       if (querySnapshot.empty) {
-        console.log(`[${risksCollectionName}] collection is empty. Initial seeding with default data.`);
-        const batch = writeBatch(db!);
-
-        initialMockRiskMapping.forEach((mockRisk) => {
-          const { id, ...data } = mockRisk;
-          const docRef = doc(collection(db!, risksCollectionName));
-          batch.set(docRef, data);
-        });
-
-        await batch.commit().catch(e => console.error(`Failed to seed ${risksCollectionName}:`, e));
-        return; // Snapshot listener will re-run with new data
+        setRisks([]);
+        setDataStatus("empty");
+        setLastSyncAt(new Date());
+        setLoading(false);
+        console.info("[RiskMapping] Collection Firebase vide — aucune donnée fictive injectée.");
+        return;
       }
 
+      // ── Cas 2b : Données réelles reçues ─────────────────────────────────
+      const dbRisks = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as RiskMappingItem));
       setRisks(dbRisks);
+      setDataStatus("real");
+      setLastSyncAt(new Date());
       setLoading(false);
+
     }, (error) => {
-      console.error("Error fetching risks, falling back to mock data: ", error);
-      setRisks(initialMockRiskMapping);
+      // ── Cas 2c : Erreur Firebase ────────────────────────────────────────
+      // IMPORTANT : NE PAS remplacer les données par des données fictives.
+      // Les données précédemment chargées sont conservées en mémoire.
+      console.error("[RiskMapping] Erreur Firebase onSnapshot:", error.code, error.message);
+      setDataStatus("error");
       setLoading(false);
     });
 
@@ -94,7 +129,9 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
       unsubscribe();
       unsubMeta();
     };
-  }, [isLoaded]);
+  }, [isLoaded, retryKey]);
+
+  // ── Métadonnées ──────────────────────────────────────────────────────────
 
   const setGlobalDocumentIds = async (ids: string[]) => {
     setGlobalDocumentIdsState(ids);
@@ -110,6 +147,8 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
     const metaRef = doc(db, metaDocPath);
     await setDoc(metaRef, { maePositions: newPositions }, { merge: true });
   };
+
+  // ── CRUD — inchangé, sécurisé par la garde isFirebaseConfigured ──────────
 
   const addRisk = async (risk: Omit<RiskMappingItem, 'id' | 'lastUpdated' | 'createdAt' | 'planActionLastUpdated' | 'planActionCreatedAt' | 'dmrLastUpdated' | 'dmrCreatedAt'>) => {
     const cleanRisk = Object.fromEntries(
@@ -156,18 +195,10 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
     const hasDmrUpdate = Object.keys(cleanUpdate).some(key => dmrFields.includes(key));
     const hasCtafUpdate = Object.keys(cleanUpdate).some(key => ctafFields.includes(key));
 
-    if (hasPlanActionUpdate) {
-      updates.planActionLastUpdated = today;
-    }
-    if (hasDmrUpdate) {
-      updates.dmrLastUpdated = today;
-    }
-    if (!hasPlanActionUpdate && !hasDmrUpdate) {
-      updates.lastUpdated = today;
-    }
-    if (hasCtafUpdate) {
-      updates.lastUpdated = today;
-    }
+    if (hasPlanActionUpdate) updates.planActionLastUpdated = today;
+    if (hasDmrUpdate) updates.dmrLastUpdated = today;
+    if (!hasPlanActionUpdate && !hasDmrUpdate) updates.lastUpdated = today;
+    if (hasCtafUpdate) updates.lastUpdated = today;
 
     setRisks((prev) =>
       prev.map((r) => (r.id === riskId ? ({ ...r, ...updates } as RiskMappingItem) : r))
@@ -186,7 +217,20 @@ export const RiskMappingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <RiskMappingContext.Provider value={{ risks, loading, globalDocumentIds, maePositions, setGlobalDocumentIds, updateMaePosition, addRisk, editRisk, removeRisk }}>
+    <RiskMappingContext.Provider value={{
+      risks,
+      loading,
+      dataStatus,
+      lastSyncAt,
+      retrySync,
+      globalDocumentIds,
+      maePositions,
+      setGlobalDocumentIds,
+      updateMaePosition,
+      addRisk,
+      editRisk,
+      removeRisk,
+    }}>
       {children}
     </RiskMappingContext.Provider>
   );
