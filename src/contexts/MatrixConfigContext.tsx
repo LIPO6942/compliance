@@ -621,6 +621,20 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
             logPayload.countryName = displayName;
             logPayload.category = category;
           }
+          // Inclure le commentaire textuel associé à l'item (champ 'other' ou 'comment')
+          {
+            const categoryObj = (overridesRef.current?.[category] || {}) as Record<string, any>;
+            const itemObj = (categoryObj[itemId] || {}) as Record<string, any>;
+            const commentValue =
+              (fieldsToUpdate['other'] as string) ||
+              (fieldsToUpdate['comment'] as string) ||
+              (itemObj['other'] as string) ||
+              (itemObj['comment'] as string) ||
+              '';
+            if (commentValue) {
+              logPayload.itemComment = commentValue;
+            }
+          }
           // Pour pays : enrichir avec finalValues (état complet après modification)
           if (category === 'country') {
             const base = COUNTRIES_DATA.find(c => c.name === itemId || c.name === displayName || c.alpha3 === itemId);

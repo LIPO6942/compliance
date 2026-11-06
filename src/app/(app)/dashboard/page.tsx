@@ -315,6 +315,7 @@ export default function DashboardPage() {
           note: `Modification sur « ${bucket.countryName} » : ${fieldsStr}`,
           groupedCount: bucket.count,
           finalState,
+          itemComment: latest.itemComment || '',
         });
       } else {
         const latestLog = bucket.latestLog;
@@ -326,6 +327,7 @@ export default function DashboardPage() {
           newRisk: bucket.endRisk,
           groupedCount: 1,
           finalState,
+          itemComment: latestLog.itemComment || '',
         });
       }
     });
@@ -448,7 +450,7 @@ export default function DashboardPage() {
     };
   };
 
-  const renderHighlightedNote = (note: string, finalState?: Record<string, boolean> | null) => {
+  const renderHighlightedNote = (note: string, finalState?: Record<string, boolean> | null, itemComment?: string) => {
     if (!note) return null;
     const m = note.match(/Modification sur\s*[«"]([^»"]+)[»"]\s*:\s*(.+)/i);
     if (!m) {
@@ -520,13 +522,20 @@ export default function DashboardPage() {
             {params.map((param, idx) => {
               const cleanParam = param.toLowerCase().replace(/\s*\([^)]*\)/, "");
               const displayLabel = criteriaLabels[cleanParam] || param;
+              const isOtherParam = ['otherdominant', 'other'].includes(cleanParam.replace(/\s+/g, ''));
               return (
-                <span
-                  key={idx}
-                  className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-900 dark:text-amber-200 border border-amber-300/60 dark:border-amber-700/60 shadow-2xs"
-                >
-                  {displayLabel}
-                </span>
+                <React.Fragment key={idx}>
+                  <span
+                    className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-900 dark:text-amber-200 border border-amber-300/60 dark:border-amber-700/60 shadow-2xs"
+                  >
+                    {displayLabel}
+                  </span>
+                  {isOtherParam && itemComment && (
+                    <span className="inline-flex items-center text-[9px] italic px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/40">
+                      {itemComment}
+                    </span>
+                  )}
+                </React.Fragment>
               );
             })}
           </div>
@@ -1978,7 +1987,7 @@ export default function DashboardPage() {
                               </span>
                               {renderRiskTransition(trans)}
                             </div>
-                            {renderHighlightedNote(log.note, log.finalState)}
+                            {renderHighlightedNote(log.note, log.finalState, log.itemComment)}
                           </div>
                         </div>
                       );
@@ -2616,7 +2625,7 @@ export default function DashboardPage() {
                           </span>
                           {renderRiskTransition(trans)}
                         </div>
-                        {renderHighlightedNote(log.note, log.finalState)}
+                        {renderHighlightedNote(log.note, log.finalState, log.itemComment)}
                       </div>
                     </div>
                   );
