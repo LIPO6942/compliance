@@ -127,3 +127,4 @@ export const useLastSyncLabel = (lastSyncAt: Date | null): string => {
   if (diffH < 24) return `il y a ${diffH}h`;
   return lastSyncAt.toLocaleDateString('fr-FR');
 };
+
