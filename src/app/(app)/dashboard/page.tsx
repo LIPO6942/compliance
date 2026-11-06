@@ -12,6 +12,7 @@ import { COUNTRIES_DATA, computeCountryRisk } from "@/data/countriesData";
 import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
+import { useMatrixConfig } from "@/contexts/MatrixConfigContext";
 import type { RiskMappingItem, ActivityItem, ComplianceTask, ActionItem } from "@/types/compliance";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/icons/Logo";
@@ -48,6 +49,7 @@ export default function DashboardPage() {
   const { documents } = useDocuments();
   const { identifiedRegulations } = useIdentifiedRegulations();
   const { risks, editRisk } = useRiskMapping();
+  const { overrides: matrixOverrides } = useMatrixConfig();
 
   // Utilités pour le cycle des points d'action (idempotent avec risk-mapping/page)
   const cycleActionStatus = (s: number): 0 | 33 | 66 | 100 => {
@@ -297,6 +299,39 @@ export default function DashboardPage() {
     });
 
     const consolidated: any[] = [];
+
+    // Mapping facteur dashboard → clé override
+    const factorToCategory: Record<string, string> = {
+      'Pays': 'country',
+      'Gouvernorats': 'gov',
+      'Produits': 'product',
+      'Voie de distribution / Vente': 'dist',
+      'Activité P. Morales': 'moral',
+      'Profession PP': 'profession',
+    };
+
+    // Résoudre le commentaire depuis les overrides actuels pour les anciens logs
+    const resolveComment = (log: any): string => {
+      if (log.itemComment) return log.itemComment;
+      // Extraire le nom de l'item depuis la note
+      const noteMatch = (log.note || '').match(/Modification sur\s*[«"]([^»"]+)[»"]/i);
+      const itemName = noteMatch ? noteMatch[1].trim() : (log.countryName || '');
+      if (!itemName) return '';
+      // Déduire la catégorie override depuis factors
+      const factor = (log.factors || [])[0] || '';
+      const catKey = factorToCategory[factor] || log.category || '';
+      if (!catKey || !(matrixOverrides as any)[catKey]) return '';
+      const catOverrides = (matrixOverrides as any)[catKey] as Record<string, any>;
+      // Chercher d'abord par nom exact, puis insensible à la casse
+      const itemObj = catOverrides[itemName]
+        || Object.values(catOverrides).find((_v, i) =>
+            Object.keys(catOverrides)[i].toLowerCase() === itemName.toLowerCase()
+          )
+        || null;
+      if (!itemObj) return '';
+      return (itemObj['other'] as string) || (itemObj['comment'] as string) || '';
+    };
+
     Object.values(buckets).forEach((bucket) => {
       if (bucket.isCountryGroup) {
         const latest = bucket.latestLog;
@@ -315,7 +350,7 @@ export default function DashboardPage() {
           note: `Modification sur « ${bucket.countryName} » : ${fieldsStr}`,
           groupedCount: bucket.count,
           finalState,
-          itemComment: latest.itemComment || '',
+          itemComment: resolveComment({ ...latest, countryName: bucket.countryName }),
         });
       } else {
         const latestLog = bucket.latestLog;
@@ -327,7 +362,7 @@ export default function DashboardPage() {
           newRisk: bucket.endRisk,
           groupedCount: 1,
           finalState,
-          itemComment: latestLog.itemComment || '',
+          itemComment: resolveComment(latestLog),
         });
       }
     });
@@ -335,7 +370,7 @@ export default function DashboardPage() {
     return consolidated.sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
-  }, [riskFactorLogs, riskTransitionsMap]);
+  }, [riskFactorLogs, riskTransitionsMap, matrixOverrides]);
 
   const renderRiskTransition = (transition?: { oldRisk?: string; newRisk?: string }) => {
     if (!transition || !transition.oldRisk || !transition.newRisk) return null;
