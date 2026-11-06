@@ -60,10 +60,10 @@ export default function DashboardPage() {
   };
 
   const actionStatusConfig: Record<number, { label: string; short: string; color: string; bg: string; border: string }> = {
-    0:   { label: 'Non initié', short: '0%',   color: 'text-slate-500',   bg: 'bg-slate-100 dark:bg-slate-800',        border: 'border-slate-200 dark:border-slate-700' },
-    33:  { label: 'Initié',     short: '33%',  color: 'text-blue-600',    bg: 'bg-blue-50 dark:bg-blue-900/30',        border: 'border-blue-200 dark:border-blue-800' },
-    66:  { label: 'En cours',   short: '66%',  color: 'text-orange-600',  bg: 'bg-orange-50 dark:bg-orange-900/30',    border: 'border-orange-200 dark:border-orange-800' },
-    100: { label: 'Réalisé',    short: '100%', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30',  border: 'border-emerald-200 dark:border-emerald-800' },
+    0: { label: 'Non initié', short: '0%', color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-slate-800', border: 'border-slate-200 dark:border-slate-700' },
+    33: { label: 'Initié', short: '33%', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/30', border: 'border-blue-200 dark:border-blue-800' },
+    66: { label: 'En cours', short: '66%', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-200 dark:border-orange-800' },
+    100: { label: 'Réalisé', short: '100%', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-200 dark:border-emerald-800' },
   };
   const { news, loading: newsLoading, refetchNews, dismissNewsItem } = useNews();
   const { events: timelineEvents, toggleValidation, prolongEvent, validateWithEvidence } = useTimeline();
@@ -90,12 +90,12 @@ export default function DashboardPage() {
 
   // ── Risk Factor Matrix Tracker ──
   const RISK_FACTORS = [
-    { id: "pays",           label: "Pays",                        icon: "🌍", color: "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300" },
-    { id: "gouvernorats",   label: "Gouvernorats",                icon: "🗺️",  color: "bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/30 dark:border-violet-800 dark:text-violet-300" },
-    { id: "produits",       label: "Produits",                    icon: "📦", color: "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300" },
-    { id: "voie",           label: "Voie de distribution / Vente",icon: "🔗", color: "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300" },
-    { id: "activite",       label: "Activité P. Morales",         icon: "🏢", color: "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300" },
-    { id: "profession",     label: "Profession PP",               icon: "👤", color: "bg-cyan-50 border-cyan-200 text-cyan-700 dark:bg-cyan-950/30 dark:border-cyan-800 dark:text-cyan-300" },
+    { id: "pays", label: "Pays", icon: "🌍", color: "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300" },
+    { id: "gouvernorats", label: "Gouvernorats", icon: "🗺️", color: "bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/30 dark:border-violet-800 dark:text-violet-300" },
+    { id: "produits", label: "Produits", icon: "📦", color: "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300" },
+    { id: "voie", label: "Voie de distribution / Vente", icon: "🔗", color: "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300" },
+    { id: "activite", label: "Activité P. Morales", icon: "🏢", color: "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300" },
+    { id: "profession", label: "Profession PP", icon: "👤", color: "bg-cyan-50 border-cyan-200 text-cyan-700 dark:bg-cyan-950/30 dark:border-cyan-800 dark:text-cyan-300" },
   ];
   const [riskFactorLogs, setRiskFactorLogs] = React.useState<any[]>([]);
   const [showAllRiskLogs, setShowAllRiskLogs] = React.useState(false);
@@ -202,10 +202,10 @@ export default function DashboardPage() {
 
       const baseCountry = countryName
         ? COUNTRIES_DATA.find(
-            (c) =>
-              c.name.toLowerCase() === countryName!.toLowerCase() ||
-              c.alpha3.toLowerCase() === countryName!.toLowerCase()
-          )
+          (c) =>
+            c.name.toLowerCase() === countryName!.toLowerCase() ||
+            c.alpha3.toLowerCase() === countryName!.toLowerCase()
+        )
         : null;
 
       if (baseCountry) {
@@ -325,8 +325,8 @@ export default function DashboardPage() {
       // Chercher d'abord par nom exact, puis insensible à la casse
       const itemObj = catOverrides[itemName]
         || Object.values(catOverrides).find((_v, i) =>
-            Object.keys(catOverrides)[i].toLowerCase() === itemName.toLowerCase()
-          )
+          Object.keys(catOverrides)[i].toLowerCase() === itemName.toLowerCase()
+        )
         || null;
       if (!itemObj) return '';
       return (itemObj['other'] as string) || (itemObj['comment'] as string) || '';
@@ -397,8 +397,8 @@ export default function DashboardPage() {
           isReduced
             ? "bg-emerald-50/70 border-emerald-200/80 dark:bg-emerald-950/20 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200"
             : isElevated
-            ? "bg-rose-50/70 border-rose-200/80 dark:bg-rose-950/20 dark:border-rose-800/60 text-rose-900 dark:text-rose-200"
-            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300"
+              ? "bg-rose-50/70 border-rose-200/80 dark:bg-rose-950/20 dark:border-rose-800/60 text-rose-900 dark:text-rose-200"
+              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300"
         )}
         title={`Transition de risque : ${transition.oldRisk} → ${transition.newRisk}`}
       >
@@ -602,7 +602,7 @@ export default function DashboardPage() {
       try {
         const stored = localStorage.getItem("risk_factor_logs");
         if (stored) setRiskFactorLogs(JSON.parse(stored));
-      } catch {}
+      } catch { }
       return () => {
         window.removeEventListener("risk_factor_logs_cleared", handleLogsCleared);
         window.removeEventListener("storage", handleStorage);
@@ -743,7 +743,7 @@ export default function DashboardPage() {
       if (r.regtoolsKPIs && !hasKPIs) {
         hasKPIs = true;
         const k = r.regtoolsKPIs;
-        
+
         if (k.riskLevels) {
           aggregated.riskLevels.Faible = k.riskLevels.Faible || 0;
           aggregated.riskLevels.Moyen = k.riskLevels.Moyen || 0;
@@ -879,17 +879,17 @@ export default function DashboardPage() {
   // Top 5 critical agencies (highest missing rates)
   const criticalAgencies = React.useMemo(() => {
     const agencyMap: Record<string, { code: string; nom: string; type: string; total: number; missing: number }> = {};
-    
+
     latestReports.forEach(r => {
       const stats = r.agencyStats || [];
       stats.forEach((stat: any) => {
         const code = stat.agence;
         const type = stat.type || "Inconnu";
-        
+
         // Filter based on active filter tab
         if (criticalTypeFilter === "Agence" && type !== "Agence") return;
         if (criticalTypeFilter === "Succursale" && type !== "Succursale") return;
-        
+
         if (!agencyMap[code]) {
           agencyMap[code] = {
             code,
@@ -935,9 +935,9 @@ export default function DashboardPage() {
       });
       const pctMissing = total > 0 ? parseFloat(((missing / total) * 100).toFixed(2)) : 0;
       const pctExisting = total > 0 ? parseFloat((((total - missing) / total) * 100).toFixed(2)) : 0;
-      
+
       const minSavedAt = reports.reduce((min, r) => r.savedAt < min ? r.savedAt : min, reports[0].savedAt);
-      
+
       trend.push({
         month: label,
         savedAt: minSavedAt,
@@ -1052,8 +1052,8 @@ export default function DashboardPage() {
       statusBadgeClass: compositeScore >= 85
         ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/15 ring-1 ring-emerald-500/20'
         : compositeScore >= 70
-        ? 'border-amber-500/40 text-amber-300 bg-amber-500/15 ring-1 ring-amber-500/20'
-        : 'border-rose-500/40 text-rose-300 bg-rose-500/15 ring-1 ring-rose-500/20',
+          ? 'border-amber-500/40 text-amber-300 bg-amber-500/15 ring-1 ring-amber-500/20'
+          : 'border-rose-500/40 text-rose-300 bg-rose-500/15 ring-1 ring-rose-500/20',
       pillars: [
         {
           id: 'lab',
@@ -1285,10 +1285,10 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => router.push('/quick-response')} 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/quick-response')}
               className="group relative overflow-hidden rounded-xl border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 transition-all font-black text-[10px] uppercase tracking-widest px-4 h-9"
             >
               <Zap className="mr-2 h-4 w-4 text-primary animate-pulse" />
@@ -1454,7 +1454,7 @@ export default function DashboardPage() {
                       Score composite pondéré
                     </p>
                   </div>
-                  
+
                   {/* Multi-segment radial preview */}
                   <div className="flex items-center gap-1.5">
                     {grcCompositePillars.pillars.map(p => (
@@ -1687,7 +1687,7 @@ export default function DashboardPage() {
                       });
                       if (risksWithActions.length === 0) return null;
                       const globalAvg = Math.round(risksWithActions.reduce((sum, r) => {
-                        const items: ActionItem[] = r.actionItems && r.actionItems.length > 0 ? r.actionItems : (r.actionCorrective ? r.actionCorrective.split(/[\n\+;•]+/).map((s, i) => ({ id: `d-${i}`, text: s.trim(), status: 0 as 0|33|66|100 })).filter(it => it.text.length > 0) : []);
+                        const items: ActionItem[] = r.actionItems && r.actionItems.length > 0 ? r.actionItems : (r.actionCorrective ? r.actionCorrective.split(/[\n\+;•]+/).map((s, i) => ({ id: `d-${i}`, text: s.trim(), status: 0 as 0 | 33 | 66 | 100 })).filter(it => it.text.length > 0) : []);
                         if (items.length === 0) return sum;
                         return sum + Math.round(items.reduce((a, it) => a + it.status, 0) / items.length);
                       }, 0) / risksWithActions.length);
@@ -1721,7 +1721,7 @@ export default function DashboardPage() {
                         })
                         .slice(0, 5)
                         .map(risk => {
-                          const items: ActionItem[] = risk.actionItems && risk.actionItems.length > 0 ? risk.actionItems : (risk.actionCorrective ? risk.actionCorrective.split(/[\n\+;•]+/).map((s, i) => ({ id: `d-${i}`, text: s.trim(), status: 0 as 0|33|66|100 })).filter(it => it.text.length > 0) : []);
+                          const items: ActionItem[] = risk.actionItems && risk.actionItems.length > 0 ? risk.actionItems : (risk.actionCorrective ? risk.actionCorrective.split(/[\n\+;•]+/).map((s, i) => ({ id: `d-${i}`, text: s.trim(), status: 0 as 0 | 33 | 66 | 100 })).filter(it => it.text.length > 0) : []);
                           const avg = items.length > 0 ? Math.round(items.reduce((a, it) => a + it.status, 0) / items.length) : 0;
                           const completedCount = items.filter(it => it.status === 100).length;
                           const avgColor = avg >= 80 ? 'text-emerald-600' : avg >= 50 ? 'text-orange-600' : avg >= 20 ? 'text-blue-600' : 'text-slate-500';
@@ -1778,8 +1778,8 @@ export default function DashboardPage() {
                                             completionLevel: newAvg,
                                             actionCorrective: updatedItems.map(it => it.text).join('\n'),
                                           } as any);
-                                          toast({ 
-                                            title: "Mise à jour rapide", 
+                                          toast({
+                                            title: "Mise à jour rapide",
                                             description: `${item.text.substring(0, 30)}... → ${actionStatusConfig[newStatus].label}`
                                           });
                                           if (user) logAction({ userEmail: user.email, userName: user.name, action: 'PLAN_UPDATE', label: `Mise à jour via Dashboard: ${risk.riskDescription}`, detail: `Status: ${newStatus}%`, module: 'Tableau de bord' });
@@ -1792,7 +1792,7 @@ export default function DashboardPage() {
                                         {cfg.short}
                                       </button>
                                       <span className={cn(
-                                        "text-[9px] leading-tight line-clamp-1", 
+                                        "text-[9px] leading-tight line-clamp-1",
                                         item.status === 100 ? "line-through text-slate-400" : "text-slate-600 dark:text-slate-400"
                                       )}>
                                         {item.text}
@@ -2226,8 +2226,8 @@ export default function DashboardPage() {
                     {monthlyKycTrendIndicator && (
                       <span className={cn(
                         "text-[9px] font-bold px-1 py-0.5 rounded-md flex items-center",
-                        monthlyKycTrendIndicator.improved 
-                          ? "bg-emerald-500/10 text-emerald-600" 
+                        monthlyKycTrendIndicator.improved
+                          ? "bg-emerald-500/10 text-emerald-600"
                           : "bg-rose-500/10 text-rose-600"
                       )}>
                         {monthlyKycTrendIndicator.diff > 0 ? "+" : ""}{monthlyKycTrendIndicator.diff}%
@@ -2487,20 +2487,20 @@ export default function DashboardPage() {
                     <p className="text-[10px] text-slate-400 font-medium">Taux d'absence de KYC le plus élevé (min. 5 clients)</p>
                   </div>
                   <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-[10px] font-bold self-start sm:self-center">
-                    <button 
-                      onClick={() => setCriticalTypeFilter("all")} 
+                    <button
+                      onClick={() => setCriticalTypeFilter("all")}
                       className={`px-2.5 py-1 rounded-md transition-all ${criticalTypeFilter === "all" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}
                     >
                       Tout
                     </button>
-                    <button 
-                      onClick={() => setCriticalTypeFilter("Agence")} 
+                    <button
+                      onClick={() => setCriticalTypeFilter("Agence")}
                       className={`px-2.5 py-1 rounded-md transition-all ${criticalTypeFilter === "Agence" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}
                     >
                       Agences
                     </button>
-                    <button 
-                      onClick={() => setCriticalTypeFilter("Succursale")} 
+                    <button
+                      onClick={() => setCriticalTypeFilter("Succursale")}
                       className={`px-2.5 py-1 rounded-md transition-all ${criticalTypeFilter === "Succursale" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}
                     >
                       Succursales
@@ -2509,7 +2509,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex flex-col gap-3">
                   {criticalAgencies.map((agency, idx) => (
-                    <div 
+                    <div
                       key={`critical-ag-${idx}`}
                       className="p-3 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 rounded-xl flex items-center justify-between gap-3 transition-colors"
                     >
@@ -2553,7 +2553,7 @@ export default function DashboardPage() {
                         <span className="text-rose-600 font-black">{port.pctMissing}% d'absence</span>
                       </div>
                       <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className="h-full rounded-full transition-all duration-1000"
                           style={{ width: `${port.pctMissing}%`, backgroundColor: port.fill }}
                         />
