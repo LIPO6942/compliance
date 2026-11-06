@@ -2386,37 +2386,93 @@ export function RiskMatrixTab() {
                   {kycHistory.map(entry => {
                     const anyEntry = entry as any;
                     const hasTransitions = Array.isArray(anyEntry.fieldTransitions) && anyEntry.fieldTransitions.length > 0;
+
+                    // Labels lisibles pour les anciens logs
+                    const legacyLabels: Record<string, string> = {
+                      gafi: 'GAFI', otherdominant: 'Autre facteur dominant', otherDominant: 'Autre facteur dominant',
+                      other: 'Autre critère', corruption: 'Corruption', oecd: 'OCDE', terrorism: 'Terrorisme',
+                      border: 'Zone frontalière', port: 'Port int.', airport: 'Aéroport', market: 'Contrebande',
+                      cash: 'Argent liquide', objects: 'Objets valeur', volume: 'Volume élevé', noinfo: 'Manque info',
+                      complexeval: 'Éval. difficile', intermediary: 'Intermédiation', liquid: 'Liquidité',
+                      forex: 'Devises', highvalue: 'Capital élevé', fraud: 'Fraude', cap: 'Capitalisation',
+                      complex: 'Contrôle complexe', noncompliance: 'Non-soumission', noculture: 'Pas de culture',
+                      nocontact: 'Sans contact', nooriginals: 'Sans originaux',
+                    };
+
+                    // Parser les anciens logs : extraire catégorie, item et champs depuis entry.field
+                    // Format ancien : "Pays [RDC] → gafi, terrorism, other (RE → RM)"
+                    // Format nouveau : "Pays [RDC] (RE → RM)"
+                    const legacyMatch = entry.field?.match(/^(.+?)\s*\[([^\]]+)\]\s*(?:→\s*([^(]+?))?(?:\s*\((.+?)\))?$/);
+                    let parsedCategory = '';
+                    let parsedItem = '';
+                    let parsedFields: string[] = [];
+                    let parsedRiskTransition = '';
+                    if (legacyMatch) {
+                      parsedCategory = legacyMatch[1]?.trim() || '';
+                      parsedItem = legacyMatch[2]?.trim() || '';
+                      const rawFields = legacyMatch[3]?.trim() || '';
+                      parsedRiskTransition = legacyMatch[4]?.trim() || '';
+                      parsedFields = rawFields ? rawFields.split(',').map(f => f.trim()).filter(Boolean) : [];
+                    }
+                    const hasLegacyFields = !hasTransitions && parsedFields.length > 0;
+
                     return (
                     <div key={entry.id} className="flex gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
                       <div className="h-8 w-8 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <CheckCircle2 className="h-4 w-4 text-violet-600" />
                       </div>
                       <div className="flex-1 min-w-0">
+                        {/* En-tête : catégorie + item */}
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-black text-slate-800 dark:text-white truncate">{entry.field}</span>
+                          <span className="text-xs font-black text-slate-800 dark:text-white truncate">
+                            {parsedCategory && parsedItem
+                              ? <>{parsedCategory} <span className="font-normal text-slate-500">·</span> <span className="text-violet-700 dark:text-violet-300">« {parsedItem} »</span>{parsedRiskTransition && <span className="ml-1 text-[9px] font-bold text-slate-400">({parsedRiskTransition})</span>}</>
+                              : entry.field
+                            }
+                          </span>
                           <span className="text-[9px] text-slate-400 flex items-center gap-1 shrink-0">
                             <Clock className="h-3 w-3" />
                             {new Date(entry.date).toLocaleString('fr-FR')}
                           </span>
                         </div>
                         <p className="text-[10px] text-slate-500 mt-0.5">Par: <strong>{entry.user}</strong></p>
-                        {hasTransitions ? (
+
+                        {/* Nouveaux logs : transitions par champ avec old/new */}
+                        {hasTransitions && (
                           <div className="flex flex-wrap gap-1.5 mt-1.5">
                             {anyEntry.fieldTransitions.map((t: any, idx: number) => (
                               <span key={idx} className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-lg border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
                                 <span className="text-slate-600 dark:text-slate-300">{t.label}</span>
                                 <span className="text-slate-300 dark:text-slate-600 mx-0.5">:</span>
-                                <span className={t.oldVal ? "text-emerald-700 dark:text-emerald-400 line-through" : "text-rose-400 dark:text-rose-500 line-through"}>
+                                <span className={t.oldVal ? "text-emerald-600 dark:text-emerald-400 line-through opacity-60" : "text-rose-400 dark:text-rose-500 line-through opacity-60"}>
                                   {t.oldVal ? 'Oui' : 'Non'}
                                 </span>
-                                <span className="text-slate-400 dark:text-slate-500">→</span>
+                                <span className="text-slate-400 dark:text-slate-500 font-black">→</span>
                                 <span className={t.newVal ? "text-emerald-700 dark:text-emerald-400 font-black" : "text-rose-500 dark:text-rose-400 font-black"}>
                                   {t.newVal ? 'Oui' : 'Non'}
                                 </span>
                               </span>
                             ))}
                           </div>
-                        ) : (
+                        )}
+
+                        {/* Anciens logs avec champs identifiables : afficher les tags sans direction (inconnue) */}
+                        {hasLegacyFields && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {parsedFields.map((f, idx) => {
+                              const label = legacyLabels[f.toLowerCase().replace(/\s+/g,'')] || legacyLabels[f] || f;
+                              return (
+                                <span key={idx} className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 border border-amber-200/70 dark:border-amber-700/50">
+                                  {label}
+                                </span>
+                              );
+                            })}
+                            <span className="text-[9px] italic text-slate-400 self-center ml-1">(modifié)</span>
+                          </div>
+                        )}
+
+                        {/* Anciens logs sans champs : transition risque globale uniquement */}
+                        {!hasTransitions && !hasLegacyFields && (
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] line-through text-rose-400 bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded">{entry.oldValue || "(vide)"}</span>
                             <span className="text-[9px] text-slate-400">→</span>

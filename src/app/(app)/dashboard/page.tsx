@@ -215,6 +215,7 @@ export default function DashboardPage() {
             oecd: Boolean(baseCountry.oecd),
             terrorism: Boolean(baseCountry.terrorism),
             otherDominant: Boolean(baseCountry.otherDominant),
+            otherdominant: Boolean(baseCountry.otherDominant), // alias lowercase pour la lookup
           };
         }
 
@@ -225,12 +226,16 @@ export default function DashboardPage() {
         if (rawFields.includes("gafi") && rawFields.includes("otherdominant")) {
           state.gafi = false;
           state.otherDominant = true;
+          state.otherdominant = true; // alias sync
         } else {
           if (rawFields.includes("gafi")) state.gafi = !state.gafi;
           if (rawFields.includes("corruption")) state.corruption = !state.corruption;
           if (rawFields.includes("terrorism")) state.terrorism = !state.terrorism;
           if (rawFields.includes("oecd")) state.oecd = !state.oecd;
-          if (rawFields.includes("otherdominant")) state.otherDominant = !state.otherDominant;
+          if (rawFields.includes("otherdominant")) {
+            state.otherDominant = !state.otherDominant;
+            state.otherdominant = state.otherDominant; // alias sync
+          }
         }
 
         const newRisk = log.newRisk || riskTransitionsMap[key]?.newRisk || computeCountryRisk(state);
@@ -491,11 +496,13 @@ export default function DashboardPage() {
     };
 
     // Afficher uniquement les paramètres dont la valeur finale est true
+    // Lookup insensible à la casse (countryStates utilise camelCase, les clés de la note sont en lowercase)
     let params = allParams;
     if (finalState) {
       params = allParams.filter(param => {
         const key = param.toLowerCase().replace(/\s*\([^)]*\)/, "").replace(/\s+/g, "");
-        return finalState[key] === true;
+        const matchKey = Object.keys(finalState).find(k => k.toLowerCase() === key);
+        return matchKey ? finalState[matchKey] === true : false;
       });
       // Fallback : si aucun paramètre à true, afficher tous
       if (params.length === 0) params = allParams;
