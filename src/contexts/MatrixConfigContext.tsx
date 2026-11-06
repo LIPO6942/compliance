@@ -575,6 +575,25 @@ export const MatrixConfigProvider = ({ children }: { children: ReactNode }) => {
             logPayload.countryName = displayName;
             logPayload.category = category;
           }
+          // Passer les valeurs finales pour affichage filtré (uniquement paramètres à oui)
+          if (category === 'country') {
+            const base = COUNTRIES_DATA.find(c => c.name === itemId || c.name === displayName || c.alpha3 === itemId);
+            if (base) {
+              const curOv = (overridesRef.current?.country?.[itemId] || overridesRef.current?.country?.[base.name] || {}) as Record<string, any>;
+              const baseOv = (baselineOverridesRef.current?.country?.[itemId] || baselineOverridesRef.current?.country?.[base.name] || {}) as Record<string, any>;
+              const resolveField = (field: string, baseVal: boolean) => {
+                const merged = { ...baseOv, ...curOv, ...fieldsToUpdate };
+                return merged[field] !== undefined ? Boolean(merged[field]) : baseVal;
+              };
+              logPayload.finalValues = {
+                gafi: resolveField('gafi', Boolean(base.gafi)),
+                corruption: resolveField('corruption', Boolean(base.corruption)),
+                oecd: resolveField('oecd', Boolean(base.oecd)),
+                terrorism: resolveField('terrorism', Boolean(base.terrorism)),
+                otherdominant: resolveField('otherDominant', Boolean(base.otherDominant)),
+              };
+            }
+          }
           appendLocalRiskLog(logPayload);
           await addDoc(collection(db, "riskFactorLogs"), logPayload);
         } catch (logErr) {

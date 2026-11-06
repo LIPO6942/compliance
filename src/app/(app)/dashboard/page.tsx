@@ -296,6 +296,8 @@ export default function DashboardPage() {
       if (bucket.isCountryGroup) {
         const latest = bucket.latestLog;
         const fieldsStr = bucket.fields.join(", ");
+        // Récupérer l'état final (paramètres à true) : priorité aux finalValues du log Firebase, sinon état calculé localement
+        const finalState = latest.finalValues || countryStates[bucket.countryName] || null;
         consolidated.push({
           ...latest,
           id: `consolidated-${bucket.countryName}-${bucket.dayKey}`,
@@ -307,6 +309,7 @@ export default function DashboardPage() {
           newRisk: bucket.endRisk,
           note: `Modification sur « ${bucket.countryName} » : ${fieldsStr}`,
           groupedCount: bucket.count,
+          finalState,
         });
       } else {
         consolidated.push({
@@ -314,6 +317,7 @@ export default function DashboardPage() {
           oldRisk: bucket.startRisk,
           newRisk: bucket.endRisk,
           groupedCount: 1,
+          finalState: null,
         });
       }
     });
@@ -436,7 +440,7 @@ export default function DashboardPage() {
     };
   };
 
-  const renderHighlightedNote = (note: string) => {
+  const renderHighlightedNote = (note: string, finalState?: Record<string, boolean> | null) => {
     if (!note) return null;
     const m = note.match(/Modification sur\s*[«"]([^»"]+)[»"]\s*:\s*(.+)/i);
     if (!m) {
@@ -449,7 +453,7 @@ export default function DashboardPage() {
 
     const itemName = m[1].trim();
     const rawParams = m[2].trim();
-    const params = rawParams
+    const allParams = rawParams
       .split(",")
       .map(p => p.trim())
       .filter(Boolean);
@@ -482,6 +486,17 @@ export default function DashboardPage() {
       nocontact: "Sans contact",
       nooriginals: "Sans originaux",
     };
+
+    // Afficher uniquement les paramètres dont la valeur finale est true
+    let params = allParams;
+    if (finalState) {
+      params = allParams.filter(param => {
+        const key = param.toLowerCase().replace(/\s*\([^)]*\)/, "").replace(/\s+/g, "");
+        return finalState[key] === true;
+      });
+      // Fallback : si aucun paramètre à true, afficher tous
+      if (params.length === 0) params = allParams;
+    }
 
     return (
       <div className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-relaxed break-words space-y-1">
@@ -1916,7 +1931,7 @@ export default function DashboardPage() {
                     {consolidatedRiskLogs.length} MAJ
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-0.5">Dernières modifications des facteurs et paramètres KYC (finalités)</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Dernières modifications des facteurs et paramètres KYC</p>
               </CardHeader>
               <CardContent className="p-4 space-y-4">
                 {/* Live logs list - Consolidated to only display the finality */}
@@ -1952,13 +1967,8 @@ export default function DashboardPage() {
                                 <span>{factorCfg.label}</span>
                               </span>
                               {renderRiskTransition(trans)}
-                              {log.groupedCount > 1 && (
-                                <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 rounded border border-slate-300 dark:border-slate-600 shadow-2xs">
-                                  Finalité ({log.groupedCount})
-                                </span>
-                              )}
                             </div>
-                            {renderHighlightedNote(log.note)}
+                            {renderHighlightedNote(log.note, log.finalState)}
                           </div>
                         </div>
                       );
@@ -2595,13 +2605,8 @@ export default function DashboardPage() {
                             <span>{factorCfg.label}</span>
                           </span>
                           {renderRiskTransition(trans)}
-                          {log.groupedCount > 1 && (
-                            <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 rounded border border-slate-300 dark:border-slate-600 shadow-2xs">
-                              Finalité ({log.groupedCount})
-                            </span>
-                          )}
                         </div>
-                        {renderHighlightedNote(log.note)}
+                        {renderHighlightedNote(log.note, log.finalState)}
                       </div>
                     </div>
                   );
