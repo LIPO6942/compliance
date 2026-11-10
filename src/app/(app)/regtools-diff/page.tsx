@@ -4047,7 +4047,36 @@ export default function RegtoolsDiffPage() {
       }
     });
 
-    return Object.values(groups).sort((a, b) => b.baseMonthKey.localeCompare(a.baseMonthKey));
+    return Object.values(groups).map(group => {
+      let totalAdherents = 0;
+      let existingAdherents = 0;
+      const hasBoth = Boolean(group.nsReport && group.vieReport);
+
+      if (group.nsReport?.globalStats) {
+        const nsTotal = group.nsReport.globalStats.totalAdherents || group.nsReport.globalStats.total || 0;
+        const nsExist = group.nsReport.globalStats.existing ?? (nsTotal - (group.nsReport.globalStats.missing || 0));
+        totalAdherents += nsTotal;
+        existingAdherents += nsExist;
+      }
+      if (group.vieReport?.globalStats) {
+        const vieTotal = group.vieReport.globalStats.totalAdherents || group.vieReport.globalStats.total || 0;
+        const vieExist = group.vieReport.globalStats.existing ?? (vieTotal - (group.vieReport.globalStats.missing || 0));
+        totalAdherents += vieTotal;
+        existingAdherents += vieExist;
+      }
+
+      const combinedPct = totalAdherents > 0
+        ? parseFloat(((existingAdherents / totalAdherents) * 100).toFixed(2))
+        : (group.nsReport?.globalStats?.pctExisting || group.vieReport?.globalStats?.pctExisting || 0);
+
+      return {
+        ...group,
+        totalAdherents,
+        existingAdherents,
+        combinedPct,
+        hasBoth
+      };
+    }).sort((a, b) => b.baseMonthKey.localeCompare(a.baseMonthKey));
   }, [savedReports]);
 
   // Memos for selected history report
@@ -7154,10 +7183,22 @@ export default function RegtoolsDiffPage() {
                     <div>
                       <div className="flex justify-between items-start gap-2 mb-3 border-b border-slate-100 dark:border-slate-800 pb-3">
                         <div>
-                          <h4 className="font-bold text-slate-900 dark:text-white text-base">
-                            {group.monthLabel}
-                          </h4>
-                          <p className="text-[10px] text-slate-400">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                              {group.monthLabel}
+                            </h4>
+                            <span className={cn(
+                              "text-[10px] font-black px-2 py-0.5 rounded-full border shadow-2xs",
+                              group.combinedPct >= 98
+                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700"
+                                : group.combinedPct >= 95
+                                ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 dark:border-amber-700"
+                                : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-300 dark:border-rose-700"
+                            )}>
+                              Combiné : {group.combinedPct}%
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-1">
                             Dernière activité le {new Date(group.maxSavedAt).toLocaleDateString("fr-FR")}
                             <span className="block text-[9px] text-slate-400/80 font-mono mt-0.5">
                               à {new Date(group.maxSavedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
@@ -7173,10 +7214,15 @@ export default function RegtoolsDiffPage() {
                       {group.nsReport && group.vieReport && (
                         <button
                           onClick={() => handleLoadReport(group.nsReport)}
-                          className="w-full mb-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                          className="w-full mb-3 py-2 px-3 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl transition-all shadow-md flex items-center justify-between cursor-pointer"
                         >
-                          <FileSpreadsheet className="h-3.5 w-3.5" />
-                          Consulter NS + VIE (Les deux)
+                          <div className="flex items-center gap-2">
+                            <FileSpreadsheet className="h-3.5 w-3.5" />
+                            <span>Consulter NS + VIE (Les deux)</span>
+                          </div>
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-white/20 text-white backdrop-blur-xs">
+                            Combiné : {group.combinedPct}%
+                          </span>
                         </button>
                       )}
 

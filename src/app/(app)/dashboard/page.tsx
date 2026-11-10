@@ -4,7 +4,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map as LucideMapIcon, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle, X, Zap, ChevronDown, Award, ClipboardEdit, PenLine } from "lucide-react";
+import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map as LucideMapIcon, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, TrendingDown, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle, X, Zap, ChevronDown, Award, ClipboardEdit, PenLine } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { db, isFirebaseConfigured } from "@/lib/firebase";
 import { getAgencyGeography } from "@/data/agencyGeography";
@@ -722,6 +722,101 @@ export default function DashboardPage() {
     const pctExisting = total > 0 ? parseFloat(((existing / total) * 100).toFixed(2)) : 0;
     return { total, missing, existing, pctMissing, pctExisting };
   }, [latestReports]);
+
+  // ── Monthly KYC Compliance Trends (Combiné, Non-Vie, Vie) ──
+  const kycMonthlyTrends = React.useMemo(() => {
+    const groups: Record<string, {
+      baseMonthKey: string;
+      monthLabel: string;
+      shortLabel: string;
+      date: Date;
+      nsTotal: number;
+      nsExisting: number;
+      nsPct: number | null;
+      vieTotal: number;
+      vieExisting: number;
+      viePct: number | null;
+      total: number;
+      existing: number;
+      combinedPct: number;
+    }> = {};
+
+    regtoolsHistory.forEach(r => {
+      const monthKey = String(r.monthKey || "");
+      const baseKey = monthKey.replace(/_(NS|VIE)$/i, "").substring(0, 6);
+      if (!baseKey || baseKey.length < 6) return;
+
+      const type = r.reconciliationType || (monthKey.includes("VIE") ? "VIE" : "NS");
+
+      if (!groups[baseKey]) {
+        const monthNum = parseInt(baseKey.substring(0, 2), 10);
+        const yearNum = parseInt(baseKey.substring(2), 10);
+        const dateObj = new Date(yearNum, monthNum - 1, 1);
+        const monthNames = ["Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin", "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."];
+        const shortLabel = monthNames[monthNum - 1] || baseKey;
+
+        groups[baseKey] = {
+          baseMonthKey: baseKey,
+          monthLabel: r.monthLabel || `${shortLabel} ${yearNum}`,
+          shortLabel,
+          date: dateObj,
+          nsTotal: 0,
+          nsExisting: 0,
+          nsPct: null,
+          vieTotal: 0,
+          vieExisting: 0,
+          viePct: null,
+          total: 0,
+          existing: 0,
+          combinedPct: 0,
+        };
+      }
+
+      const total = r.globalStats?.totalAdherents || r.globalStats?.total || 0;
+      const exist = r.globalStats?.existing ?? (total - (r.globalStats?.missing || 0));
+      const pct = r.globalStats?.pctExisting !== undefined ? Number(r.globalStats.pctExisting) : (total > 0 ? parseFloat(((exist / total) * 100).toFixed(2)) : null);
+
+      if (type === "VIE") {
+        groups[baseKey].vieTotal += total;
+        groups[baseKey].vieExisting += exist;
+        groups[baseKey].viePct = pct !== null ? parseFloat(Number(pct).toFixed(2)) : null;
+      } else {
+        groups[baseKey].nsTotal += total;
+        groups[baseKey].nsExisting += exist;
+        groups[baseKey].nsPct = pct !== null ? parseFloat(Number(pct).toFixed(2)) : null;
+      }
+
+      groups[baseKey].total += total;
+      groups[baseKey].existing += exist;
+    });
+
+    // Compute weighted combinedPct and sort chronologically (oldest to newest for trend chart)
+    const sorted = Object.values(groups)
+      .map(item => {
+        const combined = item.total > 0
+          ? parseFloat(((item.existing / item.total) * 100).toFixed(2))
+          : (item.nsPct ?? item.viePct ?? 0);
+        return {
+          ...item,
+          combinedPct: combined
+        };
+      })
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // Latest month & previous month
+    const latest = sorted.length > 0 ? sorted[sorted.length - 1] : null;
+    const previous = sorted.length > 1 ? sorted[sorted.length - 2] : null;
+    const delta = (latest && previous)
+      ? parseFloat((latest.combinedPct - previous.combinedPct).toFixed(2))
+      : 0;
+
+    return {
+      history: sorted,
+      latest,
+      previous,
+      delta
+    };
+  }, [regtoolsHistory]);
 
   // Aggregate RegTools KPIs for the latest reports with robust fallback for existing items
   const latestRegtoolsKPIs = React.useMemo(() => {
@@ -1833,29 +1928,140 @@ export default function DashboardPage() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Card
-                    className="shadow-xl border-none bg-gradient-to-br from-rose-50 via-white to-white dark:from-rose-950/20 dark:to-slate-900 group overflow-hidden border-l-4 border-l-rose-500 cursor-pointer hover:scale-[1.02] transition-all"
-                    onClick={() => handleCardClick('/alerts')}
+                    className="shadow-xl border-none bg-gradient-to-br from-violet-50/50 via-white to-white dark:from-violet-950/20 dark:to-slate-900 group overflow-hidden border-l-4 border-l-violet-600 cursor-pointer hover:scale-[1.02] transition-all flex flex-col justify-between"
+                    onClick={() => handleCardClick('/regtools-diff')}
                   >
-                    <CardHeader className="pb-0">
-                      <CardTitle className="text-xs font-black uppercase tracking-widest text-rose-600 flex justify-between">
-                        Urgence
-                        <Badge variant="destructive" className="h-4 text-[9px] animate-pulse">ACTION REQUIS</Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-4 flex items-center gap-5">
-                      <div className="p-4 bg-rose-500 text-white rounded-2xl shadow-lg shadow-rose-500/30 group-hover:rotate-6 transition-transform">
-                        <ShieldAlert className="h-7 w-7" />
+                    <CardHeader className="pb-1 pt-3.5 px-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10.5px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-300 flex items-center gap-1.5">
+                          <Target className="h-3.5 w-3.5 text-violet-600" />
+                          Tendance Conformité KYC
+                        </span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
+                          Cible : 98%
+                        </span>
                       </div>
-                      <div>
-                        <p className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white">{newAlertsCount}</p>
-                        <p className="text-[10px] text-rose-600 font-bold uppercase">Nouvelles Alertes GRC</p>
+                    </CardHeader>
+                    <CardContent className="pt-1 pb-3 px-4 flex flex-col justify-between gap-1.5">
+                      <div className="flex items-baseline justify-between">
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                            {kycMonthlyTrends.latest ? `${kycMonthlyTrends.latest.combinedPct}%` : "—"}
+                          </p>
+                          {kycMonthlyTrends.previous && (
+                            <div className={cn(
+                              "flex items-center text-[10px] font-bold",
+                              kycMonthlyTrends.delta > 0
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : kycMonthlyTrends.delta < 0
+                                ? "text-rose-600 dark:text-rose-400"
+                                : "text-slate-400"
+                            )}>
+                              {kycMonthlyTrends.delta > 0 ? (
+                                <TrendingUp className="h-3 w-3 mr-0.5" />
+                              ) : kycMonthlyTrends.delta < 0 ? (
+                                <TrendingDown className="h-3 w-3 mr-0.5" />
+                              ) : null}
+                              <span>{kycMonthlyTrends.delta > 0 ? `+${kycMonthlyTrends.delta}%` : `${kycMonthlyTrends.delta}%`}</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[9px] font-semibold text-slate-400">
+                          {kycMonthlyTrends.latest?.monthLabel || "Dernier mois"}
+                        </span>
+                      </div>
+
+                      {/* Details: Non-Vie & Vie */}
+                      {kycMonthlyTrends.latest && (
+                        <div className="flex items-center gap-2 text-[9px] font-semibold text-slate-500 dark:text-slate-400">
+                          <span className="flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                            Non-Vie : <strong className="text-slate-700 dark:text-slate-200">{kycMonthlyTrends.latest.nsPct !== null ? `${kycMonthlyTrends.latest.nsPct}%` : "—"}</strong>
+                          </span>
+                          <span>·</span>
+                          <span className="flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            Vie : <strong className="text-slate-700 dark:text-slate-200">{kycMonthlyTrends.latest.viePct !== null ? `${kycMonthlyTrends.latest.viePct}%` : "—"}</strong>
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Mini Trend Chart */}
+                      {kycMonthlyTrends.history.length > 0 ? (
+                        <div className="h-14 w-full mt-1">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={kycMonthlyTrends.history} margin={{ top: 2, right: 4, left: 4, bottom: 0 }}>
+                              <RechartsTooltip
+                                content={({ active, payload }) => {
+                                  if (!active || !payload || !payload.length) return null;
+                                  const d = payload[0].payload;
+                                  return (
+                                    <div className="bg-slate-900 text-white text-[9px] p-2 rounded-lg shadow-lg border border-slate-700 space-y-0.5">
+                                      <p className="font-bold border-b border-slate-800 pb-0.5">{d.monthLabel}</p>
+                                      <p className="text-violet-300 font-black">Combiné : {d.combinedPct}%</p>
+                                      {d.nsPct !== null && <p className="text-blue-300">Non-Vie : {d.nsPct}%</p>}
+                                      {d.viePct !== null && <p className="text-emerald-300">Vie : {d.viePct}%</p>}
+                                    </div>
+                                  );
+                                }}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="combinedPct"
+                                stroke="#8b5cf6"
+                                strokeWidth={2.5}
+                                dot={{ r: 2.5, fill: "#8b5cf6" }}
+                                isAnimationActive={false}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="nsPct"
+                                stroke="#3b82f6"
+                                strokeWidth={1.5}
+                                strokeDasharray="3 3"
+                                dot={false}
+                                isAnimationActive={false}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="viePct"
+                                stroke="#10b981"
+                                strokeWidth={1.5}
+                                strokeDasharray="2 2"
+                                dot={false}
+                                isAnimationActive={false}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : (
+                        <div className="h-10 flex items-center justify-center text-[10px] text-slate-400">
+                          Chargement de l'historique...
+                        </div>
+                      )}
+
+                      {/* Mini Legend */}
+                      <div className="flex items-center justify-between text-[8px] font-bold text-slate-400 border-t border-slate-100 dark:border-slate-800/80 pt-1">
+                        <span className="flex items-center gap-1 text-violet-600 dark:text-violet-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+                          Combiné
+                        </span>
+                        <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                          Non-Vie
+                        </span>
+                        <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Vie
+                        </span>
+                        <span className="text-slate-400 italic">6 mois</span>
                       </div>
                     </CardContent>
                   </Card>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="font-bold mb-1">Réglementations à traiter</p>
-                  <p className="text-xs">Alertes de veille nécessitant une analyse ou une action immédiate.</p>
+                  <p className="font-bold mb-1">Tendance Conformité KYC</p>
+                  <p className="text-xs">Évolution mensuelle des taux de rapprochement RegTools (Combiné, Non-Vie et Vie). Cliquez pour ouvrir l'outil.</p>
                 </TooltipContent>
               </Tooltip>
 

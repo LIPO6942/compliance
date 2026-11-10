@@ -126,6 +126,9 @@ Les clients sans fiche KYC ne présentent pas tous le même niveau d'exposition 
 * **Attribution Commerciale :** Chaque contrat est relié à sa structure de souscription (Succursale, Agence directe, Courtier ou Agent général) par son code ou son libellé commercial.
 * **Taux de Conformité d'Agence :** 
   $$\text{Taux de Conformité} = \left( \frac{\text{Nombre de Clients avec Fiche KYC Rapprochée}}{\text{Nombre Total de Clients Souscripteurs du Portefeuille}} \right) \times 100$$
+* **Taux Global Combiné Mensuel (Portefeuille Complet) :**
+  Pour agréger les productions Non-Vie et Vie d'un même mois, une moyenne pondérée par les volumes réels est calculée :
+  $$\text{Taux Combiné Mensuel} = \left( \frac{\text{Clients Rapprochés (NS)} + \text{Clients Rapprochés (VIE)}}{\text{Total Adhérents (NS)} + \text{Total Adhérents (VIE)}} \right) \times 100$$
 * **Objectif Cible Réglementaire :** Le seuil d'exigence minimal fixé pour chaque entité du réseau commercial est de **98% de conformité**.
 * **Exports Ciblés des Anomalies :** Possibilité de générer des états d'écarts individualisés par agence pour transmission directe des listes de clients à régulariser aux chefs d'agences et gestionnaires.
 
