@@ -78,7 +78,12 @@ Afin d'évaluer fidèlement le nombre de clients réels au sein de la base RegTo
 * **Suspicion Modérée :**
   * Détection de deux passeports distincts pour un même nom (pouvant correspondre à un renouvellement de passeport ou à deux personnes distinctes).
 * **Calcul du « Portefeuille Sain » (Clients Uniques Estimés) :**
-  * Seuls les doublons documentaires confirmés (cumul CIN + Passeport) sont déduits de la volumétrie brute de RegTools. Cette épuration fournit le nombre réel de clients uniques régularisés.
+  * Seuls les doublons documentaires confirmés (cumul CIN + Passeport) ou validés manuellement par la conformité sont déduits de la volumétrie brute de RegTools. Cette épuration fournit le nombre réel de clients uniques régularisés.
+* **Processus de Qualification et de Validation Métier :**
+  * **Validation Multi-ID (À corriger) :** L'officier de conformité peut arbitrer chaque suspect. Dès validation, le client est soustrait des suspects en attente et bascule dans la liste officielle des **« Multi-ID Validés (À corriger) »**.
+  * **Désignation du Document Maître :** L'utilisateur peut désigner la pièce d'identité de référence à conserver (ex: la CIN), l'autre document étant qualifié de fiche secondaire à fusionner.
+  * **Classement en Faux Positif :** En cas d'homonymie confirmée (deux personnes réellement distinctes), le dossier est écarté des doublons et réintégré dans le portefeuille sain.
+  * **Export pour Correction :** Génération d'un fichier Excel récapitulatif (*« Exporter les Multi-ID validés pour correction »*) transmettant aux équipes de gestion et au SI les identifiants maîtres et secondaires pour fusion.
 
 ---
 
