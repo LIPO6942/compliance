@@ -87,6 +87,16 @@ export default function DashboardPage() {
   const [regtoolsHistory, setRegtoolsHistory] = React.useState<any[]>([]);
   const [loadingRegtools, setLoadingRegtools] = React.useState(true);
   const [criticalTypeFilter, setCriticalTypeFilter] = React.useState<"all" | "Agence" | "Succursale">("all");
+  const [workflowsStats, setWorkflowsStats] = React.useState<{
+    total: number;
+    byCategory: Record<string, number>;
+  }>({
+    total: 6,
+    byCategory: {
+      'LAB/FT': 4,
+      'Veille Réglementaire': 2,
+    }
+  });
 
   // ── Risk Factor Matrix Tracker ──
   const RISK_FACTORS = [
@@ -684,6 +694,40 @@ export default function DashboardPage() {
     };
 
     fetchRegtoolsHistory();
+  }, []);
+
+  // ── Sync workflows breakdown by category (LAB/FT, Veille Réglementaire) ──
+  React.useEffect(() => {
+    if (!isFirebaseConfigured || !db) return;
+    let unsub = () => {};
+    import("firebase/firestore").then(({ collection, query, onSnapshot }) => {
+      const q = query(collection(db, 'workflows'));
+      unsub = onSnapshot(q, (snapshot) => {
+        let labFt = 0;
+        let veille = 0;
+        snapshot.docs.forEach((d) => {
+          const data = d.data();
+          const tags = data.tags || [];
+          if (tags.includes('Veille Réglementaire')) {
+            veille++;
+          } else {
+            labFt++;
+          }
+        });
+        const total = snapshot.docs.length || (labFt + veille);
+        setWorkflowsStats({
+          total,
+          byCategory: {
+            'LAB/FT': labFt,
+            'Veille Réglementaire': veille,
+          }
+        });
+      }, (err) => {
+        console.warn("Erreur chargement workflows pour dashboard:", err);
+      });
+    }).catch(e => console.warn(e));
+
+    return () => unsub();
   }, []);
 
   // Group reports by month (e.g. "Juin 2026")
@@ -2068,26 +2112,83 @@ export default function DashboardPage() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Card
-                    className="shadow-xl border-none bg-gradient-to-br from-indigo-50 via-white to-white dark:from-indigo-950/20 dark:to-slate-900 group overflow-hidden border-l-4 border-l-indigo-500 cursor-pointer hover:scale-[1.02] transition-all"
-                    onClick={() => handleCardClick('/plan')}
+                    className="shadow-xl border-none bg-gradient-to-br from-indigo-50/50 via-white to-white dark:from-indigo-950/20 dark:to-slate-900 group overflow-hidden border-l-4 border-l-indigo-600 cursor-pointer hover:scale-[1.02] transition-all flex flex-col justify-between"
+                    onClick={() => handleCardClick('/admin/workflows')}
                   >
-                    <CardHeader className="pb-0">
-                      <CardTitle className="text-xs font-black uppercase tracking-widest text-indigo-600">Structure</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-4 flex items-center gap-5">
-                      <div className="p-4 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/30 group-hover:-rotate-6 transition-transform">
-                        <Workflow className="h-7 w-7" />
+                    <CardHeader className="pb-1 pt-3.5 px-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10.5px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                          <Workflow className="h-3.5 w-3.5 text-indigo-600" />
+                          Workflows Métiers
+                        </span>
+                        <Badge variant="outline" className="text-[9px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800">
+                          Gouvernance
+                        </Badge>
                       </div>
-                      <div>
-                        <p className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white">{Object.keys(activeWorkflows).length}</p>
-                        <p className="text-[10px] text-indigo-600 font-bold uppercase">Workflows Métiers</p>
+                    </CardHeader>
+                    <CardContent className="pt-1 pb-3 px-4 flex flex-col justify-between gap-2.5">
+                      <div className="flex items-baseline justify-between">
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                            {workflowsStats.total}
+                          </p>
+                          <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">
+                            Processus Actifs
+                          </span>
+                        </div>
+                        <span className="text-[9px] font-semibold text-slate-400">
+                          2 Catégories
+                        </span>
+                      </div>
+
+                      {/* Répartition par catégorie */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* LAB/FT */}
+                        <div className="p-2 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/70 dark:border-rose-900/40 flex items-center gap-2">
+                          <div className="h-7 w-7 rounded-lg bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 flex items-center justify-center shrink-0">
+                            <ShieldAlert className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-black text-rose-700 dark:text-rose-300 leading-none">
+                              {workflowsStats.byCategory['LAB/FT'] || 0}
+                            </p>
+                            <p className="text-[9px] font-bold text-rose-600/80 dark:text-rose-400 truncate mt-0.5">
+                              LAB / FT
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Veille Réglementaire */}
+                        <div className="p-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-900/40 flex items-center gap-2">
+                          <div className="h-7 w-7 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 flex items-center justify-center shrink-0">
+                            <FileText className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-black text-indigo-700 dark:text-indigo-300 leading-none">
+                              {workflowsStats.byCategory['Veille Réglementaire'] || 0}
+                            </p>
+                            <p className="text-[9px] font-bold text-indigo-600/80 dark:text-indigo-400 truncate mt-0.5">
+                              Veille Régl.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Footer / Link prompt */}
+                      <div className="flex items-center justify-between text-[8px] font-bold text-slate-400 border-t border-slate-100 dark:border-slate-800/80 pt-1.5">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          Organisés par catégorie réglementaire
+                        </span>
+                        <span className="flex items-center gap-0.5 text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">
+                          Gérer les workflows <ArrowRight className="h-2.5 w-2.5" />
+                        </span>
                       </div>
                     </CardContent>
                   </Card>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="font-bold mb-1">Processus Opérationnels</p>
-                  <p className="text-xs">Nombre de diagrammes de flux actifs liant les tâches au métier.</p>
+                  <p className="font-bold mb-1">Gestion des Workflows Métiers</p>
+                  <p className="text-xs">Cliquez pour accéder à la page de gestion des diagrammes de processus (LAB/FT et Veille Réglementaire).</p>
                 </TooltipContent>
               </Tooltip>
             </div>
