@@ -29,11 +29,12 @@ import { cn } from "@/lib/utils";
 
 interface MemoCardProps {
   memo: ComplianceMemo;
+  memoNumber?: number;
   onEdit: (memo: ComplianceMemo) => void;
   onCloseDrawer?: () => void;
 }
 
-export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer }) => {
+export const MemoCard: React.FC<MemoCardProps> = ({ memo, memoNumber, onEdit, onCloseDrawer }) => {
   const router = useRouter();
   const { deleteMemo, toggleResolveMemo, togglePinMemo, toggleMemoScope, toggleChecklistItem } = useMemos();
   const [copied, setCopied] = useState(false);
@@ -79,6 +80,13 @@ export const MemoCard: React.FC<MemoCardProps> = ({ memo, onEdit, onCloseDrawer 
       <div className="space-y-2">
         <div className="flex justify-between items-start gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Numérotation du mémo */}
+            {memoNumber !== undefined && (
+              <span className="inline-flex items-center justify-center text-[10px] font-mono font-black px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0">
+                #{memoNumber}
+              </span>
+            )}
+
             {/* Badge Volet */}
             <Badge
               variant="outline"

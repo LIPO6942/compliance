@@ -47,6 +47,7 @@ export const MemoDrawer: React.FC = () => {
     activeEditorMemo,
     setActiveEditorMemo,
     openDrawerWithNewMemo,
+    totalActiveCount,
     collaborativeCount,
     privateCount,
   } = useMemos();
@@ -91,6 +92,23 @@ export const MemoDrawer: React.FC = () => {
           (m.associatedSectionHref.includes("risk-mapping") && pathname.includes("risk-mapping")))
     ).length;
   }, [memos, currentFullHref, pathname]);
+
+  // Décompte dynamique des mémos résolus et actifs (selon le scope sélectionné)
+  const resolvedCount = useMemo(() => {
+    if (filterScope === "COLLABORATIVE") {
+      return memos.filter((m) => m.status === "RESOLVED" && m.scope === "COLLABORATIVE").length;
+    }
+    if (filterScope === "PRIVATE") {
+      return memos.filter((m) => m.status === "RESOLVED" && m.scope === "PRIVATE").length;
+    }
+    return memos.filter((m) => m.status === "RESOLVED").length;
+  }, [memos, filterScope]);
+
+  const activeCountForScope = useMemo(() => {
+    if (filterScope === "COLLABORATIVE") return collaborativeCount;
+    if (filterScope === "PRIVATE") return privateCount;
+    return totalActiveCount;
+  }, [filterScope, collaborativeCount, privateCount, totalActiveCount]);
 
   const handleEdit = (memo: ComplianceMemo) => {
     setActiveEditorMemo(memo);
@@ -211,7 +229,7 @@ export const MemoDrawer: React.FC = () => {
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
               )}
             >
-              🌐 Tous ({memos.length})
+              🌐 Tous ({totalActiveCount})
             </button>
             <button
               onClick={() => setFilterScope("COLLABORATIVE")}
@@ -301,7 +319,9 @@ export const MemoDrawer: React.FC = () => {
                 onClick={() => setFilterStatus(filterStatus === "ACTIVE" ? "RESOLVED" : "ACTIVE")}
                 className="text-indigo-600 dark:text-indigo-400 hover:underline transition-colors font-bold"
               >
-                {filterStatus === "ACTIVE" ? "Afficher les résolus" : "Afficher les actifs"}
+                {filterStatus === "ACTIVE"
+                  ? `Afficher les résolus (${resolvedCount})`
+                  : `Afficher les actifs (${activeCountForScope})`}
               </button>
             </div>
           </div>
@@ -342,10 +362,11 @@ export const MemoDrawer: React.FC = () => {
               </Button>
             </div>
           ) : (
-            filteredMemos.map((memo) => (
+            filteredMemos.map((memo, index) => (
               <MemoCard
                 key={memo.id}
                 memo={memo}
+                memoNumber={index + 1}
                 onEdit={handleEdit}
                 onCloseDrawer={() => setIsDrawerOpen(false)}
               />
