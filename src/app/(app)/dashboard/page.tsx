@@ -699,7 +699,7 @@ export default function DashboardPage() {
   // ── Sync workflows breakdown by category (LAB/FT, Veille Réglementaire) ──
   React.useEffect(() => {
     if (!isFirebaseConfigured || !db) return;
-    let unsub = () => {};
+    let unsub = () => { };
     import("firebase/firestore").then(({ collection, query, onSnapshot }) => {
       const q = query(collection(db, 'workflows'));
       unsub = onSnapshot(q, (snapshot) => {
@@ -1998,8 +1998,8 @@ export default function DashboardPage() {
                               kycMonthlyTrends.delta > 0
                                 ? "text-emerald-600 dark:text-emerald-400"
                                 : kycMonthlyTrends.delta < 0
-                                ? "text-rose-600 dark:text-rose-400"
-                                : "text-slate-400"
+                                  ? "text-rose-600 dark:text-rose-400"
+                                  : "text-slate-400"
                             )}>
                               {kycMonthlyTrends.delta > 0 ? (
                                 <TrendingUp className="h-3 w-3 mr-0.5" />
