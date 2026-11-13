@@ -236,6 +236,12 @@ export interface NewsItem {
   imageUrl?: string;
   score?: number;
   isHighPriority?: boolean;
+  originalTitle?: string;
+  originalLanguage?: string;
+  isTranslated?: boolean;
+  country?: 'TN' | 'INTL' | string;
+  isFlash?: boolean;
+  flashType?: 'JORT' | 'CGA' | 'BCT' | 'CTAF' | string;
 }
 
 // Mermaid Workflow Types

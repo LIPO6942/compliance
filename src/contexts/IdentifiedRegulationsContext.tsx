@@ -22,6 +22,7 @@ interface IdentifiedRegulationsContextType {
   createAlertFromRisk: (risk: RiskMappingItem) => Promise<void>;
   findAlertByRiskId: (riskId: string) => IdentifiedRegulation | undefined;
   removeAlertByRiskId: (riskId: string) => Promise<void>;
+  createAlertFromNewsItem: (item: any) => Promise<void>;
 }
 
 const IdentifiedRegulationsContext = createContext<IdentifiedRegulationsContextType | undefined>(undefined);
@@ -151,8 +152,34 @@ export const IdentifiedRegulationsProvider = ({ children }: { children: ReactNod
   };
 
 
+  const createAlertFromNewsItem = async (item: any) => {
+    const isHighPriority = item.isHighPriority || item.country === 'TN';
+    const newRegulation: Omit<IdentifiedRegulation, 'id'> = {
+      publicationDate: item.date ? new Date(item.date).toISOString() : new Date().toISOString(),
+      source: item.flashType || item.source || 'JORT / CGA',
+      type: item.title?.toLowerCase().includes('circulaire') ? 'Modification réglementaire' : 'Nouvelle loi',
+      summary: item.title,
+      fullText: `${item.title}\n\n${item.description || ''}\n\nSource: ${item.source}\nURL: ${item.url || 'Non renseignée'}`,
+      status: 'Nouveau',
+      criticality: isHighPriority ? 'Haute' : 'Moyenne',
+      keywords: ['Tunisie', 'Réglementation', item.flashType || item.source],
+      aiAnalysis: {
+        'Alerte Flash Réglementaire': [item.title]
+      },
+      affectedDepartments: ['Direction Conformité', 'Direction Juridique', 'Direction Générale'],
+      requiredActions: 'Évaluer la conformité et les impacts opérationnels suite à la publication officielle.',
+      analysisNotes: `Alerte générée automatiquement depuis le flux flash réglementaire (${item.source || 'JORT/CGA'}).`,
+    };
+
+    if (isFirebaseConfigured && db) {
+      await addDoc(collection(db, regulationsCollectionName), newRegulation);
+    } else {
+      setIdentifiedRegulations(prev => [{ id: 'flash-' + Date.now(), ...newRegulation }, ...prev]);
+    }
+  };
+
   return (
-    <IdentifiedRegulationsContext.Provider value={{ identifiedRegulations, loading, addIdentifiedRegulation, updateRegulation, createAlertFromRisk, findAlertByRiskId, removeAlertByRiskId }}>
+    <IdentifiedRegulationsContext.Provider value={{ identifiedRegulations, loading, addIdentifiedRegulation, updateRegulation, createAlertFromRisk, findAlertByRiskId, removeAlertByRiskId, createAlertFromNewsItem }}>
       {children}
     </IdentifiedRegulationsContext.Provider>
   );

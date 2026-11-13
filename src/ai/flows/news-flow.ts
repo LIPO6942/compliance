@@ -25,6 +25,12 @@ const ComplianceNewsOutputSchema = z.array(
         imageUrl: z.string().url().optional().describe("L'URL d'une image pour l'article."),
         score: z.number().optional(),
         isHighPriority: z.boolean().optional(),
+        originalTitle: z.string().optional(),
+        originalLanguage: z.string().optional(),
+        isTranslated: z.boolean().optional(),
+        country: z.string().optional(),
+        isFlash: z.boolean().optional(),
+        flashType: z.string().optional(),
     })
 ).describe("Une liste d'articles d'actualité sur la conformité.");
 
@@ -37,14 +43,13 @@ export async function fetchComplianceNews(): Promise<ComplianceNewsOutput> {
 export async function summarizeNewsFlow(newsItems: NewsItem[]): Promise<string> {
     if (newsItems.length === 0) return "Aucune actualité à synthétiser.";
 
-    const titles = newsItems.map(item => `- ${item.title}`).join('\n');
-    const prompt = `Voici les dernières actualités de conformité LCB-FT, GRC et Sanctions :\n${titles}\n\nAgis en tant qu'expert GRC (Gouvernance, Risque et Conformité). Analyse ces titres et fournis un "Briefing IA Cognitive" très concis en exactement 3 points clés (bullet points).
-Ta synthèse doit identifier :
-1. Les tendances majeures ou thèmes récurrents.
-2. Les alertes critiques (ex: GAFI/FATF, nouvelles sanctions, régulations UE).
-3. L'impact opérationnel immédiat pour un responsable conformité.
+    const titles = newsItems.map(item => `- [${item.isHighPriority ? '🇹🇳 Tunisie' : '🌍 International'}] ${item.title}`).join('\n');
+    const prompt = `Voici les dernières actualités de conformité réglementaire, LCB-FT, GRC et Sanctions :\n${titles}\n\nAgis en tant qu'expert GRC (Gouvernance, Risque et Conformité) spécialisé dans le secteur financier et assurantiel tunisien. Analyse ces actualités et fournis un "Briefing IA Stratégique" concis en 3 points clés structurés :
+1. 🇹🇳 Priorités Réglementaires Tunisie : impact direct des textes et alertes locales (BCT, CGA, CTAF, JORT, MAE).
+2. 🌍 Veille Internationale & Sanctions : tendances globales majeures (GAFI/FATF, UE, OFAC).
+3. ⚡ Recommandations Opérationnelles : 2 actions concrètes immédiates pour la conformité.
 
-Réponds en français, avec un ton professionnel, précis et percutant. Utilise des emojis pertinents.`;
+Réponds en français, avec un ton exécutif, précis et percutant. Utilise des puces et emojis pertinents.`;
 
     return callGroqChatCompletion(prompt);
 }
@@ -158,8 +163,8 @@ const fetchFromMarketAux = async (): Promise<NewsItem[]> => {
 const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
     try {
         const parser = new Parser();
-        const query = encodeURIComponent('(Conformité Tunisie) OR (LCB-FT Tunisie) OR (CTAF Tunisie) OR (CGA Tunisie) OR (BCT réglementation) OR (INPDP protection données)');
-        const url = `https://news.google.com/rss/search?q=${query}&hl=fr&gl=FR&ceid=FR:fr`;
+        const query = encodeURIComponent('(Conformité Tunisie) OR (LCB-FT Tunisie) OR (CTAF Tunisie) OR (CGA Tunisie) OR (BCT réglementation) OR (INPDP protection données) OR (assurance Tunisie réglementation)');
+        const url = `https://news.google.com/rss/search?q=${query}&hl=fr&gl=TN&ceid=TN:fr`;
 
         const feed = await parser.parseURL(url);
         if (!feed.items) return [];
@@ -172,9 +177,11 @@ const fetchFromGoogleNewsRSS = async (): Promise<NewsItem[]> => {
                 title: item.title,
                 date: itemDate.toISOString().split('T')[0],
                 source: 'Google News',
-                description: item.contentSnippet || 'Aucune description disponible.',
+                description: item.contentSnippet || 'Actualité réglementaire tunisienne.',
                 url: item.link,
                 imageUrl: undefined,
+                isHighPriority: true,
+                country: 'TN',
             };
         }).filter((item: NewsItem | null): item is NewsItem => item !== null);
 
@@ -204,6 +211,7 @@ const fetchFromAMLIntelligence = async (): Promise<NewsItem[]> => {
                 description: item.contentSnippet || 'Actualité spécialisée LCB-FT.',
                 url: item.link,
                 imageUrl: undefined,
+                country: 'INTL',
             };
         }).filter((item: NewsItem | null): item is NewsItem => item !== null);
 
@@ -233,6 +241,7 @@ const fetchFromComplyAdvantage = async (): Promise<NewsItem[]> => {
                 description: item.contentSnippet || 'Analyses et perspectives de conformité.',
                 url: item.link,
                 imageUrl: undefined,
+                country: 'INTL',
             };
         }).filter((item: NewsItem | null): item is NewsItem => item !== null);
 
@@ -264,6 +273,7 @@ const fetchFromKPMG = async (): Promise<NewsItem[]> => {
                 description: item.contentSnippet || 'Insights réglementaires et conformité KPMG.',
                 url: item.link,
                 imageUrl: undefined,
+                country: 'INTL',
             };
         }).filter((item: NewsItem | null): item is NewsItem => item !== null);
 
@@ -293,6 +303,7 @@ const fetchFromFATF = async (): Promise<NewsItem[]> => {
                 description: item.contentSnippet || 'Latest publications and guidance from the FATF-GAFI.',
                 url: item.link,
                 imageUrl: undefined,
+                country: 'INTL',
             };
         }).filter((item: NewsItem | null): item is NewsItem => item !== null);
 
@@ -343,6 +354,8 @@ const fetchFromJuridocTN = async (): Promise<NewsItem[]> => {
                     description: item.contentSnippet || 'Information réglementaire tunisienne.',
                     url: item.link,
                     imageUrl: undefined,
+                    isHighPriority: true,
+                    country: 'TN',
                 };
             }).filter((item: NewsItem | null): item is NewsItem => item !== null);
         };
@@ -402,7 +415,8 @@ const fetchFromArabicNews = async (): Promise<NewsItem[]> => {
                 description: item.contentSnippet || 'أخبار الامتثال والتنظيم في تونس.',
                 url: item.link,
                 imageUrl: undefined,
-                isHighPriority: true // Any Arabic result for these queries is high priority local news
+                isHighPriority: true, // Any Arabic result for these queries is high priority local news
+                country: 'TN',
             };
         }).filter((item: NewsItem | null): item is NewsItem => item !== null);
 
@@ -411,6 +425,78 @@ const fetchFromArabicNews = async (): Promise<NewsItem[]> => {
         return [];
     }
 };
+// Helper de traduction automatique vers le français (Google Translate GTX API rapide et fiable)
+async function translateTextToFrench(text: string): Promise<{ translated: string; sourceLang: string } | null> {
+    if (!text || text.trim().length === 0) return null;
+    try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=fr&dt=t&q=${encodeURIComponent(text)}`;
+        const res = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+            },
+            signal: AbortSignal.timeout(3500)
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && Array.isArray(data[0])) {
+                const translated = data[0].map((chunk: any) => chunk[0]).filter(Boolean).join('');
+                const detectedLang = (data[2] || '').toLowerCase();
+                // Si la langue détectée n'est pas le français et qu'une traduction est produite
+                if (translated && detectedLang && detectedLang !== 'fr') {
+                    return { translated: translated.trim(), sourceLang: detectedLang };
+                }
+            }
+        }
+    } catch {
+        // Fallback transparent si timeout ou indisponible
+    }
+    return null;
+}
+
+async function translateNewsItem(item: NewsItem): Promise<NewsItem> {
+    const isEnglishSource = ['AML Intelligence', 'ComplyAdvantage', 'KPMG', 'FATF', 'MarketAux'].includes(item.source);
+    const hasArabic = /[\u0600-\u06FF]/.test(item.title);
+
+    // Détection d'un titre en langue étrangère (anglais, arabe, etc.)
+    if (isEnglishSource || hasArabic || !/[éèêàùçîôû]/.test(item.title)) {
+        const translation = await translateTextToFrench(item.title);
+        if (translation && translation.sourceLang !== 'fr') {
+            return {
+                ...item,
+                originalTitle: item.title,
+                title: translation.translated,
+                isTranslated: true,
+                originalLanguage: translation.sourceLang,
+            };
+        }
+    }
+    return item;
+}
+
+// Détection automatique des textes officiels et alertes flash (JORT, CGA, BCT, CTAF)
+function detectRegulatoryFlash(title: string, description: string, source: string): { isFlash: boolean; flashType?: 'JORT' | 'CGA' | 'BCT' | 'CTAF' } {
+    const text = (title + " " + (description || '')).toLowerCase();
+    const isOfficialText = text.includes('décret') || text.includes('decret') || text.includes('circulaire') || text.includes('arrêté') || text.includes('arrete') || text.includes('loi n°') || text.includes('loi organique') || text.includes('décision') || text.includes('décision générale') || text.includes('منشور') || text.includes('مرسوم') || text.includes('قرار');
+
+    if (source === 'JORT' || text.includes('jort') || text.includes('الرائد الرسمي')) {
+        return { isFlash: true, flashType: 'JORT' };
+    }
+    if (source === 'CGA' || text.includes('cga') || text.includes('comité général des assurances') || text.includes('الهيئة العامة للتأمين')) {
+        if (isOfficialText || text.includes('assurance') || text.includes('réforme') || text.includes('lcb-ft') || text.includes('règlement')) {
+            return { isFlash: true, flashType: 'CGA' };
+        }
+    }
+    if (source === 'BCT' || text.includes('banque centrale de tunisie') || text.includes('bct') || text.includes('البنك المركزي')) {
+        if (isOfficialText || text.includes('circulaire')) {
+            return { isFlash: true, flashType: 'BCT' };
+        }
+    }
+    if (source === 'CTAF' || text.includes('ctaf') || text.includes('commission des analyses financières') || text.includes('لجنة التحاليل المالية')) {
+        return { isFlash: true, flashType: 'CTAF' };
+    }
+    return { isFlash: false };
+}
+
 async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
     const allNewsPromises = [
         fetchFromNewsAPI(),
@@ -446,54 +532,71 @@ async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
     console.log(`[NEWS FLOW] Total d'articles uniques (après déduplication par URL): ${uniqueNews.length}.`);
 
     const tunisiaKeywords = [
-        'tunisie', 'tunisien', 'tunisienne', 'jort', 'bct', 'cga', 'ctaf', 'cmf', 'inpdp', 'juridoc', 'mae', 'tunis',
-        'banque centrale', 'comité général des assurances', 'marché financier', 'loi tunisienne'
+        'tunisie', 'tunisien', 'tunisienne', 'tunis', 'jort', 'bct', 'cga', 'ctaf', 'cmf', 'inpdp', 'juridoc', 'mae',
+        'banque centrale', 'comité général des assurances', 'marché financier', 'loi tunisienne', 'dinar', 'carthage',
+        'assurance tunisie', 'assurances tunisie', 'banque centrale de tunisie', 'الامتثال', 'التأمين', 'المركزي', 'تونس'
     ];
 
     const scoredNews = uniqueNews.map(item => {
-        let score = new Date(item.date).getTime(); // Base score is the date
-        const content = (item.title + " " + item.description).toLowerCase();
-        let isTunisiaRelated = false;
+        let score = new Date(item.date).getTime();
+        const content = (item.title + " " + (item.description || '')).toLowerCase();
+        let isTunisiaRelated = item.isHighPriority || item.country === 'TN';
         
-        // Boost for Tunisia related content (+30 days equivalent boost per keyword)
-        const dayInMs = 24 * 60 * 60 * 1000;
         tunisiaKeywords.forEach(kw => {
-            if (content.includes(kw)) {
-                score += (dayInMs * 30);
+            if (content.includes(kw.toLowerCase())) {
                 isTunisiaRelated = true;
             }
         });
 
-        // Extra boost if source is Juridoc.tn
-        if (item.source === 'Juridoc.tn') {
-            score += (dayInMs * 60);
+        if (item.source === 'Juridoc.tn' || item.source === 'CGA' || item.source === 'JORT' || item.source === 'BCT') {
             isTunisiaRelated = true;
         }
 
-        // Boost for Arabic results from specific compliance queries
-        const arabicKeywords = ['الامتثال', 'التأمين', 'المالية', 'المركزي', 'غسل', 'الأموال', 'الرائد'];
-        arabicKeywords.forEach(kw => {
-            if (content.includes(kw)) {
-                score += (dayInMs * 45); // Heavy boost for Arabic compliance news
-                isTunisiaRelated = true;
-            }
-        });
+        const flash = detectRegulatoryFlash(item.title, item.description || '', item.source);
+        if (flash.isFlash) {
+            isTunisiaRelated = true;
+            score += (24 * 60 * 60 * 1000 * 90); // Boost maximal pour les Flash officiels
+        }
 
-        return { ...item, score, isHighPriority: isTunisiaRelated };
+        const country = isTunisiaRelated ? 'TN' : (item.country || 'INTL');
+        return { 
+            ...item, 
+            score, 
+            isHighPriority: isTunisiaRelated, 
+            country,
+            isFlash: flash.isFlash,
+            flashType: flash.flashType
+        };
     });
 
-    // Secondary sort: Priority first, but within each group, newest first.
-    // However, user requested "Newest first" primarily.
-    // Let's sort by Date DESC as primary, then HighPriority as secondary.
+    // 1. FLASH RÉGLEMENTAIRE TUNISIE (JORT / CGA / BCT / CTAF) en tête absolue
+    // 2. PRIORISATION DES INFOS TUNISIE (Focus Tunisie)
+    // 3. Classement chronologique décroissant au sein de chaque groupe
     scoredNews.sort((a, b) => {
+        const flashA = a.isFlash ? 1 : 0;
+        const flashB = b.isFlash ? 1 : 0;
+        if (flashB !== flashA) {
+            return flashB - flashA; // Flash JORT/CGA en tout premier !
+        }
+        const priorityA = a.isHighPriority ? 1 : 0;
+        const priorityB = b.isHighPriority ? 1 : 0;
+        if (priorityB !== priorityA) {
+            return priorityB - priorityA; // Tunisie ensuite !
+        }
         const dateA = new Date(a.date).getTime();
         const dateB = new Date(b.date).getTime();
-        if (dateB !== dateA) return dateB - dateA;
-        return (b.isHighPriority ? 1 : 0) - (a.isHighPriority ? 1 : 0);
+        return dateB - dateA;
     });
 
-    // Increase the final slice to have a larger pool of recent articles
-    return ComplianceNewsOutputSchema.parse(scoredNews.slice(0, 30));
+    // Traduction automatique vers le français pour les articles en anglais ou en arabe
+    const candidates = scoredNews.slice(0, 35);
+    const translatedResults = await Promise.allSettled(candidates.map(translateNewsItem));
+    const finalizedNews: NewsItem[] = translatedResults.map((res, index) => {
+        if (res.status === 'fulfilled') return res.value;
+        return candidates[index];
+    });
+
+    return ComplianceNewsOutputSchema.parse(finalizedNews);
 }
 
 async function callGroqChatCompletion(prompt: string): Promise<string> {

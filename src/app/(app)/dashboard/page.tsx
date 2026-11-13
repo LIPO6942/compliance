@@ -4,7 +4,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map as LucideMapIcon, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, TrendingDown, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle, X, Zap, ChevronDown, Award, ClipboardEdit, PenLine } from "lucide-react";
+import { ArrowRight, Bell, FileText, ShieldAlert, Users, Target, Lightbulb, Activity, HelpCircle, Map as LucideMapIcon, Newspaper, RefreshCw, History, PlusCircle, Workflow, TrendingUp, TrendingDown, ShieldCheck, BrainCircuit, CheckCircle2, AlertCircle, X, Zap, ChevronDown, Award, ClipboardEdit, PenLine, Languages, Globe, ExternalLink, Search as SearchIcon } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { db, isFirebaseConfigured } from "@/lib/firebase";
 import { getAgencyGeography } from "@/data/agencyGeography";
@@ -47,7 +47,7 @@ const complianceStatusBaseColors = {
 export default function DashboardPage() {
   const { planData, activeWorkflows } = usePlanData();
   const { documents } = useDocuments();
-  const { identifiedRegulations } = useIdentifiedRegulations();
+  const { identifiedRegulations, createAlertFromNewsItem } = useIdentifiedRegulations();
   const { risks, editRisk } = useRiskMapping();
   const { overrides: matrixOverrides } = useMatrixConfig();
 
@@ -81,6 +81,77 @@ export default function DashboardPage() {
   const [newsSummary, setNewsSummary] = React.useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = React.useState(false);
   const [isBriefingExpanded, setIsBriefingExpanded] = React.useState(true);
+  const [newsFilter, setNewsFilter] = React.useState<'all' | 'tunisia' | 'intl'>('all');
+  const [showOriginalTitle, setShowOriginalTitle] = React.useState(false);
+  const [isNewsModalOpen, setIsNewsModalOpen] = React.useState(false);
+  const [newsModalSearch, setNewsModalSearch] = React.useState('');
+
+  const tunisiaNewsCount = React.useMemo(() => news.filter(n => n.isHighPriority || n.country === 'TN').length, [news]);
+  const intlNewsCount = React.useMemo(() => news.filter(n => !n.isHighPriority && n.country !== 'TN').length, [news]);
+
+  const filteredNews = React.useMemo(() => {
+    if (newsFilter === 'tunisia') {
+      return news.filter(n => n.isHighPriority || n.country === 'TN');
+    }
+    if (newsFilter === 'intl') {
+      return news.filter(n => !n.isHighPriority && n.country !== 'TN');
+    }
+    return news;
+  }, [news, newsFilter]);
+
+  const modalNewsList = React.useMemo(() => {
+    let list = filteredNews;
+    if (newsModalSearch.trim()) {
+      const q = newsModalSearch.toLowerCase();
+      list = list.filter(n =>
+        n.title.toLowerCase().includes(q) ||
+        (n.description && n.description.toLowerCase().includes(q)) ||
+        (n.originalTitle && n.originalTitle.toLowerCase().includes(q)) ||
+        n.source.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [filteredNews, newsModalSearch]);
+
+  const [dismissedFlashIds, setDismissedFlashIds] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('dismissed_flash_ids');
+        if (saved) setDismissedFlashIds(JSON.parse(saved));
+      } catch {}
+    }
+  }, []);
+
+  const activeFlash = React.useMemo(() => {
+    return news.find(n => (n.isFlash || n.source === 'JORT' || n.source === 'CGA' || n.source === 'BCT') && !dismissedFlashIds.includes(n.id));
+  }, [news, dismissedFlashIds]);
+
+  const handleDismissFlash = (id: string) => {
+    const updated = [...dismissedFlashIds, id];
+    setDismissedFlashIds(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dismissed_flash_ids', JSON.stringify(updated));
+    }
+  };
+
+  const handleConvertFlashToAlert = async (item: any) => {
+    try {
+      await createAlertFromNewsItem(item);
+      handleDismissFlash(item.id);
+      toast({
+        title: "🚨 Alerte GRC créée avec succès",
+        description: `Le texte officiel "${item.title.substring(0, 50)}..." a été intégré au Centre d'Alertes.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Erreur",
+        description: "Impossible d'ajouter l'alerte pour le moment.",
+        variant: "destructive"
+      });
+    }
+  };
   const { toast } = useToast();
   const [isClient, setIsClient] = React.useState(false);
 
@@ -1443,6 +1514,70 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Flash Réglementaire Tunisie (JORT / CGA / BCT) */}
+        {activeFlash && (
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-950 via-rose-900 to-slate-900 border border-rose-500/40 p-5 text-white shadow-xl shadow-rose-950/20 backdrop-blur-md animate-in fade-in slide-in-from-top-3 duration-500">
+            <div className="absolute top-0 right-0 -mt-8 -mr-8 w-40 h-40 bg-rose-500/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
+              <div className="flex items-start gap-3.5">
+                <div className="p-2.5 bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30 animate-pulse mt-0.5 flex-shrink-0">
+                  <ShieldAlert className="h-5 w-5" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge className="bg-rose-500 text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 shadow-sm">
+                      🚨 FLASH RÉGLEMENTAIRE TUNISIE
+                    </Badge>
+                    <Badge variant="outline" className="text-rose-200 border-rose-400/40 bg-rose-500/10 text-[9px] font-bold">
+                      Source : {activeFlash.flashType || activeFlash.source}
+                    </Badge>
+                    <span className="text-[10px] text-rose-200/80 font-medium">
+                      Publié le {format(parseISO(activeFlash.date), 'dd MMMM yyyy', { locale: fr })}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-white leading-snug">
+                    {activeFlash.title}
+                  </h4>
+                  {activeFlash.description && (
+                    <p className="text-xs text-rose-100/75 line-clamp-1 leading-relaxed">
+                      {activeFlash.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0 self-end lg:self-center">
+                {activeFlash.url && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(activeFlash.url, '_blank')}
+                    className="h-8 text-xs font-bold text-rose-200 hover:text-white hover:bg-rose-500/20 rounded-xl gap-1.5"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Consulter
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={() => handleConvertFlashToAlert(activeFlash)}
+                  className="h-8 text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white rounded-xl shadow-lg shadow-rose-500/30 gap-1.5 active:scale-95 transition-all"
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  Convertir en Alerte GRC
+                </Button>
+                <button
+                  onClick={() => handleDismissFlash(activeFlash.id)}
+                  className="p-1.5 text-rose-300/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors ml-1"
+                  title="Masquer cette notification flash"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Regulatory Timeline - Interactive with Tabs */}
         <div className="space-y-4">
           <Tabs defaultValue="upcoming" className="w-full">
@@ -2357,10 +2492,10 @@ export default function DashboardPage() {
               <TooltipTrigger asChild>
                 <Card
                   className="shadow-2xl overflow-hidden border-none bg-white dark:bg-slate-900 cursor-pointer hover:shadow-primary/20 transition-all group/card relative"
-                  onClick={() => handleCardClick('/regulatory-watch')}
+                  onClick={() => setIsNewsModalOpen(true)}
                 >
                   <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-                  <CardHeader className="pb-4 pt-6 px-6 border-b border-slate-50 dark:border-slate-800">
+                  <CardHeader className="pb-3 pt-6 px-6 border-b border-slate-50 dark:border-slate-800">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <div className="p-2 bg-primary/10 rounded-lg">
@@ -2389,10 +2524,64 @@ export default function DashboardPage() {
                           size="icon"
                           className="h-8 w-8 hover:bg-primary/10 text-primary transition-all active:scale-95"
                           onClick={(e) => { e.stopPropagation(); refetchNews(); }}
+                          title="Actualiser le flux"
                         >
                           <RefreshCw className={`h-4 w-4 ${newsLoading ? 'animate-spin' : 'group-hover/card:rotate-180 transition-transform duration-500'}`} />
                         </Button>
                       </div>
+                    </div>
+
+                    {/* Filter Pills & Language Toggle */}
+                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setNewsFilter('tunisia'); }}
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1",
+                            newsFilter === 'tunisia'
+                              ? "bg-rose-500 text-white shadow-sm shadow-rose-500/30"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-600 dark:hover:text-rose-400"
+                          )}
+                        >
+                          🇹🇳 Tunisie ({tunisiaNewsCount})
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setNewsFilter('all'); }}
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all",
+                            newsFilter === 'all'
+                              ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                          )}
+                        >
+                          Tous ({news.length})
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setNewsFilter('intl'); }}
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1",
+                            newsFilter === 'intl'
+                              ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400"
+                          )}
+                        >
+                          🌍 Intl ({intlNewsCount})
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setShowOriginalTitle(prev => !prev); }}
+                        className={cn(
+                          "px-2 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 transition-all border",
+                          showOriginalTitle
+                            ? "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700"
+                            : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                        )}
+                        title="Basculer entre la traduction française et les titres d'origine"
+                      >
+                        <Languages className="h-3 w-3" />
+                        {showOriginalTitle ? "VO" : "FR"}
+                      </button>
                     </div>
                   </CardHeader>
                   <CardContent className="p-0">
@@ -2401,7 +2590,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2">
                             <BrainCircuit className="h-3 w-3 text-primary" />
-                            <span className="text-[10px] font-black uppercase tracking-wider text-primary">Synthèse Cognitive</span>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-primary">Briefing Stratégique IA</span>
                           </div>
                           <button
                             onClick={(e) => { e.stopPropagation(); setIsBriefingExpanded(false); }}
@@ -2416,61 +2605,97 @@ export default function DashboardPage() {
                       </div>
                     )}
                     <div className="divide-y divide-slate-50 dark:divide-slate-800">
-                      {news.slice(0, 4).map((item) => (
+                      {filteredNews.slice(0, 4).map((item) => (
                         <div
                           key={item.id}
-                          className="group/item relative p-5 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all flex flex-col gap-3"
-                          onClick={(e) => { e.stopPropagation(); window.open(item.url, '_blank'); }}
+                          className="group/item relative p-4 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all flex flex-col gap-2"
+                          onClick={(e) => { e.stopPropagation(); if (item.url) window.open(item.url, '_blank'); }}
                         >
                           <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <Badge className={cn(
                                 "text-[9px] font-black uppercase px-2 py-0.5 border-none",
                                 item.source === 'FATF' ? "bg-amber-500/10 text-amber-600" :
                                   item.source === 'KPMG' ? "bg-blue-500/10 text-blue-600" :
                                     item.source === 'Juridoc.tn' ? "bg-teal-500/10 text-teal-600" :
-                                      "bg-primary/10 text-primary"
+                                      item.source === 'CGA' ? "bg-emerald-500/10 text-emerald-600" :
+                                        item.source === 'BCT' ? "bg-sky-500/10 text-sky-600" :
+                                          item.source === 'JORT' ? "bg-indigo-500/10 text-indigo-600" :
+                                            "bg-primary/10 text-primary"
                               )}>
                                 {item.source}
                               </Badge>
-                              {item.isHighPriority && (
+                              {item.isFlash ? (
+                                <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-600 text-white border-none shadow-sm shadow-rose-600/30 animate-pulse">
+                                  ⚡ FLASH {item.flashType || 'JORT/CGA'}
+                                </Badge>
+                              ) : (item.isHighPriority || item.country === 'TN') ? (
                                 <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-500/10 text-rose-600 border-none animate-pulse">
                                   🇹🇳 Focus Tunisie
+                                </Badge>
+                              ) : null}
+                              {item.isTranslated && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[8px] font-bold px-1.5 py-0 border-blue-200 text-blue-600 bg-blue-50/50 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                                  title={item.originalTitle ? `Titre original (${item.originalLanguage?.toUpperCase()}): ${item.originalTitle}` : "Traduit en français"}
+                                >
+                                  🌐 Traduit ({item.originalLanguage?.toUpperCase() || 'EN'})
                                 </Badge>
                               )}
                               <span className="text-[9px] font-bold text-slate-400">
                                 {format(parseISO(item.date), 'dd MMM', { locale: fr })}
                               </span>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 opacity-0 group-hover/item:opacity-100 hover:bg-rose-50 hover:text-rose-600 rounded-full transition-all"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                dismissNewsItem(item.id);
-                              }}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
+                            <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-all">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 hover:bg-rose-50 hover:text-rose-600 rounded-full"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleConvertFlashToAlert(item);
+                                }}
+                                title="Convertir en Alerte GRC"
+                              >
+                                <Zap className="h-3.5 w-3.5 text-rose-500" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 hover:bg-slate-100 hover:text-slate-600 rounded-full"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  dismissNewsItem(item.id);
+                                }}
+                                title="Masquer"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </div>
-                          <p className="text-[13px] font-bold leading-tight line-clamp-2 text-slate-700 dark:text-slate-300 group-hover/item:text-primary transition-colors">
-                            {item.title}
+                          <p
+                            className="text-[12.5px] font-bold leading-snug line-clamp-2 text-slate-700 dark:text-slate-300 group-hover/item:text-primary transition-colors"
+                            title={item.isTranslated && !showOriginalTitle && item.originalTitle ? `Original: ${item.originalTitle}` : undefined}
+                          >
+                            {showOriginalTitle && item.originalTitle ? item.originalTitle : item.title}
                           </p>
                         </div>
                       ))}
                     </div>
-                    {news.length === 0 && (
-                      <div className="p-10 text-center space-y-2">
+                    {filteredNews.length === 0 && (
+                      <div className="p-8 text-center space-y-2">
                         <Activity className="h-8 w-8 text-slate-200 mx-auto" />
-                        <p className="text-xs font-bold text-slate-400 uppercase italic">Aucun nouveau signal</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase italic">
+                          {newsLoading ? "Actualisation en cours..." : "Aucune actualité trouvée"}
+                        </p>
                       </div>
                     )}
                     <div
-                      onClick={(e) => { e.stopPropagation(); router.push('/regulatory-watch'); }}
-                      className="p-4 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors group/more"
+                      onClick={(e) => { e.stopPropagation(); setIsNewsModalOpen(true); }}
+                      className="p-3.5 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors group/more"
                     >
-                      Explorer le flux complet
+                      Explorer le flux complet ({filteredNews.length})
                       <ArrowRight className="ml-2 h-3.5 w-3.5 group-hover/more:translate-x-1 transition-transform" />
                     </div>
                   </CardContent>
@@ -2478,10 +2703,218 @@ export default function DashboardPage() {
               </TooltipTrigger>
               <TooltipContent side="left">
                 <p className="font-bold mb-1">Veille Réglementaire</p>
-                <p className="text-xs">Flux d'actualités mondiales sur la conformité et la finance.</p>
+                <p className="text-xs">Flux d'actualités mondiales et locales sur la conformité, LCB-FT et finance.</p>
               </TooltipContent>
             </Tooltip>
           </div>
+
+          {/* Modal Flux Complet d'Intelligence Réglementaire */}
+          <Dialog open={isNewsModalOpen} onOpenChange={setIsNewsModalOpen}>
+            <DialogContent className="max-w-4xl max-h-[88vh] bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+              <DialogHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-primary/10 rounded-2xl text-primary">
+                      <Newspaper className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                        Intelligence Flux & Veille Réglementaire
+                      </DialogTitle>
+                      <DialogDescription className="text-xs text-slate-500">
+                        Surveillance continue consolidée : Réglementation Tunisie (JORT, BCT, CGA, CTAF) et Veille mondiale (GAFI/FATF, UE, Sanctions).
+                      </DialogDescription>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setIsNewsModalOpen(false); router.push('/regulatory-watch'); }}
+                      className="rounded-xl text-xs font-bold gap-2 text-primary border-primary/20 hover:bg-primary/5"
+                    >
+                      <BrainCircuit className="h-3.5 w-3.5" />
+                      Analyser un texte
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Barre de recherche et filtres de la modal */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                  <div className="relative w-full sm:w-72">
+                    <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Filtrer par mot-clé (ex: CGA, BCT, GAFI)..."
+                      value={newsModalSearch}
+                      onChange={(e) => setNewsModalSearch(e.target.value)}
+                      className="pl-9 h-9 text-xs rounded-xl bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800"
+                    />
+                    {newsModalSearch && (
+                      <button
+                        onClick={() => setNewsModalSearch('')}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setNewsFilter('tunisia')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all",
+                          newsFilter === 'tunisia'
+                            ? "bg-rose-500 text-white shadow-sm shadow-rose-500/30"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-600"
+                        )}
+                      >
+                        🇹🇳 Focus Tunisie ({tunisiaNewsCount})
+                      </button>
+                      <button
+                        onClick={() => setNewsFilter('all')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all",
+                          newsFilter === 'all'
+                            ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                        )}
+                      >
+                        Tous ({news.length})
+                      </button>
+                      <button
+                        onClick={() => setNewsFilter('intl')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all",
+                          newsFilter === 'intl'
+                            ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600"
+                        )}
+                      >
+                        🌍 Intl ({intlNewsCount})
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => setShowOriginalTitle(prev => !prev)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all border",
+                        showOriginalTitle
+                          ? "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700"
+                          : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                      )}
+                      title="Basculer entre la traduction française et les titres originaux"
+                    >
+                      <Languages className="h-3 w-3" />
+                      {showOriginalTitle ? "Titres VO" : "Titres FR"}
+                    </button>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              {/* Liste scrollable */}
+              <ScrollArea className="flex-1 pr-3 -mr-3 my-2 max-h-[60vh]">
+                <div className="space-y-3 py-2">
+                  {modalNewsList.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-primary/20 hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-all flex flex-col gap-2 group"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className={cn(
+                            "text-[9px] font-black uppercase px-2 py-0.5 border-none",
+                            item.source === 'FATF' ? "bg-amber-500/10 text-amber-600" :
+                              item.source === 'KPMG' ? "bg-blue-500/10 text-blue-600" :
+                                item.source === 'Juridoc.tn' ? "bg-teal-500/10 text-teal-600" :
+                                  item.source === 'CGA' ? "bg-emerald-500/10 text-emerald-600" :
+                                    item.source === 'BCT' ? "bg-sky-500/10 text-sky-600" :
+                                      item.source === 'JORT' ? "bg-indigo-500/10 text-indigo-600" :
+                                        "bg-primary/10 text-primary"
+                          )}>
+                            {item.source}
+                          </Badge>
+                          {item.isFlash ? (
+                            <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-600 text-white border-none shadow-sm shadow-rose-600/30 animate-pulse">
+                              ⚡ FLASH {item.flashType || 'JORT/CGA'}
+                            </Badge>
+                          ) : (item.isHighPriority || item.country === 'TN') ? (
+                            <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-500/10 text-rose-600 border-none">
+                              🇹🇳 Focus Tunisie
+                            </Badge>
+                          ) : null}
+                          {item.isTranslated && (
+                            <Badge
+                              variant="outline"
+                              className="text-[8px] font-bold px-1.5 py-0 border-blue-200 text-blue-600 bg-blue-50/50 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                              title={item.originalTitle ? `Titre original (${item.originalLanguage?.toUpperCase()}): ${item.originalTitle}` : "Traduit en français"}
+                            >
+                              🌐 Traduit ({item.originalLanguage?.toUpperCase() || 'EN'})
+                            </Badge>
+                          )}
+                          <span className="text-[10px] font-bold text-slate-400">
+                            {format(parseISO(item.date), 'dd MMMM yyyy', { locale: fr })}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleConvertFlashToAlert(item)}
+                            className="h-7 px-2.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Créer une alerte formelle dans le Centre d'Alertes"
+                          >
+                            <Zap className="h-3 w-3" />
+                            Créer Alerte GRC
+                          </Button>
+                          {item.url && (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-bold text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                            >
+                              Consulter <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      <a
+                        href={item.url || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-bold text-slate-800 dark:text-slate-100 hover:text-primary transition-colors"
+                      >
+                        {showOriginalTitle && item.originalTitle ? item.originalTitle : item.title}
+                      </a>
+
+                      {item.isTranslated && showOriginalTitle && (
+                        <p className="text-[11px] text-slate-500 italic">
+                          Traduction FR : {item.title}
+                        </p>
+                      )}
+
+                      {item.description && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+
+                  {modalNewsList.length === 0 && (
+                    <div className="py-16 text-center space-y-2">
+                      <Activity className="h-10 w-10 text-slate-300 mx-auto" />
+                      <p className="text-sm font-bold text-slate-500">Aucun article ne correspond à votre filtre</p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </DialogContent>
+          </Dialog>
 
         </div>
 

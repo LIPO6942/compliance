@@ -67,6 +67,7 @@ import { MemoEditorModalWrapper } from "@/components/memos/MemoEditorModalWrappe
 import { FloatingPinnedMemoWidget } from "@/components/memos/FloatingPinnedMemoWidget";
 import { DeviceApprovalModal } from "@/components/auth/DeviceApprovalModal";
 import { DeviceApprovalHeaderTrigger } from "@/components/auth/DeviceApprovalHeaderTrigger";
+import { useNews } from "@/contexts/NewsContext";
 
 interface NavItem {
   href: string;
@@ -257,9 +258,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const displayRole = linkedTeamMember?.officialFunction || user?.officialFunction || linkedTeamMember?.role || user?.role;
 
+  const { news } = useNews();
+
   const newAlertsCount = React.useMemo(() => {
     return identifiedRegulations.filter(reg => reg.status === 'Nouveau').length;
   }, [identifiedRegulations]);
+
+  const hasActiveFlash = React.useMemo(() => {
+    return (news || []).some(n => n.isFlash || n.source === 'JORT' || n.source === 'CGA');
+  }, [news]);
 
   const getInitials = (name: string): string => {
     if (!name) return 'U';
@@ -511,13 +518,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <MemoHeaderTrigger />
 
             <Link href="/alerts">
-              <Button variant="ghost" size="icon" aria-label="Voir les alertes" className="relative hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">
-                <BellRing className="h-5 w-5 text-slate-600 dark:text-slate-300" />
-                {newAlertsCount > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Voir les alertes"
+                className={cn(
+                  "relative hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all",
+                  hasActiveFlash && "text-rose-600 hover:text-rose-700 bg-rose-50/50 dark:bg-rose-950/30"
+                )}
+                title={hasActiveFlash ? "🚨 Notification Flash JORT / CGA active" : "Centre d'Alertes GRC"}
+              >
+                <BellRing className={cn("h-5 w-5", hasActiveFlash ? "text-rose-600 animate-pulse" : "text-slate-600 dark:text-slate-300")} />
+                {(newAlertsCount > 0 || hasActiveFlash) && (
                   <span className="absolute top-0 right-0 flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500">
-                      <span className="absolute -top-4 -right-1.5 text-xs font-bold">{newAlertsCount}</span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600">
+                      <span className="absolute -top-4 -right-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
+                        {newAlertsCount > 0 ? newAlertsCount : '!'}
+                      </span>
                     </span>
                   </span>
                 )}
