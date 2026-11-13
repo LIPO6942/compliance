@@ -132,8 +132,8 @@ const navItems: NavItem[] = [
   {
     href: "/risk-mapping",
     icon: Map,
-    label: "Cartographie des Risques",
-    title: "Cartographie des Risques",
+    label: "Cartographie des Risques ABR",
+    title: "Cartographie des Risques ABR",
     iconColor: "text-amber-500 dark:text-amber-400",
     iconBg: "bg-amber-500/10 dark:bg-amber-500/20",
     activeBg: "bg-amber-500/15 dark:bg-amber-500/25",
@@ -233,7 +233,7 @@ const navItems: NavItem[] = [
     activeBorder: "border-rose-500/40",
     activeText: "text-rose-700 dark:text-rose-300 font-bold",
     subItems: [
-      { href: "/non-conformite?tab=cartographie", icon: BookX, label: "Cartographie des Risques" },
+      { href: "/non-conformite?tab=cartographie", icon: BookX, label: "Cartographie des Risques LBA/FT" },
       { href: "/non-conformite?tab=registre-veille", icon: ShieldCheck, label: "Registre Veille Réglementaire" },
     ],
   },
@@ -364,7 +364,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                       ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 font-bold"
                                       : subItem.label === "Registre Veille Réglementaire"
                                         ? "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-bold"
-                                        : subItem.label === "Cartographie des Risques"
+                                        : (subItem.label === "Cartographie des Risques LBA/FT" || subItem.label === "Cartographie des Risques")
                                           ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 font-bold"
                                           : "bg-slate-200/70 dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
                                   : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-slate-800/40"
@@ -379,7 +379,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                           ? "text-blue-600"
                                           : subItem.label === "Registre Veille Réglementaire"
                                             ? "text-indigo-600"
-                                            : subItem.label === "Cartographie des Risques"
+                                            : (subItem.label === "Cartographie des Risques LBA/FT" || subItem.label === "Cartographie des Risques")
                                               ? "text-rose-600"
                                               : "text-slate-900 dark:text-white"
                                       : "text-slate-400"
