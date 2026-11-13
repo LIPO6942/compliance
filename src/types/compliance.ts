@@ -242,6 +242,8 @@ export interface NewsItem {
   country?: 'TN' | 'INTL' | string;
   isFlash?: boolean;
   flashType?: 'JORT' | 'CGA' | 'BCT' | 'CTAF' | string;
+  translatedTitle?: string;
+  sector?: 'assurance' | 'banque' | 'autre';
 }
 
 // Mermaid Workflow Types

@@ -31,6 +31,8 @@ const ComplianceNewsOutputSchema = z.array(
         country: z.string().optional(),
         isFlash: z.boolean().optional(),
         flashType: z.string().optional(),
+        translatedTitle: z.string().optional(),
+        sector: z.string().optional(),
     })
 ).describe("Une liste d'articles d'actualité sur la conformité.");
 
@@ -453,24 +455,107 @@ async function translateTextToFrench(text: string): Promise<{ translated: string
     return null;
 }
 
+// Vérifie si l'article concerne le secteur des assurances
+function isInsuranceItem(item: NewsItem): boolean {
+    const text = (item.title + " " + (item.description || "")).toLowerCase();
+    return (
+        item.source === 'CGA' ||
+        item.flashType === 'CGA' ||
+        text.includes('assurance') ||
+        text.includes('assurances') ||
+        text.includes('assureur') ||
+        text.includes('assureurs') ||
+        text.includes('cga') ||
+        text.includes('mae') ||
+        text.includes('تأمين') ||
+        text.includes('التأمين') ||
+        text.includes('مؤمن')
+    );
+}
+
+// Vérifie si l'article concerne spécifiquement les banques tunisiennes
+function isTunisianBankingItem(item: NewsItem): boolean {
+    // Si c'est relatif aux assurances, priorité aux assurances (doit être traduit)
+    if (isInsuranceItem(item)) {
+        return false;
+    }
+
+    const text = (item.title + " " + (item.description || "")).toLowerCase();
+    const isBanking =
+        item.source === 'BCT' ||
+        item.flashType === 'BCT' ||
+        text.includes('banque centrale de tunisie') ||
+        text.includes('bct') ||
+        text.includes('banque') ||
+        text.includes('banques') ||
+        text.includes('bancaire') ||
+        text.includes('bancaires') ||
+        text.includes('البنك المركزي') ||
+        text.includes('البنوك') ||
+        text.includes('مصرف') ||
+        text.includes('مصرفي') ||
+        text.includes('القطاع البنكي') ||
+        text.includes('بنوك تونس') ||
+        text.includes('circular bct') ||
+        text.includes('circulaire aux banques');
+
+    const isTunisian =
+        item.country === 'TN' ||
+        item.isHighPriority ||
+        text.includes('tunisie') ||
+        text.includes('tunis') ||
+        text.includes('تونس');
+
+    return isBanking && isTunisian;
+}
+
 async function translateNewsItem(item: NewsItem): Promise<NewsItem> {
+    const isInsurance = isInsuranceItem(item);
+    const isTunisianBanking = isTunisianBankingItem(item);
+
+    // RÈGLE : Ne PAS traduire directement les alertes concernant les banques tunisiennes
+    if (isTunisianBanking) {
+        let translatedTitle: string | undefined = undefined;
+        try {
+            const trans = await translateTextToFrench(item.title);
+            if (trans && trans.sourceLang !== 'fr') {
+                translatedTitle = trans.translated;
+            }
+        } catch {}
+
+        return {
+            ...item,
+            originalTitle: item.title,
+            translatedTitle,
+            isTranslated: false, // Conserver le titre original directement sans traduction
+            sector: 'banque',
+        };
+    }
+
+    // RÈGLE : Les assurances SONT traduites directement en français
+    // ainsi que les actualités internationales
     const isEnglishSource = ['AML Intelligence', 'ComplyAdvantage', 'KPMG', 'FATF', 'MarketAux'].includes(item.source);
     const hasArabic = /[\u0600-\u06FF]/.test(item.title);
 
-    // Détection d'un titre en langue étrangère (anglais, arabe, etc.)
-    if (isEnglishSource || hasArabic || !/[éèêàùçîôû]/.test(item.title)) {
+    if (isInsurance || isEnglishSource || hasArabic || !/[éèêàùçîôû]/.test(item.title)) {
         const translation = await translateTextToFrench(item.title);
         if (translation && translation.sourceLang !== 'fr') {
             return {
                 ...item,
                 originalTitle: item.title,
-                title: translation.translated,
+                title: translation.translated, // Traduction directe appliquée
+                translatedTitle: translation.translated,
                 isTranslated: true,
                 originalLanguage: translation.sourceLang,
+                sector: isInsurance ? 'assurance' : undefined,
             };
         }
     }
-    return item;
+
+    return {
+        ...item,
+        sector: isInsurance ? 'assurance' : undefined,
+    };
 }
 
 // Détection automatique des textes officiels et alertes flash (JORT, CGA, BCT, CTAF)

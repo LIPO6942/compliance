@@ -120,7 +120,7 @@ export default function DashboardPage() {
       try {
         const saved = localStorage.getItem('dismissed_flash_ids');
         if (saved) setDismissedFlashIds(JSON.parse(saved));
-      } catch {}
+      } catch { }
     }
   }, []);
 
@@ -2634,7 +2634,17 @@ export default function DashboardPage() {
                                   🇹🇳 Focus Tunisie
                                 </Badge>
                               ) : null}
-                              {item.isTranslated && (
+                              {item.sector === 'assurance' && (
+                                <Badge variant="outline" className="text-[8px] font-bold px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
+                                  🛡️ Assurance
+                                </Badge>
+                              )}
+                              {item.sector === 'banque' && (
+                                <Badge variant="outline" className="text-[8px] font-bold px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800" title={item.translatedTitle ? `Traduction indicative : ${item.translatedTitle}` : "Secteur bancaire tunisien"}>
+                                  🏦 Banque (VO)
+                                </Badge>
+                              )}
+                              {item.isTranslated && item.sector !== 'banque' && (
                                 <Badge
                                   variant="outline"
                                   className="text-[8px] font-bold px-1.5 py-0 border-blue-200 text-blue-600 bg-blue-50/50 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
@@ -2676,7 +2686,13 @@ export default function DashboardPage() {
                           </div>
                           <p
                             className="text-[12.5px] font-bold leading-snug line-clamp-2 text-slate-700 dark:text-slate-300 group-hover/item:text-primary transition-colors"
-                            title={item.isTranslated && !showOriginalTitle && item.originalTitle ? `Original: ${item.originalTitle}` : undefined}
+                            title={
+                              item.sector === 'banque' && item.translatedTitle
+                                ? `Traduction indicative: ${item.translatedTitle}`
+                                : item.isTranslated && !showOriginalTitle && item.originalTitle
+                                  ? `Original: ${item.originalTitle}`
+                                  : undefined
+                            }
                           >
                             {showOriginalTitle && item.originalTitle ? item.originalTitle : item.title}
                           </p>
@@ -2844,7 +2860,17 @@ export default function DashboardPage() {
                               🇹🇳 Focus Tunisie
                             </Badge>
                           ) : null}
-                          {item.isTranslated && (
+                          {item.sector === 'assurance' && (
+                            <Badge variant="outline" className="text-[8px] font-bold px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
+                              🛡️ Assurance
+                            </Badge>
+                          )}
+                          {item.sector === 'banque' && (
+                            <Badge variant="outline" className="text-[8px] font-bold px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800" title={item.translatedTitle ? `Traduction indicative : ${item.translatedTitle}` : "Secteur bancaire tunisien"}>
+                              🏦 Banque (VO)
+                            </Badge>
+                          )}
+                          {item.isTranslated && item.sector !== 'banque' && (
                             <Badge
                               variant="outline"
                               className="text-[8px] font-bold px-1.5 py-0 border-blue-200 text-blue-600 bg-blue-50/50 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
@@ -2891,7 +2917,13 @@ export default function DashboardPage() {
                         {showOriginalTitle && item.originalTitle ? item.originalTitle : item.title}
                       </a>
 
-                      {item.isTranslated && showOriginalTitle && (
+                      {item.sector === 'banque' && item.translatedTitle && (
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                          Traduction indicative : {item.translatedTitle}
+                        </p>
+                      )}
+
+                      {item.isTranslated && showOriginalTitle && item.sector !== 'banque' && (
                         <p className="text-[11px] text-slate-500 italic">
                           Traduction FR : {item.title}
                         </p>
