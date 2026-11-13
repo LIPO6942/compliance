@@ -284,15 +284,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const pageTitle = currentPage?.title || (
     pathname.startsWith('/settings/admin/activity') ? "Journal d'Activité Admin" :
-    pathname.startsWith('/admin/workflows') ? "Gestion des Workflows" :
-    pathname.startsWith('/settings') ? 'Paramètres' : 
-    'Compliance Navigator'
+      pathname.startsWith('/admin/workflows') ? "Gestion des Workflows" :
+        pathname.startsWith('/settings') ? 'Paramètres' :
+          'Compliance Navigator'
   );
 
   return (
     <SidebarProvider defaultOpen={!isMobile} open={isMobile ? false : undefined}>
       <Sidebar collapsible="icon" side="left" variant="sidebar" className="z-40 border-r border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-950">
-        
+
         {/* ── Header Brand ────────────────────────────────────────────── */}
         <SidebarHeader className="p-4 border-b border-slate-100 dark:border-slate-800/80">
           <Link href="/dashboard" className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center">
@@ -346,20 +346,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       <SidebarMenuSub className="ml-5 pl-2.5 border-l-2 border-slate-200 dark:border-slate-800 space-y-1 my-1">
                         {item.subItems.map((subItem) => {
                           const isSubActive = pathname === subItem.href.split('?')[0] && (
-                            !subItem.href.includes('?tab=') || 
+                            !subItem.href.includes('?tab=') ||
                             currentTab === subItem.href.split('?tab=')[1] ||
                             (subItem.href.includes('?tab=table') && !currentTab) ||
                             (subItem.href.includes('?tab=cartographie') && (!currentTab || currentTab === 'cartographie'))
                           );
                           const SubIcon = subItem.icon;
-                          
+
                           return (
                             <SidebarMenuSubItem key={subItem.href}>
                               <SidebarMenuSubButton asChild className={cn(
                                 "h-8 rounded-lg transition-all duration-200 px-2.5 text-xs font-semibold",
-                                isSubActive 
-                                  ? subItem.label === "DMR" 
-                                    ? "bg-orange-500/15 text-orange-700 dark:text-orange-300 font-bold" 
+                                isSubActive
+                                  ? subItem.label === "DMR"
+                                    ? "bg-orange-500/15 text-orange-700 dark:text-orange-300 font-bold"
                                     : subItem.label === "Plan d'actions"
                                       ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 font-bold"
                                       : subItem.label === "Registre Veille Réglementaire"
