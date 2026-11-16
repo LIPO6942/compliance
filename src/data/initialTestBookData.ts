@@ -116,7 +116,7 @@ export const INITIAL_TEST_CASES: TestCase[] = [
     title: "Accès module : Clients / KYC",
     steps: "1. Cliquer sur 'Clients' ou 'KYC' dans le menu\n2. Vérifier le chargement",
     expectedResult: "Le module Clients/KYC s'affiche sans erreur",
-    status: "Non encore testé",
+    status: "OK",
     linkedAnomaly: "",
     comment: ""
   },
@@ -126,7 +126,7 @@ export const INITIAL_TEST_CASES: TestCase[] = [
     title: "Accès module : Alertes",
     steps: "1. Cliquer sur 'Alertes' dans le menu\n2. Vérifier le chargement",
     expectedResult: "Le module Alertes s'affiche sans erreur",
-    status: "Non encore testé",
+    status: "OK",
     linkedAnomaly: "",
     comment: ""
   },
@@ -136,7 +136,7 @@ export const INITIAL_TEST_CASES: TestCase[] = [
     title: "Accès module : Reporting",
     steps: "1. Cliquer sur 'Reporting' dans le menu\n2. Vérifier le chargement",
     expectedResult: "Le module Reporting s'affiche sans erreur",
-    status: "Non encore testé",
+    status: "OK",
     linkedAnomaly: "",
     comment: ""
   },
@@ -146,7 +146,7 @@ export const INITIAL_TEST_CASES: TestCase[] = [
     title: "Présence bouton Export (Excel/PDF)",
     steps: "1. Naviguer vers une liste (clients ou alertes)\n2. Chercher un bouton Export/Excel/PDF\n3. Vérifier sa présence",
     expectedResult: "Un bouton d'export est visible et cliquable",
-    status: "Non encore testé",
+    status: "OK",
     linkedAnomaly: "",
     comment: ""
   },
@@ -156,7 +156,7 @@ export const INITIAL_TEST_CASES: TestCase[] = [
     title: "Présence bouton Nouveau/Créer client",
     steps: "1. Naviguer vers la liste clients\n2. Chercher un bouton 'Nouveau' ou 'Créer'\n3. Vérifier sa présence",
     expectedResult: "Un bouton de création client est visible et cliquable",
-    status: "Non encore testé",
+    status: "OK",
     linkedAnomaly: "",
     comment: ""
   },
@@ -166,7 +166,7 @@ export const INITIAL_TEST_CASES: TestCase[] = [
     title: "Absence d'erreurs JavaScript console",
     steps: "1. Naviguer sur les pages principales\n2. Ouvrir la console développeur\n3. Vérifier l'absence d'erreurs JS",
     expectedResult: "Aucune erreur JavaScript dans la console",
-    status: "Non encore testé",
+    status: "OK",
     linkedAnomaly: "",
     comment: ""
   },

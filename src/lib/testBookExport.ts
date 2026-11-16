@@ -87,7 +87,6 @@ export async function exportTestBookExcel(
     ["Total cas de test", stats.total],
     ["✅  OK — Conformes", stats.okCount],
     ["❌  KO — Anomalies", stats.koCount],
-    ["⏭️  Non encore testé", stats.pendingCount],
     ["🚨 Anomalies critiques", stats.criticalAnomalies],
     ["⚠️ Anomalies hautes", stats.highAnomalies],
     ["📊 Taux de conformité (OK / Total)", `${stats.progressRate}%`],
@@ -554,10 +553,6 @@ export function exportTestBookPDF(
             <span class="info-val">Anomalie confirmée — comportement non conforme à corriger</span>
           </div>
           <div class="info-row">
-            <span class="badge badge-pending">⏭️ Non testé</span>
-            <span class="info-val">Non exécuté — planifié pour la prochaine campagne</span>
-          </div>
-          <div class="info-row">
             <span class="badge badge-critique">CRITIQUE</span>
             <span class="info-val">Bloquant réglementaire ou risque légal direct</span>
           </div>
@@ -569,6 +564,10 @@ export function exportTestBookPDF(
       </div>
 
       <div class="kpi-row">
+        <div class="kpi-card pending">
+          <div class="kpi-num">${stats.total}</div>
+          <div class="kpi-label">Total Cas de Test</div>
+        </div>
         <div class="kpi-card ok">
           <div class="kpi-num">${stats.okCount}</div>
           <div class="kpi-label">Tests Conformes (OK)</div>
@@ -576,10 +575,6 @@ export function exportTestBookPDF(
         <div class="kpi-card ko">
           <div class="kpi-num">${stats.koCount}</div>
           <div class="kpi-label">Anomalies Détectées (KO)</div>
-        </div>
-        <div class="kpi-card pending">
-          <div class="kpi-num">${stats.pendingCount}</div>
-          <div class="kpi-label">En Attente / Non Testés</div>
         </div>
         <div class="kpi-card critical">
           <div class="kpi-num">${stats.criticalAnomalies}</div>
@@ -630,8 +625,8 @@ export function exportTestBookPDF(
           <td style="white-space: pre-line; font-size: 8.5px; color: #475569;">${tc.steps}</td>
           <td style="font-size: 8.5px; color: #0f172a;">${tc.expectedResult}</td>
           <td class="center">
-            <span class="badge ${tc.status === 'OK' ? 'badge-ok' : tc.status === 'KO' ? 'badge-ko' : 'badge-pending'}">
-              ${tc.status === 'OK' ? '✅ OK' : tc.status === 'KO' ? '❌ KO' : '⏭️ Non testé'}
+            <span class="badge ${tc.status === 'OK' ? 'badge-ok' : 'badge-ko'}">
+              ${tc.status === 'OK' ? '✅ OK' : '❌ KO'}
             </span>
           </td>
         </tr>

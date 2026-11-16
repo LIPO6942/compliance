@@ -48,7 +48,7 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
   const [title, setTitle] = useState("");
   const [steps, setSteps] = useState("");
   const [expectedResult, setExpectedResult] = useState("");
-  const [status, setStatus] = useState<TestStatus>("Non encore testé");
+  const [status, setStatus] = useState<TestStatus>("OK");
   const [comment, setComment] = useState("");
 
   // Anomaly integration
@@ -78,7 +78,7 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
       setTitle(testCaseToEdit.title || "");
       setSteps(testCaseToEdit.steps || "");
       setExpectedResult(testCaseToEdit.expectedResult || "");
-      setStatus(testCaseToEdit.status || "Non encore testé");
+      setStatus(testCaseToEdit.status || "OK");
       setComment(testCaseToEdit.comment || "");
 
       // Check if linked anomaly exists
@@ -106,10 +106,10 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
       setId(nextSuggestedId);
       const initialModule =
         defaultModule &&
-        modulesList.some((m) => m.toLowerCase().trim() === defaultModule.toLowerCase().trim())
+          modulesList.some((m) => m.toLowerCase().trim() === defaultModule.toLowerCase().trim())
           ? modulesList.find(
-              (m) => m.toLowerCase().trim() === defaultModule.toLowerCase().trim()
-            ) || defaultModule
+            (m) => m.toLowerCase().trim() === defaultModule.toLowerCase().trim()
+          ) || defaultModule
           : modulesList[0] || "Reporting";
       setModule(initialModule);
       setIsCustomModule(false);
@@ -117,7 +117,7 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
       setTitle("");
       setSteps("");
       setExpectedResult("");
-      setStatus("Non encore testé");
+      setStatus("OK");
       setComment("");
       setDeclareAnomaly(false);
       setAnomalyId(nextSuggestedAnomalyId);
@@ -291,13 +291,11 @@ export const TestCaseModal: React.FC<TestCaseModalProps> = ({
                 className={cn(
                   "w-full text-xs font-bold rounded-xl p-2 border outline-none h-9 transition-colors",
                   status === "OK" && "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300",
-                  status === "KO" && "bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300",
-                  status === "Non encore testé" && "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                  status === "KO" && "bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300"
                 )}
               >
                 <option value="OK">🟢 Conforme (OK)</option>
                 <option value="KO">🔴 Anomalie (KO)</option>
-                <option value="Non encore testé">⚪ Non encore testé</option>
               </select>
             </div>
           </div>

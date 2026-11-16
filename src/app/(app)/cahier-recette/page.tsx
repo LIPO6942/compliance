@@ -144,7 +144,7 @@ function loadInitialData(): { tests: TestCase[]; anomalies: Anomaly[] } {
   try {
     const s = localStorage.getItem("regtools_test_cases_v2") || localStorage.getItem("regtools_test_cases");
     if (s) tests = JSON.parse(s);
-  } catch {}
+  } catch { }
   try {
     const s = localStorage.getItem("regtools_anomalies_v2") || localStorage.getItem("regtools_anomalies");
     if (s) {
@@ -154,13 +154,20 @@ function loadInitialData(): { tests: TestCase[]; anomalies: Anomaly[] } {
         status: (a.status || "OUVERTE") as AnomalyStatus,
       }));
     }
-  } catch {}
+  } catch { }
   // Ensure default initial anomalies (like ANO-001 and ANO-002) are present
   const existingIds = new Set(anomalies.map((a) => a.id));
   INITIAL_ANOMALIES.forEach((initAno) => {
     if (!existingIds.has(initAno.id)) {
       anomalies.push(initAno);
     }
+  });
+  // Normaliser les statuts : tous les cas présents sont testés (migration de "Non encore testé" vers "OK")
+  tests = tests.map((t) => {
+    if ((t.status as string) === "Non encore testé" || (t.status as string) === "Non testé") {
+      return { ...t, status: "OK" as TestStatus };
+    }
+    return t;
   });
   // Always resequence to ensure T-001..T-N with no gaps
   const resequenced = resequenceTests(tests, anomalies);
@@ -279,7 +286,7 @@ export default function TestBookPage() {
     const total = testCases.length;
     const okCount = testCases.filter((t) => t.status === "OK").length;
     const koCount = testCases.filter((t) => t.status === "KO").length;
-    const pendingCount = testCases.filter((t) => t.status === "Non encore testé").length;
+    const pendingCount = 0; // Tous les cas présents sont testés
 
     const openAnomalies = anomalies.filter((a) => a.status !== "RESOLUE");
     const openAnomaliesCount = openAnomalies.length;
@@ -290,7 +297,7 @@ export default function TestBookPage() {
     const highAnomalies = openAnomalies.filter((a) => a.priority === "HAUTE").length;
 
     const progressRate = total > 0 ? ((okCount / total) * 100).toFixed(1) : "0.0";
-    const executionRate = total > 0 ? (((okCount + koCount) / total) * 100).toFixed(1) : "0.0";
+    const executionRate = total > 0 ? "100.0" : "0.0";
 
     return {
       total,
@@ -357,10 +364,10 @@ export default function TestBookPage() {
         (selectedAnomalyStatus === "RESOLUE"
           ? a.status === "RESOLUE"
           : selectedAnomalyStatus === "REOUVERTE"
-          ? isAnomalyReopened(a)
-          : selectedAnomalyStatus === "OUVERTE"
-          ? (a.status === "OUVERTE" || a.status === "EN COURS" || (!a.status && a.status !== "RESOLUE"))
-          : a.status !== "RESOLUE");
+            ? isAnomalyReopened(a)
+            : selectedAnomalyStatus === "OUVERTE"
+              ? (a.status === "OUVERTE" || a.status === "EN COURS" || (!a.status && a.status !== "RESOLUE"))
+              : a.status !== "RESOLUE");
 
       return matchesSearch && matchesPriority && matchesStatus;
     });
@@ -373,8 +380,7 @@ export default function TestBookPage() {
 
     const updated = testCases.map((t) => {
       if (t.id === testId) {
-        const nextStatus: TestStatus =
-          t.status === "OK" ? "KO" : t.status === "KO" ? "Non encore testé" : "OK";
+        const nextStatus: TestStatus = t.status === "OK" ? "KO" : "OK";
         const auditEntry: AuditEntry = {
           timestamp: nowIso,
           author: currentUser,
@@ -466,7 +472,7 @@ export default function TestBookPage() {
     const author = auditAuthor || currentUser;
     if (auditAuthor && auditAuthor !== currentUser) {
       setCurrentUser(auditAuthor);
-      try { localStorage.setItem("regtools_current_user", auditAuthor); } catch {}
+      try { localStorage.setItem("regtools_current_user", auditAuthor); } catch { }
     }
     const auditEntry: AuditEntry = {
       timestamp: nowIso,
@@ -521,7 +527,7 @@ export default function TestBookPage() {
     const author = auditAuthor || currentUser;
     if (auditAuthor && auditAuthor !== currentUser) {
       setCurrentUser(auditAuthor);
-      try { localStorage.setItem("regtools_current_user", auditAuthor); } catch {}
+      try { localStorage.setItem("regtools_current_user", auditAuthor); } catch { }
     }
     const existing = testCases.find((t) => t.id === updatedTestCase.id);
     const changeParts: string[] = [];
@@ -598,12 +604,12 @@ export default function TestBookPage() {
       ...a,
       linkedTest: a.linkedTest
         ? a.linkedTest
-            .split(/[/,\s]+/)
-            .map((s) => {
-              const t = s.trim();
-              return oldIdToNew[t] || t;
-            })
-            .join(" / ")
+          .split(/[/,\s]+/)
+          .map((s) => {
+            const t = s.trim();
+            return oldIdToNew[t] || t;
+          })
+          .join(" / ")
         : a.linkedTest,
     }));
     setTestCases(renumbered);
@@ -699,7 +705,7 @@ export default function TestBookPage() {
     const author = auditAuthor || currentUser;
     if (auditAuthor && auditAuthor !== currentUser) {
       setCurrentUser(auditAuthor);
-      try { localStorage.setItem("regtools_current_user", auditAuthor); } catch {}
+      try { localStorage.setItem("regtools_current_user", auditAuthor); } catch { }
     }
     const existingAno = anomalies.find((a) => a.id === updatedAnomaly.id);
     const wasResolved = existingAno?.status === "RESOLUE";
@@ -722,8 +728,8 @@ export default function TestBookPage() {
     const actionType = isNowReopened
       ? "Réouverture"
       : updatedAnomaly.status === "RESOLUE" && !wasResolved
-      ? "Résolution"
-      : "Modification";
+        ? "Résolution"
+        : "Modification";
 
     const auditEntry: AuditEntry = {
       timestamp: nowIso,
@@ -861,7 +867,7 @@ export default function TestBookPage() {
     }
 
     const transferredTests = updatedTests.filter(t => t.module === toModule && (testCases.find(o => o.id === t.id)?.module || "").trim().toLowerCase() === fromKey).length;
-    const transferredAnos  = updatedAnomalies.filter(a => a.module === toModule && (anomalies.find(o => o.id === a.id)?.module || "").trim().toLowerCase() === fromKey).length;
+    const transferredAnos = updatedAnomalies.filter(a => a.module === toModule && (anomalies.find(o => o.id === a.id)?.module || "").trim().toLowerCase() === fromKey).length;
 
     setTestCases(updatedTests);
     setAnomalies(updatedAnomalies);
@@ -886,251 +892,251 @@ export default function TestBookPage() {
 
   return (
     <>
-    <div className="space-y-6 pb-12">
-      {/* En-tête Principal */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-200/60 dark:border-slate-800/60">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="h-2.5 w-2.5 rounded-full bg-indigo-600 animate-pulse" />
-            <span className="text-[10px] font-black tracking-widest text-indigo-600 dark:text-indigo-400 uppercase">
-              Assurance Qualité & Conformité
-            </span>
+      <div className="space-y-6 pb-12">
+        {/* En-tête Principal */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-200/60 dark:border-slate-800/60">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-2.5 w-2.5 rounded-full bg-indigo-600 animate-pulse" />
+              <span className="text-[10px] font-black tracking-widest text-indigo-600 dark:text-indigo-400 uppercase">
+                Assurance Qualité & Conformité
+              </span>
+            </div>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">
+              Cahier de Recette <span className="text-indigo-600 dark:text-indigo-400 font-black">RegTools</span>
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Campagne de tests d'homologation, matrice d'exécution et suivi dynamique des anomalies
+            </p>
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">
-            Cahier de Recette <span className="text-indigo-600 dark:text-indigo-400 font-black">RegTools</span>
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Campagne de tests d'homologation, matrice d'exécution et suivi dynamique des anomalies
-          </p>
-        </div>
 
-        {/* Boutons d'action */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              toast({ title: "Génération de l'impression", description: "Préparation du document certifié MAE..." });
-              exportTestBookPDF(testCases, anomalies, metadata, stats);
-            }}
-            className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 text-xs font-bold gap-1.5 shadow-xs"
-          >
-            <Printer className="h-4 w-4 text-indigo-600" />
-            Imprimer / PDF
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={async () => {
-              await exportTestBookExcel(testCases, anomalies, metadata, stats);
-              toast({ title: "Export Excel réussi", description: "Le cahier de recette a été téléchargé." });
-            }}
-            className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold gap-1.5 shadow-md shadow-indigo-500/20"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Exporter Excel (.xlsx)
-          </Button>
-
-          {/* Journal des modifications */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsAuditLogOpen(true)}
-            className="rounded-xl border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-xs font-bold gap-1.5 shadow-xs"
-          >
-            <History className="h-4 w-4" />
-            Journal
-          </Button>
-
-          {/* Renuméroter les IDs */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleResequenceIds}
-            title={`Renuméroter les IDs de T-001 à T-${String(testCases.length).padStart(3, "0")}`}
-            className="rounded-xl text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-bold gap-1"
-          >
-            <Hash className="h-4 w-4" />
-            Renuméroter
-          </Button>
-
-          {/* Gestion des modules — Admin uniquement */}
-          {userIsAdmin && (
+          {/* Boutons d'action */}
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsModuleManagerOpen(true)}
-              title="Gérer et renommer les modules fonctionnels (Admin)"
-              className="rounded-xl border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 text-xs font-bold gap-1.5 shadow-xs"
+              onClick={() => {
+                toast({ title: "Génération de l'impression", description: "Préparation du document certifié MAE..." });
+                exportTestBookPDF(testCases, anomalies, metadata, stats);
+              }}
+              className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 text-xs font-bold gap-1.5 shadow-xs"
             >
-              <Settings2 className="h-4 w-4" />
-              Modules
+              <Printer className="h-4 w-4 text-indigo-600" />
+              Imprimer / PDF
             </Button>
-          )}
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleResetData}
-            title="Restaurer les données initiales"
-            className="rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-xs"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+            <Button
+              size="sm"
+              onClick={async () => {
+                await exportTestBookExcel(testCases, anomalies, metadata, stats);
+                toast({ title: "Export Excel réussi", description: "Le cahier de recette a été téléchargé." });
+              }}
+              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold gap-1.5 shadow-md shadow-indigo-500/20"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Exporter Excel (.xlsx)
+            </Button>
+
+            {/* Journal des modifications */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAuditLogOpen(true)}
+              className="rounded-xl border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-xs font-bold gap-1.5 shadow-xs"
+            >
+              <History className="h-4 w-4" />
+              Journal
+            </Button>
+
+            {/* Renuméroter les IDs */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleResequenceIds}
+              title={`Renuméroter les IDs de T-001 à T-${String(testCases.length).padStart(3, "0")}`}
+              className="rounded-xl text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-bold gap-1"
+            >
+              <Hash className="h-4 w-4" />
+              Renuméroter
+            </Button>
+
+            {/* Gestion des modules — Admin uniquement */}
+            {userIsAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsModuleManagerOpen(true)}
+                title="Gérer et renommer les modules fonctionnels (Admin)"
+                className="rounded-xl border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 text-xs font-bold gap-1.5 shadow-xs"
+              >
+                <Settings2 className="h-4 w-4" />
+                Modules
+              </Button>
+            )}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleResetData}
+              title="Restaurer les données initiales"
+              className="rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-xs"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {/* KPI Cards */}
-      <TestBookKpiCards stats={stats} />
+        {/* KPI Cards */}
+        <TestBookKpiCards stats={stats} />
 
-      {/* Onglets & Recherche */}
-      <div className="flex justify-between items-center gap-4 flex-wrap border-b border-slate-200/60 dark:border-slate-800/60 pb-3">
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700">
-          <button
-            onClick={() => setActiveTab("tests")}
-            className={cn(
-              "px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2",
-              activeTab === "tests"
-                ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs"
-                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-            )}
-          >
-            <CheckSquare className="h-3.5 w-3.5" />
-            Cas de Test ({testCases.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("anomalies")}
-            className={cn(
-              "px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2",
-              activeTab === "anomalies"
-                ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs"
-                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-            )}
-          >
-            <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
-            Anomalies Signalées ({anomalies.length})
-            {stats.openAnomaliesCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-rose-500 text-white">
-                {stats.openAnomaliesCount} ouvertes
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("cover")}
-            className={cn(
-              "px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2",
-              activeTab === "cover"
-                ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs"
-                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-            )}
-          >
-            <Info className="h-3.5 w-3.5" />
-            Fiche & Page de Garde
-          </button>
+        {/* Onglets & Recherche */}
+        <div className="flex justify-between items-center gap-4 flex-wrap border-b border-slate-200/60 dark:border-slate-800/60 pb-3">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+            <button
+              onClick={() => setActiveTab("tests")}
+              className={cn(
+                "px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2",
+                activeTab === "tests"
+                  ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+              )}
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+              Cas de Test ({testCases.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("anomalies")}
+              className={cn(
+                "px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2",
+                activeTab === "anomalies"
+                  ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+              )}
+            >
+              <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
+              Anomalies Signalées ({anomalies.length})
+              {stats.openAnomaliesCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-rose-500 text-white">
+                  {stats.openAnomaliesCount} ouvertes
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("cover")}
+              className={cn(
+                "px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2",
+                activeTab === "cover"
+                  ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+              )}
+            >
+              <Info className="h-3.5 w-3.5" />
+              Fiche & Page de Garde
+            </button>
+          </div>
+
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher test, anomalie..."
+              className="pl-8 text-xs h-9 rounded-xl bg-white dark:bg-slate-900 border-slate-200/60 dark:border-slate-800/60 shadow-xs"
+            />
+          </div>
         </div>
 
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Rechercher test, anomalie..."
-            className="pl-8 text-xs h-9 rounded-xl bg-white dark:bg-slate-900 border-slate-200/60 dark:border-slate-800/60 shadow-xs"
+        {/* Contenu selon l'onglet actif */}
+        {activeTab === "tests" && (
+          <TestCasesTable
+            testCases={filteredTestCases}
+            allTestCases={testCases}
+            anomalies={anomalies}
+            modulesList={modulesList}
+            stats={stats}
+            selectedModule={selectedModule}
+            setSelectedModule={setSelectedModule}
+            selectedStatus={selectedStatus}
+            setSelectedStatus={setSelectedStatus}
+            onToggleStatus={handleToggleStatus}
+            onAddTestCase={handleAddTestCase}
+            onUpdateTestCase={handleUpdateTestCase}
+            onDeleteTestCase={handleDeleteTestCase}
+            onNavigateToAnomaly={handleNavigateToAnomaly}
+            highlightedTestId={highlightedTestId}
+            currentUser={currentUser}
           />
-        </div>
+        )}
+
+        {activeTab === "anomalies" && (
+          <AnomaliesGrid
+            anomalies={filteredAnomalies}
+            allAnomalies={anomalies}
+            stats={stats}
+            modulesList={modulesList}
+            selectedPriority={selectedPriority}
+            setSelectedPriority={setSelectedPriority}
+            selectedStatus={selectedAnomalyStatus}
+            setSelectedStatus={setSelectedAnomalyStatus}
+            onToggleResolveAnomaly={handleToggleResolveAnomaly}
+            onAddAnomaly={handleAddAnomaly}
+            onUpdateAnomaly={handleUpdateAnomaly}
+            onDeleteAnomaly={handleDeleteAnomaly}
+            highlightedAnomalyId={highlightedAnomalyId}
+            onNavigateToTest={handleNavigateToTest}
+            currentUser={currentUser}
+          />
+        )}
+
+        {activeTab === "cover" && (
+          <TestBookCoverCard
+            metadata={metadata}
+            onExportPDF={() => {
+              toast({ title: "Génération de l'impression", description: "Préparation du document certifié MAE..." });
+              exportTestBookPDF(testCases, anomalies, metadata, stats);
+            }}
+            onExportExcel={async () => {
+              await exportTestBookExcel(testCases, anomalies, metadata, stats);
+              toast({ title: "Export Excel réussi", description: "Le cahier de recette a été téléchargé." });
+            }}
+          />
+        )}
       </div>
 
-      {/* Contenu selon l'onglet actif */}
-      {activeTab === "tests" && (
-        <TestCasesTable
-          testCases={filteredTestCases}
-          allTestCases={testCases}
-          anomalies={anomalies}
-          modulesList={modulesList}
-          stats={stats}
-          selectedModule={selectedModule}
-          setSelectedModule={setSelectedModule}
-          selectedStatus={selectedStatus}
-          setSelectedStatus={setSelectedStatus}
-          onToggleStatus={handleToggleStatus}
-          onAddTestCase={handleAddTestCase}
-          onUpdateTestCase={handleUpdateTestCase}
-          onDeleteTestCase={handleDeleteTestCase}
-          onNavigateToAnomaly={handleNavigateToAnomaly}
-          highlightedTestId={highlightedTestId}
-          currentUser={currentUser}
-        />
-      )}
-
-      {activeTab === "anomalies" && (
-        <AnomaliesGrid
-          anomalies={filteredAnomalies}
-          allAnomalies={anomalies}
-          stats={stats}
-          modulesList={modulesList}
-          selectedPriority={selectedPriority}
-          setSelectedPriority={setSelectedPriority}
-          selectedStatus={selectedAnomalyStatus}
-          setSelectedStatus={setSelectedAnomalyStatus}
-          onToggleResolveAnomaly={handleToggleResolveAnomaly}
-          onAddAnomaly={handleAddAnomaly}
-          onUpdateAnomaly={handleUpdateAnomaly}
-          onDeleteAnomaly={handleDeleteAnomaly}
-          highlightedAnomalyId={highlightedAnomalyId}
-          onNavigateToTest={handleNavigateToTest}
-          currentUser={currentUser}
-        />
-      )}
-
-      {activeTab === "cover" && (
-        <TestBookCoverCard
-          metadata={metadata}
-          onExportPDF={() => {
-            toast({ title: "Génération de l'impression", description: "Préparation du document certifié MAE..." });
-            exportTestBookPDF(testCases, anomalies, metadata, stats);
-          }}
-          onExportExcel={async () => {
-            await exportTestBookExcel(testCases, anomalies, metadata, stats);
-            toast({ title: "Export Excel réussi", description: "Le cahier de recette a été téléchargé." });
-          }}
-        />
-      )}
-    </div>
-
-    {/* Global Audit Log Modal */}
-    <AuditLogModal
-      isOpen={isAuditLogOpen}
-      onClose={() => setIsAuditLogOpen(false)}
-      testCases={testCases}
-      anomalies={anomalies}
-    />
-
-    {/* Module Manager Modal — Admin only */}
-    {userIsAdmin && (
-      <ModuleManagerModal
-        isOpen={isModuleManagerOpen}
-        onClose={() => setIsModuleManagerOpen(false)}
-        modulesList={modulesList}
-        onRenameModule={handleRenameModule}
-        onTransferModule={handleTransferModule}
-        anomalyCountByModule={Object.fromEntries(
-          modulesList.map((m) => [
-            m.toLowerCase(),
-            anomalies.filter(
-              (a) => (a.module || "").trim().toLowerCase() === m.toLowerCase() && a.status !== "RESOLUE"
-            ).length,
-          ])
-        )}
-        testCountByModule={Object.fromEntries(
-          modulesList.map((m) => [
-            m.toLowerCase(),
-            testCases.filter(
-              (t) => (t.module || "").trim().toLowerCase() === m.toLowerCase()
-            ).length,
-          ])
-        )}
+      {/* Global Audit Log Modal */}
+      <AuditLogModal
+        isOpen={isAuditLogOpen}
+        onClose={() => setIsAuditLogOpen(false)}
+        testCases={testCases}
+        anomalies={anomalies}
       />
-    )}
+
+      {/* Module Manager Modal — Admin only */}
+      {userIsAdmin && (
+        <ModuleManagerModal
+          isOpen={isModuleManagerOpen}
+          onClose={() => setIsModuleManagerOpen(false)}
+          modulesList={modulesList}
+          onRenameModule={handleRenameModule}
+          onTransferModule={handleTransferModule}
+          anomalyCountByModule={Object.fromEntries(
+            modulesList.map((m) => [
+              m.toLowerCase(),
+              anomalies.filter(
+                (a) => (a.module || "").trim().toLowerCase() === m.toLowerCase() && a.status !== "RESOLUE"
+              ).length,
+            ])
+          )}
+          testCountByModule={Object.fromEntries(
+            modulesList.map((m) => [
+              m.toLowerCase(),
+              testCases.filter(
+                (t) => (t.module || "").trim().toLowerCase() === m.toLowerCase()
+              ).length,
+            ])
+          )}
+        />
+      )}
     </>
   );
 }

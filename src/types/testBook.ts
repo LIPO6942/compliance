@@ -1,4 +1,4 @@
-export type TestStatus = "OK" | "KO" | "Non encore testé";
+export type TestStatus = "OK" | "KO";
 export type AnomalyPriority = "CRITIQUE" | "HAUTE" | "MOYENNE" | "BASSE";
 export type AnomalyStatus = "OUVERTE" | "RESOLUE" | "EN COURS" | "REOUVERTE";
 
