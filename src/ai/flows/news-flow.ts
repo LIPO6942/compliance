@@ -455,8 +455,9 @@ async function translateTextToFrench(text: string): Promise<{ translated: string
     return null;
 }
 
-// Vérifie si l'article concerne le secteur des assurances
+// Vérifie si l'article concerne le secteur des assurances (directement ou via BCT/bancassurance)
 function isInsuranceItem(item: NewsItem): boolean {
+    if (item.sector === 'assurance') return true;
     const text = (item.title + " " + (item.description || "")).toLowerCase();
     return (
         item.source === 'CGA' ||
@@ -467,73 +468,59 @@ function isInsuranceItem(item: NewsItem): boolean {
         text.includes('assureurs') ||
         text.includes('cga') ||
         text.includes('mae') ||
+        text.includes('bancassurance') ||
+        text.includes('banque-assurance') ||
         text.includes('تأمين') ||
         text.includes('التأمين') ||
-        text.includes('مؤمن')
+        text.includes('مؤمن') ||
+        text.includes('تأمينات')
     );
 }
 
-// Vérifie si l'article concerne spécifiquement les banques tunisiennes
-function isTunisianBankingItem(item: NewsItem): boolean {
-    // Si c'est relatif aux assurances, priorité aux assurances (doit être traduit)
+// Détecte si un article concerne SEULEMENT les banques (sans lien avec l'assurance)
+function isPureBankingOnly(item: NewsItem): boolean {
+    // RÈGLE : Si ça concerne la BCT pour les assurances (ou les assurances en général), on NE l'exclut PAS !
     if (isInsuranceItem(item)) {
         return false;
     }
 
+    if (item.sector === 'banque') {
+        return true;
+    }
+
     const text = (item.title + " " + (item.description || "")).toLowerCase();
-    const isBanking =
+    const bankingKeywords = [
+        'banque', 'banques', 'bancaire', 'bancaires', 'bct', 'tmm',
+        'crédit bancaire', 'crédits bancaires', 'chèque', 'chèques',
+        'compte bancaire', 'comptes bancaires', 'guichet bancaire', 'taux directeur',
+        'البنك المركزي', 'البنوك', 'بنك', 'مصرف', 'مصرفي', 'القطاع البنكي',
+        'قروض بنكية', 'شيكات', 'الفائدة المديرية', 'البنك المركزي التونسي'
+    ];
+
+    const hasBanking =
         item.source === 'BCT' ||
         item.flashType === 'BCT' ||
-        text.includes('banque centrale de tunisie') ||
-        text.includes('bct') ||
-        text.includes('banque') ||
-        text.includes('banques') ||
-        text.includes('bancaire') ||
-        text.includes('bancaires') ||
-        text.includes('البنك المركزي') ||
-        text.includes('البنوك') ||
-        text.includes('مصرف') ||
-        text.includes('مصرفي') ||
-        text.includes('القطاع البنكي') ||
-        text.includes('بنوك تونس') ||
-        text.includes('circular bct') ||
-        text.includes('circulaire aux banques');
+        bankingKeywords.some(kw => text.includes(kw));
 
-    const isTunisian =
-        item.country === 'TN' ||
-        item.isHighPriority ||
-        text.includes('tunisie') ||
-        text.includes('tunis') ||
-        text.includes('تونس');
-
-    return isBanking && isTunisian;
+    return hasBanking;
 }
 
 async function translateNewsItem(item: NewsItem): Promise<NewsItem> {
     const isInsurance = isInsuranceItem(item);
-    const isTunisianBanking = isTunisianBankingItem(item);
+    const isPureBanking = isPureBankingOnly(item);
 
-    // RÈGLE : Ne PAS traduire directement les alertes concernant les banques tunisiennes
-    if (isTunisianBanking) {
-        let translatedTitle: string | undefined = undefined;
-        try {
-            const trans = await translateTextToFrench(item.title);
-            if (trans && trans.sourceLang !== 'fr') {
-                translatedTitle = trans.translated;
-            }
-        } catch {}
-
+    // RÈGLE : Si l'article concerne seulement les banques, ne pas traduire directement
+    if (isPureBanking) {
         return {
             ...item,
             originalTitle: item.title,
-            translatedTitle,
-            isTranslated: false, // Conserver le titre original directement sans traduction
+            isTranslated: false,
             sector: 'banque',
         };
     }
 
     // RÈGLE : Les assurances SONT traduites directement en français
-    // ainsi que les actualités internationales
+    // ainsi que les actualités internationales pertinentes
     const isEnglishSource = ['AML Intelligence', 'ComplyAdvantage', 'KPMG', 'FATF', 'MarketAux'].includes(item.source);
     const hasArabic = /[\u0600-\u06FF]/.test(item.title);
 
@@ -673,8 +660,12 @@ async function fetchComplianceNewsFlow(): Promise<ComplianceNewsOutput> {
         return dateB - dateA;
     });
 
+    // RÈGLE : Dès qu'un texte concerne seulement les banques, NE PAS L'AFFICHER.
+    // Mais si ça concerne la BCT pour les assurances (ou les assurances en général), l'afficher !
+    const displayableNews = scoredNews.filter(item => !isPureBankingOnly(item));
+
     // Traduction automatique vers le français pour les articles en anglais ou en arabe
-    const candidates = scoredNews.slice(0, 35);
+    const candidates = displayableNews.slice(0, 35);
     const translatedResults = await Promise.allSettled(candidates.map(translateNewsItem));
     const finalizedNews: NewsItem[] = translatedResults.map((res, index) => {
         if (res.status === 'fulfilled') return res.value;

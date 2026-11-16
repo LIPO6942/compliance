@@ -13,7 +13,7 @@ import { usePlanData } from "@/contexts/PlanDataContext";
 import { useDocuments } from "@/contexts/DocumentsContext";
 import { useIdentifiedRegulations } from "@/contexts/IdentifiedRegulationsContext";
 import { useMatrixConfig } from "@/contexts/MatrixConfigContext";
-import type { RiskMappingItem, ActivityItem, ComplianceTask, ActionItem } from "@/types/compliance";
+import type { RiskMappingItem, ActivityItem, ComplianceTask, ActionItem, NewsItem } from "@/types/compliance";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/icons/Logo";
 import { useNews } from "@/contexts/NewsContext";
@@ -86,18 +86,63 @@ export default function DashboardPage() {
   const [isNewsModalOpen, setIsNewsModalOpen] = React.useState(false);
   const [newsModalSearch, setNewsModalSearch] = React.useState('');
 
-  const tunisiaNewsCount = React.useMemo(() => news.filter(n => n.isHighPriority || n.country === 'TN').length, [news]);
-  const intlNewsCount = React.useMemo(() => news.filter(n => !n.isHighPriority && n.country !== 'TN').length, [news]);
+  // Helper : Identifier les textes concernant le secteur des assurances (y compris BCT pour assurances / bancassurance)
+  const isInsuranceItem = React.useCallback((item: NewsItem) => {
+    if (item.sector === 'assurance') return true;
+    if (item.source === 'CGA' || item.flashType === 'CGA') return true;
+    const text = (item.title + " " + (item.description || "")).toLowerCase();
+    return (
+      text.includes('assurance') ||
+      text.includes('assurances') ||
+      text.includes('assureur') ||
+      text.includes('assureurs') ||
+      text.includes('cga') ||
+      text.includes('mae') ||
+      text.includes('bancassurance') ||
+      text.includes('banque-assurance') ||
+      text.includes('تأمين') ||
+      text.includes('التأمين') ||
+      text.includes('مؤمن') ||
+      text.includes('تأمينات')
+    );
+  }, []);
+
+  // Helper : Détecter si un texte concerne UNIQUEMENT les banques (sans lien avec l'assurance)
+  // RÈGLE : Si ça concerne la BCT pour les assurances, ce n'est PAS exclu (on l'affiche !)
+  const isPureBankingOnly = React.useCallback((item: NewsItem) => {
+    if (isInsuranceItem(item)) {
+      return false;
+    }
+    if (item.sector === 'banque') {
+      return true;
+    }
+    const text = (item.title + " " + (item.description || "")).toLowerCase();
+    const bankingKeywords = [
+      'banque', 'banques', 'bancaire', 'bancaires', 'bct', 'tmm',
+      'crédit', 'crédits', 'chèque', 'chèques', 'taux directeur',
+      'البنك المركزي', 'البنوك', 'بنك', 'مصرف', 'مصرفي', 'القطاع البنكي',
+      'قروض بنكية', 'شيكات', 'الفائدة المديرية', 'البنك المركزي التونسي'
+    ];
+    return item.source === 'BCT' || item.flashType === 'BCT' || bankingKeywords.some(kw => text.includes(kw));
+  }, [isInsuranceItem]);
+
+  // Flux d'actualités affichables : on exclut TOUT texte concernant SEULEMENT les banques
+  const displayableNews = React.useMemo(() => {
+    return news.filter(n => !isPureBankingOnly(n));
+  }, [news, isPureBankingOnly]);
+
+  const tunisiaNewsCount = React.useMemo(() => displayableNews.filter(n => n.isHighPriority || n.country === 'TN').length, [displayableNews]);
+  const intlNewsCount = React.useMemo(() => displayableNews.filter(n => !n.isHighPriority && n.country !== 'TN').length, [displayableNews]);
 
   const filteredNews = React.useMemo(() => {
     if (newsFilter === 'tunisia') {
-      return news.filter(n => n.isHighPriority || n.country === 'TN');
+      return displayableNews.filter(n => n.isHighPriority || n.country === 'TN');
     }
     if (newsFilter === 'intl') {
-      return news.filter(n => !n.isHighPriority && n.country !== 'TN');
+      return displayableNews.filter(n => !n.isHighPriority && n.country !== 'TN');
     }
-    return news;
-  }, [news, newsFilter]);
+    return displayableNews;
+  }, [displayableNews, newsFilter]);
 
   const modalNewsList = React.useMemo(() => {
     let list = filteredNews;
@@ -125,8 +170,8 @@ export default function DashboardPage() {
   }, []);
 
   const activeFlash = React.useMemo(() => {
-    return news.find(n => (n.isFlash || n.source === 'JORT' || n.source === 'CGA' || n.source === 'BCT') && !dismissedFlashIds.includes(n.id));
-  }, [news, dismissedFlashIds]);
+    return displayableNews.find(n => (n.isFlash || n.source === 'JORT' || n.source === 'CGA' || (n.source === 'BCT' && isInsuranceItem(n))) && !dismissedFlashIds.includes(n.id));
+  }, [displayableNews, dismissedFlashIds, isInsuranceItem]);
 
   const handleDismissFlash = (id: string) => {
     const updated = [...dismissedFlashIds, id];
@@ -1443,12 +1488,12 @@ export default function DashboardPage() {
       return;
     }
 
-    if (news.length === 0) return;
+    if (displayableNews.length === 0) return;
     setIsSummarizing(true);
     setIsBriefingExpanded(true);
     setNewsSummary(null);
     try {
-      const result = await summarizeNewsAction(news.slice(0, 10));
+      const result = await summarizeNewsAction(displayableNews.slice(0, 10));
       if (result.summary) {
         setNewsSummary(result.summary);
       } else if (result.error) {
@@ -1531,11 +1576,19 @@ export default function DashboardPage() {
                     <Badge variant="outline" className="text-rose-200 border-rose-400/40 bg-rose-500/10 text-[9px] font-bold">
                       Source : {activeFlash.flashType || activeFlash.source}
                     </Badge>
+                    {isInsuranceItem(activeFlash) && (
+                      <Badge variant="outline" className="text-emerald-300 border-emerald-400/40 bg-emerald-500/20 text-[9px] font-bold" title="Texte réglementaire applicable au secteur des assurances">
+                        🛡️ Assurance
+                      </Badge>
+                    )}
                     <span className="text-[10px] text-rose-200/80 font-medium">
                       Publié le {format(parseISO(activeFlash.date), 'dd MMMM yyyy', { locale: fr })}
                     </span>
                   </div>
-                  <h4 className="text-sm font-bold text-white leading-snug">
+                  <h4
+                    className="text-sm font-bold text-white leading-snug"
+                    title={isInsuranceItem(activeFlash) ? "Texte officiel prioritaire - Secteur Assurances" : undefined}
+                  >
                     {activeFlash.title}
                   </h4>
                   {activeFlash.description && (
@@ -2488,12 +2541,10 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card
-                  className="shadow-2xl overflow-hidden border-none bg-white dark:bg-slate-900 cursor-pointer hover:shadow-primary/20 transition-all group/card relative"
-                  onClick={() => setIsNewsModalOpen(true)}
-                >
+            <Card
+              className="shadow-2xl overflow-hidden border-none bg-white dark:bg-slate-900 cursor-pointer hover:shadow-primary/20 transition-all group/card relative"
+              onClick={() => setIsNewsModalOpen(true)}
+            >
                   <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
                   <CardHeader className="pb-3 pt-6 px-6 border-b border-slate-50 dark:border-slate-800">
                     <div className="flex justify-between items-center">
@@ -2514,7 +2565,7 @@ export default function DashboardPage() {
                             newsSummary && isBriefingExpanded ? "bg-primary/20 text-primary border border-primary/20" : "hover:bg-primary/10 text-primary/70 hover:text-primary"
                           )}
                           onClick={(e) => { e.stopPropagation(); handleSummarizeNews(); }}
-                          disabled={isSummarizing || news.length === 0}
+                          disabled={isSummarizing || displayableNews.length === 0}
                         >
                           <Sparkles className={cn("h-3 w-3", isSummarizing && "animate-pulse")} />
                           {isSummarizing ? "Analyse..." : newsSummary ? (isBriefingExpanded ? "Masquer Briefing" : "Voir Briefing") : "Briefing IA"}
@@ -2554,7 +2605,7 @@ export default function DashboardPage() {
                               : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white"
                           )}
                         >
-                          Tous ({news.length})
+                          Tous ({displayableNews.length})
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setNewsFilter('intl'); }}
@@ -2605,99 +2656,105 @@ export default function DashboardPage() {
                       </div>
                     )}
                     <div className="divide-y divide-slate-50 dark:divide-slate-800">
-                      {filteredNews.slice(0, 4).map((item) => (
-                        <div
-                          key={item.id}
-                          className="group/item relative p-4 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all flex flex-col gap-2"
-                          onClick={(e) => { e.stopPropagation(); if (item.url) window.open(item.url, '_blank'); }}
-                        >
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <Badge className={cn(
-                                "text-[9px] font-black uppercase px-2 py-0.5 border-none",
-                                item.source === 'FATF' ? "bg-amber-500/10 text-amber-600" :
-                                  item.source === 'KPMG' ? "bg-blue-500/10 text-blue-600" :
-                                    item.source === 'Juridoc.tn' ? "bg-teal-500/10 text-teal-600" :
-                                      item.source === 'CGA' ? "bg-emerald-500/10 text-emerald-600" :
-                                        item.source === 'BCT' ? "bg-sky-500/10 text-sky-600" :
-                                          item.source === 'JORT' ? "bg-indigo-500/10 text-indigo-600" :
-                                            "bg-primary/10 text-primary"
-                              )}>
-                                {item.source}
-                              </Badge>
-                              {item.isFlash ? (
-                                <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-600 text-white border-none shadow-sm shadow-rose-600/30 animate-pulse">
-                                  ⚡ FLASH {item.flashType || 'JORT/CGA'}
-                                </Badge>
-                              ) : (item.isHighPriority || item.country === 'TN') ? (
-                                <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-500/10 text-rose-600 border-none animate-pulse">
-                                  🇹🇳 Focus Tunisie
-                                </Badge>
-                              ) : null}
-                              {item.sector === 'assurance' && (
-                                <Badge variant="outline" className="text-[8px] font-bold px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
-                                  🛡️ Assurance
-                                </Badge>
-                              )}
-                              {item.sector === 'banque' && (
-                                <Badge variant="outline" className="text-[8px] font-bold px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800" title={item.translatedTitle ? `Traduction indicative : ${item.translatedTitle}` : "Secteur bancaire tunisien"}>
-                                  🏦 Banque (VO)
-                                </Badge>
-                              )}
-                              {item.isTranslated && item.sector !== 'banque' && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[8px] font-bold px-1.5 py-0 border-blue-200 text-blue-600 bg-blue-50/50 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
-                                  title={item.originalTitle ? `Titre original (${item.originalLanguage?.toUpperCase()}): ${item.originalTitle}` : "Traduit en français"}
-                                >
-                                  🌐 Traduit ({item.originalLanguage?.toUpperCase() || 'EN'})
-                                </Badge>
-                              )}
-                              <span className="text-[9px] font-bold text-slate-400">
-                                {format(parseISO(item.date), 'dd MMM', { locale: fr })}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-all">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 hover:bg-rose-50 hover:text-rose-600 rounded-full"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleConvertFlashToAlert(item);
-                                }}
-                                title="Convertir en Alerte GRC"
-                              >
-                                <Zap className="h-3.5 w-3.5 text-rose-500" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 hover:bg-slate-100 hover:text-slate-600 rounded-full"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  dismissNewsItem(item.id);
-                                }}
-                                title="Masquer"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </div>
-                          <p
-                            className="text-[12.5px] font-bold leading-snug line-clamp-2 text-slate-700 dark:text-slate-300 group-hover/item:text-primary transition-colors"
-                            title={
-                              item.sector === 'banque' && item.translatedTitle
-                                ? `Traduction indicative: ${item.translatedTitle}`
-                                : item.isTranslated && !showOriginalTitle && item.originalTitle
-                                  ? `Original: ${item.originalTitle}`
-                                  : undefined
-                            }
+                      {filteredNews.slice(0, 4).map((item) => {
+                        const isInsurance = isInsuranceItem(item);
+                        return (
+                          <div
+                            key={item.id}
+                            className="group/item relative p-4 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all flex flex-col gap-2"
+                            onClick={(e) => { e.stopPropagation(); if (item.url) window.open(item.url, '_blank'); }}
                           >
-                            {showOriginalTitle && item.originalTitle ? item.originalTitle : item.title}
-                          </p>
-                        </div>
-                      ))}
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Badge className={cn(
+                                  "text-[9px] font-black uppercase px-2 py-0.5 border-none",
+                                  item.source === 'FATF' ? "bg-amber-500/10 text-amber-600" :
+                                    item.source === 'KPMG' ? "bg-blue-500/10 text-blue-600" :
+                                      item.source === 'Juridoc.tn' ? "bg-teal-500/10 text-teal-600" :
+                                        item.source === 'CGA' ? "bg-emerald-500/10 text-emerald-600" :
+                                          item.source === 'BCT' ? "bg-sky-500/10 text-sky-600" :
+                                            item.source === 'JORT' ? "bg-indigo-500/10 text-indigo-600" :
+                                              "bg-primary/10 text-primary"
+                                )}>
+                                  {item.source}
+                                </Badge>
+                                {item.isFlash ? (
+                                  <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-600 text-white border-none shadow-sm shadow-rose-600/30 animate-pulse">
+                                    ⚡ FLASH {item.flashType || 'JORT/CGA'}
+                                  </Badge>
+                                ) : (item.isHighPriority || item.country === 'TN') ? (
+                                  <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-500/10 text-rose-600 border-none animate-pulse">
+                                    🇹🇳 Focus Tunisie
+                                  </Badge>
+                                ) : null}
+                                {isInsurance && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[8px] font-bold px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                                    title="Texte réglementaire applicable au secteur des assurances"
+                                  >
+                                    🛡️ Assurance
+                                  </Badge>
+                                )}
+                                {item.isTranslated && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[8px] font-bold px-1.5 py-0 border-blue-200 text-blue-600 bg-blue-50/50 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                                    title={
+                                      isInsurance
+                                        ? (item.originalTitle ? `Texte Assurance - Titre original (${item.originalLanguage?.toUpperCase()}): ${item.originalTitle}` : "Texte Assurance traduit en français")
+                                        : undefined
+                                    }
+                                  >
+                                    🌐 Traduit ({item.originalLanguage?.toUpperCase() || 'EN'})
+                                  </Badge>
+                                )}
+                                <span className="text-[9px] font-bold text-slate-400">
+                                  {format(parseISO(item.date), 'dd MMM', { locale: fr })}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-all">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 hover:bg-rose-50 hover:text-rose-600 rounded-full"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleConvertFlashToAlert(item);
+                                  }}
+                                  title="Convertir en Alerte GRC"
+                                >
+                                  <Zap className="h-3.5 w-3.5 text-rose-500" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 hover:bg-slate-100 hover:text-slate-600 rounded-full"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    dismissNewsItem(item.id);
+                                  }}
+                                  title="Masquer"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                            <p
+                              className="text-[12.5px] font-bold leading-snug line-clamp-2 text-slate-700 dark:text-slate-300 group-hover/item:text-primary transition-colors"
+                              title={
+                                isInsurance
+                                  ? (item.isTranslated && !showOriginalTitle && item.originalTitle
+                                      ? `Texte Assurance - Titre original (${item.originalLanguage?.toUpperCase() || 'VO'}): ${item.originalTitle}`
+                                      : "Texte réglementaire - Secteur Assurances")
+                                  : undefined
+                              }
+                            >
+                              {showOriginalTitle && item.originalTitle ? item.originalTitle : item.title}
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                     {filteredNews.length === 0 && (
                       <div className="p-8 text-center space-y-2">
@@ -2716,12 +2773,6 @@ export default function DashboardPage() {
                     </div>
                   </CardContent>
                 </Card>
-              </TooltipTrigger>
-              <TooltipContent side="left">
-                <p className="font-bold mb-1">Veille Réglementaire</p>
-                <p className="text-xs">Flux d'actualités mondiales et locales sur la conformité, LCB-FT et finance.</p>
-              </TooltipContent>
-            </Tooltip>
           </div>
 
           {/* Modal Flux Complet d'Intelligence Réglementaire */}
@@ -2797,7 +2848,7 @@ export default function DashboardPage() {
                             : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white"
                         )}
                       >
-                        Tous ({news.length})
+                        Tous ({displayableNews.length})
                       </button>
                       <button
                         onClick={() => setNewsFilter('intl')}
@@ -2832,110 +2883,113 @@ export default function DashboardPage() {
               {/* Liste scrollable */}
               <ScrollArea className="flex-1 pr-3 -mr-3 my-2 max-h-[60vh]">
                 <div className="space-y-3 py-2">
-                  {modalNewsList.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-primary/20 hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-all flex flex-col gap-2 group"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge className={cn(
-                            "text-[9px] font-black uppercase px-2 py-0.5 border-none",
-                            item.source === 'FATF' ? "bg-amber-500/10 text-amber-600" :
-                              item.source === 'KPMG' ? "bg-blue-500/10 text-blue-600" :
-                                item.source === 'Juridoc.tn' ? "bg-teal-500/10 text-teal-600" :
-                                  item.source === 'CGA' ? "bg-emerald-500/10 text-emerald-600" :
-                                    item.source === 'BCT' ? "bg-sky-500/10 text-sky-600" :
-                                      item.source === 'JORT' ? "bg-indigo-500/10 text-indigo-600" :
-                                        "bg-primary/10 text-primary"
-                          )}>
-                            {item.source}
-                          </Badge>
-                          {item.isFlash ? (
-                            <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-600 text-white border-none shadow-sm shadow-rose-600/30 animate-pulse">
-                              ⚡ FLASH {item.flashType || 'JORT/CGA'}
-                            </Badge>
-                          ) : (item.isHighPriority || item.country === 'TN') ? (
-                            <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-500/10 text-rose-600 border-none">
-                              🇹🇳 Focus Tunisie
-                            </Badge>
-                          ) : null}
-                          {item.sector === 'assurance' && (
-                            <Badge variant="outline" className="text-[8px] font-bold px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
-                              🛡️ Assurance
-                            </Badge>
-                          )}
-                          {item.sector === 'banque' && (
-                            <Badge variant="outline" className="text-[8px] font-bold px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800" title={item.translatedTitle ? `Traduction indicative : ${item.translatedTitle}` : "Secteur bancaire tunisien"}>
-                              🏦 Banque (VO)
-                            </Badge>
-                          )}
-                          {item.isTranslated && item.sector !== 'banque' && (
-                            <Badge
-                              variant="outline"
-                              className="text-[8px] font-bold px-1.5 py-0 border-blue-200 text-blue-600 bg-blue-50/50 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
-                              title={item.originalTitle ? `Titre original (${item.originalLanguage?.toUpperCase()}): ${item.originalTitle}` : "Traduit en français"}
-                            >
-                              🌐 Traduit ({item.originalLanguage?.toUpperCase() || 'EN'})
-                            </Badge>
-                          )}
-                          <span className="text-[10px] font-bold text-slate-400">
-                            {format(parseISO(item.date), 'dd MMMM yyyy', { locale: fr })}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleConvertFlashToAlert(item)}
-                            className="h-7 px-2.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Créer une alerte formelle dans le Centre d'Alertes"
-                          >
-                            <Zap className="h-3 w-3" />
-                            Créer Alerte GRC
-                          </Button>
-                          {item.url && (
-                            <a
-                              href={item.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs font-bold text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
-                            >
-                              Consulter <ExternalLink className="h-3 w-3" />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-
-                      <a
-                        href={item.url || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-bold text-slate-800 dark:text-slate-100 hover:text-primary transition-colors"
+                  {modalNewsList.map((item) => {
+                    const isInsurance = isInsuranceItem(item);
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-primary/20 hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-all flex flex-col gap-2 group"
                       >
-                        {showOriginalTitle && item.originalTitle ? item.originalTitle : item.title}
-                      </a>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className={cn(
+                              "text-[9px] font-black uppercase px-2 py-0.5 border-none",
+                              item.source === 'FATF' ? "bg-amber-500/10 text-amber-600" :
+                                item.source === 'KPMG' ? "bg-blue-500/10 text-blue-600" :
+                                  item.source === 'Juridoc.tn' ? "bg-teal-500/10 text-teal-600" :
+                                    item.source === 'CGA' ? "bg-emerald-500/10 text-emerald-600" :
+                                      item.source === 'BCT' ? "bg-sky-500/10 text-sky-600" :
+                                        item.source === 'JORT' ? "bg-indigo-500/10 text-indigo-600" :
+                                          "bg-primary/10 text-primary"
+                            )}>
+                              {item.source}
+                            </Badge>
+                            {item.isFlash ? (
+                              <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-600 text-white border-none shadow-sm shadow-rose-600/30 animate-pulse">
+                                ⚡ FLASH {item.flashType || 'JORT/CGA'}
+                              </Badge>
+                            ) : (item.isHighPriority || item.country === 'TN') ? (
+                              <Badge className="text-[9px] font-black uppercase px-2 py-0.5 bg-rose-500/10 text-rose-600 border-none">
+                                🇹🇳 Focus Tunisie
+                              </Badge>
+                            ) : null}
+                            {isInsurance && (
+                              <Badge variant="outline" className="text-[8px] font-bold px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800" title="Texte réglementaire applicable au secteur des assurances">
+                                🛡️ Assurance
+                              </Badge>
+                            )}
+                            {item.isTranslated && (
+                              <Badge
+                                variant="outline"
+                                className="text-[8px] font-bold px-1.5 py-0 border-blue-200 text-blue-600 bg-blue-50/50 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                                title={
+                                  isInsurance
+                                    ? (item.originalTitle ? `Texte Assurance - Titre original (${item.originalLanguage?.toUpperCase()}): ${item.originalTitle}` : "Texte Assurance traduit en français")
+                                    : undefined
+                                }
+                              >
+                                🌐 Traduit ({item.originalLanguage?.toUpperCase() || 'EN'})
+                              </Badge>
+                            )}
+                            <span className="text-[10px] font-bold text-slate-400">
+                              {format(parseISO(item.date), 'dd MMMM yyyy', { locale: fr })}
+                            </span>
+                          </div>
 
-                      {item.sector === 'banque' && item.translatedTitle && (
-                        <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                          Traduction indicative : {item.translatedTitle}
-                        </p>
-                      )}
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleConvertFlashToAlert(item)}
+                              className="h-7 px-2.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Créer une alerte formelle dans le Centre d'Alertes"
+                            >
+                              <Zap className="h-3 w-3" />
+                              Créer Alerte GRC
+                            </Button>
+                            {item.url && (
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-bold text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                              >
+                                Consulter <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
 
-                      {item.isTranslated && showOriginalTitle && item.sector !== 'banque' && (
-                        <p className="text-[11px] text-slate-500 italic">
-                          Traduction FR : {item.title}
-                        </p>
-                      )}
+                        <a
+                          href={item.url || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-bold text-slate-800 dark:text-slate-100 hover:text-primary transition-colors"
+                          title={
+                            isInsurance
+                              ? (item.isTranslated && !showOriginalTitle && item.originalTitle
+                                  ? `Texte Assurance - Titre original (${item.originalLanguage?.toUpperCase() || 'VO'}): ${item.originalTitle}`
+                                  : "Texte réglementaire - Secteur Assurances")
+                              : undefined
+                          }
+                        >
+                          {showOriginalTitle && item.originalTitle ? item.originalTitle : item.title}
+                        </a>
 
-                      {item.description && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
-                          {item.description}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                        {item.isTranslated && showOriginalTitle && (
+                          <p className="text-[11px] text-slate-500 italic">
+                            Traduction FR : {item.title}
+                          </p>
+                        )}
+
+                        {item.description && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
 
                   {modalNewsList.length === 0 && (
                     <div className="py-16 text-center space-y-2">
