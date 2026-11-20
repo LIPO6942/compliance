@@ -56,7 +56,7 @@ export interface ImproveMemoWithAIResult {
   error?: string;
 }
 
-// ─── CONFIGURATION GROQ (Modèle Qwen 3.8 27B en priorité) ───────────────────
+// ─── CONFIGURATION GROQ (Modèle Qwen 3.8 27B configuré sur Vercel en priorité) ─────────────
 const PRIMARY_GROQ_MODEL = process.env.GROQ_MODEL || "qwen/qwen3.8-27b";
 const BACKUP_GROQ_MODEL = "llama-3.3-70b-versatile";
 
@@ -69,9 +69,9 @@ interface GroqChatCallParams {
 
 /**
  * Appel centralisé et résilient à l'API Groq supportant :
- * 1. Les variables Vercel (GROQ_API_KEY, GROQ_KEY, NEXT_PUBLIC_GROQ_API_KEY) et clé utilisateur
- * 2. Le modèle Qwen 3.8 27B avec bascule automatique sur Llama 3.3 70B en cas d'indisponibilité
- * 3. Le mode JSON avec diagnostics détaillés
+ * 1. Les variables Vercel (GROQ_API_KEY, GROQ_KEY, GROQ_APIKEY, GROQ_TOKEN, NEXT_PUBLIC_GROQ_API_KEY) et clé utilisateur
+ * 2. Le modèle Qwen 3.8 27B (configuré sur Vercel) avec bascule automatique sur Llama 3.3 70B et Llama 3.1 8B
+ * 3. Le mode JSON avec diagnostics détaillés et repli sans response_format en cas d'erreur 400
  */
 async function callGroqWithFallback(
   params: GroqChatCallParams
@@ -80,6 +80,8 @@ async function callGroqWithFallback(
     (params.customApiKey?.startsWith("gsk_") ? params.customApiKey : undefined) ||
     process.env.GROQ_API_KEY ||
     process.env.GROQ_KEY ||
+    process.env.GROQ_APIKEY ||
+    process.env.GROQ_TOKEN ||
     process.env.NEXT_PUBLIC_GROQ_API_KEY;
 
   if (!apiKey) {
@@ -87,10 +89,15 @@ async function callGroqWithFallback(
     return null;
   }
 
-  const modelsToTry = [
-    PRIMARY_GROQ_MODEL,
-    ...(PRIMARY_GROQ_MODEL !== BACKUP_GROQ_MODEL ? [BACKUP_GROQ_MODEL] : []),
-  ];
+  const configuredModel = process.env.GROQ_MODEL?.trim() || "qwen/qwen3.8-27b";
+  const candidateModels = [
+    configuredModel,
+    "qwen/qwen3.8-27b",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+  ].filter((m): m is string => Boolean(m && m.length > 0));
+
+  const modelsToTry = Array.from(new Set(candidateModels));
 
   for (const model of modelsToTry) {
     try {
@@ -103,7 +110,7 @@ async function callGroqWithFallback(
         payload.response_format = { type: "json_object" };
       }
 
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      let res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -111,6 +118,23 @@ async function callGroqWithFallback(
         },
         body: JSON.stringify(payload),
       });
+
+      // Si erreur HTTP (ex: 400 avec response_format non supporté), retenter immédiatement sans json_object
+      if (!res.ok && payload.response_format) {
+        const retryPayload = { ...payload };
+        delete retryPayload.response_format;
+        const retryRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(retryPayload),
+        });
+        if (retryRes.ok) {
+          res = retryRes;
+        }
+      }
 
       if (res.ok) {
         const data = await res.json();
@@ -138,8 +162,12 @@ async function callGroqWithFallback(
 function parseAiJson<T = any>(raw: string | null | undefined): T | null {
   if (!raw || !raw.trim()) return null;
 
-  // 1. Éliminer les balises de réflexion propres à Qwen (<think>...</think>)
+  // 1. Éliminer les balises de réflexion propres à Qwen (<think>...</think> ou balise non fermée)
   let cleaned = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  if (!cleaned && raw.includes("<think>")) {
+    cleaned = raw.replace(/<think>[\s\S]*/gi, "").trim();
+  }
+  if (!cleaned) cleaned = raw.trim();
 
   // 2. Éliminer les blocs markdown ```json ... ```
   const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
@@ -159,6 +187,17 @@ function parseAiJson<T = any>(raw: string | null | undefined): T | null {
     try {
       return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1)) as T;
     } catch { }
+  }
+
+  // 5. Repli sur le texte brut d'origine si les accolades se trouvent hors du filtre
+  if (raw !== cleaned) {
+    const rawFirst = raw.indexOf("{");
+    const rawLast = raw.lastIndexOf("}");
+    if (rawFirst !== -1 && rawLast > rawFirst) {
+      try {
+        return JSON.parse(raw.slice(rawFirst, rawLast + 1)) as T;
+      } catch { }
+    }
   }
 
   return null;
@@ -508,45 +547,48 @@ export async function chatWithMemoAIAction(
         ? "Conformité Réglementaire & Normative"
         : "Gouvernance & Conformité Générale";
 
-  const systemPrompt = `Tu es chatbotCOMPLiaNCE, un assistant IA expert en révision et amélioration de texte (style ChatGPT).
+  const systemPrompt = `Tu es chatbotCOMPLiaNCE, un assistant IA expert senior en Gouvernance, Risque et Conformité (GRC) pour la MAE Assurance (Tunisie).
 Tu es propulsé par le modèle haute performance Groq (${PRIMARY_GROQ_MODEL}).
 
 MISSION FONDAMENTALE :
-L'utilisateur te demande d'améliorer son mémo (notes brutes, observation, idée ou paragraphe).
-Tu dois réaliser une AMÉLIORATION TEXTUELLE NATURELLE, FLUIDE ET SOIGNÉE, EXACTEMENT COMME LE FAIT CHATGPT.
+L'utilisateur te fournit une note de conformité (notes brutes, observation de terrain, anomalie système, contrôle ou procédure).
+Ta mission est de RÉELLEMENT AMÉLIORER, STRUCTURER ET VALORISER ce texte pour en faire une note de conformité professionnelle, claire, rigoureuse et directement exploitable.
 
-DIRECTIVES DE STYLE :
-1. AMÉLIORATION DU TEXTE ("suggestedContent") :
-   - Réécris le texte dans un français impeccable, soigné, fluide et naturel.
-   - Corrige toutes les fautes d'orthographe, de ponctuation, de grammaire et de syntaxe.
-   - Clarifie et embellis les phrases maladroites tout en restant 100% fidèle au sens et aux faits décrits par l'utilisateur.
-   - NE FORCE AUCUN PLAN ARTIFICIEL : pas de labels rigides (PAS de "Constat", PAS de "Risque", PAS de "Enjeu", PAS de "Actions requises", PAS de formule d'intro pompeuse comme "Dans le cadre de...").
-   - Conserve la structure naturelle du texte :
-     • Si c'est un paragraphe ou une phrase continue, améliore-le en un paragraphe fluide et naturel.
-     • Si le texte d'origine contient des tirets ou une liste, améliore chaque point avec clarté et naturel.
+DIRECTIVES D'EXCELLENCE :
+1. TRANSFORMATION DU CONTENU ("suggestedContent") :
+   - Réécris le texte dans un français professionnel, rigoureux et soutenu adapté à la conformité et au contrôle interne d'assurance.
+   - Ne te contente JAMAIS de recopier le texte brut ou de faire une simple correction orthographique : enrichis la formulation technique, clarifie la logique et structure le propos avec précision.
+   - Si le texte décrit un dysfonctionnement, un manquement ou une anomalie :
+     • Articule clairement le constat factuel (ce qui est observé).
+     • Explicite l'enjeu ou la recommandation opérationnelle.
+   - Si le texte comporte plusieurs aspects ou instructions, structure-les avec des tirets ou puces ("•").
+   - Reste rigoureusement fidèle aux faits décrits (n'invente pas d'éléments fictifs).
 
-2. TITRE PROPOSÉ ("suggestedTitle") :
-   - Rédige un titre synthétique, clair et percutant (4 à 8 mots maximum) qui résume fidèlement le sujet traité.
-   - Si le texte décrit une anomalie ou un problème, indique-le clairement (ex: "Anomalie lors de la création d'un client sur serveur test").
+2. TITRE SYNTHÉTIQUE PERCUTANT ("suggestedTitle") :
+   - Formule un vrai titre de synthèse professionnel et court (entre 4 et 8 mots maximum) résumant parfaitement le sujet (ex: "Anomalie lors de la création d'un client sur serveur test", "Actualisation du calcul de risque après révision", "Contrôle KYC préalable à l'adhésion").
 
-3. CHECKLIST D'ACTIONS ("suggestedChecklist") :
-   - Si le texte décrit des actions ou vérifications concrètes à mener, extrais 2 ou 3 actions courtes à l'infinitif. Sinon, laisse le tableau vide [].
+3. CHECKLIST D'ACTIONS CONCRÈTES ("suggestedChecklist") :
+   - Fournis TOUJOURS 2 à 4 actions concrètes, précises et vérifiables, formulées avec un verbe à l'infinitif (ex: ["Vérifier le comportement de la recherche client", "Contrôler la validation des pièces obligatoires", "Auditer les dossiers concernés"]).
 
 4. MESSAGE DE RÉPONSE ("reply") :
-   - "Voici la version améliorée de votre mémo :"
+   - "Voici la version améliorée et structurée de votre mémo :"
 
 RÉPONDS STRICTEMENT SOUS FORME D'OBJET JSON VALIDE :
 {
-  "reply": "Voici la version améliorée de votre mémo :",
-  "suggestedTitle": "Titre court et pertinent",
-  "suggestedContent": "Texte amélioré rédigé avec naturel, fluidité et élégance",
+  "reply": "Voici la version améliorée et structurée de votre mémo :",
+  "suggestedTitle": "Titre synthétique professionnel",
+  "suggestedContent": "Texte de conformité enrichi, fluide, professionnel et structuré",
   "framingAnalysis": "",
-  "suggestedChecklist": []
+  "suggestedChecklist": ["Action 1 à vérifier", "Action 2 à contrôler"]
 }`;
+
+  const sanitizedHistory = history
+    .slice(-4)
+    .filter((h) => h.content.trim() !== userPrompt.trim());
 
   const formattedMessages: { role: string; content: string }[] = [
     { role: "system", content: systemPrompt },
-    ...history.slice(-4).map((h) => ({ role: h.role, content: h.content })),
+    ...sanitizedHistory.map((h) => ({ role: h.role, content: h.content })),
     {
       role: "user",
       content: userPrompt,
@@ -935,6 +977,85 @@ function rephraseNaturally(rawText: string): string {
   return endSentence(t);
 }
 
+function enhanceContinuousComplianceMemo(
+  rawText: string,
+  suggestedTitle: string,
+  sectionLabel?: string
+): { content: string; checklist: string[] } {
+  const clean = rawText.trim();
+  const lower = clean.toLowerCase();
+
+  // 1. Amélioration lexicale
+  const polished = rephraseNaturally(clean);
+
+  // 2. Découpage en phrases
+  const sentences = clean
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 3);
+
+  // 3. Détection thématique pour actions & checklist
+  const isAnomaly = /anomalie|erreur|bloqu|dysfonctionnement|ne fonctionne pas|échec|arrêt|soumettre|crash|bug|pb/i.test(lower);
+  const isAml = /aml|lcb-?ft|blanchiment|seuil|espèces|cash|soupçon|filtrage|ctaf/i.test(lower);
+  const isKyc = /kyc|pièce|identité|cin|rne|bénéficiaire|justificatif|passeport/i.test(lower);
+  const isScoring = /calcul.*risque|score.*risque|scoring|matrice/i.test(lower);
+  const isExport = /export|filtre|rapport|extraction|tableau/i.test(lower);
+
+  let checklist: string[] = [];
+  if (isAnomaly) {
+    checklist = [
+      "Reproduire et isoler l'anomalie sur l'environnement de test",
+      "Vérifier les messages d'erreur et les journaux techniques",
+      "Valider la conformité du correctif avant mise en production",
+    ];
+  } else if (isAml) {
+    checklist = [
+      "Vérifier le paramétrage des règles de détection et seuils réglementaires",
+      "Auditer l'exhaustivité des alertes remontées dans le module AML",
+      "Consigner la fiche de contrôle pour transmission au Responsable Conformité",
+    ];
+  } else if (isKyc) {
+    checklist = [
+      "Contrôler la validité et la conformité des pièces d'identité et extraits RNE",
+      "Vérifier le blocage automatique en cas de document manquant ou expiré",
+      "Mettre à jour le dossier de conformité client",
+    ];
+  } else if (isScoring) {
+    checklist = [
+      "Vérifier le recalcul effectif du score après toute révision de décision",
+      "Contrôler la cohérence de la classification de risque",
+      "Tracer l'historique des modifications dans la piste d'audit",
+    ];
+  } else if (isExport) {
+    checklist = [
+      "Vérifier l'exactitude des données et filtres appliqués",
+      "Contrôler la conformité du format d'exportation",
+      "S'assurer de l'exhaustivité des colonnes requises",
+    ];
+  } else {
+    checklist = [
+      "Contrôler la conformité du traitement opérationnel",
+      "Vérifier la bonne application des règles de gestion en vigueur",
+      "Archiver les éléments justificatifs au dossier",
+    ];
+  }
+
+  // 4. Structuration rédactionnelle de haute qualité GRC
+  let content = "";
+  if (sentences.length >= 2) {
+    const constat = capitalizeSentences(sentences[0]);
+    const suite = sentences.slice(1).map((s) => capitalizeSentences(s)).join(" ");
+    content = `• Constat opérationnel : ${endSentence(rephraseNaturally(constat))}\n• Analyse & Enjeu : ${endSentence(rephraseNaturally(suite))}\n• Recommandation : Veiller à la mise en conformité du processus et à la traçabilité des vérifications associées.`;
+  } else {
+    content = `• Constat opérationnel : ${endSentence(polished)}\n• Recommandation : Procéder aux vérifications requises et s'assurer de la stricte conformité du traitement selon les procédures établies.`;
+  }
+
+  return {
+    content,
+    checklist,
+  };
+}
+
 function generateCognitiveFramingAndMemo(
   prompt: string,
   existingText?: string,
@@ -987,19 +1108,20 @@ function generateCognitiveFramingAndMemo(
     suggestedContent = allPoints.join("\n");
     suggestedChecklist = allPoints.slice(0, 4).map((p) => p.replace(/^•\s*/, ""));
   }
-  // ── CAS 4 : Paragraphe continu (amélioration textuelle naturelle style ChatGPT) ──
+  // ── CAS 4 : Paragraphe continu ou note libre (transformation experte GRC) ──
   else {
-    suggestedContent = rephraseNaturally(rawText);
-    suggestedChecklist = [];
+    const enhanced = enhanceContinuousComplianceMemo(rawText, suggestedTitle, sectionLabel);
+    suggestedContent = enhanced.content;
+    suggestedChecklist = enhanced.checklist;
   }
 
   return {
-    reply: "Voici la version améliorée de votre mémo :",
+    reply: "Voici la version améliorée et structurée de votre mémo :",
     framingAnalysis: "",
     suggestedTitle,
     suggestedContent,
     suggestedChecklist,
-    providerUsed: "chatbotCOMPLiaNCE",
+    providerUsed: "chatbotCOMPLiaNCE (Moteur GRC)",
   };
 }
 
